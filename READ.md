@@ -5,3 +5,4 @@
 - [项目说明与部署](README.md)
 - [用户使用文档](docs/USER-GUIDE.md)
 - [产品说明书](docs/PRODUCT-MANUAL.md)
+- [部署运维手册](docs/DEPLOYMENT.md)

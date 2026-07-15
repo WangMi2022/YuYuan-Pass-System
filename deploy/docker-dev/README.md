@@ -1,61 +1,87 @@
-# gin-vue-admin Docker 二开启动脚本
+# Docker Compose 部署脚本
 
-项目内目录：`deploy/docker-dev`
+本目录用于单机 Docker Compose 部署。Compose 只运行 Web 和 Server 两个容器，PostgreSQL、Redis、MinIO/RustFS 使用外部服务。
 
-## 文件说明
+完整的环境准备、首次部署、HTTPS、备份、升级、回滚和故障处理说明见：[部署运维手册](../../docs/DEPLOYMENT.md)。
 
-- `server.Dockerfile`：自定义后端镜像构建文件
-- `web.Dockerfile`：自定义前端镜像构建文件
-- `docker-compose.yml`：只启动 web/server，数据库和 Redis 使用外部服务
-- `.env`：当前环境变量与数据库、Redis、对象存储配置，不提交到 Git
-- `config.init.yaml`：首次初始化模板
-- `config.yaml`：容器实际挂载配置；初始化成功后后端会写入数据库配置
-- `build.sh`：构建镜像
-- `up.sh`：构建并启动，随后自动调用初始化接口
-- `init-db.sh`：手动初始化数据库
-- `down.sh`：停止并删除容器
-- `restart.sh`：重启容器
-- `logs.sh`：查看日志
-- `ps.sh`：查看状态
-- `reset-config.sh`：仅重置挂载配置，不删除数据库
-- `configure-rustfs.sh`：从 `.env` 写入 Redis 与 RustFS/MinIO S3 配置
+## 首次启动
+
+```bash
+cd deploy/docker-dev
+cp .env.example .env
+chmod 600 .env
+# 编辑 .env，替换所有 change-me 值
+
+chmod +x ./*.sh tools/*.sh
+./up.sh
+```
+
+启动完成后执行：
+
+```bash
+./health-check.sh
+./ps.sh
+```
+
+默认访问地址：
+
+- Web：`http://<服务器IP>:8080`
+- API：`http://<服务器IP>:8888`
+- Swagger：`http://<服务器IP>:8888/swagger/index.html`
+
+初始管理员用户名为 `admin`，密码由 `.env` 中的 `GVA_ADMIN_PASSWORD` 决定。
+
+## 脚本说明
+
+| 脚本 | 用途 |
+| --- | --- |
+| `up.sh` | 校验配置、生成运行配置、构建镜像、启动服务、初始化数据库并执行健康检查 |
+| `build.sh [web|server]` | 构建全部或指定服务镜像 |
+| `init-db.sh` | 手动执行首次数据库初始化，重复执行会自动跳过 |
+| `health-check.sh` | 检查容器、Web、API 和数据库初始化状态 |
+| `configure-rustfs.sh` | 将 `.env` 中的 Redis 和 S3 配置写入运行配置 |
+| `restart.sh [web|server]` | 仅重启容器，不重新构建镜像 |
+| `logs.sh [web|server]` | 持续查看最近 200 行日志 |
+| `ps.sh` | 查看 Compose 服务状态 |
+| `down.sh` | 停止并删除应用容器与网络，不删除外部数据 |
+| `reset-config.sh` | 备份并重建 `config.yaml`，不清理数据库 |
+| `tools/seed-assets.sh` | 生成资产演示数据 |
 
 ## 常用命令
 
 ```bash
-cd /data/gin-vue-admin/deploy/docker-dev
-./build.sh
-./up.sh
+# 查看状态和健康情况
+./ps.sh
+./health-check.sh
+
+# 查看日志
 ./logs.sh server
 ./logs.sh web
+
+# 只更新前端
+./build.sh web
+docker compose --env-file .env -f docker-compose.yml up -d --force-recreate web
+
+# 只更新后端
+./build.sh server
+docker compose --env-file .env -f docker-compose.yml up -d --force-recreate server
+
+# 停止服务
 ./down.sh
 ```
 
-## RustFS 图片存储
+## 重要文件
 
-RustFS 的 `9001` 是管理控制台端口，Gin 后端通过同主机 `9000` 的 S3 兼容接口上传图片。
-连接信息保存在权限为 `600` 的 `.env` 中，执行 `./up.sh` 时会自动调用
-`configure-rustfs.sh` 更新 Redis 和对象存储运行配置。默认桶为 `gva-assets`，对象前缀为 `assets/`。
+- `.env`：部署环境变量和外部服务凭据，权限应为 `600`，禁止提交。
+- `config.init.yaml`：无敏感信息的首次初始化模板，可提交。
+- `config.yaml`：后端实际运行配置，包含连接信息，禁止提交。
+- `server.Dockerfile`、`web.Dockerfile`：二次开发使用的多阶段镜像构建文件。
+- `nginx.conf`：SPA、静态资源缓存、API 代理和旧资源 404 策略。
 
-## 默认访问地址
-
-- 前端：`http://<服务器IP>:8080`
-- 后端：`http://<服务器IP>:8888`
-- Swagger：`http://<服务器IP>:8888/swagger/index.html`
-
-默认初始化管理员密码见 `.env` 的 `GVA_ADMIN_PASSWORD`。
-
-## 伪造资产演示数据
-
-需要快速填充资产大屏和资产档案列表时，可在部署服务器执行：
+## 演示资产
 
 ```bash
-cd /data/gin-vue-admin
-./deploy/docker-dev/tools/seed-assets.sh --count 100
+./tools/seed-assets.sh --count 100
 ```
 
-脚本默认会先清理同前缀 `DEMO-ASSET-*` 的旧演示资产，再生成 100 条新资产；会覆盖当前启用的资产分类，并包含座椅、桌类、电脑、显示、网络、办公、生产和其他资产等模板。可通过参数调整：
-
-```bash
-./deploy/docker-dev/tools/seed-assets.sh --count 200 --prefix DEMO-ASSET --reset=true
-```
+脚本会清理相同前缀的旧演示资产并重新生成家具、电脑、显示、网络、办公和生产设备等数据。不要在正式数据环境中使用与业务资产相同的前缀。

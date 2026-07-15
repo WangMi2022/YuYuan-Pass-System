@@ -69,11 +69,14 @@ flowchart LR
 ├── web/                            Vue 3 前端
 │   └── src/plugin/                 业务插件页面与 API
 ├── deploy/docker-dev/              Dockerfile、Compose 和运维脚本
+├── docs/DEPLOYMENT.md              部署运维手册
 ├── docs/USER-GUIDE.md              用户使用文档
 └── docs/PRODUCT-MANUAL.md          产品说明书
 ```
 
 ## 快速启动
+
+以下步骤适用于已准备外部 PostgreSQL、Redis 和 S3 兼容对象存储的单机 Docker Compose 环境。生产部署、HTTPS、备份、更新和回滚请阅读[部署运维手册](docs/DEPLOYMENT.md)。
 
 ### 1. 环境要求
 
@@ -109,7 +112,7 @@ GVA_RUSTFS_ACCESS_KEY=change-me
 GVA_RUSTFS_SECRET_KEY=change-me
 GVA_RUSTFS_BUCKET=gva-assets
 
-GVA_ADMIN_PASSWORD=change-me
+GVA_ADMIN_PASSWORD=change-me-now
 ```
 
 不要提交 `.env` 或运行时生成的 `config.yaml`。它们已加入项目级 `.gitignore`。
@@ -211,6 +214,7 @@ go run . -c config.yaml
 
 - [用户使用文档](docs/USER-GUIDE.md)
 - [产品说明书](docs/PRODUCT-MANUAL.md)
+- [部署运维手册](docs/DEPLOYMENT.md)
 - [Docker 部署说明](deploy/docker-dev/README.md)
 - [资产模块说明](ASSET-MVP.md)
 - [前端设计规范](FRONTEND-STYLE.md)

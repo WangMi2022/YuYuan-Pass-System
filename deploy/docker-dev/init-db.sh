@@ -1,9 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")"
+if [ ! -f .env ]; then
+  echo "缺少 deploy/docker-dev/.env，请先执行：cp .env.example .env" >&2
+  exit 1
+fi
 set -a
 . ./.env
 set +a
+
+: "${GVA_DB_TYPE:?请在 .env 设置 GVA_DB_TYPE}"
+: "${GVA_PG_HOST:?请在 .env 设置 GVA_PG_HOST}"
+: "${GVA_PG_PORT:?请在 .env 设置 GVA_PG_PORT}"
+: "${GVA_PG_USER:?请在 .env 设置 GVA_PG_USER}"
+: "${GVA_PG_PASSWORD:?请在 .env 设置 GVA_PG_PASSWORD}"
+: "${GVA_PG_DB:?请在 .env 设置 GVA_PG_DB}"
+: "${GVA_ADMIN_PASSWORD:?请在 .env 设置 GVA_ADMIN_PASSWORD}"
 
 SERVER_URL="http://127.0.0.1:${SERVER_PORT:-8888}"
 echo "等待后端启动：${SERVER_URL}"
