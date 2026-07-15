@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-cn" class="transition-colors">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <meta
+      content="资产管理,固定资产,资产统计,设备管理,资产可视化"
+      name="keywords"
+    />
+    <link rel="icon" href="/favicon.ico" />
+    <title>资产管理中心</title>
+    <style>
+      .transition-colors {
+        transition-property: color, background-color, border-color,
+          text-decoration-color, fill, stroke;
+        transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+        transition-duration: 150ms;
+      }
+      body {
+        margin: 0;
+        background: #f8fafc;
+        color: #171717;
+        font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      }
+      #gva-loading-box {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        width: 100vw;
+      }
+      #loading-text {
+        position: absolute;
+        bottom: calc(50% - 100px);
+        left: 0;
+        width: 100%;
+        text-align: center;
+        color: #737373;
+        font-size: 13px;
+      }
+      #loading {
+        position: absolute;
+        top: calc(50% - 28px);
+        left: calc(50% - 28px);
+        width: 56px;
+        height: 56px;
+      }
+      #loading img { width: 56px; height: 56px; border-radius: 15px; }
+      #loading::after {
+        position: absolute;
+        inset: -8px;
+        border: 2px solid transparent;
+        border-top-color: #3f9ee8;
+        border-radius: 50%;
+        content: '';
+        animation: loading-spin .9s linear infinite;
+      }
+      @keyframes loading-spin { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) { #loading::after { animation: none; border-color: #d9d9d9; } }
+      .dark body { background: #262626; color: #f5f5f5; }
+      .dark #loading-text { color: #b8b8b8; }
+    </style>
+  </head>
+
+  <body>
+    <div id="gva-loading-box">
+      <div id="loading">
+        <img src="/asset-logo.svg" alt="资产管理中心" />
+      </div>
+      <div id="loading-text">系统正在加载中，请稍候...</div>
+    </div>
+    <div id="app"></div>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

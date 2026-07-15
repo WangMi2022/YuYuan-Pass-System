@@ -1,0 +1,251 @@
+# asset-center server Global Configuration
+# Docker 二开初始化配置：首次启动保持 pgsql.db-name 为空，让后端进入初始化流程。
+# 初始化成功后，/init/initdb 会自动把数据库连接信息写入 deploy/docker-dev/config.yaml。
+
+jwt:
+    signing-key: qmPlus
+    expires-time: 7d
+    buffer-time: 1d
+    issuer: qmPlus
+
+zap:
+    level: info
+    format: console
+    prefix: "[asset-center]"
+    director: log
+    show-line: true
+    encode-level: LowercaseColorLevelEncoder
+    stacktrace-key: stacktrace
+    log-in-console: true
+    retention-day: -1
+
+redis:
+    useCluster: false
+    addr: 127.0.0.1:6379
+    password: ""
+    db: 0
+    clusterAddrs:
+        - "127.0.0.1:6379"
+
+redis-list:
+    - name: cache
+      useCluster: false
+      addr: 127.0.0.1:6379
+      password: ""
+      db: 0
+      clusterAddrs:
+          - "127.0.0.1:6379"
+
+mongo:
+    coll: ''
+    options: ''
+    database: ''
+    username: ''
+    password: ''
+    auth-source: ''
+    min-pool-size: 0
+    max-pool-size: 100
+    socket-timeout-ms: 0
+    connect-timeout-ms: 0
+    is-zap: false
+    hosts:
+        - host: ''
+          port: ''
+
+email:
+    to: xxx@qq.com
+    port: 465
+    from: xxx@163.com
+    host: smtp.163.com
+    is-ssl: true
+    secret: xxx
+    nickname: test
+
+system:
+    env: public
+    addr: 8888
+    db-type: pgsql
+    oss-type: local
+    use-redis: true
+    use-mongo: false
+    use-multipoint: false
+    iplimit-count: 15000
+    iplimit-time: 3600
+    router-prefix: ""
+    use-strict-auth: false
+    disable-auto-migrate: false
+
+captcha:
+    key-long: 6
+    img-width: 240
+    img-height: 80
+    open-captcha: 0
+    open-captcha-timeout: 3600
+
+mysql:
+    path: ""
+    port: ""
+    config: ""
+    db-name: ""
+    username: ""
+    password: ""
+    max-idle-conns: 10
+    max-open-conns: 100
+    conn-max-lifetime: 0
+    log-mode: "error"
+    log-zap: false
+
+pgsql:
+    path: "127.0.0.1"
+    port: "5432"
+    config: "sslmode=disable TimeZone=Asia/Shanghai"
+    db-name: ""
+    username: "postgres"
+    password: ""
+    max-idle-conns: 10
+    max-open-conns: 100
+    conn-max-lifetime: 0
+    log-mode: "error"
+    log-zap: false
+
+oracle:
+    path: ""
+    port: ""
+    config: ""
+    db-name: ""
+    username: ""
+    password: ""
+    max-idle-conns: 10
+    max-open-conns: 100
+    conn-max-lifetime: 0
+    log-mode: "error"
+    log-zap: false
+
+mssql:
+    path: ""
+    port: ""
+    config: ""
+    db-name: ""
+    username: ""
+    password: ""
+    max-idle-conns: 10
+    max-open-conns: 100
+    conn-max-lifetime: 0
+    log-mode: "error"
+    log-zap: false
+
+sqlite:
+    path: ""
+    port: ""
+    config: ""
+    db-name: ""
+    username: ""
+    password: ""
+    max-idle-conns: 10
+    max-open-conns: 100
+    conn-max-lifetime: 0
+    log-mode: "error"
+    log-zap: false
+
+db-list:
+    - disable: true
+      type: ""
+      alias-name: ""
+      path: ""
+      port: ""
+      config: ""
+      db-name: ""
+      username: ""
+      password: ""
+      max-idle-conns: 10
+      max-open-conns: 100
+      conn-max-lifetime: 0
+      log-mode: "error"
+      log-zap: false
+
+local:
+    path: uploads/file
+    store-path: uploads/file
+
+autocode:
+    web: web/src
+    root: ""
+    server: server
+    module: 'github.com/flipped-aurora/gin-vue-admin/server'
+    ai-path: ""
+
+qiniu:
+    zone: ZoneHuaDong
+    bucket: ""
+    img-path: ""
+    use-https: false
+    access-key: ""
+    secret-key: ""
+    use-cdn-domains: false
+
+minio:
+    endpoint: yourEndpoint
+    access-key-id: yourAccessKeyId
+    access-key-secret: yourAccessKeySecret
+    bucket-name: yourBucketName
+    use-ssl: false
+    base-path: ""
+    bucket-url: "http://host:9000/yourBucketName"
+
+aliyun-oss:
+    endpoint: yourEndpoint
+    access-key-id: yourAccessKeyId
+    access-key-secret: yourAccessKeySecret
+    bucket-name: yourBucketName
+    bucket-url: yourBucketUrl
+    base-path: yourBasePath
+
+tencent-cos:
+    bucket: xxxxx-10005608
+    region: ap-shanghai
+    secret-id: your-secret-id
+    secret-key: your-secret-key
+    base-url: https://gin.vue.admin
+    path-prefix: github.com/flipped-aurora/gin-vue-admin/server
+
+aws-s3:
+    bucket: xxxxx-10005608
+    region: ap-shanghai
+    endpoint: ""
+    s3-force-path-style: false
+    disable-ssl: false
+    secret-id: your-secret-id
+    secret-key: your-secret-key
+    base-url: https://gin.vue.admin
+    path-prefix: github.com/flipped-aurora/gin-vue-admin/server
+
+cloudflare-r2:
+    bucket: xxxx0bucket
+    base-url: https://gin.vue.admin.com
+    path: uploads
+    account-id: xxx_account_id
+    access-key-id: xxx_key_id
+    secret-access-key: xxx_secret_key
+
+hua-wei-obs:
+    path: you-path
+    bucket: you-bucket
+    endpoint: you-endpoint
+    access-key: you-access-key
+    secret-key: you-secret-key
+
+excel:
+    dir: ./resource/excel/
+
+disk-list:
+    - mount-point: "/"
+
+cors:
+    mode: allow-all
+    whitelist: []
+
+mcp:
+    name: GVA_MCP
+    version: v1.0.0
+    addr: 8889
+    separate: false

@@ -1,0 +1,40 @@
+name: ${PROJECT_NAME:-gin-vue-admin-dev}
+
+services:
+  server:
+    image: ${SERVER_IMAGE:-gin-vue-admin-server:dev}
+    container_name: ${SERVER_CONTAINER:-gva-server-dev}
+    build:
+      context: ../..
+      dockerfile: deploy/docker-dev/server.Dockerfile
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      GIN_MODE: release
+    ports:
+      - "${SERVER_PORT:-8888}:8888"
+    volumes:
+      - ./config.yaml:/app/config.yaml
+      - ../../server/uploads:/app/uploads
+      - ../../server/log:/app/log
+      - ../../server/resource:/app/resource
+    networks:
+      - gva
+
+  web:
+    image: ${WEB_IMAGE:-gin-vue-admin-web:dev}
+    container_name: ${WEB_CONTAINER:-gva-web-dev}
+    build:
+      context: ../..
+      dockerfile: deploy/docker-dev/web.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    networks:
+      - gva
+
+networks:
+  gva:
+    driver: bridge

@@ -1,0 +1,52 @@
+# Local environment and runtime configuration
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+!web/.env.development
+!web/.env.production
+**/config.yaml
+**/config.yaml.bak.*
+
+# Local remote-access helpers
+REMOTE.md
+connect-remote.sh
+*.pem
+*.key
+id_rsa*
+
+# Dependencies and build output
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+.vite/
+coverage/
+
+# Runtime data
+server/log/
+server/uploads/
+server/resource/autocode_template/
+*.log
+*.pid
+
+# Go build output
+server/gva
+server/server
+*.test
+*.out
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.swp
+*.swo

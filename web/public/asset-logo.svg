@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">资产管理中心</title>
+  <defs>
+    <linearGradient id="g" x1="10" y1="8" x2="54" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#62B5F0"/>
+      <stop offset="1" stop-color="#2E86C7"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#g)"/>
+  <path d="M18 22.4 32 15l14 7.4v18.9L32 49l-14-7.7V22.4Z" fill="none" stroke="#fff" stroke-width="4" stroke-linejoin="round"/>
+  <path d="m18.8 22.8 13.2 7.3 13.2-7.3M32 30.1v18" fill="none" stroke="#fff" stroke-width="4" stroke-linejoin="round"/>
+  <path d="m25 19 14 7.6" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".58"/>
+</svg>
