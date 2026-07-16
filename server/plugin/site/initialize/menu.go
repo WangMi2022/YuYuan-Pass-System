@@ -12,7 +12,7 @@ var menuNames = []string{"siteManagement", "siteBookmarks"}
 func Menu(_ context.Context) {
 	utils.RegisterMenus(
 		system.SysBaseMenu{
-			ParentId: 0, Path: "siteManagement", Name: "siteManagement", Hidden: false,
+			ParentId: 0, Path: "siteManagement", Name: "siteManagement", Hidden: true,
 			Component: "view/routerHolder.vue", Sort: 4,
 			Meta: system.Meta{Title: "站点管理", Icon: "link"},
 		},

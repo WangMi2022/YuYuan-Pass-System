@@ -15,12 +15,14 @@ const defaultAdminAuthorityID = 888
 
 func Permission(ctx context.Context) {
 	authorityID := strconv.Itoa(defaultAdminAuthorityID)
-	var menu system.SysBaseMenu
-	if err := global.GVA_DB.WithContext(ctx).Where("name = ?", menuNames[0]).First(&menu).Error; err == nil {
-		relation := system.SysAuthorityMenu{MenuId: strconv.Itoa(int(menu.ID)), AuthorityId: authorityID}
-		_ = global.GVA_DB.WithContext(ctx).Where(
-			"sys_base_menu_id = ? AND sys_authority_authority_id = ?", relation.MenuId, relation.AuthorityId,
-		).FirstOrCreate(&relation).Error
+	var menus []system.SysBaseMenu
+	if err := global.GVA_DB.WithContext(ctx).Where("name IN ?", menuNames).Find(&menus).Error; err == nil {
+		for _, menu := range menus {
+			relation := system.SysAuthorityMenu{MenuId: strconv.Itoa(int(menu.ID)), AuthorityId: authorityID}
+			_ = global.GVA_DB.WithContext(ctx).Where(
+				"sys_base_menu_id = ? AND sys_authority_authority_id = ?", relation.MenuId, relation.AuthorityId,
+			).FirstOrCreate(&relation).Error
+		}
 	}
 	for _, item := range apiRules {
 		rule := gormadapter.CasbinRule{Ptype: "p", V0: authorityID, V1: item.Path, V2: item.Method}

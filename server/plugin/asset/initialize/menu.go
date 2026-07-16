@@ -14,10 +14,10 @@ func Menu(_ context.Context) {
 		system.SysBaseMenu{
 			ParentId: 0, Path: "assetCenter", Name: "assetCenter", Hidden: false,
 			Component: "view/routerHolder.vue", Sort: 2,
-			Meta: system.Meta{Title: "资产中心", Icon: "box"},
+			Meta: system.Meta{Title: "资产管理", Icon: "box"},
 		},
 		system.SysBaseMenu{
-			Path: "assetDashboard", Name: "assetDashboard", Hidden: false,
+			Path: "assetDashboard", Name: "assetDashboard", Hidden: true,
 			Component: "plugin/asset/view/dashboard.vue", Sort: 1,
 			Meta: system.Meta{Title: "资产大屏", Icon: "data-analysis", KeepAlive: true},
 		},
@@ -29,7 +29,7 @@ func Menu(_ context.Context) {
 		system.SysBaseMenu{
 			Path: "assetCategories", Name: "assetCategories", Hidden: false,
 			Component: "plugin/asset/view/categories.vue", Sort: 3,
-			Meta: system.Meta{Title: "资产分类", Icon: "collection-tag", KeepAlive: true},
+			Meta: system.Meta{Title: "分类管理", Icon: "collection-tag", KeepAlive: true},
 		},
 	)
 }

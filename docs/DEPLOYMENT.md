@@ -392,7 +392,7 @@ docker compose --env-file .env -f docker-compose.yml up -d --force-recreate serv
 Server 启动时会自动创建或更新外观配置相关数据表。部署完成后应验证：
 
 1. `/appearance/login-logo` 和 `/appearance/login-background` 返回 `code: 0`。
-2. 管理员可以在“系统管理 → 系统设置”上传和恢复登录图标。
+2. 管理员可以在“系统管理 → 系统配置”上传和恢复登录图标。
 3. 上传登录背景并保存后，刷新登录页可以看到新背景。
 4. 对象存储中的图片 URL 可以从用户浏览器直接访问。
 
