@@ -2,16 +2,13 @@
   <div
     id="userLayout"
     class="na-auth-page"
-    :class="{ 'has-custom-background': loginBackgroundUrl }"
-    :style="loginPageStyle"
   >
-    <a class="na-auth-brand" href="#/login" aria-label="资产管理系统登录页">
-      <Logo :size="2" />
-      <span>{{ $GIN_VUE_ADMIN.appName }}</span>
-    </a>
-
-    <div class="na-auth-glow na-auth-glow--one" aria-hidden="true" />
-    <div class="na-auth-glow na-auth-glow--two" aria-hidden="true" />
+    <section class="na-auth-visual" :style="loginPageStyle" aria-label="系统登录背景">
+      <a class="na-auth-brand" href="#/login" aria-label="资产管理系统登录页">
+        <Logo :size="2" />
+        <span>{{ $GIN_VUE_ADMIN.appName }}</span>
+      </a>
+    </section>
 
     <main class="na-auth-main">
       <section class="na-auth-panel" aria-labelledby="login-title">
@@ -108,6 +105,7 @@
   import Logo from '@/components/logo/index.vue'
   import { isDev } from '@/utils/env.js'
   import { getCurrentLoginBackground } from '@/api/systemSettings'
+  import defaultBackground from '@/assets/login_background.jpg'
 
   defineOptions({
     name: 'Login'
@@ -115,9 +113,10 @@
 
   const router = useRouter()
   const loginBackgroundUrl = ref('')
-  const loginPageStyle = computed(() => loginBackgroundUrl.value
-    ? { '--na-login-background-image': `url(${JSON.stringify(loginBackgroundUrl.value)})` }
-    : {})
+  const backgroundUrl = computed(() => loginBackgroundUrl.value || defaultBackground)
+  const loginPageStyle = computed(() => ({
+    '--na-login-background-image': `url(${JSON.stringify(backgroundUrl.value)})`
+  }))
 
   const loadLoginBackground = async () => {
     try {
@@ -245,73 +244,53 @@
 
 <style scoped lang="scss">
   .na-auth-page {
-    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(440px, 34vw, 520px);
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background:
-      linear-gradient(var(--na-border) 1px, transparent 1px),
-      linear-gradient(90deg, var(--na-border) 1px, transparent 1px),
-      var(--na-background);
-    background-size: 48px 48px;
+    background: var(--na-background);
     color: var(--na-foreground);
   }
-  .na-auth-page::after {
-    position: absolute;
-    inset: 0;
-    content: '';
-    background: linear-gradient(to bottom, color-mix(in srgb, var(--na-background) 35%, transparent), var(--na-background) 78%);
-    pointer-events: none;
-  }
-  .na-auth-page.has-custom-background {
+  .na-auth-visual {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
     background-color: #0f172a;
-    background-image: linear-gradient(rgb(15 23 42 / 24%), rgb(15 23 42 / 42%)), var(--na-login-background-image);
+    background-image: linear-gradient(rgb(15 23 42 / 10%), rgb(15 23 42 / 24%)), var(--na-login-background-image);
     background-position: center;
     background-size: cover;
   }
-  .na-auth-page.has-custom-background::after {
-    background: linear-gradient(to bottom, rgb(15 23 42 / 6%), rgb(15 23 42 / 26%));
-  }
-  .na-auth-page.has-custom-background .na-auth-brand {
-    color: #fff;
-    text-shadow: 0 1px 8px rgb(0 0 0 / 32%);
-  }
   .na-auth-brand {
     position: absolute;
-    z-index: 10;
     top: 28px;
     left: 32px;
     display: flex;
     align-items: center;
     gap: 10px;
-    color: var(--na-foreground);
+    color: #fff;
     font-size: 16px;
     font-weight: 650;
     letter-spacing: -.01em;
-    transition: opacity 180ms ease;
+    text-shadow: 0 1px 8px rgb(0 0 0 / 32%);
   }
-  .na-auth-brand:hover { opacity: .75; }
   .na-auth-main {
-    position: relative;
-    z-index: 3;
-    display: grid;
-    place-items: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 100%;
     height: 100%;
-    padding: 84px 20px 72px;
+    min-width: 0;
+    padding: 56px 48px;
+    border-left: 1px solid var(--na-border);
+    background: var(--na-card);
   }
   .na-auth-panel {
-    width: min(100%, 448px);
-    padding: 34px 36px 30px;
-    border: 1px solid var(--na-border);
-    border-radius: var(--na-radius-lg);
-    background: color-mix(in srgb, var(--na-card) 94%, transparent);
-    box-shadow: 0 18px 70px rgb(0 0 0 / 8%);
-    backdrop-filter: blur(14px);
+    width: min(100%, 400px);
   }
-  .na-auth-heading { margin-bottom: 28px; text-align: center; }
+  .na-auth-heading { margin-bottom: 32px; text-align: left; }
   .na-auth-logo {
-    display: inline-grid;
+    display: grid;
     place-items: center;
     width: 52px;
     height: 52px;
@@ -338,15 +317,27 @@
   .na-captcha img { width: 100%; height: 100%; object-fit: cover; }
   .na-submit-item { margin-top: 4px; margin-bottom: 14px !important; }
   .na-login-button { width: 100%; min-height: 44px; }
-  .na-auth-security { margin: 5px 0 0; color: var(--na-muted-foreground); font-size: 11px; line-height: 1.6; text-align: center; }
-  .na-auth-glow { position: absolute; z-index: 1; border-radius: 50%; filter: blur(2px); pointer-events: none; }
-  .na-auth-glow--one { top: -150px; left: 12%; width: 460px; height: 460px; background: radial-gradient(circle, rgb(63 158 232 / 13%), transparent 68%); }
-  .na-auth-glow--two { right: 8%; bottom: -190px; width: 520px; height: 520px; background: radial-gradient(circle, rgb(120 95 220 / 9%), transparent 70%); }
-  :global(html.dark) .na-auth-panel { box-shadow: 0 24px 80px rgb(0 0 0 / 28%); }
-  @media (max-width: 640px) {
+  .na-auth-security { margin: 5px 0 0; color: var(--na-muted-foreground); font-size: 11px; line-height: 1.6; text-align: left; }
+  @media (max-width: 800px) {
+    .na-auth-page {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: clamp(150px, 26vh, 190px) minmax(0, 1fr);
+      height: auto;
+      min-height: 100%;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
     .na-auth-brand { top: 20px; left: 20px; }
-    .na-auth-main { padding-inline: 14px; }
-    .na-auth-panel { padding: 28px 20px 24px; }
+    .na-auth-main {
+      min-height: calc(100vh - 190px);
+      height: auto;
+      padding: 40px 24px;
+      border-top: 1px solid var(--na-border);
+      border-left: 0;
+    }
+  }
+  @media (max-width: 480px) {
+    .na-auth-main { padding: 32px 20px; }
     .na-captcha-row { grid-template-columns: 1fr 112px; }
   }
 </style>
