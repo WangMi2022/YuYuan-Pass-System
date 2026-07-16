@@ -7,6 +7,8 @@ import (
 
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/disk"
+	"github.com/shirou/gopsutil/v3/host"
+	"github.com/shirou/gopsutil/v3/load"
 	"github.com/shirou/gopsutil/v3/mem"
 )
 
@@ -18,10 +20,27 @@ const (
 )
 
 type Server struct {
-	Os   Os   `json:"os"`
-	Cpu  Cpu  `json:"cpu"`
-	Ram  Ram  `json:"ram"`
-	Disk []Disk `json:"disk"`
+	CollectedAt time.Time `json:"collectedAt"`
+	Os          Os        `json:"os"`
+	Host        Host      `json:"host"`
+	Load        Load      `json:"load"`
+	Cpu         Cpu       `json:"cpu"`
+	Ram         Ram       `json:"ram"`
+	Disk        []Disk    `json:"disk"`
+}
+
+type Host struct {
+	Hostname        string `json:"hostname"`
+	Platform        string `json:"platform"`
+	PlatformVersion string `json:"platformVersion"`
+	KernelVersion   string `json:"kernelVersion"`
+	Uptime          uint64 `json:"uptime"`
+}
+
+type Load struct {
+	Load1  float64 `json:"load1"`
+	Load5  float64 `json:"load5"`
+	Load15 float64 `json:"load15"`
 }
 
 type Os struct {
@@ -45,11 +64,35 @@ type Ram struct {
 
 type Disk struct {
 	MountPoint  string `json:"mountPoint"`
-	UsedMB      int `json:"usedMb"`
-	UsedGB      int `json:"usedGb"`
-	TotalMB     int `json:"totalMb"`
-	TotalGB     int `json:"totalGb"`
-	UsedPercent int `json:"usedPercent"`
+	UsedMB      int    `json:"usedMb"`
+	UsedGB      int    `json:"usedGb"`
+	TotalMB     int    `json:"totalMb"`
+	TotalGB     int    `json:"totalGb"`
+	UsedPercent int    `json:"usedPercent"`
+}
+
+func InitHost() (h Host, err error) {
+	info, err := host.Info()
+	if err != nil {
+		return h, err
+	}
+	h.Hostname = info.Hostname
+	h.Platform = info.Platform
+	h.PlatformVersion = info.PlatformVersion
+	h.KernelVersion = info.KernelVersion
+	h.Uptime = info.Uptime
+	return h, nil
+}
+
+func InitLoad() (l Load, err error) {
+	avg, err := load.Avg()
+	if err != nil {
+		return l, err
+	}
+	l.Load1 = avg.Load1
+	l.Load5 = avg.Load5
+	l.Load15 = avg.Load15
+	return l, nil
 }
 
 //@author: [SliverHorn](https://github.com/SliverHorn)

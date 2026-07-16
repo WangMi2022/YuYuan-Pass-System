@@ -1,6 +1,8 @@
 package system
 
 import (
+	"time"
+
 	"github.com/flipped-aurora/gin-vue-admin/server/config"
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/system"
@@ -44,7 +46,16 @@ func (systemConfigService *SystemConfigService) SetSystemConfig(system system.Sy
 
 func (systemConfigService *SystemConfigService) GetServerInfo() (server *utils.Server, err error) {
 	var s utils.Server
+	s.CollectedAt = time.Now()
 	s.Os = utils.InitOS()
+	if s.Host, err = utils.InitHost(); err != nil {
+		global.GVA_LOG.Error("func utils.InitHost() Failed", zap.String("err", err.Error()))
+		return &s, err
+	}
+	if s.Load, err = utils.InitLoad(); err != nil {
+		global.GVA_LOG.Error("func utils.InitLoad() Failed", zap.String("err", err.Error()))
+		return &s, err
+	}
 	if s.Cpu, err = utils.InitCPU(); err != nil {
 		global.GVA_LOG.Error("func utils.InitCPU() Failed", zap.String("err", err.Error()))
 		return &s, err

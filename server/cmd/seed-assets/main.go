@@ -48,6 +48,17 @@ type assetTemplate struct {
 	Custodian string
 }
 
+type seededAsset struct {
+	ID        int64
+	Code      string
+	Name      string
+	Quantity  int
+	Status    string
+	Location  string
+	Custodian string
+	CreatedAt time.Time
+}
+
 var defaultCategories = []struct {
 	Name        string
 	Code        string
@@ -57,11 +68,17 @@ var defaultCategories = []struct {
 }{
 	{Name: "座椅/板凳", Code: "FURN-CHAIR", Color: "#0F766E", Sort: 10, Description: "办公椅、会议椅、板凳等座具"},
 	{Name: "桌类家具", Code: "FURN-DESK", Color: "#7C3AED", Sort: 20, Description: "办公桌、会议桌、工作台等"},
+	{Name: "柜架家具", Code: "FURN-STORAGE", Color: "#9333EA", Sort: 25, Description: "文件柜、密集架、工具柜及储物设施"},
 	{Name: "电脑整机", Code: "IT-COMPUTER", Color: "#2563EB", Sort: 30, Description: "台式机、笔记本、工作站等"},
 	{Name: "显示设备", Code: "IT-DISPLAY", Color: "#0891B2", Sort: 40, Description: "显示器、电视、投影仪及大屏"},
 	{Name: "网络设备", Code: "IT-NETWORK", Color: "#4F46E5", Sort: 50, Description: "交换机、路由器、防火墙及无线设备"},
+	{Name: "服务器与存储", Code: "IT-SERVER", Color: "#1D4ED8", Sort: 55, Description: "服务器、存储阵列、备份设备及机柜"},
 	{Name: "办公设备", Code: "OFFICE-EQUIP", Color: "#D97706", Sort: 60, Description: "打印机、扫描仪、碎纸机等"},
 	{Name: "生产设备", Code: "PROD-EQUIP", Color: "#DC2626", Sort: 70, Description: "生产、检测、维修相关设备"},
+	{Name: "安防设备", Code: "SECURITY", Color: "#BE123C", Sort: 75, Description: "门禁、监控、报警及巡检设备"},
+	{Name: "机电设施", Code: "FACILITY", Color: "#0F766E", Sort: 80, Description: "空调、供配电、消防及环境保障设施"},
+	{Name: "车辆运输", Code: "VEHICLE", Color: "#B45309", Sort: 85, Description: "公务车辆、叉车、搬运车及运输装备"},
+	{Name: "软件与许可", Code: "SOFTWARE", Color: "#0369A1", Sort: 90, Description: "商业软件、订阅许可及数字化无形资产"},
 	{Name: "其他资产", Code: "OTHER", Color: "#475569", Sort: 99, Description: "暂未归入其他分类的资产"},
 }
 
@@ -77,6 +94,12 @@ var templatesByCode = map[string][]assetTemplate{
 		{Name: "升降办公桌", Brand: "乐歌", Model: "E5-HD", Unit: "张", BasePrice: 2390, MinQty: 1, MaxQty: 5, WarrantyY: 5, Supplier: "宁波乐歌人体工学", Location: "研发中心 5F", Custodian: "研发部-周航"},
 		{Name: "12 人会议桌", Brand: "圣奥", Model: "SUNON MT-480", Unit: "张", BasePrice: 8600, MinQty: 1, MaxQty: 2, WarrantyY: 5, Supplier: "浙江圣奥办公家具", Location: "会议中心 B 区", Custodian: "行政部-王磊"},
 		{Name: "移动工作台", Brand: "海太欧林", Model: "ONLEAD WS-140", Unit: "张", BasePrice: 1250, MinQty: 1, MaxQty: 8, WarrantyY: 3, Supplier: "广州海太欧林", Location: "运维实验室", Custodian: "运维部-孙杰"},
+	},
+	"FURN-STORAGE": {
+		{Name: "五节文件柜", Brand: "震旦", Model: "AURORA FC-05", Unit: "组", BasePrice: 1680, MinQty: 1, MaxQty: 5, WarrantyY: 5, Supplier: "杭州震旦家具服务商", Location: "档案室", Custodian: "档案室-唐宁"},
+		{Name: "智能密集架", Brand: "花都", Model: "HD-MJ-12", Unit: "列", BasePrice: 26800, MinQty: 1, MaxQty: 3, WarrantyY: 5, Supplier: "洛阳花都家具集团", Location: "档案库 B 区", Custodian: "档案室-唐宁"},
+		{Name: "重型工具柜", Brand: "天钢", Model: "TANKO TG-180", Unit: "台", BasePrice: 5200, MinQty: 1, MaxQty: 4, WarrantyY: 5, Supplier: "工业工位器具供应商", Location: "维修工位", Custodian: "设备部-顾维"},
+		{Name: "移动储物柜", Brand: "圣奥", Model: "SUNON MC-12", Unit: "组", BasePrice: 1280, MinQty: 2, MaxQty: 8, WarrantyY: 3, Supplier: "浙江圣奥办公家具", Location: "一号办公楼 2F", Custodian: "行政部-李娜"},
 	},
 	"IT-COMPUTER": {
 		{Name: "开发笔记本", Brand: "联想", Model: "ThinkPad T14p", Unit: "台", BasePrice: 8999, MinQty: 1, MaxQty: 4, WarrantyY: 3, Supplier: "联想企业购", Location: "研发中心 6F", Custodian: "研发部-周航"},
@@ -96,6 +119,12 @@ var templatesByCode = map[string][]assetTemplate{
 		{Name: "下一代防火墙", Brand: "深信服", Model: "AF-1000-B1150", Unit: "台", BasePrice: 36000, MinQty: 1, MaxQty: 1, WarrantyY: 3, Supplier: "深信服安全服务商", Location: "数据机房 A 区", Custodian: "安全组-沈靖"},
 		{Name: "无线 AP", Brand: "锐捷", Model: "RG-AP820-L", Unit: "台", BasePrice: 1180, MinQty: 2, MaxQty: 12, WarrantyY: 3, Supplier: "锐捷网络代理", Location: "一号办公楼 1F", Custodian: "网络组-马超"},
 	},
+	"IT-SERVER": {
+		{Name: "虚拟化服务器", Brand: "戴尔", Model: "PowerEdge R760", Unit: "台", BasePrice: 128000, MinQty: 1, MaxQty: 2, WarrantyY: 5, Supplier: "戴尔数据中心解决方案", Location: "数据机房 A 区", Custodian: "运维部-孙杰"},
+		{Name: "全闪存储阵列", Brand: "华为", Model: "OceanStor Dorado 3000", Unit: "套", BasePrice: 286000, MinQty: 1, MaxQty: 1, WarrantyY: 5, Supplier: "华为存储金牌代理", Location: "数据机房 A 区", Custodian: "运维部-孙杰"},
+		{Name: "备份一体机", Brand: "深信服", Model: "aStor-Backup 2100", Unit: "台", BasePrice: 98000, MinQty: 1, MaxQty: 1, WarrantyY: 3, Supplier: "深信服云计算服务商", Location: "容灾机房", Custodian: "安全组-沈靖"},
+		{Name: "标准服务器机柜", Brand: "图腾", Model: "G3.6042", Unit: "台", BasePrice: 6800, MinQty: 1, MaxQty: 4, WarrantyY: 5, Supplier: "机房工程集成商", Location: "数据机房 B 区", Custodian: "运维部-孙杰"},
+	},
 	"OFFICE-EQUIP": {
 		{Name: "黑白激光打印机", Brand: "惠普", Model: "LaserJet Pro M405d", Unit: "台", BasePrice: 2599, MinQty: 1, MaxQty: 5, WarrantyY: 2, Supplier: "办公设备集采平台", Location: "一号办公楼 4F", Custodian: "行政部-赵敏"},
 		{Name: "高速扫描仪", Brand: "富士通", Model: "fi-8150", Unit: "台", BasePrice: 6200, MinQty: 1, MaxQty: 2, WarrantyY: 2, Supplier: "办公设备集采平台", Location: "档案室", Custodian: "档案室-唐宁"},
@@ -107,6 +136,30 @@ var templatesByCode = map[string][]assetTemplate{
 		{Name: "工业条码打印机", Brand: "斑马", Model: "ZT411", Unit: "台", BasePrice: 9600, MinQty: 1, MaxQty: 3, WarrantyY: 2, Supplier: "工业设备集成商", Location: "生产车间 B 区", Custodian: "生产部-胡强"},
 		{Name: "电动扭矩工具", Brand: "博世", Model: "GDS 18V-1050 H", Unit: "套", BasePrice: 3600, MinQty: 1, MaxQty: 6, WarrantyY: 2, Supplier: "博世工业工具代理", Location: "维修工位", Custodian: "设备部-顾维"},
 		{Name: "环境检测仪", Brand: "福禄克", Model: "975V", Unit: "台", BasePrice: 7200, MinQty: 1, MaxQty: 3, WarrantyY: 2, Supplier: "福禄克仪器代理", Location: "质检室", Custodian: "质检部-郑欣"},
+	},
+	"SECURITY": {
+		{Name: "智能门禁终端", Brand: "海康威视", Model: "DS-K1T671", Unit: "台", BasePrice: 2450, MinQty: 1, MaxQty: 6, WarrantyY: 2, Supplier: "海康威视本地服务商", Location: "一号办公楼大厅", Custodian: "安保部-钱峰"},
+		{Name: "网络摄像机", Brand: "大华", Model: "DH-IPC-HFW5443M", Unit: "台", BasePrice: 1650, MinQty: 4, MaxQty: 16, WarrantyY: 3, Supplier: "大华安防集成商", Location: "园区外围", Custodian: "安保部-钱峰"},
+		{Name: "硬盘录像机", Brand: "海康威视", Model: "DS-8664N-I16", Unit: "台", BasePrice: 9800, MinQty: 1, MaxQty: 2, WarrantyY: 3, Supplier: "海康威视本地服务商", Location: "安防监控室", Custodian: "安保部-钱峰"},
+		{Name: "电子巡更终端", Brand: "蓝卡", Model: "BP-2012S", Unit: "套", BasePrice: 3200, MinQty: 1, MaxQty: 4, WarrantyY: 2, Supplier: "园区安防服务商", Location: "安保值班室", Custodian: "安保部-钱峰"},
+	},
+	"FACILITY": {
+		{Name: "精密空调", Brand: "艾默生", Model: "P1025FA", Unit: "台", BasePrice: 86000, MinQty: 1, MaxQty: 3, WarrantyY: 5, Supplier: "数据中心机电服务商", Location: "数据机房 A 区", Custodian: "设备部-顾维"},
+		{Name: "模块化 UPS", Brand: "科华", Model: "YTM33100", Unit: "套", BasePrice: 118000, MinQty: 1, MaxQty: 2, WarrantyY: 5, Supplier: "科华数据授权服务商", Location: "配电室", Custodian: "设备部-顾维"},
+		{Name: "新风机组", Brand: "美的", Model: "MDV-D140T2", Unit: "台", BasePrice: 23500, MinQty: 1, MaxQty: 4, WarrantyY: 3, Supplier: "园区机电维保单位", Location: "一号办公楼屋面", Custodian: "物业部-许峰"},
+		{Name: "消防控制主机", Brand: "海湾", Model: "JB-QG-GST5000", Unit: "台", BasePrice: 36800, MinQty: 1, MaxQty: 2, WarrantyY: 5, Supplier: "消防工程服务商", Location: "消防控制室", Custodian: "物业部-许峰"},
+	},
+	"VEHICLE": {
+		{Name: "新能源公务车", Brand: "比亚迪", Model: "汉 EV", Unit: "辆", BasePrice: 229800, MinQty: 1, MaxQty: 2, WarrantyY: 6, Supplier: "比亚迪企业客户中心", Location: "园区地下车库", Custodian: "行政部-王磊"},
+		{Name: "电动叉车", Brand: "杭叉", Model: "XC2.5", Unit: "辆", BasePrice: 126000, MinQty: 1, MaxQty: 2, WarrantyY: 3, Supplier: "杭叉集团区域经销商", Location: "物流仓库", Custodian: "物流部-高鹏"},
+		{Name: "电动搬运车", Brand: "林德", Model: "T20SP", Unit: "辆", BasePrice: 56800, MinQty: 1, MaxQty: 3, WarrantyY: 3, Supplier: "林德物料搬运服务商", Location: "生产车间 B 区", Custodian: "物流部-高鹏"},
+		{Name: "园区巡逻车", Brand: "玛西尔", Model: "DN-8", Unit: "辆", BasePrice: 48600, MinQty: 1, MaxQty: 2, WarrantyY: 3, Supplier: "园区车辆服务商", Location: "安保停车区", Custodian: "安保部-钱峰"},
+	},
+	"SOFTWARE": {
+		{Name: "三维设计软件许可", Brand: "达索", Model: "SOLIDWORKS Professional", Unit: "套", BasePrice: 68000, MinQty: 1, MaxQty: 4, WarrantyY: 1, Supplier: "达索系统授权代理", Location: "软件资产池", Custodian: "设计部-林可"},
+		{Name: "数据库企业版许可", Brand: "Microsoft", Model: "SQL Server Enterprise", Unit: "套", BasePrice: 108000, MinQty: 1, MaxQty: 2, WarrantyY: 1, Supplier: "微软云解决方案提供商", Location: "软件资产池", Custodian: "运维部-孙杰"},
+		{Name: "终端安全许可", Brand: "奇安信", Model: "天擎终端安全", Unit: "节点", BasePrice: 680, MinQty: 20, MaxQty: 80, WarrantyY: 1, Supplier: "奇安信安全服务商", Location: "软件资产池", Custodian: "安全组-沈靖"},
+		{Name: "项目管理平台许可", Brand: "Atlassian", Model: "Jira Software Data Center", Unit: "套", BasePrice: 76000, MinQty: 1, MaxQty: 1, WarrantyY: 1, Supplier: "企业软件授权服务商", Location: "软件资产池", Custodian: "信息部-刘洋"},
 	},
 	"OTHER": {
 		{Name: "智能门禁终端", Brand: "海康威视", Model: "DS-K1T671", Unit: "台", BasePrice: 2450, MinQty: 1, MaxQty: 5, WarrantyY: 2, Supplier: "海康威视本地服务商", Location: "一号办公楼大厅", Custodian: "安保部-钱峰"},
@@ -177,6 +230,21 @@ func main() {
 	defer tx.Rollback()
 
 	if *reset {
+		if _, err := tx.ExecContext(ctx, `
+DELETE FROM asset_operation_records
+WHERE asset_id IN (SELECT id FROM assets WHERE asset_code LIKE $1)`, *prefix+"-%"); err != nil {
+			log.Fatalf("reset generated operation records: %v", err)
+		}
+		if _, err := tx.ExecContext(ctx, `
+DELETE FROM asset_operation_items
+WHERE asset_id IN (SELECT id FROM assets WHERE asset_code LIKE $1)`, *prefix+"-%"); err != nil {
+			log.Fatalf("reset generated operation items: %v", err)
+		}
+		if _, err := tx.ExecContext(ctx, `
+DELETE FROM asset_operation_orders
+WHERE order_no LIKE $1`, "SEED-"+sanitizeCode(*prefix)+"-%"); err != nil {
+			log.Fatalf("reset generated operation orders: %v", err)
+		}
 		if _, err := tx.ExecContext(ctx, `DELETE FROM assets WHERE asset_code LIKE $1`, *prefix+"-%"); err != nil {
 			log.Fatalf("reset generated assets: %v", err)
 		}
@@ -187,6 +255,7 @@ func main() {
 	rng := rand.New(rand.NewSource(*seed))
 	perCategoryIndex := map[string]int{}
 	now := time.Now().Truncate(time.Second)
+	seededAssets := make([]seededAsset, 0, *count)
 
 	insertSQL := `
 INSERT INTO assets (
@@ -218,7 +287,8 @@ ON CONFLICT (asset_code) DO UPDATE SET
   warranty_end_date = EXCLUDED.warranty_end_date,
   photos = EXCLUDED.photos,
   remarks = EXCLUDED.remarks,
-  deleted_at = NULL`
+  deleted_at = NULL
+RETURNING id`
 
 	for i := 0; i < *count; i++ {
 		cat := cats[i%len(cats)]
@@ -233,6 +303,9 @@ ON CONFLICT (asset_code) DO UPDATE SET
 		originalValue := money(float64(quantity) * unitPrice)
 		status := statusForIndex(i)
 		purchaseDate := now.AddDate(-rng.Intn(5), -rng.Intn(12), -rng.Intn(26))
+		if status == "pending_inbound" {
+			purchaseDate = now.AddDate(0, 0, -(3 + rng.Intn(24)))
+		}
 		warrantyEnd := purchaseDate.AddDate(tpl.WarrantyY, 0, 0)
 		currentValue := depreciatedValue(originalValue, purchaseDate, status, rng)
 		createdAt := now.Add(-time.Duration((*count-i)*9) * time.Hour)
@@ -244,18 +317,29 @@ ON CONFLICT (asset_code) DO UPDATE SET
 		assetCode := fmt.Sprintf("%s-%03d", *prefix, i+1)
 		assetName := fmt.Sprintf("%s-%02d", tpl.Name, perCategoryIndex[cat.Code])
 		serial := fmt.Sprintf("SN-%s-%04d-%03d", sanitizeCode(cat.Code), purchaseDate.Year(), i+1)
-		remarks := fmt.Sprintf("二开演示数据：覆盖%s，状态为%s，可用于资产大屏和档案列表联调。", cat.Name, statusLabel(status))
+		location, custodian := lifecycleAssignment(tpl, status, i)
+		remarks := lifecycleRemark(cat.Name, status, location)
 
-		if _, err := tx.ExecContext(ctx, insertSQL,
+		var assetID int64
+		if err := tx.QueryRowContext(ctx, insertSQL,
 			createdAt, updatedAt, assetCode, assetName, cat.ID, tpl.Brand, tpl.Model, serial,
-			quantity, tpl.Unit, unitPrice, originalValue, currentValue, status, tpl.Location, tpl.Custodian,
+			quantity, tpl.Unit, unitPrice, originalValue, currentValue, status, location, custodian,
 			tpl.Supplier, purchaseDate.Format("2006-01-02"), warrantyEnd.Format("2006-01-02"), "[]", remarks,
-		); err != nil {
+		).Scan(&assetID); err != nil {
 			log.Fatalf("insert %s failed: %v", assetCode, err)
 		}
+		seededAssets = append(seededAssets, seededAsset{
+			ID: assetID, Code: assetCode, Name: assetName, Quantity: quantity,
+			Status: status, Location: location, Custodian: custodian, CreatedAt: createdAt,
+		})
 
 		statsByCategory[cat.Name]++
 		statsByStatus[status]++
+	}
+
+	operationStats, err := seedOperationData(ctx, tx, seededAssets, *prefix, now)
+	if err != nil {
+		log.Fatalf("seed asset operation data: %v", err)
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -268,8 +352,12 @@ ON CONFLICT (asset_code) DO UPDATE SET
 		fmt.Printf("  - %s：%d 条\n", name, statsByCategory[name])
 	}
 	fmt.Println("状态分布：")
-	for _, status := range []string{"in_use", "idle", "maintenance", "retired"} {
+	for _, status := range []string{"pending_inbound", "idle", "in_use", "maintenance", "retired"} {
 		fmt.Printf("  - %s：%d 条\n", statusLabel(status), statsByStatus[status])
+	}
+	fmt.Println("生命周期单据：")
+	for _, operationType := range []string{"inbound", "issue", "transfer", "return", "maintenance", "scrap"} {
+		fmt.Printf("  - %s：%d 张\n", operationLabel(operationType), operationStats[operationType])
 	}
 }
 
@@ -370,7 +458,7 @@ func ensureSchema(ctx context.Context, db *sql.DB) error {
 			unit_price numeric(16,2) NOT NULL DEFAULT 0,
 			original_value numeric(18,2) NOT NULL DEFAULT 0,
 			current_value numeric(18,2) NOT NULL DEFAULT 0,
-			status varchar(30) NOT NULL DEFAULT 'in_use',
+			status varchar(30) NOT NULL DEFAULT 'pending_inbound',
 			location varchar(150),
 			custodian varchar(100),
 			supplier varchar(150),
@@ -387,6 +475,78 @@ func ensureSchema(ctx context.Context, db *sql.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_assets_custodian ON assets (custodian)`,
 		`CREATE INDEX IF NOT EXISTS idx_assets_serial_number ON assets (serial_number)`,
 		`CREATE INDEX IF NOT EXISTS idx_assets_deleted_at ON assets (deleted_at)`,
+		`ALTER TABLE assets ALTER COLUMN status SET DEFAULT 'pending_inbound'`,
+		`CREATE TABLE IF NOT EXISTS asset_operation_orders (
+			id bigserial PRIMARY KEY,
+			created_at timestamptz,
+			updated_at timestamptz,
+			deleted_at timestamptz,
+			order_no varchar(80) NOT NULL,
+			type varchar(30) NOT NULL,
+			status varchar(20) NOT NULL DEFAULT 'draft',
+			business_date date NOT NULL,
+			target_location varchar(150),
+			target_custodian varchar(100),
+			reason varchar(500),
+			remarks text,
+			created_by bigint,
+			created_by_name varchar(100),
+			completed_by bigint,
+			completed_by_name varchar(100),
+			completed_at timestamptz
+		)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_asset_operation_orders_order_no ON asset_operation_orders (order_no)`,
+		`CREATE INDEX IF NOT EXISTS idx_asset_operation_orders_type ON asset_operation_orders (type)`,
+		`CREATE INDEX IF NOT EXISTS idx_asset_operation_orders_status ON asset_operation_orders (status)`,
+		`CREATE INDEX IF NOT EXISTS idx_asset_operation_orders_business_date ON asset_operation_orders (business_date)`,
+		`CREATE INDEX IF NOT EXISTS idx_asset_operation_orders_deleted_at ON asset_operation_orders (deleted_at)`,
+		`CREATE TABLE IF NOT EXISTS asset_operation_items (
+			id bigserial PRIMARY KEY,
+			created_at timestamptz,
+			updated_at timestamptz,
+			deleted_at timestamptz,
+			order_id bigint NOT NULL,
+			asset_id bigint NOT NULL,
+			quantity bigint NOT NULL,
+			asset_code varchar(80) NOT NULL,
+			asset_name varchar(150) NOT NULL,
+			from_status varchar(30),
+			to_status varchar(30),
+			from_location varchar(150),
+			to_location varchar(150),
+			from_custodian varchar(100),
+			to_custodian varchar(100)
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_asset_operation_items_order_id ON asset_operation_items (order_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_asset_operation_items_asset_id ON asset_operation_items (asset_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_asset_operation_items_deleted_at ON asset_operation_items (deleted_at)`,
+		`CREATE TABLE IF NOT EXISTS asset_operation_records (
+			id bigserial PRIMARY KEY,
+			created_at timestamptz,
+			updated_at timestamptz,
+			deleted_at timestamptz,
+			order_id bigint NOT NULL,
+			order_no varchar(80) NOT NULL,
+			type varchar(30) NOT NULL,
+			asset_id bigint NOT NULL,
+			asset_code varchar(80) NOT NULL,
+			asset_name varchar(150) NOT NULL,
+			quantity bigint NOT NULL,
+			from_status varchar(30),
+			to_status varchar(30),
+			from_location varchar(150),
+			to_location varchar(150),
+			from_custodian varchar(100),
+			to_custodian varchar(100),
+			operator_id bigint,
+			operator_name varchar(100),
+			operated_at timestamptz NOT NULL
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_asset_operation_records_order_id ON asset_operation_records (order_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_asset_operation_records_asset_id ON asset_operation_records (asset_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_asset_operation_records_type ON asset_operation_records (type)`,
+		`CREATE INDEX IF NOT EXISTS idx_asset_operation_records_operated_at ON asset_operation_records (operated_at)`,
+		`CREATE INDEX IF NOT EXISTS idx_asset_operation_records_deleted_at ON asset_operation_records (deleted_at)`,
 	}
 	for _, stmt := range stmts {
 		if _, err := db.ExecContext(ctx, stmt); err != nil {
@@ -435,8 +595,184 @@ func pickTemplate(code string, index int) assetTemplate {
 }
 
 func statusForIndex(index int) string {
-	pattern := []string{"in_use", "in_use", "in_use", "in_use", "in_use", "idle", "maintenance", "retired"}
+	pattern := []string{"pending_inbound", "idle", "idle", "in_use", "in_use", "in_use", "in_use", "in_use", "maintenance", "retired"}
 	return pattern[index%len(pattern)]
+}
+
+func lifecycleAssignment(tpl assetTemplate, status string, index int) (string, string) {
+	warehouses := []string{"资产仓库 A 区", "资产仓库 B 区", "信息设备备件库", "行政物资库"}
+	switch status {
+	case "pending_inbound":
+		return "", ""
+	case "idle":
+		return warehouses[index%len(warehouses)], ""
+	case "maintenance":
+		locations := []string{"设备维修中心", "外送维修待验区", "信息设备检修间"}
+		return locations[index%len(locations)], "设备保障组-顾维"
+	case "retired":
+		return "报废暂存区", ""
+	default:
+		return tpl.Location, tpl.Custodian
+	}
+}
+
+func lifecycleRemark(categoryName, status, location string) string {
+	remarks := map[string]string{
+		"pending_inbound": "采购验收资料已齐全，等待办理正式入库。",
+		"idle":            "已完成入库，当前处于库存可领用状态。",
+		"in_use":          "已完成领用交接，由当前责任部门日常保管。",
+		"maintenance":     "设备故障已登记，正在维修并等待检测结果。",
+		"retired":         "已完成报废处置，资产估值归零并保留审计记录。",
+	}
+	result := fmt.Sprintf("%s演示档案：%s", categoryName, remarks[status])
+	if location != "" {
+		result += " 当前位置：" + location + "。"
+	}
+	return result
+}
+
+type operationSnapshot struct {
+	OperationType  string
+	FromStatus     string
+	ToStatus       string
+	FromLocation   string
+	ToLocation     string
+	FromCustodian  string
+	ToCustodian    string
+	TargetLocation string
+	TargetKeeper   string
+	Reason         string
+}
+
+func operationSnapshotFor(asset seededAsset, index int) operationSnapshot {
+	warehouse := []string{"资产仓库 A 区", "资产仓库 B 区", "信息设备备件库", "行政物资库"}[index%4]
+	switch asset.Status {
+	case "idle":
+		if index%3 == 0 {
+			return operationSnapshot{
+				OperationType: "return", FromStatus: "in_use", ToStatus: "idle",
+				FromLocation: "业务部门使用区", ToLocation: asset.Location,
+				FromCustodian: "业务部门-使用人", TargetLocation: asset.Location,
+				Reason: "阶段工作结束，资产归还仓库统一保管",
+			}
+		}
+		return operationSnapshot{
+			OperationType: "inbound", FromStatus: "pending_inbound", ToStatus: "idle",
+			ToLocation: asset.Location, TargetLocation: asset.Location,
+			Reason: "采购验收合格，办理正式入库",
+		}
+	case "in_use":
+		if index%4 == 0 {
+			return operationSnapshot{
+				OperationType: "transfer", FromStatus: "in_use", ToStatus: "in_use",
+				FromLocation: "原使用部门", ToLocation: asset.Location,
+				FromCustodian: "原责任部门-使用人", ToCustodian: asset.Custodian,
+				TargetLocation: asset.Location, TargetKeeper: asset.Custodian,
+				Reason: "项目和责任部门调整，办理资产调拨",
+			}
+		}
+		return operationSnapshot{
+			OperationType: "issue", FromStatus: "idle", ToStatus: "in_use",
+			FromLocation: warehouse, ToLocation: asset.Location,
+			ToCustodian: asset.Custodian, TargetLocation: asset.Location, TargetKeeper: asset.Custodian,
+			Reason: "业务岗位配置，办理资产领用",
+		}
+	case "maintenance":
+		return operationSnapshot{
+			OperationType: "maintenance", FromStatus: "in_use", ToStatus: "maintenance",
+			FromLocation: "业务部门使用区", ToLocation: asset.Location,
+			FromCustodian: "业务部门-使用人", ToCustodian: asset.Custodian,
+			TargetLocation: asset.Location, TargetKeeper: asset.Custodian,
+			Reason: "运行异常，送修检测并安排维护",
+		}
+	case "retired":
+		fromStatus := "idle"
+		fromLocation := warehouse
+		if index%2 == 0 {
+			fromStatus = "maintenance"
+			fromLocation = "设备维修中心"
+		}
+		return operationSnapshot{
+			OperationType: "scrap", FromStatus: fromStatus, ToStatus: "retired",
+			FromLocation: fromLocation, ToLocation: asset.Location,
+			TargetLocation: asset.Location, Reason: "超过经济使用年限且维修价值较低，批准报废处置",
+		}
+	default:
+		return operationSnapshot{}
+	}
+}
+
+func seedOperationData(ctx context.Context, tx *sql.Tx, assets []seededAsset, prefix string, now time.Time) (map[string]int, error) {
+	stats := map[string]int{}
+	var operatorID int64 = 1
+	operatorName := "系统管理员"
+	_ = tx.QueryRowContext(ctx, `SELECT id, COALESCE(NULLIF(nick_name, ''), username) FROM sys_users WHERE username = 'admin' AND deleted_at IS NULL ORDER BY id LIMIT 1`).Scan(&operatorID, &operatorName)
+
+	operationPrefix := "SEED-" + sanitizeCode(prefix)
+	for index, asset := range assets {
+		snapshot := operationSnapshotFor(asset, index)
+		if snapshot.OperationType == "" {
+			continue
+		}
+		operatedAt := asset.CreatedAt.Add(2 * time.Hour)
+		if operatedAt.After(now) {
+			operatedAt = now
+		}
+		orderNo := fmt.Sprintf("%s-%s-%04d", operationPrefix, operationCode(snapshot.OperationType), index+1)
+		var orderID int64
+		err := tx.QueryRowContext(ctx, `
+INSERT INTO asset_operation_orders (
+  created_at, updated_at, order_no, type, status, business_date,
+  target_location, target_custodian, reason, remarks,
+  created_by, created_by_name, completed_by, completed_by_name, completed_at
+) VALUES ($1, $1, $2, $3, 'completed', $4, $5, $6, $7, $8, $9, $10, $9, $10, $1)
+RETURNING id`, operatedAt, orderNo, snapshot.OperationType, operatedAt.Format("2006-01-02"),
+			snapshot.TargetLocation, snapshot.TargetKeeper, snapshot.Reason,
+			"系统演示数据：用于验证资产全生命周期单据、状态与审计快照。", operatorID, operatorName,
+		).Scan(&orderID)
+		if err != nil {
+			return stats, err
+		}
+
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO asset_operation_items (
+  created_at, updated_at, order_id, asset_id, quantity, asset_code, asset_name,
+  from_status, to_status, from_location, to_location, from_custodian, to_custodian
+) VALUES ($1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+			operatedAt, orderID, asset.ID, asset.Quantity, asset.Code, asset.Name,
+			snapshot.FromStatus, snapshot.ToStatus, snapshot.FromLocation, snapshot.ToLocation,
+			snapshot.FromCustodian, snapshot.ToCustodian,
+		)
+		if err != nil {
+			return stats, err
+		}
+
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO asset_operation_records (
+  created_at, updated_at, order_id, order_no, type, asset_id, asset_code, asset_name, quantity,
+  from_status, to_status, from_location, to_location, from_custodian, to_custodian,
+  operator_id, operator_name, operated_at
+) VALUES ($1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $1)`,
+			operatedAt, orderID, orderNo, snapshot.OperationType, asset.ID, asset.Code, asset.Name, asset.Quantity,
+			snapshot.FromStatus, snapshot.ToStatus, snapshot.FromLocation, snapshot.ToLocation,
+			snapshot.FromCustodian, snapshot.ToCustodian, operatorID, operatorName,
+		)
+		if err != nil {
+			return stats, err
+		}
+		stats[snapshot.OperationType]++
+	}
+	return stats, nil
+}
+
+func operationCode(operationType string) string {
+	codes := map[string]string{"inbound": "RK", "issue": "LY", "transfer": "DB", "return": "GH", "maintenance": "WX", "scrap": "BF"}
+	return codes[operationType]
+}
+
+func operationLabel(operationType string) string {
+	labels := map[string]string{"inbound": "入库", "issue": "领用", "transfer": "调拨", "return": "归还", "maintenance": "维修", "scrap": "报废"}
+	return labels[operationType]
 }
 
 func depreciatedValue(original float64, purchaseDate time.Time, status string, rng *rand.Rand) float64 {
@@ -452,7 +788,7 @@ func depreciatedValue(original float64, purchaseDate time.Time, status string, r
 		depreciation += 0.14
 	}
 	if status == "retired" {
-		return money(original * (0.04 + rng.Float64()*0.10))
+		return 0
 	}
 	if depreciation > 0.82 {
 		depreciation = 0.82
@@ -471,6 +807,8 @@ func sanitizeCode(code string) string {
 
 func statusLabel(status string) string {
 	switch status {
+	case "pending_inbound":
+		return "待入库"
 	case "in_use":
 		return "使用中"
 	case "idle":
@@ -478,7 +816,7 @@ func statusLabel(status string) string {
 	case "maintenance":
 		return "维修中"
 	case "retired":
-		return "已退役"
+		return "已处置"
 	default:
 		return status
 	}

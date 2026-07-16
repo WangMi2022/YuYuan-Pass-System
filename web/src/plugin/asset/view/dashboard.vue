@@ -164,11 +164,13 @@ const kpis = computed(() => [
 ])
 
 const statusConfig = {
+  pending_inbound: { label: '待入库', color: '#2563eb' },
   in_use: { label: '使用中', color: '#059669' },
   idle: { label: '闲置', color: '#64748b' },
   maintenance: { label: '维修中', color: '#d97706' },
   retired: { label: '已处置', color: '#dc2626' }
 }
+const statusOrder = ['pending_inbound', 'idle', 'in_use', 'maintenance', 'retired']
 const activeCategories = computed(() => dashboard.value.categorySummary.filter((item) => Number(item.quantity) > 0))
 const hasCategoryData = computed(() => activeCategories.value.length > 0)
 const categoryListShouldScroll = computed(() => activeCategories.value.length > 4)
@@ -176,7 +178,9 @@ const categoryScrollGroups = computed(() => categoryListShouldScroll.value
   ? [activeCategories.value, activeCategories.value]
   : [activeCategories.value])
 const categoryScrollDuration = computed(() => Math.max(12, activeCategories.value.length * 2.4))
-const statusRows = computed(() => dashboard.value.statusSummary.map((item) => ({ ...item, ...(statusConfig[item.status] || { label: item.status, color: '#64748b' }) })))
+const statusRows = computed(() => dashboard.value.statusSummary
+  .map((item) => ({ ...item, ...(statusConfig[item.status] || { label: item.status, color: '#64748b' }) }))
+  .sort((a, b) => statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status)))
 const hasStatusData = computed(() => statusRows.value.some((item) => item.quantity > 0))
 const chartText = computed(() => appStore.isDark ? '#cbd5e1' : '#475569')
 const chartGrid = computed(() => appStore.isDark ? '#263244' : '#e2e8f0')

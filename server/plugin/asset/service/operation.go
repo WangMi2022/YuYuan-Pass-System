@@ -25,12 +25,12 @@ type operationRule struct {
 }
 
 var operationRules = map[string]operationRule{
-	"inbound":     {prefix: "RK", label: "入库", statuses: []string{"idle"}},
-	"issue":       {prefix: "LY", label: "领用", statuses: []string{"idle"}},
-	"transfer":    {prefix: "DB", label: "调拨", statuses: []string{"idle", "in_use"}},
-	"return":      {prefix: "GH", label: "归还", statuses: []string{"in_use", "maintenance"}},
-	"maintenance": {prefix: "WX", label: "维修", statuses: []string{"idle", "in_use"}},
-	"scrap":       {prefix: "BF", label: "报废", statuses: []string{"idle", "in_use", "maintenance"}},
+	"inbound":     {prefix: "RK", label: "入库", statuses: []string{model.AssetStatusPendingInbound}},
+	"issue":       {prefix: "LY", label: "领用", statuses: []string{model.AssetStatusIdle}},
+	"transfer":    {prefix: "DB", label: "调拨", statuses: []string{model.AssetStatusIdle, model.AssetStatusInUse}},
+	"return":      {prefix: "GH", label: "归还", statuses: []string{model.AssetStatusInUse, model.AssetStatusMaintenance}},
+	"maintenance": {prefix: "WX", label: "维修", statuses: []string{model.AssetStatusIdle, model.AssetStatusInUse}},
+	"scrap":       {prefix: "BF", label: "报废", statuses: []string{model.AssetStatusIdle, model.AssetStatusInUse, model.AssetStatusMaintenance}},
 }
 
 func operationRuleFor(operationType string) (operationRule, error) {
@@ -58,15 +58,15 @@ func transitionStatus(operationType, currentStatus string) (string, error) {
 	}
 	switch operationType {
 	case "inbound", "return":
-		return "idle", nil
+		return model.AssetStatusIdle, nil
 	case "issue":
-		return "in_use", nil
+		return model.AssetStatusInUse, nil
 	case "transfer":
 		return currentStatus, nil
 	case "maintenance":
-		return "maintenance", nil
+		return model.AssetStatusMaintenance, nil
 	case "scrap":
-		return "retired", nil
+		return model.AssetStatusRetired, nil
 	default:
 		return "", errors.New("业务类型不正确")
 	}

@@ -13,7 +13,6 @@
           :collapse-transition="false"
           :default-active="topActive"
           class="!border-r-0 w-full"
-          unique-opened
           @select="selectTopMenuItem"
         >
           <template v-for="item in routerStore.asyncRouters[0]?.children || []">
@@ -76,7 +75,6 @@
           :collapse-transition="false"
           :default-active="active"
           class="!border-r-0 w-full"
-          unique-opened
           @select="selectMenuItem"
         >
           <template v-for="item in secondLevelMenus">

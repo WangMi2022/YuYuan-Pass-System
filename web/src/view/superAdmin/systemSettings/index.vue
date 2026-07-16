@@ -3,7 +3,7 @@
     <section class="settings-heading" aria-labelledby="settings-title">
       <div>
         <p class="eyebrow">SYSTEM APPEARANCE</p>
-        <h1 id="settings-title">系统配置</h1>
+        <h1 id="settings-title">系统设置</h1>
         <p>统一管理系统外观配置，支持设置登录页图标和背景图片。</p>
       </div>
     </section>

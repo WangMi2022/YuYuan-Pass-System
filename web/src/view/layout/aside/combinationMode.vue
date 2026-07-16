@@ -35,7 +35,6 @@
           :collapse-transition="false"
           :default-active="active"
           class="!border-r-0 w-full"
-          unique-opened
           @select="(index, _, ele) => selectMenuItem(index, _, ele, false)"
         >
           <template v-for="item in routerStore.leftMenu">

@@ -17,7 +17,11 @@ var Asset = new(assetService)
 type assetService struct{}
 
 var allowedStatuses = map[string]struct{}{
-	"in_use": {}, "idle": {}, "maintenance": {}, "retired": {},
+	model.AssetStatusPendingInbound: {},
+	model.AssetStatusIdle:           {},
+	model.AssetStatusInUse:          {},
+	model.AssetStatusMaintenance:    {},
+	model.AssetStatusRetired:        {},
 }
 
 func money(value float64) float64 { return math.Round(value*100) / 100 }
@@ -42,19 +46,19 @@ func prepareAsset(asset *model.Asset, creating bool) error {
 		asset.Unit = "件"
 	}
 	if creating {
-		asset.Status = "idle"
+		asset.Status = model.AssetStatusPendingInbound
 		asset.Location = ""
 		asset.Custodian = ""
-	} else if asset.Status == "" {
-		asset.Status = "in_use"
 	}
-	if _, ok := allowedStatuses[asset.Status]; !ok {
-		return errors.New("资产状态不合法")
+	if asset.Status != "" {
+		if _, ok := allowedStatuses[asset.Status]; !ok {
+			return errors.New("资产状态不合法")
+		}
 	}
 	asset.OriginalValue = money(float64(asset.Quantity) * asset.UnitPrice)
 	asset.UnitPrice = money(asset.UnitPrice)
 	asset.CurrentValue = money(asset.CurrentValue)
-	if creating && asset.CurrentValue == 0 && asset.OriginalValue > 0 && asset.Status != "retired" {
+	if creating && asset.CurrentValue == 0 && asset.OriginalValue > 0 && asset.Status != model.AssetStatusRetired {
 		asset.CurrentValue = asset.OriginalValue
 	}
 	if asset.CurrentValue > asset.OriginalValue && asset.OriginalValue > 0 {
@@ -212,7 +216,7 @@ func (s *assetService) Dashboard() (assetResponse.Dashboard, error) {
 	}
 
 	if err := global.GVA_DB.Model(&model.Asset{}).
-		Select("status, COALESCE(SUM(quantity), 0) AS quantity").
+		Select("status, COUNT(*) AS asset_kinds, COALESCE(SUM(quantity), 0) AS quantity").
 		Group("status").Order("quantity DESC").Scan(&result.StatusSummary).Error; err != nil {
 		return result, err
 	}

@@ -272,9 +272,9 @@ const route = useRoute()
 const operationMeta = {
   assetInbound: {
     type: 'inbound', title: '入库管理', shortLabel: '入库', eyebrow: 'ASSET INBOUND',
-    description: '登记资产入库位置，提交后资产进入闲置待领用状态。',
+    description: '将已建档的待入库资产登记到库位，提交后进入闲置待领用状态。',
     showLocation: true, locationRequired: true, locationLabel: '入库位置', locationPlaceholder: '仓库 / 库区 / 货架',
-    showCustodian: false, reasonRequired: false, reasonPlaceholder: '采购入库、退库重入等', assetPlaceholder: '选择待入库的闲置资产'
+    showCustodian: false, reasonRequired: false, reasonPlaceholder: '采购入库、验收入库等', assetPlaceholder: '选择已建档的待入库资产'
   },
   assetIssue: {
     type: 'issue', title: '领用管理', shortLabel: '领用', eyebrow: 'ASSET ISSUE',
@@ -344,6 +344,7 @@ const formRules = computed(() => ({
 }))
 
 const assetStatusMap = {
+  pending_inbound: { label: '待入库', type: 'primary' },
   in_use: { label: '使用中', type: 'success' },
   idle: { label: '闲置', type: 'info' },
   maintenance: { label: '维修中', type: 'warning' },

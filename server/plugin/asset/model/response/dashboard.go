@@ -13,8 +13,9 @@ type CategorySummary struct {
 }
 
 type StatusSummary struct {
-	Status   string `json:"status"`
-	Quantity int64  `json:"quantity"`
+	Status     string `json:"status"`
+	AssetKinds int64  `json:"assetKinds"`
+	Quantity   int64  `json:"quantity"`
 }
 
 type LocationSummary struct {

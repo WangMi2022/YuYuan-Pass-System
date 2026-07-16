@@ -10,6 +10,7 @@ import (
 )
 
 const collaborationMenuName = "collaborationCenter"
+const monitorMenuName = "monitorCenter"
 
 type navigationItem struct {
 	name  string
@@ -18,7 +19,7 @@ type navigationItem struct {
 	sort  int
 }
 
-// syncBusinessNavigation 将已有菜单迁移为第一阶段业务信息架构。
+// syncBusinessNavigation 将已有菜单迁移为二开业务信息架构。
 // 该过程幂等执行，既适用于新安装，也适用于已经运行的数据库。
 func syncBusinessNavigation(ctx context.Context) error {
 	return global.GVA_DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -39,10 +40,27 @@ func syncBusinessNavigation(ctx context.Context) error {
 			return err
 		}
 
+		monitor := system.SysBaseMenu{
+			ParentId: 0,
+			Path:     "monitorCenter", Name: monitorMenuName, Hidden: false,
+			Component: "view/routerHolder.vue", Sort: 4,
+			Meta: system.Meta{Title: "监控状态", Icon: "monitor"},
+		}
+		if err := tx.Where("name = ?", monitor.Name).FirstOrCreate(&monitor).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&system.SysBaseMenu{}).Where("name = ?", monitor.Name).Updates(map[string]any{
+			"parent_id": 0, "menu_level": 0, "path": monitor.Path,
+			"component": monitor.Component, "hidden": false, "sort": monitor.Sort,
+			"title": monitor.Meta.Title, "icon": monitor.Meta.Icon,
+		}).Error; err != nil {
+			return err
+		}
+
 		canonicalMenus := []navigationItem{
 			{name: "dashboard", title: "首页驾驶舱", icon: "odometer", sort: 1},
 			{name: "assetCenter", title: "资产管理", icon: "box", sort: 2},
-			{name: "superAdmin", title: "系统管理", icon: "setting", sort: 4},
+			{name: "superAdmin", title: "系统管理", icon: "setting", sort: 5},
 		}
 		for _, item := range canonicalMenus {
 			if err := tx.Model(&system.SysBaseMenu{}).Where("name = ?", item.name).Updates(map[string]any{
@@ -81,13 +99,31 @@ func syncBusinessNavigation(ctx context.Context) error {
 			}
 		}
 
+		monitorMenus := []navigationItem{
+			{name: "state", title: "服务器负载", icon: "cpu", sort: 1},
+		}
+		for _, item := range monitorMenus {
+			if err := updateChildMenu(tx, monitor.ID, item); err != nil {
+				return err
+			}
+		}
+
 		var systemParent system.SysBaseMenu
 		if err := tx.Where("name = ?", "superAdmin").First(&systemParent).Error; err == nil {
 			systemMenus := []navigationItem{
-				{name: "user", title: "用户管理", icon: "coordinate", sort: 1},
-				{name: "authority", title: "角色权限", icon: "avatar", sort: 2},
-				{name: "operation", title: "操作审计", icon: "tickets", sort: 3},
-				{name: "systemSettings", title: "系统配置", icon: "setting", sort: 4},
+				{name: "authority", title: "角色管理", icon: "avatar", sort: 1},
+				{name: "menu", title: "菜单管理", icon: "tickets", sort: 2},
+				{name: "api", title: "API 管理", icon: "platform", sort: 3},
+				{name: "user", title: "用户管理", icon: "coordinate", sort: 4},
+				{name: "dictionary", title: "字典管理", icon: "notebook", sort: 5},
+				{name: "operation", title: "操作历史", icon: "pie-chart", sort: 6},
+				{name: "sysParams", title: "参数管理", icon: "compass", sort: 7},
+				{name: "system", title: "运行配置", icon: "operation", sort: 8},
+				{name: "apiToken", title: "API Token", icon: "key", sort: 9},
+				{name: "loginLog", title: "登录日志", icon: "monitor", sort: 10},
+				{name: "sysVersion", title: "版本管理", icon: "server", sort: 11},
+				{name: "sysError", title: "错误日志", icon: "warn", sort: 12},
+				{name: "systemSettings", title: "系统设置", icon: "setting", sort: 13},
 			}
 			for _, item := range systemMenus {
 				if err := updateChildMenu(tx, systemParent.ID, item); err != nil {
@@ -97,15 +133,17 @@ func syncBusinessNavigation(ctx context.Context) error {
 		}
 
 		hiddenMenus := []string{
-			"about", "example", "systemTools", "https://www.gin-vue-admin.com", "state", "plugin", "AutoRoot",
+			"about", "example", "systemTools", "https://www.gin-vue-admin.com", "plugin", "AutoRoot",
 			"documentManagement", "siteManagement", "assetDashboard", "breakpoint", "customer",
-			"menu", "api", "dictionary", "sysParams", "system", "apiToken", "loginLog", "sysVersion", "sysError",
 		}
 		if err := tx.Model(&system.SysBaseMenu{}).Where("name IN ?", hiddenMenus).Update("hidden", true).Error; err != nil {
 			return err
 		}
 
-		return migrateCollaborationAuthorities(tx, collaboration.ID, collaborationMenus)
+		if err := migrateAuthoritiesForParent(tx, collaboration.ID, collaborationMenus); err != nil {
+			return err
+		}
+		return migrateAuthoritiesForParent(tx, monitor.ID, monitorMenus)
 	})
 }
 
@@ -116,7 +154,7 @@ func updateChildMenu(tx *gorm.DB, parentID uint, item navigationItem) error {
 	}).Error
 }
 
-func migrateCollaborationAuthorities(tx *gorm.DB, parentID uint, items []navigationItem) error {
+func migrateAuthoritiesForParent(tx *gorm.DB, parentID uint, items []navigationItem) error {
 	names := make([]string, 0, len(items))
 	for _, item := range items {
 		names = append(names, item.name)

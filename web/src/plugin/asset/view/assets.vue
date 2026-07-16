@@ -22,7 +22,9 @@
           </el-form-item>
           <el-form-item label="资产状态">
             <el-select v-model="search.status" clearable placeholder="全部状态">
-              <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
+              <el-option v-for="item in statusOptions" :key="item.value" :label="statusOptionLabel(item)" :value="item.value">
+                <span class="status-option"><i :style="{ background: item.color }" />{{ item.label }}<small>{{ statusCounts[item.value] || 0 }} 条</small></span>
+              </el-option>
             </el-select>
           </el-form-item>
           <el-form-item label="存放位置">
@@ -42,8 +44,24 @@
           <h2>资产清单</h2>
           <span>共 {{ total }} 条档案</span>
         </div>
-        <el-button :icon="Refresh" text aria-label="刷新资产列表" @click="loadAssets">刷新</el-button>
+        <el-button :icon="Refresh" text aria-label="刷新资产列表" @click="refreshAssets">刷新</el-button>
       </header>
+
+      <nav class="status-overview" aria-label="按资产状态快速筛选">
+        <button type="button" :class="{ active: !search.status }" :aria-pressed="!search.status" @click="selectStatus('')">
+          <i class="all-status" />全部状态<strong>{{ statusTotal }}</strong>
+        </button>
+        <button
+          v-for="item in statusOptions"
+          :key="item.value"
+          type="button"
+          :class="{ active: search.status === item.value }"
+          :aria-pressed="search.status === item.value"
+          @click="selectStatus(item.value)"
+        >
+          <i :style="{ background: item.color }" />{{ item.label }}<strong>{{ statusCounts[item.value] || 0 }}</strong>
+        </button>
+      </nav>
 
       <el-table v-loading="loading" :data="tableData" row-key="ID" stripe class="asset-table">
         <el-table-column label="资产" min-width="250" fixed="left">
@@ -257,6 +275,7 @@ import { Delete, Edit, Picture, Plus, Refresh, Search } from '@element-plus/icon
 import {
   createAsset,
   deleteAsset,
+  getAssetDashboard,
   getAssetList,
   getCategoryOptions,
   updateAsset,
@@ -266,10 +285,11 @@ import {
 defineOptions({ name: 'AssetInventory' })
 
 const statusOptions = [
-  { value: 'in_use', label: '使用中', type: 'success' },
-  { value: 'idle', label: '闲置', type: 'info' },
-  { value: 'maintenance', label: '维修中', type: 'warning' },
-  { value: 'retired', label: '已处置', type: 'danger' }
+  { value: 'pending_inbound', label: '待入库', type: 'primary', color: '#2563eb' },
+  { value: 'idle', label: '闲置', type: 'info', color: '#64748b' },
+  { value: 'in_use', label: '使用中', type: 'success', color: '#059669' },
+  { value: 'maintenance', label: '维修中', type: 'warning', color: '#d97706' },
+  { value: 'retired', label: '已处置', type: 'danger', color: '#dc2626' }
 ]
 
 const emptyForm = () => ({
@@ -284,7 +304,7 @@ const emptyForm = () => ({
   unit: '件',
   unitPrice: 0,
   currentValue: 0,
-  status: 'idle',
+  status: 'pending_inbound',
   location: '',
   custodian: '',
   supplier: '',
@@ -298,6 +318,7 @@ const search = reactive({ page: 1, pageSize: 10, keyword: '', categoryId: undefi
 const tableData = ref([])
 const categories = ref([])
 const total = ref(0)
+const statusCounts = ref({})
 const loading = ref(false)
 const drawerVisible = ref(false)
 const editing = ref(false)
@@ -321,6 +342,8 @@ const rules = {
 const currency = (value) => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY', minimumFractionDigits: 2 }).format(Number(value || 0))
 const dateText = (value) => (value ? new Date(value).toLocaleDateString('zh-CN') : '—')
 const statusMeta = (value) => statusOptions.find((item) => item.value === value) || { label: value || '未知', type: 'info' }
+const statusTotal = computed(() => Object.values(statusCounts.value).reduce((sum, value) => sum + Number(value || 0), 0))
+const statusOptionLabel = (item) => `${item.label}（${statusCounts.value[item.value] || 0}）`
 
 const loadCategories = async () => {
   const res = await getCategoryOptions()
@@ -338,6 +361,19 @@ const loadAssets = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const loadStatusCounts = async () => {
+  const res = await getAssetDashboard()
+  if (res.code !== 0) return
+  statusCounts.value = Object.fromEntries((res.data?.statusSummary || []).map((item) => [item.status, Number(item.assetKinds || 0)]))
+}
+
+const refreshAssets = () => Promise.all([loadAssets(), loadStatusCounts()])
+const selectStatus = (status) => {
+  search.status = status
+  search.page = 1
+  loadAssets()
 }
 
 const submitSearch = () => { search.page = 1; loadAssets() }
@@ -382,7 +418,7 @@ const saveAsset = async () => {
     if (res.code === 0) {
       ElMessage.success(editing.value ? '资产已更新' : '资产已登记')
       drawerVisible.value = false
-      await loadAssets()
+      await refreshAssets()
     }
   } finally {
     saving.value = false
@@ -396,7 +432,7 @@ const removeAsset = async (row) => {
   const res = await deleteAsset({ id: row.ID })
   if (res.code === 0) {
     ElMessage.success('资产已删除')
-    loadAssets()
+    refreshAssets()
   }
 }
 
@@ -437,7 +473,7 @@ const photoExceed = () => ElMessage.warning('每项资产最多上传 6 张照�
 
 onMounted(async () => {
   await loadCategories()
-  await loadAssets()
+  await refreshAssets()
 })
 </script>
 
@@ -462,6 +498,15 @@ h1 { margin: 0; font-size: clamp(26px, 3vw, 36px); line-height: 1.2; letter-spac
 .panel-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px; border-bottom: 1px solid var(--asset-border); }
 .panel-header h2 { margin: 0 0 3px; font-size: 17px; }
 .panel-header span { color: var(--asset-muted); font-size: 13px; }
+.status-overview { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 20px; border-bottom: 1px solid var(--asset-border); background: color-mix(in srgb, var(--asset-surface) 92%, var(--na-muted) 8%); }
+.status-overview button { display: inline-flex; min-height: 36px; align-items: center; gap: 7px; padding: 7px 11px; border: 1px solid var(--asset-border); border-radius: 8px; background: var(--asset-surface); color: var(--asset-muted); cursor: pointer; font-size: 12px; }
+.status-overview button:hover, .status-overview button:focus-visible { border-color: var(--na-primary); color: var(--asset-text); }
+.status-overview button.active { border-color: color-mix(in srgb, var(--na-primary) 48%, var(--asset-border)); background: var(--na-primary-soft); color: var(--na-primary); }
+.status-overview i, .status-option i { width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; }
+.status-overview .all-status { border: 2px solid var(--na-primary); background: transparent; }
+.status-overview strong { min-width: 20px; color: inherit; font-variant-numeric: tabular-nums; text-align: right; }
+.status-option { display: flex; align-items: center; gap: 8px; }
+.status-option small { margin-left: auto; color: var(--asset-muted); font-size: 12px; }
 .asset-table { --el-table-header-bg-color: #f8fafc; --el-table-row-hover-bg-color: #f1f5f9; }
 .asset-identity { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .asset-thumb { width: 48px; height: 48px; flex: 0 0 48px; border-radius: 10px; border: 1px solid var(--asset-border); background: #f1f5f9; }

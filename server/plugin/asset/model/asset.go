@@ -6,6 +6,14 @@ import (
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 )
 
+const (
+	AssetStatusPendingInbound = "pending_inbound"
+	AssetStatusIdle           = "idle"
+	AssetStatusInUse          = "in_use"
+	AssetStatusMaintenance    = "maintenance"
+	AssetStatusRetired        = "retired"
+)
+
 // Photo 保存资产图片在 RustFS/MinIO 中的对象信息。
 type Photo struct {
 	Name string `json:"name"`
@@ -41,7 +49,7 @@ type Asset struct {
 	UnitPrice       float64    `json:"unitPrice" form:"unitPrice" gorm:"type:numeric(16,2);not null;default:0;comment:采购单价"`
 	OriginalValue   float64    `json:"originalValue" gorm:"type:numeric(18,2);not null;default:0;comment:资产原值"`
 	CurrentValue    float64    `json:"currentValue" form:"currentValue" gorm:"type:numeric(18,2);not null;default:0;comment:当前估值"`
-	Status          string     `json:"status" form:"status" gorm:"size:30;not null;default:in_use;index;comment:资产状态"`
+	Status          string     `json:"status" form:"status" gorm:"size:30;not null;default:pending_inbound;index;comment:资产状态"`
 	Location        string     `json:"location" form:"location" gorm:"size:150;index;comment:存放位置"`
 	Custodian       string     `json:"custodian" form:"custodian" gorm:"size:100;index;comment:保管人"`
 	Supplier        string     `json:"supplier" form:"supplier" gorm:"size:150;comment:供应商"`

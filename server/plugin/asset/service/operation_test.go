@@ -7,6 +7,8 @@ func TestTransitionStatus(t *testing.T) {
 		name, operationType, from, want string
 		wantErr                         bool
 	}{
+		{name: "inbound pending asset", operationType: "inbound", from: "pending_inbound", want: "idle"},
+		{name: "reject repeated inbound", operationType: "inbound", from: "idle", wantErr: true},
 		{name: "issue idle asset", operationType: "issue", from: "idle", want: "in_use"},
 		{name: "return used asset", operationType: "return", from: "in_use", want: "idle"},
 		{name: "return repaired asset", operationType: "return", from: "maintenance", want: "idle"},
