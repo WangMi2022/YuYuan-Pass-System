@@ -321,7 +321,7 @@
   .na-auth-panel {
     width: min(100%, 400px);
   }
-  .na-auth-heading { margin-bottom: 32px; text-align: left; }
+  .na-auth-heading { margin-bottom: 32px; text-align: center; }
   .na-auth-logo {
     display: grid;
     place-items: center;
