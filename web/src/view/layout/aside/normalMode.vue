@@ -1,6 +1,7 @@
 <template>
   <aside
     class="na-sidebar"
+    :class="{ 'has-sidebar-tip': !isCollapse && device !== 'mobile' }"
     :style="{
       width: layoutSideWidth + 'px'
     }"
@@ -23,6 +24,7 @@
         </template>
       </el-menu>
     </el-scrollbar>
+    <sidebar-tip-card v-if="!isCollapse && device !== 'mobile'" />
     <button
       type="button"
       class="na-sidebar-toggle"
@@ -42,6 +44,7 @@
 
 <script setup>
   import AsideComponent from '@/view/layout/aside/asideComponent/index.vue'
+  import SidebarTipCard from './SidebarTipCard.vue'
   import { ref, provide, watchEffect, computed } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import { useRouterStore } from '@/pinia/modules/router'
