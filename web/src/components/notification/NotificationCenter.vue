@@ -258,6 +258,7 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 .notification-center { display: inline-flex; }
 .notification-badge { display: inline-flex; }
+.notification-badge :deep(.el-badge__content.is-fixed) { transform: translateY(-35%) translateX(55%); }
 .notification-trigger { position: relative; }
 .notification-panel { overflow: hidden; margin: -12px; border-radius: 10px; background: var(--el-bg-color); }
 .notification-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 18px 13px; border-bottom: 1px solid var(--el-border-color-lighter); }
