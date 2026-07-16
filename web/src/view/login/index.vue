@@ -5,7 +5,14 @@
   >
     <section class="na-auth-visual" :style="loginPageStyle" aria-label="系统登录背景">
       <a class="na-auth-brand" href="#/login" aria-label="资产管理系统登录页">
-        <Logo :size="2" />
+        <img
+          v-if="loginLogoUrl"
+          class="na-auth-brand-image"
+          :src="loginLogoUrl"
+          :alt="`${$GIN_VUE_ADMIN.appName}图标`"
+          @error="handleLogoError"
+        />
+        <Logo v-else :size="2" />
         <span>{{ $GIN_VUE_ADMIN.appName }}</span>
       </a>
     </section>
@@ -14,7 +21,15 @@
       <section class="na-auth-panel" aria-labelledby="login-title">
           <div>
             <div class="na-auth-heading">
-              <span class="na-auth-logo"><Logo :size="2.5" /></span>
+              <span class="na-auth-logo">
+                <img
+                  v-if="loginLogoUrl"
+                  :src="loginLogoUrl"
+                  :alt="`${$GIN_VUE_ADMIN.appName}登录图标`"
+                  @error="handleLogoError"
+                />
+                <Logo v-else :size="2.5" />
+              </span>
               <h1 id="login-title">登录资产管理系统</h1>
               <p>使用管理员或有效账号继续访问工作台</p>
             </div>
@@ -104,7 +119,7 @@
   import { useUserStore } from '@/pinia/modules/user'
   import Logo from '@/components/logo/index.vue'
   import { isDev } from '@/utils/env.js'
-  import { getCurrentLoginBackground } from '@/api/systemSettings'
+  import { getCurrentLoginBackground, getCurrentLoginLogo } from '@/api/systemSettings'
   import defaultBackground from '@/assets/login_background.jpg'
 
   defineOptions({
@@ -113,6 +128,7 @@
 
   const router = useRouter()
   const loginBackgroundUrl = ref('')
+  const loginLogoUrl = ref('')
   const backgroundUrl = computed(() => loginBackgroundUrl.value || defaultBackground)
   const loginPageStyle = computed(() => ({
     '--na-login-background-image': `url(${JSON.stringify(backgroundUrl.value)})`
@@ -127,7 +143,23 @@
     }
   }
 
-  onMounted(loadLoginBackground)
+  const loadLoginLogo = async () => {
+    try {
+      const res = await getCurrentLoginLogo()
+      if (res.code === 0) loginLogoUrl.value = res.data?.url || ''
+    } catch {
+      loginLogoUrl.value = ''
+    }
+  }
+
+  const handleLogoError = () => {
+    loginLogoUrl.value = ''
+  }
+
+  onMounted(() => {
+    loadLoginBackground()
+    loadLoginLogo()
+  })
   const captchaRequiredLength = ref(6)
   // 验证函数
   const checkUsername = (rule, value, callback) => {
@@ -274,6 +306,7 @@
     letter-spacing: -.01em;
     text-shadow: 0 1px 8px rgb(0 0 0 / 32%);
   }
+  .na-auth-brand-image { width: 32px; height: 32px; border-radius: 8px; object-fit: contain; }
   .na-auth-main {
     display: flex;
     align-items: center;
@@ -294,12 +327,13 @@
     place-items: center;
     width: 52px;
     height: 52px;
-    margin-bottom: 18px;
+    margin: 0 auto 18px;
     border: 1px solid var(--na-border);
     border-radius: 14px;
     background: var(--na-card);
     box-shadow: var(--na-shadow-sm);
   }
+  .na-auth-logo > img { width: 36px; height: 36px; object-fit: contain; }
   .na-auth-heading h1 { margin: 0; color: var(--na-foreground); font-size: 24px; font-weight: 680; letter-spacing: -.025em; }
   .na-auth-heading p { margin: 8px 0 0; color: var(--na-muted-foreground); font-size: 13px; }
   .na-auth-form :deep(.el-form-item) { margin-bottom: 20px; }

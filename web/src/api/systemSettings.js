@@ -38,3 +38,26 @@ export const deleteLoginBackground = (params) => {
     params
   })
 }
+
+export const getCurrentLoginLogo = () => {
+  return service({
+    url: '/appearance/login-logo',
+    method: 'get',
+    donNotShowLoading: true
+  })
+}
+
+export const saveLoginLogo = (data) => {
+  return service({
+    url: '/appearance/login-logo',
+    method: 'put',
+    data
+  })
+}
+
+export const resetLoginLogo = () => {
+  return service({
+    url: '/appearance/login-logo',
+    method: 'delete'
+  })
+}

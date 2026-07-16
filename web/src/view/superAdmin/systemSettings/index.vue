@@ -4,7 +4,53 @@
       <div>
         <p class="eyebrow">SYSTEM APPEARANCE</p>
         <h1 id="settings-title">系统设置</h1>
-        <p>统一管理系统外观配置，当前支持登录页背景图片切换。</p>
+        <p>统一管理系统外观配置，支持设置登录页图标和背景图片。</p>
+      </div>
+    </section>
+
+    <section class="setting-card" aria-labelledby="login-logo-title">
+      <header class="setting-card-header">
+        <div>
+          <h2 id="login-logo-title">登录页图标</h2>
+          <p>图标显示在登录表单顶部和登录页品牌区域，建议上传清晰的正方形图片。</p>
+        </div>
+      </header>
+
+      <div v-loading="logoLoading" class="current-logo">
+        <div class="logo-preview" aria-label="当前登录页图标预览">
+          <img
+            v-if="currentLogo?.url && !logoPreviewFailed"
+            :src="currentLogo.url"
+            alt="当前登录页图标"
+            @error="logoPreviewFailed = true"
+          />
+          <Logo v-else :size="2.5" />
+        </div>
+        <div class="current-info">
+          <span class="current-label">当前图标</span>
+          <strong>{{ currentLogo?.name || '系统默认图标' }}</strong>
+          <p>{{ currentLogo ? '图片已保存至 OSS，并应用到登录页。' : '当前使用系统内置的默认图标。' }}</p>
+        </div>
+        <div class="logo-actions">
+          <el-upload
+            :action="`${getBaseUrl()}/fileUploadAndDownload/upload`"
+            accept="image/jpeg,image/png,image/webp"
+            :headers="{ 'x-token': userStore.token }"
+            :show-file-list="false"
+            :multiple="false"
+            :disabled="logoUploading"
+            :before-upload="beforeLogoUpload"
+            :on-success="logoUploadSuccess"
+            :on-error="logoUploadError"
+          >
+            <el-button type="primary" :icon="Upload" :loading="logoUploading">上传并应用</el-button>
+          </el-upload>
+          <el-button
+            :icon="RefreshLeft"
+            :disabled="!currentLogo || logoUploading"
+            @click="restoreDefaultLogo"
+          >恢复默认</el-button>
+        </div>
       </div>
     </section>
 
@@ -102,16 +148,20 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { Check, Delete, Edit, Picture, Upload } from '@element-plus/icons-vue'
+import { Check, Delete, Edit, Picture, RefreshLeft, Upload } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getBaseUrl } from '@/utils/format'
 import { useUserStore } from '@/pinia/modules/user'
 import defaultBackground from '@/assets/login_background.jpg'
+import Logo from '@/components/logo/index.vue'
 import {
   activateLoginBackground,
   createLoginBackground,
   deleteLoginBackground,
-  getLoginBackgrounds
+  getCurrentLoginLogo,
+  getLoginBackgrounds,
+  resetLoginLogo,
+  saveLoginLogo
 } from '@/api/systemSettings'
 
 defineOptions({ name: 'SystemSettings' })
@@ -123,9 +173,83 @@ const managing = ref(false)
 const loading = ref(false)
 const uploading = ref(false)
 const saving = ref(false)
+const currentLogo = ref(null)
+const logoLoading = ref(false)
+const logoUploading = ref(false)
+const logoPreviewFailed = ref(false)
 
 const currentBackground = computed(() => backgrounds.value.find((item) => item.isActive))
 const selectedBackground = computed(() => backgrounds.value.find((item) => item.ID === selectedId.value))
+
+const loadLoginLogo = async () => {
+  logoLoading.value = true
+  try {
+    const res = await getCurrentLoginLogo()
+    if (res.code === 0) {
+      currentLogo.value = res.data?.url ? res.data : null
+      logoPreviewFailed.value = false
+    }
+  } finally {
+    logoLoading.value = false
+  }
+}
+
+const beforeLogoUpload = (file) => {
+  const allowed = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type?.toLowerCase())
+  if (!allowed) {
+    ElMessage.error('登录图标仅支持 JPG、PNG、WebP 图片')
+    return false
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    ElMessage.error('登录图标不能超过 2MB')
+    return false
+  }
+  logoUploading.value = true
+  return true
+}
+
+const logoUploadSuccess = async (response, uploadFile) => {
+  try {
+    if (response?.code !== 0 || !response?.data?.file?.url) {
+      ElMessage.error(response?.msg || '登录图标上传失败')
+      return
+    }
+    const file = response.data.file
+    const res = await saveLoginLogo({
+      name: uploadFile?.name || file.name || '登录图标',
+      url: file.url
+    })
+    if (res.code === 0) {
+      await loadLoginLogo()
+      ElMessage.success('登录图标已更新')
+    }
+  } finally {
+    logoUploading.value = false
+  }
+}
+
+const logoUploadError = () => {
+  logoUploading.value = false
+  ElMessage.error('登录图标上传失败')
+}
+
+const restoreDefaultLogo = async () => {
+  if (!currentLogo.value) return
+  try {
+    await ElMessageBox.confirm('确定恢复系统默认登录图标吗？', '恢复默认图标', {
+      type: 'warning',
+      confirmButtonText: '恢复默认',
+      cancelButtonText: '取消'
+    })
+  } catch {
+    return
+  }
+  const res = await resetLoginLogo()
+  if (res.code === 0) {
+    await loadLoginLogo()
+    ElMessage.success('已恢复默认登录图标')
+  }
+}
 
 const loadBackgrounds = async () => {
   loading.value = true
@@ -227,7 +351,10 @@ const imageFallback = (event) => {
   }
 }
 
-onMounted(loadBackgrounds)
+onMounted(() => {
+  loadLoginLogo()
+  loadBackgrounds()
+})
 </script>
 
 <style scoped lang="scss">
@@ -235,6 +362,7 @@ onMounted(loadBackgrounds)
 .settings-heading,
 .setting-card { border: 1px solid var(--na-border, var(--el-border-color-light)); border-radius: 14px; background: var(--na-card, var(--el-bg-color)); box-shadow: 0 8px 24px rgb(15 23 42 / 4%); }
 .settings-heading { margin-bottom: 14px; padding: 18px 20px; }
+.setting-card + .setting-card { margin-top: 14px; }
 .eyebrow { margin: 0 0 5px; color: var(--el-color-primary); font-size: 11px; font-weight: 750; letter-spacing: .12em; }
 .settings-heading h1 { margin: 0; font-size: 19px; }
 .settings-heading p:last-child { margin: 5px 0 0; color: var(--el-text-color-secondary); font-size: 13px; }
@@ -250,6 +378,10 @@ onMounted(loadBackgrounds)
 .current-label { display: block; margin-bottom: 6px; color: var(--el-text-color-secondary); font-size: 12px; }
 .current-info strong { display: block; overflow: hidden; font-size: 17px; text-overflow: ellipsis; white-space: nowrap; }
 .current-info p { margin: 8px 0 0; color: var(--el-text-color-secondary); font-size: 12px; line-height: 1.6; }
+.current-logo { display: grid; grid-template-columns: 80px minmax(200px, 1fr) auto; align-items: center; gap: 20px; min-height: 120px; padding: 20px; }
+.logo-preview { display: grid; place-items: center; width: 72px; height: 72px; overflow: hidden; border: 1px solid var(--el-border-color-lighter); border-radius: 14px; background: var(--el-fill-color-extra-light); }
+.logo-preview img { width: 48px; height: 48px; object-fit: contain; }
+.logo-actions { display: flex; align-items: center; gap: 8px; }
 .background-manager { border-top: 1px solid var(--el-border-color-lighter); background: var(--el-fill-color-extra-light); padding: 18px 20px 20px; }
 .manager-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 16px; }
 .manager-toolbar h3 { margin: 0; font-size: 15px; }
@@ -279,6 +411,8 @@ onMounted(loadBackgrounds)
   .manager-toolbar,
   .manager-actions { align-items: stretch; flex-direction: column; }
   .current-background { grid-template-columns: 1fr; gap: 14px; padding: 16px; }
+  .current-logo { grid-template-columns: 72px minmax(0, 1fr); gap: 14px; padding: 16px; }
+  .logo-actions { grid-column: 1 / -1; flex-wrap: wrap; }
   .background-manager { padding: 16px; }
   .background-grid { grid-template-columns: 1fr; }
   .manager-actions > div { justify-content: flex-end; }

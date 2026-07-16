@@ -8,3 +8,8 @@ type CreateBackground struct {
 type ActivateBackground struct {
 	ID uint `json:"id" binding:"required"`
 }
+
+type SaveLoginLogo struct {
+	Name string `json:"name" binding:"required"`
+	URL  string `json:"url" binding:"required"`
+}
