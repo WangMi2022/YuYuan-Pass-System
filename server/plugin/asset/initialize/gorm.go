@@ -9,7 +9,13 @@ import (
 )
 
 func Gorm(ctx context.Context) {
-	if err := global.GVA_DB.WithContext(ctx).AutoMigrate(&model.Category{}, &model.Asset{}); err != nil {
+	if err := global.GVA_DB.WithContext(ctx).AutoMigrate(
+		&model.Category{},
+		&model.Asset{},
+		&model.AssetOperationOrder{},
+		&model.AssetOperationItem{},
+		&model.AssetOperationRecord{},
+	); err != nil {
 		global.GVA_LOG.Error("资产模块数据表迁移失败", zap.Error(err))
 		return
 	}

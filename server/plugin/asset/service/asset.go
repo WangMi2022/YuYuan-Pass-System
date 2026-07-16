@@ -41,7 +41,11 @@ func prepareAsset(asset *model.Asset, creating bool) error {
 	if asset.Unit == "" {
 		asset.Unit = "件"
 	}
-	if asset.Status == "" {
+	if creating {
+		asset.Status = "idle"
+		asset.Location = ""
+		asset.Custodian = ""
+	} else if asset.Status == "" {
 		asset.Status = "in_use"
 	}
 	if _, ok := allowedStatuses[asset.Status]; !ok {
@@ -88,8 +92,8 @@ func (s *assetService) Update(asset *model.Asset) error {
 	}
 	fields := []string{
 		"AssetCode", "Name", "CategoryID", "Brand", "Model", "SerialNumber",
-		"Quantity", "Unit", "UnitPrice", "OriginalValue", "CurrentValue", "Status",
-		"Location", "Custodian", "Supplier", "PurchaseDate", "WarrantyEndDate", "Photos", "Remarks",
+		"Quantity", "Unit", "UnitPrice", "OriginalValue", "CurrentValue",
+		"Supplier", "PurchaseDate", "WarrantyEndDate", "Photos", "Remarks",
 	}
 	result := global.GVA_DB.Model(&model.Asset{}).Where("id = ?", asset.ID).Select(fields).Updates(asset)
 	if result.Error != nil {
@@ -107,6 +111,20 @@ func (s *assetService) Update(asset *model.Asset) error {
 func (s *assetService) Delete(id uint) error {
 	if id == 0 {
 		return errors.New("缺少资产 ID")
+	}
+	var operationCount int64
+	if err := global.GVA_DB.Model(&model.AssetOperationRecord{}).Where("asset_id = ?", id).Count(&operationCount).Error; err != nil {
+		return err
+	}
+	if operationCount > 0 {
+		return errors.New("该资产已有流转记录，不能删除")
+	}
+	var draftItemCount int64
+	if err := global.GVA_DB.Model(&model.AssetOperationItem{}).Where("asset_id = ?", id).Count(&draftItemCount).Error; err != nil {
+		return err
+	}
+	if draftItemCount > 0 {
+		return errors.New("该资产已被业务草稿引用，请先删除相关草稿")
 	}
 	result := global.GVA_DB.Delete(&model.Asset{}, id)
 	if result.Error != nil {

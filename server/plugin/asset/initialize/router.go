@@ -13,4 +13,5 @@ func Router(engine *gin.Engine) {
 	private.Use(middleware.JWTAuth()).Use(middleware.CasbinHandler())
 	router.Router.Asset.Init(public, private)
 	router.Router.Category.Init(public, private)
+	router.Router.Operation.Init(public, private)
 }

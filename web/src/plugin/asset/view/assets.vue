@@ -152,7 +152,7 @@
             </el-select>
           </el-form-item>
           <el-form-item label="资产状态" prop="status">
-            <el-select v-model="formData.status">
+            <el-select v-model="formData.status" disabled>
               <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
           </el-form-item>
@@ -188,12 +188,19 @@
         </div>
 
         <h3>使用与责任信息</h3>
+        <el-alert
+          class="flow-alert"
+          title="状态、位置和保管人由入库、领用、调拨、归还、维修和报废单据统一维护。"
+          type="info"
+          show-icon
+          :closable="false"
+        />
         <div class="form-grid">
           <el-form-item label="存放位置">
-            <el-input v-model="formData.location" maxlength="150" placeholder="园区 / 楼层 / 房间" />
+            <el-input v-model="formData.location" disabled placeholder="尚未通过业务单设置" />
           </el-form-item>
           <el-form-item label="保管人 / 使用人">
-            <el-input v-model="formData.custodian" maxlength="100" placeholder="姓名或部门" />
+            <el-input v-model="formData.custodian" disabled placeholder="尚未通过领用单设置" />
           </el-form-item>
           <el-form-item label="供应商">
             <el-input v-model="formData.supplier" maxlength="150" placeholder="供应商名称" />
@@ -277,7 +284,7 @@ const emptyForm = () => ({
   unit: '件',
   unitPrice: 0,
   currentValue: 0,
-  status: 'in_use',
+  status: 'idle',
   location: '',
   custodian: '',
   supplier: '',
@@ -472,6 +479,7 @@ h1 { margin: 0; font-size: clamp(26px, 3vw, 36px); line-height: 1.2; letter-spac
 .drawer-title small { color: var(--asset-muted); font-weight: 400; }
 .asset-form h3 { margin: 8px 0 18px; padding-bottom: 9px; border-bottom: 1px solid var(--asset-border); font-size: 15px; }
 .asset-form h3:not(:first-child) { margin-top: 26px; }
+.flow-alert { margin: -4px 0 18px; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 18px; }
 .valuation-box { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 18px; border: 1px solid var(--asset-border); border-radius: var(--na-radius); background: var(--na-muted); }
 .valuation-box :deep(.el-input-number), .form-grid :deep(.el-select), .form-grid :deep(.el-date-editor) { width: 100%; }
