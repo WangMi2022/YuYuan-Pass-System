@@ -31,24 +31,23 @@
     right: 10px;
     bottom: 56px;
     left: 10px;
-    height: 154px;
+    height: 116px;
     overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--na-primary) 12%, var(--na-border));
-    border-radius: 12px;
-    background: color-mix(in srgb, var(--na-primary-soft) 72%, var(--na-card));
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--na-primary-soft) 52%, var(--na-card));
     color: var(--na-foreground);
   }
-  .na-sidebar-tip__content { position: relative; z-index: 1; padding: 14px 14px 0; }
+  .na-sidebar-tip__content { position: relative; z-index: 1; width: 128px; padding: 14px 0 0 14px; }
   .na-sidebar-tip__content strong { display: block; font-size: 13px; font-weight: 650; line-height: 1.5; }
-  .na-sidebar-tip__content p { margin: 5px 0 0; color: var(--na-muted-foreground); font-size: 11px; line-height: 1.65; }
+  .na-sidebar-tip__content p { margin: 5px 0 0; color: var(--na-muted-foreground); font-size: 11px; line-height: 1.55; }
   .na-sidebar-tip__illustration {
     position: absolute;
-    right: 50%;
-    bottom: 5px;
-    width: 112px;
-    height: 64px;
+    right: 5px;
+    bottom: 8px;
+    width: 76px;
+    height: 54px;
     color: var(--na-primary);
-    transform: translateX(50%);
   }
   .plant-stem { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
   .plant-leaf { fill: currentColor; opacity: .82; }

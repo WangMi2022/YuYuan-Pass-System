@@ -151,7 +151,27 @@
             <el-date-picker v-model="formData.businessDate" type="date" placeholder="选择业务日期" />
           </el-form-item>
           <el-form-item v-if="currentMeta.showLocation" :label="currentMeta.locationLabel" prop="targetLocation">
-            <el-input v-model="formData.targetLocation" maxlength="150" :placeholder="currentMeta.locationPlaceholder" />
+            <el-select
+              v-model="formData.targetLocation"
+              filterable
+              allow-create
+              default-first-option
+              clearable
+              :loading="locationOptionsLoading"
+              :placeholder="currentMeta.locationPlaceholder"
+            >
+              <el-option
+                v-for="location in locationOptions"
+                :key="location.ID"
+                :label="location.name"
+                :value="location.name"
+              >
+                <div class="location-option">
+                  <span>{{ location.name }}</span>
+                  <small>{{ location.code || currentMeta.locationLabel }}</small>
+                </div>
+              </el-option>
+            </el-select>
           </el-form-item>
           <el-form-item v-if="currentMeta.showCustodian" :label="currentMeta.custodianLabel" prop="targetCustodian">
             <el-input v-model="formData.targetCustodian" maxlength="100" :placeholder="currentMeta.custodianPlaceholder" />
@@ -270,6 +290,7 @@ import {
   submitAssetOperation,
   updateAssetOperation
 } from '@/plugin/asset/api/operation'
+import { getLocationOptions } from '@/plugin/asset/api/location'
 
 defineOptions({ name: 'AssetOperations' })
 
@@ -278,12 +299,14 @@ const operationMeta = {
   assetInbound: {
     type: 'inbound', title: '入库管理', shortLabel: '入库', eyebrow: 'ASSET INBOUND',
     description: '将已建档的待入库资产登记到库位，提交后进入闲置待领用状态。',
+    locationType: 'inbound',
     showLocation: true, locationRequired: true, locationLabel: '入库位置', locationPlaceholder: '仓库 / 库区 / 货架',
     showCustodian: false, reasonRequired: false, reasonPlaceholder: '采购入库、验收入库等', assetPlaceholder: '选择已建档的待入库资产'
   },
   assetIssue: {
     type: 'issue', title: '领用管理', shortLabel: '领用', eyebrow: 'ASSET ISSUE',
     description: '记录资产领用人与使用位置，提交后资产进入使用中状态。',
+    locationType: 'usage',
     showLocation: true, locationRequired: false, locationLabel: '使用位置', locationPlaceholder: '部门 / 楼层 / 工位，可选',
     showCustodian: true, custodianRequired: true, custodianLabel: '领用人 / 责任人', custodianPlaceholder: '姓名或部门',
     reasonRequired: false, reasonPlaceholder: '办公领用、项目领用等', assetPlaceholder: '选择可领用的闲置资产'
@@ -291,6 +314,7 @@ const operationMeta = {
   assetTransfer: {
     type: 'transfer', title: '调拨管理', shortLabel: '调拨', eyebrow: 'ASSET TRANSFER',
     description: '调整资产所在位置或责任人，保留调拨前后的完整快照。',
+    locationType: 'transfer',
     showLocation: true, locationRequired: true, locationLabel: '调入位置', locationPlaceholder: '目标园区 / 楼层 / 房间',
     showCustodian: true, custodianRequired: false, custodianLabel: '新责任人', custodianPlaceholder: '不填写则保持原责任人',
     reasonRequired: false, reasonPlaceholder: '部门调整、位置变更等', assetPlaceholder: '选择闲置或使用中的资产'
@@ -298,12 +322,14 @@ const operationMeta = {
   assetReturn: {
     type: 'return', title: '归还管理', shortLabel: '归还', eyebrow: 'ASSET RETURN',
     description: '登记使用或维修资产归还，提交后清空责任人并转为闲置。',
+    locationType: 'return',
     showLocation: true, locationRequired: true, locationLabel: '归还位置', locationPlaceholder: '仓库 / 库区 / 货架',
     showCustodian: false, reasonRequired: false, reasonPlaceholder: '离职归还、项目结束、维修完成等', assetPlaceholder: '选择使用中或维修中的资产'
   },
   assetMaintenance: {
     type: 'maintenance', title: '维修管理', shortLabel: '维修', eyebrow: 'ASSET MAINTENANCE',
     description: '记录故障原因和送修信息，提交后资产进入维修中状态。',
+    locationType: 'maintenance',
     showLocation: true, locationRequired: false, locationLabel: '维修位置', locationPlaceholder: '维修点或服务商地址，可选',
     showCustodian: true, custodianRequired: false, custodianLabel: '维修责任人', custodianPlaceholder: '内部负责人或服务商，可选',
     reasonRequired: true, reasonPlaceholder: '请填写故障现象或送修原因', assetPlaceholder: '选择闲置或使用中的资产'
@@ -311,6 +337,7 @@ const operationMeta = {
   assetScrap: {
     type: 'scrap', title: '报废管理', shortLabel: '报废', eyebrow: 'ASSET SCRAP',
     description: '记录资产处置原因，提交后资产转为已处置且当前估值归零。',
+    locationType: 'disposal',
     showLocation: true, locationRequired: false, locationLabel: '处置位置', locationPlaceholder: '报废库或处置地点，可选',
     showCustodian: false, reasonRequired: true, reasonPlaceholder: '请填写报废、损毁或处置原因', assetPlaceholder: '选择待处置资产'
   }
@@ -330,6 +357,8 @@ const submitting = ref(false)
 const formRef = ref()
 const assetOptions = ref([])
 const optionsLoading = ref(false)
+const locationOptions = ref([])
+const locationOptionsLoading = ref(false)
 const detailVisible = ref(false)
 const detailOrder = ref(null)
 
@@ -342,7 +371,7 @@ const drawerSize = computed(() => (window.innerWidth < 768 ? '96%' : '860px'))
 const detailColumns = computed(() => (window.innerWidth < 640 ? 1 : 2))
 const formRules = computed(() => ({
   businessDate: [{ required: true, message: '请选择业务日期', trigger: 'change' }],
-  targetLocation: currentMeta.value.locationRequired ? [{ required: true, message: `请填写${currentMeta.value.locationLabel}`, trigger: 'blur' }] : [],
+  targetLocation: currentMeta.value.locationRequired ? [{ required: true, message: `请选择或输入${currentMeta.value.locationLabel}`, trigger: 'change' }] : [],
   targetCustodian: currentMeta.value.custodianRequired ? [{ required: true, message: `请填写${currentMeta.value.custodianLabel}`, trigger: 'blur' }] : [],
   reason: currentMeta.value.reasonRequired ? [{ required: true, message: '请填写业务原因', trigger: 'blur' }] : [],
   assetIds: [{ type: 'array', required: true, min: 1, message: '请至少选择一项资产', trigger: 'change' }]
@@ -405,6 +434,16 @@ const loadAssetOptions = async (extraAssets = []) => {
   }
 }
 
+const loadLocationOptions = async () => {
+  locationOptionsLoading.value = true
+  try {
+    const res = await getLocationOptions({ type: currentMeta.value.locationType })
+    locationOptions.value = res.code === 0 ? (res.data || []) : []
+  } finally {
+    locationOptionsLoading.value = false
+  }
+}
+
 const submitSearch = () => { search.page = 1; loadOrders() }
 const resetSearch = () => {
   Object.assign(search, { page: 1, pageSize: 10, keyword: '', status: '', dateRange: [] })
@@ -415,7 +454,7 @@ const sizeChanged = () => { search.page = 1; loadOrders() }
 const openCreate = async () => {
   editing.value = false
   formData.value = emptyForm()
-  await loadAssetOptions()
+  await Promise.all([loadAssetOptions(), loadLocationOptions()])
   drawerVisible.value = true
 }
 
@@ -428,7 +467,7 @@ const openEdit = async (row) => {
     ID: item.assetId, assetCode: item.assetCode, name: item.assetName, quantity: item.quantity,
     unit: '件', status: item.fromStatus, location: item.fromLocation, custodian: item.fromCustodian
   })
-  await loadAssetOptions(extraAssets)
+  await Promise.all([loadAssetOptions(extraAssets), loadLocationOptions()])
   formData.value = {
     ID: order.ID, orderNo: order.orderNo, type: order.type,
     businessDate: order.businessDate ? new Date(order.businessDate) : new Date(),
@@ -458,7 +497,7 @@ const saveOrder = async (submit) => {
     if (res.code === 0) {
       ElMessage.success(submit ? `${currentMeta.value.shortLabel}单已提交` : '草稿已保存')
       drawerVisible.value = false
-      await Promise.all([loadOrders(), loadAssetOptions()])
+      await Promise.all([loadOrders(), loadAssetOptions(), loadLocationOptions()])
     }
   } finally {
     saving.value = false
@@ -478,7 +517,7 @@ const submitOrder = async (row) => {
     const res = await submitAssetOperation({ id: row.ID })
     if (res.code === 0) {
       ElMessage.success('业务单已提交')
-      await Promise.all([loadOrders(), loadAssetOptions()])
+      await Promise.all([loadOrders(), loadAssetOptions(), loadLocationOptions()])
     }
   } finally {
     processingId.value = 0
@@ -514,7 +553,7 @@ watch(operationType, async () => {
   Object.assign(search, { page: 1, pageSize: 10, keyword: '', status: '', dateRange: [] })
   drawerVisible.value = false
   detailVisible.value = false
-  await Promise.all([loadOrders(), loadAssetOptions()])
+  await Promise.all([loadOrders(), loadAssetOptions(), loadLocationOptions()])
 }, { immediate: true })
 </script>
 
@@ -552,6 +591,9 @@ h1 { margin: 0; font-size: 30px; line-height: 1.2; }
 .asset-option { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 20px; }
 .asset-option span { display: flex; min-width: 0; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .asset-option small { flex: 0 0 auto; color: var(--na-muted-foreground); }
+.location-option { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 16px; }
+.location-option span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.location-option small { flex: 0 0 auto; color: var(--na-muted-foreground); font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
 .drawer-actions { display: flex; justify-content: flex-end; gap: 10px; }
 .order-detail { max-height: 68vh; overflow-y: auto; }
 :deep(.el-form-item__label) { color: var(--na-foreground); font-weight: 600; }

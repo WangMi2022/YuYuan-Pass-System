@@ -19,14 +19,25 @@ check_url() {
   local method="$2"
   local url="$3"
   local response
+  local attempt
 
-  if [ "$method" = "POST" ]; then
-    response=$(curl -fsS --max-time 10 -X POST "$url")
-  else
-    response=$(curl -fsS --max-time 10 "$url")
-  fi
-  echo "[OK] ${name}: ${url}"
-  printf '%s' "$response"
+  for attempt in $(seq 1 15); do
+    if [ "$method" = "POST" ]; then
+      if response=$(curl -fsS --max-time 5 -X POST "$url" 2>/dev/null); then
+        echo "[OK] ${name}: ${url}"
+        printf '%s' "$response"
+        return 0
+      fi
+    elif response=$(curl -fsS --max-time 5 "$url" 2>/dev/null); then
+      echo "[OK] ${name}: ${url}"
+      printf '%s' "$response"
+      return 0
+    fi
+    sleep 2
+  done
+
+  echo "[FAIL] ${name}: ${url} 在 30 秒内未就绪" >&2
+  return 1
 }
 
 echo "检查容器状态"

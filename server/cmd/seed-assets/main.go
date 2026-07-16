@@ -83,6 +83,32 @@ var defaultCategories = []struct {
 	{Name: "其他资产", Code: "OTHER", Color: "#475569", Sort: 99, Description: "暂未归入其他分类的资产"},
 }
 
+var defaultLocations = []struct {
+	Name        string
+	Type        string
+	Code        string
+	Sort        int
+	Description string
+}{
+	{Name: "资产仓库 A 区", Type: "inbound", Code: "RK-A", Sort: 10, Description: "常规资产验收入库区"},
+	{Name: "资产仓库 B 区", Type: "inbound", Code: "RK-B", Sort: 20, Description: "大件及批量资产入库区"},
+	{Name: "信息设备备件库", Type: "inbound", Code: "RK-IT", Sort: 30, Description: "信息设备及配件入库区"},
+	{Name: "研发中心 6F", Type: "usage", Code: "SY-RD6", Sort: 10, Description: "研发部门资产使用区"},
+	{Name: "一号办公楼 4F", Type: "usage", Code: "SY-OFFICE1-4", Sort: 20, Description: "行政办公资产使用区"},
+	{Name: "生产车间 A 区", Type: "usage", Code: "SY-PLANT-A", Sort: 30, Description: "生产设备使用区"},
+	{Name: "二号办公楼 3F", Type: "transfer", Code: "DR-OFFICE2-3", Sort: 10, Description: "跨办公区调拨目标位置"},
+	{Name: "容灾机房", Type: "transfer", Code: "DR-DR", Sort: 20, Description: "信息设备调拨目标位置"},
+	{Name: "设计中心", Type: "transfer", Code: "DR-DESIGN", Sort: 30, Description: "设计类资产调拨目标位置"},
+	{Name: "资产仓库 A 区", Type: "return", Code: "GH-A", Sort: 10, Description: "常规资产归还接收区"},
+	{Name: "行政物资库", Type: "return", Code: "GH-OFFICE", Sort: 20, Description: "办公物资归还接收区"},
+	{Name: "设备维修中心", Type: "maintenance", Code: "WX-CENTER", Sort: 10, Description: "内部设备维修位置"},
+	{Name: "外送维修待验区", Type: "maintenance", Code: "WX-OUT", Sort: 20, Description: "外送维修后待验收位置"},
+	{Name: "信息设备检修间", Type: "maintenance", Code: "WX-IT", Sort: 30, Description: "信息设备检修位置"},
+	{Name: "报废暂存区", Type: "disposal", Code: "CZ-SCRAP", Sort: 10, Description: "已批准报废资产暂存位置"},
+	{Name: "待拍卖区", Type: "disposal", Code: "CZ-AUCTION", Sort: 20, Description: "待公开处置资产存放位置"},
+	{Name: "环保回收交接区", Type: "disposal", Code: "CZ-RECYCLE", Sort: 30, Description: "环保回收处置交接位置"},
+}
+
 var templatesByCode = map[string][]assetTemplate{
 	"FURN-CHAIR": {
 		{Name: "人体工学办公椅", Brand: "永艺", Model: "XY-Ergo Pro", Unit: "把", BasePrice: 860, MinQty: 2, MaxQty: 12, WarrantyY: 3, Supplier: "上海办公家具供应中心", Location: "一号办公楼 3F", Custodian: "行政部-李娜"},
@@ -214,6 +240,9 @@ func main() {
 	}
 	if err := ensureDefaultCategories(ctx, db); err != nil {
 		log.Fatalf("ensure categories: %v", err)
+	}
+	if err := ensureDefaultLocations(ctx, db); err != nil {
+		log.Fatalf("ensure locations: %v", err)
 	}
 
 	cats, err := loadCategories(ctx, db)
@@ -451,6 +480,21 @@ func ensureSchema(ctx context.Context, db *sql.DB) error {
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_asset_categories_name ON asset_categories (name)`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_asset_categories_code ON asset_categories (code)`,
 		`CREATE INDEX IF NOT EXISTS idx_asset_categories_deleted_at ON asset_categories (deleted_at)`,
+		`CREATE TABLE IF NOT EXISTS asset_locations (
+			id bigserial PRIMARY KEY,
+			created_at timestamptz,
+			updated_at timestamptz,
+			deleted_at timestamptz,
+			name varchar(150) NOT NULL,
+			type varchar(30) NOT NULL,
+			code varchar(50),
+			description varchar(500),
+			sort bigint DEFAULT 0,
+			enabled boolean NOT NULL
+		)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_asset_location_type_name ON asset_locations (name, type)`,
+		`CREATE INDEX IF NOT EXISTS idx_asset_locations_type ON asset_locations (type)`,
+		`CREATE INDEX IF NOT EXISTS idx_asset_locations_deleted_at ON asset_locations (deleted_at)`,
 		`CREATE TABLE IF NOT EXISTS assets (
 			id bigserial PRIMARY KEY,
 			created_at timestamptz,
@@ -571,6 +615,19 @@ func ensureDefaultCategories(ctx context.Context, db *sql.DB) error {
 INSERT INTO asset_categories (created_at, updated_at, name, code, description, color, sort, enabled)
 VALUES (NOW(), NOW(), $1, $2, $3, $4, $5, true)
 ON CONFLICT (code) DO NOTHING`, item.Name, item.Code, item.Description, item.Color, item.Sort)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func ensureDefaultLocations(ctx context.Context, db *sql.DB) error {
+	for _, item := range defaultLocations {
+		_, err := db.ExecContext(ctx, `
+INSERT INTO asset_locations (created_at, updated_at, name, type, code, description, sort, enabled)
+VALUES (NOW(), NOW(), $1, $2, $3, $4, $5, true)
+ON CONFLICT (name, type) DO NOTHING`, item.Name, item.Type, item.Code, item.Description, item.Sort)
 		if err != nil {
 			return err
 		}
