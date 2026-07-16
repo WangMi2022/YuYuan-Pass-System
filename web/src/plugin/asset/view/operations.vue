@@ -51,7 +51,7 @@
       <header class="panel-header">
         <div>
           <h2>{{ currentMeta.shortLabel }}单据</h2>
-          <span>共 {{ total }} 张单据，提交后将同步更新资产档案</span>
+          <span>共 {{ total }} 张单据；草稿可编辑，提交完成后转为只读审计记录</span>
         </div>
         <el-button :icon="Refresh" text aria-label="刷新业务单" @click="loadOrders">刷新</el-button>
       </header>
@@ -102,7 +102,12 @@
               <el-button type="success" link :loading="processingId === row.ID" @click="submitOrder(row)">提交</el-button>
               <el-button type="danger" link :icon="Delete" @click="removeOrder(row)">删除</el-button>
             </template>
-            <el-button v-else type="primary" link :icon="View" @click="openDetail(row)">查看</el-button>
+            <template v-else>
+              <el-tooltip content="已完成单据已更新资产并生成审计记录，不支持直接修改" placement="top">
+                <span><el-button type="info" link :icon="Lock" disabled>已锁定</el-button></span>
+              </el-tooltip>
+              <el-button type="primary" link :icon="View" @click="openDetail(row)">查看</el-button>
+            </template>
           </template>
         </el-table-column>
         <template #empty>
@@ -255,7 +260,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Close, Delete, Edit, Plus, Refresh, Search, View } from '@element-plus/icons-vue'
+import { Close, Delete, Edit, Lock, Plus, Refresh, Search, View } from '@element-plus/icons-vue'
 import {
   createAssetOperation,
   deleteAssetOperation,

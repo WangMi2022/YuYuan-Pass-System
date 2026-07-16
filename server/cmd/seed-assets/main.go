@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -341,6 +342,10 @@ RETURNING id`
 	if err != nil {
 		log.Fatalf("seed asset operation data: %v", err)
 	}
+	draftStats, err := seedOperationDrafts(ctx, tx, seededAssets, *prefix, now, 2)
+	if err != nil {
+		log.Fatalf("seed editable operation drafts: %v", err)
+	}
 
 	if err := tx.Commit(); err != nil {
 		log.Fatalf("commit: %v", err)
@@ -355,9 +360,13 @@ RETURNING id`
 	for _, status := range []string{"pending_inbound", "idle", "in_use", "maintenance", "retired"} {
 		fmt.Printf("  - %s：%d 条\n", statusLabel(status), statsByStatus[status])
 	}
-	fmt.Println("生命周期单据：")
+	fmt.Println("生命周期单据（已完成）：")
 	for _, operationType := range []string{"inbound", "issue", "transfer", "return", "maintenance", "scrap"} {
 		fmt.Printf("  - %s：%d 张\n", operationLabel(operationType), operationStats[operationType])
+	}
+	fmt.Println("可编辑草稿：")
+	for _, operationType := range []string{"inbound", "issue", "transfer", "return", "maintenance", "scrap"} {
+		fmt.Printf("  - %s：%d 张\n", operationLabel(operationType), draftStats[operationType])
 	}
 }
 
@@ -644,6 +653,101 @@ type operationSnapshot struct {
 	Reason         string
 }
 
+type seededDraft struct {
+	Asset    seededAsset
+	Snapshot operationSnapshot
+}
+
+var draftOperationTypes = []string{"inbound", "issue", "transfer", "return", "maintenance", "scrap"}
+
+func draftAssetEligible(operationType, status string) bool {
+	allowed := map[string]map[string]struct{}{
+		"inbound":     {"pending_inbound": {}},
+		"issue":       {"idle": {}},
+		"transfer":    {"idle": {}, "in_use": {}},
+		"return":      {"in_use": {}, "maintenance": {}},
+		"maintenance": {"idle": {}, "in_use": {}},
+		"scrap":       {"idle": {}, "in_use": {}, "maintenance": {}},
+	}
+	_, ok := allowed[operationType][status]
+	return ok
+}
+
+func draftSnapshotFor(operationType string, asset seededAsset) operationSnapshot {
+	snapshot := operationSnapshot{
+		OperationType: operationType,
+		FromStatus:    asset.Status, FromLocation: asset.Location, FromCustodian: asset.Custodian,
+	}
+	switch operationType {
+	case "inbound":
+		snapshot.ToStatus = "idle"
+		snapshot.ToLocation = "资产仓库 C 区"
+		snapshot.TargetLocation = snapshot.ToLocation
+		snapshot.Reason = "采购资产验收入库"
+	case "issue":
+		snapshot.ToStatus = "in_use"
+		snapshot.ToLocation = "项目研发区"
+		snapshot.ToCustodian = "研发部-张明"
+		snapshot.TargetLocation = snapshot.ToLocation
+		snapshot.TargetKeeper = snapshot.ToCustodian
+		snapshot.Reason = "项目岗位资产领用"
+	case "transfer":
+		snapshot.ToStatus = asset.Status
+		snapshot.ToLocation = "二号办公楼 3F"
+		snapshot.ToCustodian = asset.Custodian
+		if snapshot.ToCustodian == "" {
+			snapshot.ToCustodian = "行政部-李杰"
+		}
+		snapshot.TargetLocation = snapshot.ToLocation
+		snapshot.TargetKeeper = snapshot.ToCustodian
+		snapshot.Reason = "办公区域与责任人调整"
+	case "return":
+		snapshot.ToStatus = "idle"
+		snapshot.ToLocation = "资产仓库 A 区"
+		snapshot.TargetLocation = snapshot.ToLocation
+		snapshot.Reason = "阶段工作结束归还资产"
+	case "maintenance":
+		snapshot.ToStatus = "maintenance"
+		snapshot.ToLocation = "设备维修中心"
+		snapshot.ToCustodian = "设备保障组-顾维"
+		snapshot.TargetLocation = snapshot.ToLocation
+		snapshot.TargetKeeper = snapshot.ToCustodian
+		snapshot.Reason = "设备运行异常，申请检修"
+	case "scrap":
+		snapshot.ToStatus = "retired"
+		snapshot.ToLocation = "报废暂存区"
+		snapshot.TargetLocation = snapshot.ToLocation
+		snapshot.Reason = "超过经济使用年限，申请报废"
+	}
+	return snapshot
+}
+
+func buildDraftSeeds(assets []seededAsset, perType int) ([]seededDraft, error) {
+	if perType <= 0 {
+		return nil, errors.New("draft count per operation must be greater than zero")
+	}
+	drafts := make([]seededDraft, 0, len(draftOperationTypes)*perType)
+	usedAssets := map[int64]struct{}{}
+	for _, operationType := range draftOperationTypes {
+		selected := 0
+		for _, asset := range assets {
+			if _, used := usedAssets[asset.ID]; used || !draftAssetEligible(operationType, asset.Status) {
+				continue
+			}
+			drafts = append(drafts, seededDraft{Asset: asset, Snapshot: draftSnapshotFor(operationType, asset)})
+			usedAssets[asset.ID] = struct{}{}
+			selected++
+			if selected == perType {
+				break
+			}
+		}
+		if selected != perType {
+			return nil, fmt.Errorf("insufficient eligible assets for %s drafts: got %d, want %d", operationType, selected, perType)
+		}
+	}
+	return drafts, nil
+}
+
 func operationSnapshotFor(asset seededAsset, index int) operationSnapshot {
 	warehouse := []string{"资产仓库 A 区", "资产仓库 B 区", "信息设备备件库", "行政物资库"}[index%4]
 	switch asset.Status {
@@ -756,6 +860,53 @@ INSERT INTO asset_operation_records (
 			operatedAt, orderID, orderNo, snapshot.OperationType, asset.ID, asset.Code, asset.Name, asset.Quantity,
 			snapshot.FromStatus, snapshot.ToStatus, snapshot.FromLocation, snapshot.ToLocation,
 			snapshot.FromCustodian, snapshot.ToCustodian, operatorID, operatorName,
+		)
+		if err != nil {
+			return stats, err
+		}
+		stats[snapshot.OperationType]++
+	}
+	return stats, nil
+}
+
+func seedOperationDrafts(ctx context.Context, tx *sql.Tx, assets []seededAsset, prefix string, now time.Time, perType int) (map[string]int, error) {
+	drafts, err := buildDraftSeeds(assets, perType)
+	if err != nil {
+		return nil, err
+	}
+	stats := map[string]int{}
+	var operatorID int64 = 1
+	operatorName := "系统管理员"
+	_ = tx.QueryRowContext(ctx, `SELECT id, COALESCE(NULLIF(nick_name, ''), username) FROM sys_users WHERE username = 'admin' AND deleted_at IS NULL ORDER BY id LIMIT 1`).Scan(&operatorID, &operatorName)
+
+	operationPrefix := "SEED-" + sanitizeCode(prefix)
+	for index, draft := range drafts {
+		snapshot := draft.Snapshot
+		asset := draft.Asset
+		sequence := stats[snapshot.OperationType] + 1
+		createdAt := now.Add(-time.Duration(len(drafts)-index) * time.Minute)
+		orderNo := fmt.Sprintf("%s-DRAFT-%s-%02d", operationPrefix, operationCode(snapshot.OperationType), sequence)
+		var orderID int64
+		err := tx.QueryRowContext(ctx, `
+INSERT INTO asset_operation_orders (
+  created_at, updated_at, order_no, type, status, business_date,
+  target_location, target_custodian, reason, remarks, created_by, created_by_name
+) VALUES ($1, $1, $2, $3, 'draft', $4, $5, $6, $7, $8, $9, $10)
+RETURNING id`, createdAt, orderNo, snapshot.OperationType, createdAt.Format("2006-01-02"),
+			snapshot.TargetLocation, snapshot.TargetKeeper, snapshot.Reason,
+			"可编辑演示草稿：修改后可保存、提交或删除。", operatorID, operatorName,
+		).Scan(&orderID)
+		if err != nil {
+			return stats, err
+		}
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO asset_operation_items (
+  created_at, updated_at, order_id, asset_id, quantity, asset_code, asset_name,
+  from_status, to_status, from_location, to_location, from_custodian, to_custodian
+) VALUES ($1, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+			createdAt, orderID, asset.ID, asset.Quantity, asset.Code, asset.Name,
+			snapshot.FromStatus, snapshot.ToStatus, snapshot.FromLocation, snapshot.ToLocation,
+			snapshot.FromCustodian, snapshot.ToCustodian,
 		)
 		if err != nil {
 			return stats, err
