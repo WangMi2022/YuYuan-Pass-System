@@ -66,6 +66,10 @@ docker compose --env-file .env -f docker-compose.yml up -d --force-recreate web
 ./build.sh server
 docker compose --env-file .env -f docker-compose.yml up -d --force-recreate server
 
+# 同时包含前后端和数据模型变更的版本（例如登录图标配置）
+./build.sh server web
+docker compose --env-file .env -f docker-compose.yml up -d --force-recreate server web
+
 # 停止服务
 ./down.sh
 ```
@@ -77,6 +81,8 @@ docker compose --env-file .env -f docker-compose.yml up -d --force-recreate serv
 - `config.yaml`：后端实际运行配置，包含连接信息，禁止提交。
 - `server.Dockerfile`、`web.Dockerfile`：二次开发使用的多阶段镜像构建文件。
 - `nginx.conf`：SPA、静态资源缓存、API 代理和旧资源 404 策略。
+
+后端容器启动时会执行 GORM 自动迁移。升级到包含登录图标配置的版本时会自动创建 `system_login_logos` 表，更新前应先备份 PostgreSQL。
 
 ## 演示资产
 

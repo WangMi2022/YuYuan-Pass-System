@@ -274,6 +274,10 @@ curl -X POST http://127.0.0.1:${SERVER_PORT:-8888}/init/checkdb
 
 # Swagger
 curl -I http://127.0.0.1:${SERVER_PORT:-8888}/swagger/index.html
+
+# 登录外观公开配置
+curl http://127.0.0.1:${SERVER_PORT:-8888}/appearance/login-logo
+curl http://127.0.0.1:${SERVER_PORT:-8888}/appearance/login-background
 ```
 
 验收结果应满足：
@@ -372,6 +376,25 @@ docker compose --env-file .env -f docker-compose.yml up -d --force-recreate serv
 ```
 
 后端启动时会执行 GORM 自动迁移。包含模型变更的版本更新前必须先备份数据库。
+
+### 11.5 登录外观功能更新
+
+登录图标配置同时包含前端页面、后端接口和 `system_login_logos` 数据表，升级到包含该功能的版本时必须同时重建 Server 与 Web，不能只更新前端：
+
+```bash
+git pull --ff-only
+cd deploy/docker-dev
+./build.sh server web
+docker compose --env-file .env -f docker-compose.yml up -d --force-recreate server web
+./health-check.sh
+```
+
+Server 启动时会自动创建或更新外观配置相关数据表。部署完成后应验证：
+
+1. `/appearance/login-logo` 和 `/appearance/login-background` 返回 `code: 0`。
+2. 管理员可以在“系统管理 → 系统设置”上传和恢复登录图标。
+3. 上传登录背景并保存后，刷新登录页可以看到新背景。
+4. 对象存储中的图片 URL 可以从用户浏览器直接访问。
 
 ## 12. 备份与恢复
 
@@ -578,3 +601,4 @@ docker compose --env-file .env -f docker-compose.yml up -d --force-recreate web
 - [ ] 已记录当前部署 commit/tag 和镜像版本。
 - [ ] `./health-check.sh` 执行通过。
 - [ ] 登录、资产、文档、图片、公告和系统设置完成验收。
+- [ ] 登录图标上传、恢复默认以及登录背景切换均已验证。
