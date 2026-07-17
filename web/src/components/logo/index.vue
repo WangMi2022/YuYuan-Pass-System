@@ -70,7 +70,7 @@ function getSize() {
       ...getSize()
     }" />
   <div v-else-if="showTextPlaceholder"
-    class="rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-gray-700 dark:text-gray-200 font-bold text-xs"
+    class="rounded-full bg-muted flex items-center justify-center text-muted-foreground font-bold text-xs"
     :style="{
       ...getSize()
     }">

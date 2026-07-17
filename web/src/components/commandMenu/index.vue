@@ -172,7 +172,7 @@
       color: #666;
     }
     .quick-input {
-      @apply bg-gray-50 dark:bg-gray-800;
+      background: var(--na-muted);
       color: #666;
       border-radius: 4px 4px 0 0;
       border: none;
@@ -187,7 +187,7 @@
       padding: 8px;
       margin: 4px 0;
       &:hover {
-        @apply bg-gray-200 dark:bg-slate-500;
+        background: var(--na-border-strong);
         cursor: pointer;
         border-radius: 4px;
       }
