@@ -10,6 +10,34 @@ export const formatBoolean = (bool) => {
     return ''
   }
 }
+
+/* Shared number formatting — business views must reuse these instead of
+ * declaring their own Intl helpers. */
+const cnyFormatter = new Intl.NumberFormat('zh-CN', {
+  style: 'currency',
+  currency: 'CNY',
+  minimumFractionDigits: 2
+})
+const compactFormatter = new Intl.NumberFormat('zh-CN', {
+  notation: 'compact',
+  maximumFractionDigits: 1
+})
+const numberFormatter = new Intl.NumberFormat('zh-CN')
+
+export const formatCurrency = (value) => cnyFormatter.format(Number(value || 0))
+export const formatCompactCurrency = (value) =>
+  `¥ ${compactFormatter.format(Number(value || 0))}`
+export const formatNumber = (value) => numberFormatter.format(Number(value || 0))
+export const formatPercent = (value, total) =>
+  `${total ? ((value / total) * 100).toFixed(1) : '0.0'}%`
+export const formatDateText = (value) => {
+  if (!value) return '—'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime())
+    ? '—'
+    : date.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
+}
+
 export const formatDate = (time) => {
   if (time !== null && time !== '') {
     var date = new Date(time)
