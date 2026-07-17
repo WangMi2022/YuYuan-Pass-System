@@ -25,11 +25,6 @@
   #app {
     height: 100vh;
     overflow: hidden;
-    font-weight: 400 !important;
-  }
-
-  .el-button {
-    font-weight: 400 !important;
   }
 
   .gva-body-h {

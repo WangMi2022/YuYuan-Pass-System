@@ -27,6 +27,7 @@
   "/src/view/layout/aside/index.vue": "Index",
   "/src/view/layout/aside/normalMode.vue": "GvaAside",
   "/src/view/layout/aside/sidebarMode.vue": "SidebarMode",
+  "/src/view/layout/aside/SidebarTipCard.vue": "SidebarTipCard",
   "/src/view/layout/header/index.vue": "Index",
   "/src/view/layout/header/tools.vue": "Tools",
   "/src/view/layout/iframe.vue": "GvaLayoutIframe",
@@ -96,6 +97,8 @@
   "/src/plugin/auto/view/installPlugin/index.vue": "Index",
   "/src/plugin/auto/view/pubPlug/pubPlug.vue": "PubPlug",
   "/src/plugin/auto/view/skills/index.vue": "Index",
+  "/src/plugin/document/components/SpreadsheetEditor.vue": "SpreadsheetEditor",
+  "/src/plugin/document/view/viewer.vue": "Viewer",
   "/src/plugin/email/view/index.vue": "Email",
-  "/src/plugin/document/view/viewer.vue": "DocumentViewer"
+  "/src/plugin/site/view/bookmarks.vue": "Bookmarks"
 }

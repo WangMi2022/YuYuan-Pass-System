@@ -49,7 +49,7 @@ defineOptions({
 const props = defineProps({
   modelValue: {
     type: String,
-    default: '#20aaa6'
+    default: '#6366f1'
   }
 })
 
@@ -58,19 +58,19 @@ const customColor = ref(props.modelValue)
 const normalizedValue = computed(() => props.modelValue.toLowerCase())
 
 const presetColors = [
-  { color: '#20aaa6', name: '默认青' },
-  { color: '#8bb5d1', name: '晨雾蓝' },
-  { color: '#a8c8a8', name: '薄荷绿' },
-  { color: '#d4a5a5', name: '玫瑰粉' },
-  { color: '#c8a8d8', name: '薰衣草' },
-  { color: '#f0c674', name: '暖阳黄' },
-  { color: '#b8b8b8', name: '月光银' },
-  { color: '#d8a8a8', name: '珊瑚橙' },
-  { color: '#a8d8d8', name: '海雾青' },
-  { color: '#c8c8a8', name: '橄榄绿' },
-  { color: '#d8c8a8', name: '奶茶棕' },
-  { color: '#a8a8d8', name: '梦幻紫' },
-  { color: '#c8d8a8', name: '抹茶绿' }
+  { color: '#6366f1', name: '靛蓝' },
+  { color: '#8b5cf6', name: '雪青' },
+  { color: '#3b82f6', name: '蔚蓝' },
+  { color: '#0ea5e9', name: '晴空' },
+  { color: '#06b6d4', name: '青碧' },
+  { color: '#14b8a6', name: '孔雀' },
+  { color: '#10b981', name: '翡翠' },
+  { color: '#84cc16', name: '嫩芽' },
+  { color: '#f59e0b', name: '琥珀' },
+  { color: '#f97316', name: '暖橙' },
+  { color: '#f43f5e', name: '绯红' },
+  { color: '#ec4899', name: '樱粉' },
+  { color: '#20aaa6', name: '经典青' }
 ]
 
 const handleColorChange = (color) => {

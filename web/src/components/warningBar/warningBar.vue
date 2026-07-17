@@ -1,10 +1,6 @@
 <template>
-  <div
-    class="px-1.5 py-2 flex items-center rounded-sm mt-2 bg-amber-50 gap-2 mb-3 text-amber-500 dark:bg-amber-700 dark:text-gray-200"
-    :class="href && 'cursor-pointer'"
-    @click="open"
-  >
-    <el-icon class="text-xl">
+  <div class="na-warning-bar" :class="href && 'is-link'" @click="open">
+    <el-icon class="na-warning-bar__icon">
       <warning-filled />
     </el-icon>
     <span>
@@ -31,3 +27,25 @@
     }
   }
 </script>
+
+<style lang="scss" scoped>
+  .na-warning-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 2px 0 14px;
+    padding: 9px 12px;
+    border: 1px solid color-mix(in srgb, var(--na-warning) 28%, transparent);
+    border-radius: var(--na-radius-sm);
+    background: var(--na-warning-soft);
+    color: var(--na-warning);
+    font-size: 13px;
+    line-height: 1.5;
+
+    &.is-link { cursor: pointer; }
+
+    &__icon { flex: 0 0 auto; font-size: 15px; }
+
+    span { color: color-mix(in srgb, var(--na-warning) 72%, var(--na-foreground)); }
+  }
+</style>

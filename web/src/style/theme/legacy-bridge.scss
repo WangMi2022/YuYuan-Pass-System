@@ -1,0 +1,71 @@
+/*
+ * Legacy bridge — reskins gin-vue-admin's stock system pages (superAdmin,
+ * systemTools, example, generated CRUD pages) without touching their code:
+ *   1. token-based gva-* page containers,
+ *   2. functional rules migrated from the old main.scss / element_visiable.scss,
+ *   3. a normalization layer that maps leftover hardcoded Tailwind utility
+ *      classes (bg-white, dark:bg-slate-900, ...) onto theme tokens.
+ * !important is allowed here on purpose: these rules must beat inline utility
+ * classes scattered across ~40 stock pages we deliberately don't rewrite.
+ */
+
+/* ---- gva page containers ---- */
+.gva-search-box,
+.gva-table-box,
+.gva-form-box {
+  margin: 12px !important;
+  padding: 16px !important;
+  border: 1px solid var(--na-border) !important;
+  border-radius: var(--na-radius) !important;
+  background: var(--na-card) !important;
+  color: var(--na-card-foreground) !important;
+  box-shadow: var(--na-shadow-sm) !important;
+}
+.gva-search-box { padding-bottom: 2px !important; }
+.gva-search-box + .gva-table-box,
+.gva-table-box + .gva-table-box { margin-top: 0 !important; }
+.gva-table-box .el-table { margin: 0 !important; }
+
+.gva-btn-list {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px !important;
+  margin-bottom: 14px !important;
+}
+.gva-btn-list .el-button + .el-button { margin-left: 0 !important; }
+.gva-btn-list .el-upload .el-button { margin-left: 0 !important; }
+
+.gva-pagination {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.gva-customer-icon { width: 16px; height: 16px; }
+
+/* Inline search forms on stock pages rely on a fixed control width. */
+.el-form--inline .el-form-item > .el-input,
+.el-form--inline .el-form-item .el-cascader,
+.el-form--inline .el-form-item .el-select,
+.el-form--inline .el-form-item .el-date-editor,
+.el-form--inline .el-form-item .el-autocomplete { width: 13rem; }
+
+/* ---- Normalization of leftover hardcoded utility classes ---- */
+.new-api-theme .bg-white,
+.new-api-theme [class*='bg-white/'] { background-color: var(--na-card) !important; }
+.new-api-theme .bg-gray-50,
+.new-api-theme .bg-slate-50,
+.new-api-theme [class*='bg-slate-50/'] { background-color: var(--na-background) !important; }
+.new-api-theme .text-slate-700,
+.new-api-theme .text-gray-700,
+.new-api-theme .text-black { color: var(--na-foreground) !important; }
+.new-api-theme .text-slate-500,
+.new-api-theme .text-slate-600,
+.new-api-theme .text-gray-500,
+.new-api-theme .text-gray-600 { color: var(--na-muted-foreground) !important; }
+html.dark .new-api-theme [class*='dark:bg-slate-900'],
+html.dark .new-api-theme [class*='dark:bg-slate-800'] { background-color: var(--na-card) !important; }
+html.dark .new-api-theme [class*='dark:text-slate-'],
+html.dark .new-api-theme [class*='dark:text-gray-'] { color: var(--na-muted-foreground) !important; }
+html.dark .new-api-theme [class*='dark:border-slate-'],
+html.dark .new-api-theme [class*='dark:border-gray-'] { border-color: var(--na-border) !important; }

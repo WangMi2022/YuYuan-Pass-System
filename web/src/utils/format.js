@@ -153,6 +153,7 @@ export const setBodyPrimaryColor = (primaryColor, darkMode) => {
 
   document.documentElement.style.setProperty('--el-color-primary', primaryColor)
   document.documentElement.style.setProperty('--na-primary', primaryColor)
+  document.documentElement.style.setProperty('--na-chart-1', primaryColor)
   document.documentElement.style.setProperty('--na-on-primary', getContrastTextColor(primaryColor))
   document.documentElement.style.setProperty('--na-primary-hover', hoverColor)
   document.documentElement.style.setProperty('--na-primary-soft', addOpacityToColor(primaryColor, darkMode === 'dark' ? 0.18 : 0.1))

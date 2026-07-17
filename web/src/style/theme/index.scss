@@ -1,0 +1,10 @@
+/*
+ * SaaS theme entry — imported last from main.js so it wins the cascade.
+ * Order matters: tokens → bridge → base → components → shell → legacy.
+ */
+@use './tokens.scss';
+@use './element-bridge.scss';
+@use './base.scss';
+@use './components.scss';
+@use './shell.scss';
+@use './legacy-bridge.scss';

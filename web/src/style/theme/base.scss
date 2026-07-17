@@ -1,0 +1,67 @@
+/*
+ * Base document styles: typography, scrollbars, selection, focus.
+ * No Element Plus overrides here — see components.scss.
+ */
+
+html,
+body,
+#app {
+  background: var(--na-background);
+  color: var(--na-foreground);
+}
+
+html {
+  overflow-x: hidden;
+  font-family: var(--na-font-sans);
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  min-width: 320px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--na-border-strong) transparent;
+}
+
+::-webkit-scrollbar {
+  display: block;
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--na-border-strong);
+  background-clip: padding-box;
+}
+
+::selection { background: color-mix(in srgb, var(--na-primary) 24%, transparent); }
+
+button:not(:disabled),
+[role='button']:not(:disabled),
+.el-button:not(:disabled) { cursor: pointer; }
+
+:focus-visible {
+  outline: 2px solid var(--na-primary);
+  outline-offset: 2px;
+}
+
+#nprogress .bar { background: var(--na-primary) !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}

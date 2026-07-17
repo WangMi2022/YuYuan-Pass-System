@@ -1,0 +1,116 @@
+/*
+ * Design tokens — the single source of truth for the SaaS theme.
+ * Light values on :root, dark values on html.dark.
+ *
+ * Primary tokens (--na-primary and friends, --na-chart-1) are re-injected at
+ * runtime by setBodyPrimaryColor (src/utils/format.js) whenever the user picks
+ * a theme color; values here are first-paint fallbacks and must stay in sync
+ * with the default primaryColor in src/pinia/modules/app.js.
+ */
+
+:root {
+  /* surfaces */
+  --na-background: #fafafa;
+  --na-foreground: #18181b;
+  --na-card: #ffffff;
+  --na-card-foreground: #18181b;
+  --na-popover: #ffffff;
+  --na-muted: #f4f4f5;
+  --na-muted-foreground: #71717a;
+
+  /* primary — runtime-injected, fallback = indigo */
+  --na-primary: #6366f1;
+  --na-on-primary: #ffffff;
+  --na-primary-hover: #4f46e5;
+  --na-primary-soft: rgb(99 102 241 / 10%);
+  --na-accent: rgb(99 102 241 / 12%);
+  --na-accent-foreground: #4338ca;
+  --na-ring: rgb(99 102 241 / 20%);
+
+  /* lines */
+  --na-border: #e4e4e7;
+  --na-border-strong: #d4d4d8;
+  --na-input: #d4d4d8;
+
+  /* status */
+  --na-success: #059669;
+  --na-success-soft: rgb(5 150 105 / 10%);
+  --na-warning: #d97706;
+  --na-warning-soft: rgb(217 119 6 / 12%);
+  --na-danger: #dc2626;
+  --na-danger-soft: rgb(220 38 38 / 10%);
+  --na-info: #0284c7;
+  --na-info-soft: rgb(2 132 199 / 10%);
+
+  /* categorical chart palette — chart-1 follows the primary color at runtime */
+  --na-chart-1: #6366f1;
+  --na-chart-2: #0ea5e9;
+  --na-chart-3: #10b981;
+  --na-chart-4: #f59e0b;
+  --na-chart-5: #8b5cf6;
+  --na-chart-6: #f43f5e;
+  --na-chart-grid: #ececee;
+  --na-chart-label: #71717a;
+
+  /* shell */
+  --na-sidebar: #fcfcfc;
+  --na-sidebar-border: #e4e4e7;
+  --na-table-header: #fafafa;
+  --na-table-hover: #f4f4f5;
+
+  /* geometry & depth */
+  --na-radius: 10px;
+  --na-radius-sm: 8px;
+  --na-radius-lg: 14px;
+  --na-shadow-sm: 0 1px 2px rgb(0 0 0 / 4%);
+  --na-shadow-md: 0 4px 16px rgb(24 24 27 / 8%);
+  --na-header-height: 56px;
+  --na-tabs-height: 40px;
+
+  --na-font-sans: Inter, 'Public Sans', ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+
+html.dark {
+  /* surfaces */
+  --na-background: #09090b;
+  --na-foreground: #fafafa;
+  --na-card: #111113;
+  --na-card-foreground: #fafafa;
+  --na-popover: #1b1b1f;
+  --na-muted: #1e1e22;
+  --na-muted-foreground: #a1a1aa;
+
+  /* primary fallbacks (runtime override still applies) */
+  --na-primary-soft: rgb(99 102 241 / 16%);
+  --na-accent: rgb(99 102 241 / 20%);
+  --na-accent-foreground: #a5b4fc;
+  --na-ring: rgb(99 102 241 / 28%);
+
+  /* lines */
+  --na-border: #26262a;
+  --na-border-strong: #3f3f46;
+  --na-input: #3f3f46;
+
+  /* status — lifted for dark surfaces */
+  --na-success: #34d399;
+  --na-success-soft: rgb(52 211 153 / 14%);
+  --na-warning: #fbbf24;
+  --na-warning-soft: rgb(251 191 36 / 14%);
+  --na-danger: #f87171;
+  --na-danger-soft: rgb(248 113 113 / 14%);
+  --na-info: #38bdf8;
+  --na-info-soft: rgb(56 189 248 / 14%);
+
+  --na-chart-grid: #232327;
+  --na-chart-label: #a1a1aa;
+
+  /* shell */
+  --na-sidebar: #0c0c0e;
+  --na-sidebar-border: #26262a;
+  --na-table-header: #17171a;
+  --na-table-hover: #1c1c20;
+
+  --na-shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
+  --na-shadow-md: 0 8px 30px rgb(0 0 0 / 45%);
+}

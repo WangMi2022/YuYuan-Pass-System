@@ -1,0 +1,258 @@
+/*
+ * Element Plus component refinements — quiet SaaS look: 1px hairlines,
+ * restrained radii, no heavy shadows, subtle motion.
+ * Loaded last, so plain declarations beat EP defaults; avoid !important.
+ */
+
+/* Buttons */
+.el-button {
+  min-height: 34px;
+  padding: 7px 14px;
+  border-radius: 6px;
+  font-weight: 500;
+  box-shadow: none;
+  transition: color 150ms ease, border-color 150ms ease,
+    background-color 150ms ease, opacity 150ms ease;
+}
+.el-button--small { min-height: 28px; padding: 5px 10px; border-radius: 5px; }
+.el-button--large { min-height: 40px; padding: 9px 18px; border-radius: 7px; }
+.el-button--default {
+  border-color: var(--na-border-strong);
+  background: var(--na-card);
+  color: var(--na-foreground);
+}
+.el-button--default:hover,
+.el-button--default:focus-visible {
+  border-color: var(--na-border-strong);
+  background: var(--na-muted);
+  color: var(--na-foreground);
+}
+.el-button--primary { border-color: var(--na-primary); background: var(--na-primary); color: var(--na-on-primary); }
+.el-button--primary:hover,
+.el-button--primary:focus-visible { border-color: var(--na-primary-hover); background: var(--na-primary-hover); }
+.el-button.is-plain { background: transparent; }
+.el-button.is-link { min-height: 26px; padding: 4px 5px; }
+.el-button.is-disabled { opacity: .5; }
+
+/* Inputs */
+.el-input__wrapper,
+.el-select__wrapper,
+.el-textarea__inner,
+.el-date-editor.el-input__wrapper,
+.el-date-editor .el-input__wrapper,
+.el-input-number .el-input__wrapper {
+  min-height: 34px;
+  border: 1px solid var(--na-input);
+  border-radius: 6px;
+  background: var(--na-card);
+  box-shadow: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+.el-input__wrapper:hover,
+.el-select__wrapper:hover,
+.el-textarea__inner:hover {
+  border-color: color-mix(in srgb, var(--na-input) 55%, var(--na-foreground));
+}
+.el-input__wrapper.is-focus,
+.el-select__wrapper.is-focused,
+.el-textarea__inner:focus,
+.el-date-editor.el-input__wrapper.is-focus {
+  border-color: var(--na-primary);
+  box-shadow: 0 0 0 3px var(--na-ring);
+}
+.el-textarea__inner { padding: 9px 12px; }
+.el-input-group__append,
+.el-input-group__prepend {
+  border-color: var(--na-input);
+  background: var(--na-muted);
+  box-shadow: none;
+}
+
+/* Forms */
+.el-form-item__label { color: var(--na-foreground); font-size: 13px; font-weight: 500; }
+.el-form-item__error { padding-top: 4px; font-size: 12px; }
+.el-checkbox__inner,
+.el-radio__inner { border-color: var(--na-input); }
+.el-switch__core { border-color: var(--na-border-strong); background: var(--na-muted); }
+.el-switch.is-checked .el-switch__core { border-color: var(--na-primary); background: var(--na-primary); }
+
+/* Cards & overlays */
+.el-card {
+  overflow: hidden;
+  border-color: var(--na-border);
+  border-radius: var(--na-radius);
+  background: var(--na-card);
+  color: var(--na-card-foreground);
+  box-shadow: var(--na-shadow-sm);
+}
+.el-dialog,
+.el-drawer {
+  border: 1px solid var(--na-border);
+  background: var(--na-card);
+  color: var(--na-card-foreground);
+  box-shadow: var(--na-shadow-md);
+}
+.el-dialog { border-radius: var(--na-radius-lg); }
+.el-dialog__header,
+.el-drawer__header {
+  margin: 0;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--na-border);
+  color: var(--na-foreground);
+}
+.el-dialog__title,
+.el-drawer__title { color: var(--na-foreground); font-size: 15px; font-weight: 600; }
+.el-dialog__body,
+.el-drawer__body { color: var(--na-foreground); }
+.el-dialog__footer,
+.el-drawer__footer { padding: 13px 20px; border-top: 1px solid var(--na-border); }
+.el-overlay { backdrop-filter: blur(2px); }
+
+.el-popper.is-light,
+.el-dropdown__popper,
+.el-select__popper,
+.el-picker__popper {
+  border-color: var(--na-border);
+  border-radius: var(--na-radius-sm);
+  background: var(--na-popover);
+  box-shadow: var(--na-shadow-md);
+}
+.el-dropdown-menu,
+.el-select-dropdown__list { padding: 5px; background: transparent; }
+.el-dropdown-menu__item,
+.el-select-dropdown__item {
+  min-height: 32px;
+  border-radius: 6px;
+  color: var(--na-foreground);
+  font-size: 13px;
+}
+.el-dropdown-menu__item:not(.is-disabled):hover,
+.el-dropdown-menu__item:not(.is-disabled):focus,
+.el-select-dropdown__item.is-hovering { background: var(--na-muted); }
+.el-select-dropdown__item.is-selected { color: var(--na-primary); font-weight: 550; }
+.el-dropdown { outline: none; }
+.el-dropdown * { outline: none; }
+
+/* Tables */
+.el-table {
+  --el-table-border-color: var(--na-border);
+  --el-table-header-bg-color: var(--na-table-header);
+  --el-table-header-text-color: var(--na-muted-foreground);
+  --el-table-tr-bg-color: var(--na-card);
+  --el-table-row-hover-bg-color: var(--na-table-hover);
+  --el-table-current-row-bg-color: var(--na-primary-soft);
+  --el-table-text-color: var(--na-foreground);
+  border: 1px solid var(--na-border);
+  border-radius: var(--na-radius-sm);
+  background: var(--na-card);
+  color: var(--na-foreground);
+  font-size: 13px;
+}
+.el-table::before,
+.el-table--border::after,
+.el-table--border::before { display: none; }
+.el-table th.el-table__cell {
+  height: 40px;
+  padding: 4px 0;
+  background: var(--na-table-header);
+  color: var(--na-muted-foreground);
+  font-size: 12px;
+  font-weight: 550;
+}
+.el-table td.el-table__cell { height: 44px; padding: 5px 0; }
+.el-table .cell { line-height: 1.45; }
+.el-table__empty-block { min-height: 200px; background: var(--na-card); }
+
+/* Tags, alerts, feedback */
+.el-tag {
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.el-alert { border: 1px solid var(--na-border); border-radius: var(--na-radius-sm); }
+.el-message {
+  border-color: var(--na-border);
+  border-radius: var(--na-radius-sm);
+  background: var(--na-popover);
+  box-shadow: var(--na-shadow-md);
+}
+.el-message-box {
+  border: 1px solid var(--na-border);
+  border-radius: var(--na-radius-lg);
+  background: var(--na-card);
+  box-shadow: var(--na-shadow-md);
+}
+.el-notification {
+  border-color: var(--na-border);
+  border-radius: var(--na-radius);
+  background: var(--na-popover);
+  box-shadow: var(--na-shadow-md);
+}
+
+/* Pagination */
+.el-pagination { gap: 4px; margin-top: 16px; color: var(--na-muted-foreground); }
+.el-pagination button,
+.el-pagination .el-pager li {
+  min-width: 28px;
+  height: 28px;
+  margin: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--na-muted-foreground);
+  font-size: 12px;
+}
+.el-pagination button:hover,
+.el-pagination .el-pager li:hover { background: var(--na-muted); color: var(--na-foreground); }
+.el-pagination .el-pager li.is-active {
+  border-color: var(--na-border);
+  background: var(--na-card);
+  color: var(--na-foreground);
+  font-weight: 600;
+  box-shadow: var(--na-shadow-sm);
+}
+.el-pagination .el-select .el-input { width: 106px; }
+
+/* Inline tabs (page-level el-tabs, not the history bar) */
+.el-tabs__item { color: var(--na-muted-foreground); }
+.el-tabs__item.is-active { color: var(--na-primary); }
+.el-tabs__active-bar { background: var(--na-primary); }
+.el-tabs__nav-wrap::after { height: 1px; background: var(--na-border); }
+.el-tabs__header { margin-bottom: 14px; }
+
+/* Tree */
+.el-tree { --el-tree-node-hover-bg-color: var(--na-muted); background: transparent; }
+.el-tree--highlight-current .el-tree-node.is-current > .el-tree-node__content {
+  background: var(--na-primary-soft);
+  color: var(--na-primary);
+}
+
+/* Loading / empty / skeleton */
+.el-loading-mask {
+  background: color-mix(in srgb, var(--na-card) 76%, transparent);
+  backdrop-filter: blur(2px);
+}
+.el-loading-spinner .circular .path { stroke: var(--na-primary); }
+.el-empty__description p { color: var(--na-muted-foreground); font-size: 13px; }
+.el-skeleton__item {
+  background: linear-gradient(90deg, var(--na-muted) 25%,
+    color-mix(in srgb, var(--na-muted) 60%, var(--na-card)) 50%, var(--na-muted) 75%);
+  background-size: 300% 100%;
+}
+
+/* Steps */
+.el-steps { --el-text-color-placeholder: var(--na-muted-foreground); }
+
+/* Right-click context menu (history tabs) */
+.contextmenu {
+  padding: 5px;
+  border: 1px solid var(--na-border);
+  border-radius: var(--na-radius-sm);
+  background: var(--na-popover);
+  color: var(--na-foreground);
+  box-shadow: var(--na-shadow-md);
+}
+.contextmenu li { padding: 7px 10px; border-radius: 6px; color: var(--na-foreground); font-size: 13px; }
+.contextmenu li:hover { background: var(--na-muted); }
