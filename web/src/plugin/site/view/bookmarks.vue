@@ -56,7 +56,7 @@
         >
           <header class="site-card-top">
             <div class="site-identity">
-              <span class="site-icon" :style="{ background: row.color || '#2563eb' }">
+              <span class="site-icon" :style="{ background: row.color || '#6366f1' }">
                 <el-icon><Link /></el-icon>
               </span>
               <h3 :title="row.name">{{ row.name }}</h3>
@@ -151,7 +151,7 @@ const tableData = ref([])
 const total = ref(0)
 const categories = ref([])
 const search = reactive({ page: 1, pageSize: 12, keyword: '', category: '', enabled: '' })
-const formData = reactive({ ID: 0, name: '', url: '', category: '常用站点', description: '', color: '#2563eb', sort: 0, enabled: true })
+const formData = reactive({ ID: 0, name: '', url: '', category: '常用站点', description: '', color: '#6366f1', sort: 0, enabled: true })
 
 const categoryOptions = computed(() => Array.from(new Set([...(categories.value || []), ...tableData.value.map((item) => item.category).filter(Boolean)])))
 
@@ -174,7 +174,7 @@ const rules = {
 }
 
 const resetForm = () => {
-  Object.assign(formData, { ID: 0, name: '', url: '', category: '常用站点', description: '', color: '#2563eb', sort: 0, enabled: true })
+  Object.assign(formData, { ID: 0, name: '', url: '', category: '常用站点', description: '', color: '#6366f1', sort: 0, enabled: true })
 }
 
 const loadCategories = async () => {
@@ -229,7 +229,7 @@ const openEdit = (row) => {
     url: row.url || '',
     category: row.category || '常用站点',
     description: row.description || '',
-    color: row.color || '#2563eb',
+    color: row.color || '#6366f1',
     sort: row.sort || 0,
     enabled: !!row.enabled
   })
@@ -293,8 +293,8 @@ onMounted(async () => {
 .site-page {
   min-height: 100%;
   padding: 18px;
-  background: var(--na-background, #f6f8fb);
-  color: var(--na-foreground, #0f172a);
+  background: var(--na-background);
+  color: var(--na-foreground);
 }
 
 .page-heading,
@@ -456,13 +456,13 @@ h1,
 }
 
 .site-status.enabled {
-  background: #ecfdf3;
-  color: #15803d;
+  background: var(--na-success-soft);
+  color: var(--na-success);
 }
 
 .site-status.disabled {
-  background: #f1f5f9;
-  color: #64748b;
+  background: var(--na-muted);
+  color: var(--na-muted-foreground);
 }
 
 .site-main {

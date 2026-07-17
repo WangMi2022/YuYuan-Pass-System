@@ -291,6 +291,7 @@ import {
   updateAssetOperation
 } from '@/plugin/asset/api/operation'
 import { getLocationOptions } from '@/plugin/asset/api/location'
+import { formatDateText } from '@/utils/format'
 
 defineOptions({ name: 'AssetOperations' })
 
@@ -386,7 +387,7 @@ const assetStatusMap = {
 }
 const assetStatus = (value) => assetStatusMap[value] || { label: value || '未知', type: 'info' }
 const orderStatus = (value) => value === 'completed' ? { label: '已完成', type: 'success' } : { label: '草稿', type: 'info' }
-const dateText = (value) => value ? new Date(value).toLocaleDateString('zh-CN') : '—'
+const dateText = formatDateText
 const dateTimeText = (value) => value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '—'
 const firstAssetName = (row) => row.items?.[0]?.assetName || '暂无资产'
 const itemSummary = (row) => {

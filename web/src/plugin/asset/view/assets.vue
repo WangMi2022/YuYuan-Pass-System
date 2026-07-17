@@ -90,7 +90,7 @@
         <el-table-column label="分类" min-width="130">
           <template #default="{ row }">
             <span class="category-pill">
-              <i :style="{ background: row.category?.color || '#64748b' }" />
+              <i :style="{ background: row.category?.color || 'var(--na-muted-foreground)' }" />
               {{ row.category?.name || '未分类' }}
             </span>
           </template>
@@ -281,15 +281,16 @@ import {
   updateAsset,
   uploadAssetPhoto
 } from '@/plugin/asset/api/asset'
+import { formatCurrency, formatDateText } from '@/utils/format'
 
 defineOptions({ name: 'AssetInventory' })
 
 const statusOptions = [
-  { value: 'pending_inbound', label: '待入库', type: 'primary', color: '#2563eb' },
-  { value: 'idle', label: '闲置', type: 'info', color: '#64748b' },
-  { value: 'in_use', label: '使用中', type: 'success', color: '#059669' },
-  { value: 'maintenance', label: '维修中', type: 'warning', color: '#d97706' },
-  { value: 'retired', label: '已处置', type: 'danger', color: '#dc2626' }
+  { value: 'pending_inbound', label: '待入库', type: 'primary', color: 'var(--na-info)' },
+  { value: 'idle', label: '闲置', type: 'info', color: 'var(--na-muted-foreground)' },
+  { value: 'in_use', label: '使用中', type: 'success', color: 'var(--na-success)' },
+  { value: 'maintenance', label: '维修中', type: 'warning', color: 'var(--na-warning)' },
+  { value: 'retired', label: '已处置', type: 'danger', color: 'var(--na-danger)' }
 ]
 
 const emptyForm = () => ({
@@ -339,8 +340,8 @@ const rules = {
   currentValue: [{ required: true, message: '请输入当前估值', trigger: 'change' }]
 }
 
-const currency = (value) => new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY', minimumFractionDigits: 2 }).format(Number(value || 0))
-const dateText = (value) => (value ? new Date(value).toLocaleDateString('zh-CN') : '—')
+const currency = formatCurrency
+const dateText = formatDateText
 const statusMeta = (value) => statusOptions.find((item) => item.value === value) || { label: value || '未知', type: 'info' }
 const statusTotal = computed(() => Object.values(statusCounts.value).reduce((sum, value) => sum + Number(value || 0), 0))
 const statusOptionLabel = (item) => `${item.label}（${statusCounts.value[item.value] || 0}）`
@@ -532,7 +533,7 @@ h1 { margin: 0; font-size: 24px; line-height: 1.2; }
 .computed-value span { color: var(--asset-muted); font-size: 13px; }
 .computed-value strong { color: var(--na-primary); font-size: 22px; font-variant-numeric: tabular-nums; }
 .drawer-actions { display: flex; justify-content: flex-end; gap: 10px; }
-.preview-image { display: block; width: 100%; max-height: 70vh; object-fit: contain; border-radius: 10px; background: #0f172a; }
+.preview-image { display: block; width: 100%; max-height: 70vh; object-fit: contain; border-radius: 10px; background: #09090b; }
 :deep(.el-form-item__label) { color: var(--asset-text); font-weight: 600; }
 :deep(.el-upload-list--picture-card .el-upload-list__item), :deep(.el-upload--picture-card) { width: 112px; height: 112px; }
 

@@ -1,116 +1,97 @@
 <template>
-  <div>
-    <div class="gva-search-box">
+  <main class="announcement-page">
+    <section class="page-heading" aria-labelledby="announcement-title">
+      <div>
+        <p class="eyebrow">ANNOUNCEMENTS</p>
+        <h1 id="announcement-title">公告中心</h1>
+        <p class="subtitle">发布与管理系统公告，在线用户实时提醒，离线用户登录后可见未读标记。</p>
+      </div>
+      <el-button type="primary" icon="plus" size="large" @click="openDialog">发布公告</el-button>
+    </section>
+
+    <section class="filter-panel" aria-label="公告筛选">
       <el-form
         ref="elSearchFormRef"
-        :inline="true"
         :model="searchInfo"
-        class="demo-form-inline"
         :rules="searchRule"
+        label-position="top"
         @keyup.enter="onSubmit"
       >
-        <el-form-item label="创建日期" prop="createdAt">
-          <template #label>
-            <span>
-              创建日期
-              <el-tooltip
-                content="搜索范围是开始日期（包含）至结束日期（不包含）"
-              >
-                <el-icon><QuestionFilled /></el-icon>
-              </el-tooltip>
-            </span>
-          </template>
-          <el-date-picker
-            v-model="searchInfo.startCreatedAt"
-            type="datetime"
-            placeholder="开始日期"
-            :disabled-date="
-              (time) =>
-                searchInfo.endCreatedAt
-                  ? time.getTime() > searchInfo.endCreatedAt.getTime()
-                  : false
-            "
-          />
-          —
-          <el-date-picker
-            v-model="searchInfo.endCreatedAt"
-            type="datetime"
-            placeholder="结束日期"
-            :disabled-date="
-              (time) =>
-                searchInfo.startCreatedAt
-                  ? time.getTime() < searchInfo.startCreatedAt.getTime()
-                  : false
-            "
-          />
-        </el-form-item>
-
-        <template v-if="showAllQuery">
+        <div class="filter-grid">
+          <el-form-item prop="createdAt">
+            <template #label>
+              <span>
+                创建日期
+                <el-tooltip content="搜索范围是开始日期（包含）至结束日期（不包含）">
+                  <el-icon><QuestionFilled /></el-icon>
+                </el-tooltip>
+              </span>
+            </template>
+            <div class="date-range">
+              <el-date-picker
+                v-model="searchInfo.startCreatedAt"
+                type="datetime"
+                placeholder="开始日期"
+                :disabled-date="
+                  (time) =>
+                    searchInfo.endCreatedAt
+                      ? time.getTime() > searchInfo.endCreatedAt.getTime()
+                      : false
+                "
+              />
+              <span class="date-sep">—</span>
+              <el-date-picker
+                v-model="searchInfo.endCreatedAt"
+                type="datetime"
+                placeholder="结束日期"
+                :disabled-date="
+                  (time) =>
+                    searchInfo.startCreatedAt
+                      ? time.getTime() < searchInfo.startCreatedAt.getTime()
+                      : false
+                "
+              />
+            </div>
+          </el-form-item>
           <el-form-item label="发布状态">
-            <el-select v-model="searchInfo.status" clearable placeholder="全部状态" style="width: 140px">
+            <el-select v-model="searchInfo.status" clearable placeholder="全部状态">
               <el-option label="已发布" value="published" />
               <el-option label="草稿" value="draft" />
             </el-select>
           </el-form-item>
-        </template>
-
-        <el-form-item>
-          <el-button type="primary" icon="search" @click="onSubmit">
-            查询
-          </el-button>
-          <el-button icon="refresh" @click="onReset"> 重置 </el-button>
-          <el-button
-            v-if="!showAllQuery"
-            link
-            type="primary"
-            icon="arrow-down"
-            @click="showAllQuery = true"
-          >
-            展开
-          </el-button>
-          <el-button
-            v-else
-            link
-            type="primary"
-            icon="arrow-up"
-            @click="showAllQuery = false"
-          >
-            收起
-          </el-button>
-        </el-form-item>
+          <div class="filter-actions">
+            <el-button type="primary" icon="search" @click="onSubmit">查询</el-button>
+            <el-button icon="refresh" @click="onReset">重置</el-button>
+          </div>
+        </div>
       </el-form>
-    </div>
-    <div class="gva-table-box">
-      <div class="gva-btn-list">
-        <el-button type="primary" icon="plus" @click="openDialog">
-          新增
-        </el-button>
+    </section>
+
+    <section class="table-panel">
+      <header class="panel-header">
+        <div>
+          <h2>公告列表</h2>
+          <span>共 {{ total }} 条公告</span>
+        </div>
         <el-button
           icon="delete"
-          style="margin-left: 10px"
+          text
+          type="danger"
           :disabled="!multipleSelection.length"
           @click="onDelete"
         >
-          删除
+          删除所选{{ multipleSelection.length ? `（${multipleSelection.length}）` : '' }}
         </el-button>
-      </div>
+      </header>
+
       <el-table
         ref="multipleTable"
-        style="width: 100%"
-        tooltip-effect="dark"
         :data="tableData"
         row-key="ID"
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="55" />
-
-        <el-table-column align="left" label="日期" prop="CreatedAt" width="180">
-          <template #default="scope">
-            {{ formatDate(scope.row.CreatedAt) }}
-          </template>
-        </el-table-column>
-
-        <el-table-column align="left" label="标题" prop="title" min-width="220" show-overflow-tooltip />
+        <el-table-column align="left" label="标题" prop="title" min-width="240" show-overflow-tooltip />
         <el-table-column align="left" label="状态" prop="status" width="100">
           <template #default="scope">
             <el-tag :type="scope.row.status === 'published' ? 'success' : 'info'" effect="light">
@@ -118,54 +99,45 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column align="left" label="作者" prop="userID" width="120">
+        <el-table-column align="left" label="作者" prop="userID" width="130">
           <template #default="scope">
-            <span>{{
-              filterDataSource(dataSource.userID, scope.row.userID)
-            }}</span>
+            <span>{{ filterDataSource(dataSource.userID, scope.row.userID) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="附件" prop="attachments" width="200">
+        <el-table-column align="left" label="创建日期" prop="CreatedAt" width="180">
+          <template #default="scope">
+            {{ formatDate(scope.row.CreatedAt) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="附件" prop="attachments" min-width="200">
           <template #default="scope">
             <div class="file-list">
               <el-tag
                 v-for="file in scope.row.attachments"
                 :key="file.uid"
+                class="file-tag"
                 @click="downloadFile(file.url)"
               >
                 {{ file.name }}
               </el-tag>
+              <span v-if="!scope.row.attachments?.length" class="file-empty">—</span>
             </div>
           </template>
         </el-table-column>
-        <el-table-column
-          align="left"
-          label="操作"
-          fixed="right"
-          min-width="240"
-        >
+        <el-table-column align="center" label="操作" fixed="right" width="160">
           <template #default="scope">
-            <el-button
-              type="primary"
-              link
-              icon="edit"
-              class="table-button"
-              @click="updateInfoFunc(scope.row)"
-            >
-              变更
-            </el-button>
-            <el-button
-              type="primary"
-              link
-              icon="delete"
-              @click="deleteRow(scope.row)"
-            >
-              删除
-            </el-button>
+            <el-button type="primary" link icon="edit" @click="updateInfoFunc(scope.row)">变更</el-button>
+            <el-button type="danger" link icon="delete" @click="deleteRow(scope.row)">删除</el-button>
           </template>
         </el-table-column>
+        <template #empty>
+          <el-empty description="暂无公告">
+            <el-button type="primary" @click="openDialog">发布第一条公告</el-button>
+          </el-empty>
+        </template>
       </el-table>
-      <div class="gva-pagination">
+
+      <div class="pagination-wrap">
         <el-pagination
           layout="total, sizes, prev, pager, next, jumper"
           :current-page="page"
@@ -176,7 +148,8 @@
           @size-change="handleSizeChange"
         />
       </div>
-    </div>
+    </section>
+
     <el-drawer
       v-model="dialogFormVisible"
       destroy-on-close
@@ -185,9 +158,12 @@
       :before-close="closeDialog"
     >
       <template #header>
-        <div class="flex justify-between items-center">
-          <span class="text-lg">{{ type === 'create' ? '发布公告' : '编辑公告' }}</span>
-          <div>
+        <div class="drawer-head">
+          <div class="drawer-title">
+            <span>{{ type === 'create' ? '发布公告' : '编辑公告' }}</span>
+            <small>公告发布后，在线用户会立即收到顶部提醒</small>
+          </div>
+          <div class="drawer-actions">
             <el-button @click="enterDialog('draft')">{{ formData.status === 'published' ? '转为草稿' : '保存草稿' }}</el-button>
             <el-button type="primary" @click="enterDialog('published')">{{ formData.status === 'published' ? '保存修改' : '发布公告' }}</el-button>
             <el-button @click="closeDialog"> 取 消 </el-button>
@@ -202,13 +178,6 @@
         :rules="rule"
         label-width="80px"
       >
-        <el-alert
-          title="公告发布后，在线用户会立即收到顶部提醒；离线用户下次登录后会看到未读标记。"
-          type="info"
-          :closable="false"
-          show-icon
-          class="announcement-form-alert"
-        />
         <el-form-item label="标题:" prop="title">
           <el-input
             v-model="formData.title"
@@ -224,7 +193,7 @@
         </el-form-item>
       </el-form>
     </el-drawer>
-  </div>
+  </main>
 </template>
 
 <script setup>
@@ -251,9 +220,6 @@
   defineOptions({
     name: 'Info'
   })
-
-  // 控制更多查询条件显示/隐藏状态
-  const showAllQuery = ref(false)
 
   // 自动化生成的字典（可能为空）以及字段
   const formData = ref({
@@ -365,12 +331,6 @@
   getTableData()
 
   // ============== 表格控制部分结束 ===============
-
-  // 获取需要的字典 可能为空 按需保留
-  const setOptions = async () => {}
-
-  // 获取需要的字典 可能为空 按需保留
-  setOptions()
 
   // 多选数据
   const multipleSelection = ref([])
@@ -504,22 +464,52 @@
   }
 </script>
 
-<style>
-  .file-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
+<style scoped lang="scss">
+  .announcement-page {
+    min-height: 100%;
+    padding: 20px;
+    background: var(--na-background);
+    color: var(--na-foreground);
   }
+  .page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
+  .eyebrow { margin: 0 0 5px; color: var(--na-primary); font: 600 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em !important; }
+  h1 { margin: 0; font-size: 24px; line-height: 1.2; }
+  .subtitle { margin: 8px 0 0; color: var(--na-muted-foreground); }
 
-  .fileBtn {
-    margin-bottom: 10px;
+  .filter-panel,
+  .table-panel {
+    border: 1px solid var(--na-border);
+    border-radius: var(--na-radius);
+    background: var(--na-card);
+    box-shadow: var(--na-shadow-sm);
   }
+  .filter-panel { padding: 14px 16px 0; margin-bottom: 12px; }
+  .filter-grid { display: grid; grid-template-columns: minmax(320px, 1.6fr) minmax(160px, 1fr) auto; gap: 14px; align-items: end; }
+  .date-range { display: flex; align-items: center; gap: 8px; }
+  .date-sep { color: var(--na-muted-foreground); }
+  .filter-actions { display: flex; gap: 8px; padding-bottom: 18px; }
 
-  .fileBtn:last-child {
-    margin-bottom: 0;
-  }
+  .table-panel { overflow: hidden; }
+  .panel-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--na-border); }
+  .panel-header h2 { margin: 0 0 3px; font-size: 17px; }
+  .panel-header span { color: var(--na-muted-foreground); font-size: 13px; }
 
-  .announcement-form-alert {
-    margin-bottom: 18px;
+  .file-list { display: flex; flex-wrap: wrap; gap: 4px; }
+  .file-tag { cursor: pointer; }
+  .file-empty { color: var(--na-muted-foreground); }
+  .pagination-wrap { display: flex; justify-content: flex-end; padding: 12px 16px; border-top: 1px solid var(--na-border); }
+
+  .drawer-head { display: flex; flex: 1; align-items: center; justify-content: space-between; gap: 16px; }
+  .drawer-title { display: flex; flex-direction: column; gap: 4px; }
+  .drawer-title span { color: var(--na-foreground); font-size: 20px; font-weight: 700; }
+  .drawer-title small { color: var(--na-muted-foreground); font-weight: 400; }
+  .drawer-actions { display: flex; flex: 0 0 auto; gap: 8px; }
+
+  @media (max-width: 1000px) { .filter-grid { grid-template-columns: 1fr; } .date-range { flex-wrap: wrap; } }
+  @media (max-width: 767px) {
+    .announcement-page { padding: 14px; }
+    .page-heading { align-items: stretch; flex-direction: column; }
+    .drawer-head { align-items: flex-start; flex-direction: column; }
+    .pagination-wrap { overflow-x: auto; justify-content: flex-start; }
   }
 </style>

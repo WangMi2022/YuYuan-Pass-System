@@ -195,7 +195,7 @@ const locationTabs = [
   { type: 'disposal', label: '处置位置', example: '例如：报废暂存区' }
 ]
 
-const emptyCategoryForm = () => ({ ID: 0, name: '', code: '', description: '', color: '#334155', sort: 0, enabled: true })
+const emptyCategoryForm = () => ({ ID: 0, name: '', code: '', description: '', color: '#6366f1', sort: 0, enabled: true })
 const emptyLocationForm = () => ({ ID: 0, name: '', type: activeTab.value, code: '', description: '', sort: 0, enabled: true })
 const activeTab = ref('category')
 const activeLocation = computed(() => locationTabs.find((item) => item.type === activeTab.value) || locationTabs[0])
