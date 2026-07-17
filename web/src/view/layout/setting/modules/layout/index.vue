@@ -1,130 +1,78 @@
 <template>
-  <div class="gva-theme-font">
-    <div class="mb-10">
-      <div class="gva-theme-section-header">
-        <div class="gva-theme-divider"></div>
-        <span class="gva-theme-section-title">布局模式</span>
-        <div class="gva-theme-divider"></div>
+  <div class="settings-module">
+    <header class="settings-module__header">
+      <p class="settings-module__eyebrow">WORKSPACE</p>
+      <h3>布局设置</h3>
+      <p>选择导航结构，并精确控制侧边栏与页面切换方式。</p>
+    </header>
+
+    <section class="settings-section" aria-labelledby="layout-mode-title">
+      <div class="settings-section__header">
+        <h4 id="layout-mode-title">布局模式</h4>
+        <p>切换后立即应用，菜单权限和业务页面不会发生变化。</p>
       </div>
+      <LayoutModeCard v-model="config.side_mode" @update:modelValue="appStore.toggleSideMode" />
+    </section>
 
-      <div class="gva-theme-section-content">
-        <LayoutModeCard
-          v-model="config.side_mode"
-          @update:modelValue="appStore.toggleSideMode"
-        />
+    <section class="settings-section" aria-labelledby="interface-title">
+      <div class="settings-section__header">
+        <h4 id="interface-title">界面行为</h4>
+        <p>控制标签导航和页面内容切换效果。</p>
       </div>
-    </div>
-
-    <div class="mb-10">
-      <div class="gva-theme-section-header">
-        <div class="gva-theme-divider"></div>
-        <span class="gva-theme-section-title">界面配置</span>
-        <div class="gva-theme-divider"></div>
+      <div class="settings-panel">
+        <SettingItem label="显示标签页" description="在顶部保留已打开页面的快捷入口">
+          <el-switch v-model="config.showTabs" aria-label="显示标签页" @change="appStore.toggleTabs" />
+        </SettingItem>
+        <SettingItem label="页面切换动画" description="选择页面之间的过渡方式">
+          <el-select v-model="config.transition_type" aria-label="页面切换动画" @change="appStore.toggleTransition">
+            <el-option value="fade" label="淡入淡出" />
+            <el-option value="slide" label="滑动" />
+            <el-option value="zoom" label="缩放" />
+            <el-option value="none" label="无动画" />
+          </el-select>
+        </SettingItem>
       </div>
+    </section>
 
-      <div class="gva-theme-section-content">
-        <div class="gva-theme-card-bg">
-          <SettingItem label="显示标签页">
-            <template #suffix>
-              <span class="text-xs text-gray-400 dark:text-gray-500 ml-2">页面标签导航</span>
-            </template>
-            <el-switch
-              v-model="config.showTabs"
-              @change="appStore.toggleTabs"
-            />
-          </SettingItem>
-
-          <SettingItem label="页面切换动画">
-            <template #suffix>
-              <span class="text-xs text-gray-400 dark:text-gray-500 ml-2">页面过渡效果</span>
-            </template>
-            <el-select
-              v-model="config.transition_type"
-              @change="appStore.toggleTransition"
-              class="w-32"
-              size="small"
-            >
-              <el-option value="fade" label="淡入淡出" />
-              <el-option value="slide" label="滑动" />
-              <el-option value="zoom" label="缩放" />
-              <el-option value="none" label="无动画" />
-            </el-select>
-          </SettingItem>
-        </div>
+    <section class="settings-section" aria-labelledby="navigation-size-title">
+      <div class="settings-section__header">
+        <h4 id="navigation-size-title">导航尺寸</h4>
+        <p>数值单位为像素，修改后实时更新工作区布局。</p>
       </div>
-    </div>
-
-    <div class="mb-10">
-      <div class="gva-theme-section-header">
-        <div class="gva-theme-divider"></div>
-        <span class="gva-theme-section-title">尺寸配置</span>
-        <div class="gva-theme-divider"></div>
+      <div class="settings-panel">
+        <SettingItem label="侧边栏展开宽度" description="完整显示菜单名称时的宽度">
+          <el-input-number
+            v-model="config.layout_side_width"
+            :min="150"
+            :max="400"
+            :step="10"
+            controls-position="right"
+            aria-label="侧边栏展开宽度"
+            @change="appStore.toggleConfigSideWidth"
+          />
+        </SettingItem>
+        <SettingItem label="侧边栏收起宽度" description="仅显示菜单图标时的宽度">
+          <el-input-number
+            v-model="config.layout_side_collapsed_width"
+            :min="60"
+            :max="100"
+            controls-position="right"
+            aria-label="侧边栏收起宽度"
+            @change="appStore.toggleConfigSideCollapsedWidth"
+          />
+        </SettingItem>
+        <SettingItem label="菜单项高度" description="控制侧边栏菜单的垂直密度">
+          <el-input-number
+            v-model="config.layout_side_item_height"
+            :min="30"
+            :max="50"
+            controls-position="right"
+            aria-label="菜单项高度"
+            @change="appStore.toggleConfigSideItemHeight"
+          />
+        </SettingItem>
       </div>
-
-      <div class="gva-theme-section-content">
-        <div class="gva-theme-card-bg">
-          <div class="space-y-4">
-            <div class="gva-theme-card-white">
-              <div class="flex items-center justify-between">
-                <div>
-                  <h4 class="text-sm font-medium gva-theme-text-main">侧边栏展开宽度</h4>
-                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">侧边栏完全展开时的宽度</p>
-                </div>
-                <div class="flex items-center gap-2">
-                  <el-input-number
-                    v-model="config.layout_side_width"
-                    :min="150"
-                    :max="400"
-                    :step="10"
-                    size="small"
-                    class="w-24"
-                  />
-                  <span class="text-xs font-medium text-gray-500 dark:text-gray-400">px</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="gva-theme-card-white">
-              <div class="flex items-center justify-between">
-                <div>
-                  <h4 class="text-sm font-medium gva-theme-text-main">侧边栏收缩宽度</h4>
-                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">侧边栏收缩时的最小宽度</p>
-                </div>
-                <div class="flex items-center gap-2">
-                  <el-input-number
-                    v-model="config.layout_side_collapsed_width"
-                    :min="60"
-                    :max="100"
-                    size="small"
-                    class="w-24"
-                  />
-                  <span class="text-xs font-medium text-gray-500 dark:text-gray-400">px</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="gva-theme-card-white">
-              <div class="flex items-center justify-between">
-                <div>
-                  <h4 class="text-sm font-medium gva-theme-text-main">菜单项高度</h4>
-                  <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">侧边栏菜单项的行高</p>
-                </div>
-                <div class="flex items-center gap-2">
-                  <el-input-number
-                    v-model="config.layout_side_item_height"
-                    :min="30"
-                    :max="50"
-                    size="small"
-                    class="w-24"
-                  />
-                  <span class="text-xs font-medium text-gray-500 dark:text-gray-400">px</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    </section>
   </div>
 </template>
 
@@ -141,5 +89,3 @@ defineOptions({
 const appStore = useAppStore()
 const { config } = storeToRefs(appStore)
 </script>
-
-

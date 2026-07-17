@@ -1,229 +1,371 @@
 <template>
   <el-drawer
     v-model="drawer"
-    title="系统配置"
     direction="rtl"
     :size="width"
     :show-close="false"
     append-to-body
     class="gva-theme-drawer"
   >
-    <template #header>
-      <div class="flex items-center justify-between w-full px-6 py-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-        <h2 class="text-xl font-semibold gva-theme-text-main gva-theme-font">系统配置</h2>
-        <el-button
-          type="primary"
-          size="small"
-          class="reset-btn"
-          :style="{ backgroundColor: config.primaryColor, borderColor: config.primaryColor }"
-          @click="resetConfig"
-        >
-          重置配置
-        </el-button>
-      </div>
-    </template>
-
-    <div class="bg-white dark:bg-gray-900 px-6">
-      <div class="px-8 pt-4 pb-6">
-        <div class="flex justify-center">
-          <div class="inline-flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1.5 border border-gray-200 dark:border-gray-700 shadow-sm">
-            <div
-              v-for="tab in tabs"
-              :key="tab.key"
-              class="px-4 py-2 text-base text-center cursor-pointer font-medium rounded-lg transition-all duration-150 ease-in-out min-w-[80px]"
-              :class="[
-                activeTab === tab.key
-                  ? 'text-white shadow-md transform -translate-y-0.5'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
-              ]"
-              :style="activeTab === tab.key ? { backgroundColor: config.primaryColor } : {}"
-              @click="activeTab = tab.key"
-            >
-              {{ tab.label }}
-            </div>
+    <template #header="{ close, titleId, titleClass }">
+      <header class="settings-header">
+        <div class="settings-header__identity">
+          <span class="settings-header__icon" aria-hidden="true">
+            <el-icon><Operation /></el-icon>
+          </span>
+          <div>
+            <h2 :id="titleId" :class="titleClass">系统配置</h2>
+            <p>界面偏好与工作区设置</p>
           </div>
         </div>
-      </div>
 
-      <div class="pb-8 h-full overflow-y-auto">
-        <div class="transition-all duration-300 ease-in-out">
-          <AppearanceSettings v-if="activeTab === 'appearance'" />
-          <LayoutSettings v-else-if="activeTab === 'layout'" />
-          <GeneralSettings v-else-if="activeTab === 'general'" />
+        <div class="settings-header__actions">
+          <span class="settings-save-state" :class="`is-${saveState}`" aria-live="polite">
+            <i aria-hidden="true" />
+            {{ saveStateText }}
+          </span>
+          <el-button :icon="RefreshLeft" @click="resetConfig">恢复默认</el-button>
+          <el-tooltip content="关闭设置" placement="bottom">
+            <el-button class="settings-close-button" :icon="Close" circle aria-label="关闭设置" @click="close" />
+          </el-tooltip>
         </div>
-      </div>
+      </header>
+    </template>
+
+    <div class="settings-workspace">
+      <aside class="settings-sidebar">
+        <nav class="settings-nav" aria-label="系统配置分类">
+          <button
+            v-for="tab in tabs"
+            :key="tab.key"
+            type="button"
+            class="settings-nav__item"
+            :class="{ 'is-active': activeTab === tab.key }"
+            :aria-current="activeTab === tab.key ? 'page' : undefined"
+            @click="activeTab = tab.key"
+          >
+            <el-icon><component :is="tab.icon" /></el-icon>
+            <span>
+              <strong>{{ tab.label }}</strong>
+              <small>{{ tab.description }}</small>
+            </span>
+          </button>
+        </nav>
+
+        <div class="settings-sidebar__summary">
+          <span class="settings-sidebar__swatch" :style="{ backgroundColor: config.primaryColor }" />
+          <span>
+            <small>当前主题</small>
+            <strong>{{ currentModeLabel }}</strong>
+          </span>
+        </div>
+      </aside>
+
+      <main class="settings-content" tabindex="-1">
+        <div class="settings-content__inner">
+          <Transition name="settings-view" mode="out-in">
+            <AppearanceSettings v-if="activeTab === 'appearance'" key="appearance" />
+            <LayoutSettings v-else-if="activeTab === 'layout'" key="layout" />
+            <GeneralSettings v-else key="general" @reset="resetConfig" />
+          </Transition>
+        </div>
+      </main>
     </div>
   </el-drawer>
 </template>
 
 <script setup>
-  import { ref, computed, watch } from 'vue'
-  import { storeToRefs } from 'pinia'
-  import { ElMessage } from 'element-plus'
-  import { useAppStore } from '@/pinia'
-  import { setSelfSetting } from '@/api/user'
-  import AppearanceSettings from './modules/appearance/index.vue'
-  import LayoutSettings from './modules/layout/index.vue'
-  import GeneralSettings from './modules/general/index.vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Brush, Close, Grid, Operation, RefreshLeft, Setting } from '@element-plus/icons-vue'
+import { useAppStore } from '@/pinia'
+import { setSelfSetting } from '@/api/user'
+import AppearanceSettings from './modules/appearance/index.vue'
+import LayoutSettings from './modules/layout/index.vue'
+import GeneralSettings from './modules/general/index.vue'
 
-  defineOptions({
-    name: 'GvaSetting'
-  })
+defineOptions({
+  name: 'GvaSetting'
+})
 
-  const appStore = useAppStore()
-  const { config, device } = storeToRefs(appStore)
+const appStore = useAppStore()
+const { config, device } = storeToRefs(appStore)
 
-  const activeTab = ref('appearance')
+const activeTab = ref('appearance')
+const saveState = ref('saved')
+let saveTimer = null
 
-  const tabs = [
-    { key: 'appearance', label: '外观' },
-    { key: 'layout', label: '布局' },
-    { key: 'general', label: '通用' }
-  ]
+const tabs = [
+  { key: 'appearance', label: '外观', description: '主题、色彩与显示', icon: Brush },
+  { key: 'layout', label: '布局', description: '导航与界面尺寸', icon: Grid },
+  { key: 'general', label: '通用', description: '配置与系统信息', icon: Setting }
+]
 
-  const width = computed(() => {
-    return device.value === 'mobile' ? '100%' : '500px'
-  })
+const modeLabels = {
+  light: '浅色模式',
+  dark: '深色模式',
+  auto: '跟随系统'
+}
 
-  const drawer = defineModel('drawer', {
-    default: true,
-    type: Boolean
-  })
+const currentModeLabel = computed(() => modeLabels[config.value.darkMode] || '自定义主题')
+const saveStateText = computed(() => ({
+  saved: '已保存',
+  saving: '保存中',
+  error: '保存失败'
+}[saveState.value]))
 
-  const saveConfig = async () => {
+const width = computed(() => device.value === 'mobile' ? '100%' : 'min(820px, 94vw)')
+
+const drawer = defineModel('drawer', {
+  default: true,
+  type: Boolean
+})
+
+const saveConfig = async () => {
+  saveState.value = 'saving'
+  try {
     const res = await setSelfSetting(config.value)
-    if (res.code === 0) {
-      localStorage.setItem('originSetting', JSON.stringify(config.value))
-      ElMessage.success('保存成功')
+    if (res.code !== 0) {
+      throw new Error(res.msg || '保存失败')
     }
+    localStorage.setItem('originSetting', JSON.stringify(config.value))
+    saveState.value = 'saved'
+  } catch (error) {
+    saveState.value = 'error'
+    ElMessage.error(error.message || '配置保存失败')
   }
+}
 
-  const resetConfig = () => {
+const scheduleSave = () => {
+  saveState.value = 'saving'
+  window.clearTimeout(saveTimer)
+  saveTimer = window.setTimeout(saveConfig, 450)
+}
+
+const resetConfig = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '将外观、布局和通用选项恢复为系统默认值。',
+      '恢复默认配置',
+      {
+        confirmButtonText: '恢复默认',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
     appStore.resetConfig()
+    ElMessage.success('已恢复默认配置')
+  } catch {
+    // User cancelled.
   }
+}
 
-  watch(config, async () => {
-    await saveConfig();
-  }, { deep: true });
+watch(config, scheduleSave, { deep: true })
+
+onBeforeUnmount(() => {
+  window.clearTimeout(saveTimer)
+})
 </script>
 
 <style lang="scss">
-.gva-theme-drawer {
-  .el-drawer {
-    @apply bg-white dark:bg-gray-900;
-  }
-
-  .el-drawer__header {
-    @apply p-0 border-0;
-  }
-
-  .el-drawer__body {
-    @apply p-0;
-  }
+.gva-theme-drawer.el-drawer,
+.gva-theme-drawer .el-drawer {
+  border-left: 1px solid var(--na-border);
+  background: var(--na-background);
+  box-shadow: -18px 0 48px rgb(35 53 65 / 14%);
 }
 
-.gva-theme-font {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+.gva-theme-drawer .el-drawer__header {
+  height: 72px;
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--na-border);
+  background: var(--na-card);
 }
 
-.gva-theme-card-bg {
-  @apply bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-sm;
+.gva-theme-drawer .el-drawer__body {
+  height: calc(100% - 72px);
+  overflow: hidden;
+  padding: 0;
 }
 
-.gva-theme-card-white {
-  @apply bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-5 hover:shadow-md transition-all duration-150 ease-in-out hover:-translate-y-0.5;
+.settings-header {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 0 20px 0 22px;
 }
 
-.gva-theme-section-header {
-  @apply flex items-center justify-center mb-6;
+.settings-header__identity,
+.settings-header__actions,
+.settings-header__identity > div {
+  display: flex;
+  align-items: center;
 }
 
-.gva-theme-section-title {
-  @apply px-6 text-lg font-semibold text-gray-700 dark:text-gray-300;
+.settings-header__identity { min-width: 0; gap: 12px; }
+.settings-header__identity > div { min-width: 0; align-items: flex-start; flex-direction: column; }
+.settings-header__identity h2 { margin: 0; color: var(--na-foreground); font-size: 17px; font-weight: 650; line-height: 1.4; }
+.settings-header__identity p { margin: 1px 0 0; color: var(--na-muted-foreground); font-size: 11px; line-height: 1.4; }
+
+.settings-header__icon {
+  display: inline-grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  flex: 0 0 36px;
+  border-radius: 8px;
+  background: var(--na-primary-soft);
+  color: var(--na-accent-foreground);
+  font-size: 18px;
 }
 
-.gva-theme-divider {
-  @apply h-px bg-gray-200 dark:bg-gray-700 flex-1;
+.settings-header__actions { flex: 0 0 auto; gap: 8px; }
+.settings-header__actions .el-button + .el-button { margin-left: 0; }
+.settings-close-button { width: 36px; height: 36px; }
+
+.settings-save-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 2px;
+  color: var(--na-muted-foreground);
+  font-size: 11px;
+  white-space: nowrap;
 }
 
-.gva-theme-text-main {
-  @apply text-gray-900 dark:text-white;
-}
-
-.gva-theme-text-sub {
-  @apply text-gray-600 dark:text-gray-400;
-}
-
-.gva-theme-section-content {
-  animation: fadeInUp 0.3s ease;
-}
-
-.gva-theme-setting-item {
-  @apply flex items-center justify-between py-4 gva-theme-font border-b border-gray-100 dark:border-gray-700 last:border-b-0;
-}
-
-.gva-theme-setting-label {
-  @apply text-sm font-medium gva-theme-text-main;
-}
-
-.gva-theme-mode-selector {
-  @apply inline-flex bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-1 gap-1;
-}
-
-.gva-theme-mode-item {
-  @apply flex flex-col items-center justify-center px-3 py-2 rounded-md cursor-pointer transition-all duration-150 ease-in-out min-w-[64px];
-}
-
-.gva-theme-layout-card {
-  @apply bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl p-3 cursor-pointer transition-all duration-150 ease-in-out hover:-translate-y-1 hover:shadow-xl;
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Custom scrollbar for webkit browsers */
-.gva-theme-drawer ::-webkit-scrollbar {
+.settings-save-state i {
   width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--na-success);
 }
 
-.gva-theme-drawer ::-webkit-scrollbar-track {
-  background: #f3f4f6;
-  border-radius: 3px;
+.settings-save-state.is-saving i { background: var(--na-warning); animation: settings-saving 900ms ease-in-out infinite alternate; }
+.settings-save-state.is-error { color: var(--na-danger); }
+.settings-save-state.is-error i { background: var(--na-danger); }
+
+.settings-workspace {
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  grid-template-columns: 192px minmax(0, 1fr);
 }
 
-.gva-theme-drawer ::-webkit-scrollbar-thumb {
-  background: #d1d5db;
-  border-radius: 3px;
-
-  &:hover {
-    background: #9ca3af;
-  }
+.settings-sidebar {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  justify-content: space-between;
+  border-right: 1px solid var(--na-border);
+  background: var(--na-card);
 }
 
-.dark .gva-theme-drawer ::-webkit-scrollbar-track {
-  background: #1f2937;
+.settings-nav { display: grid; gap: 4px; padding: 18px 12px; }
+.settings-nav__item {
+  display: grid;
+  min-height: 60px;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--na-muted-foreground);
+  text-align: left;
+  transition: color 160ms ease, background-color 160ms ease;
 }
 
-.dark .gva-theme-drawer ::-webkit-scrollbar-thumb {
-  background: #4b5563;
+.settings-nav__item:hover { background: var(--na-muted); color: var(--na-foreground); }
+.settings-nav__item.is-active { background: var(--na-primary-soft); color: var(--na-accent-foreground); }
+.settings-nav__item > .el-icon { width: 28px; font-size: 17px; }
+.settings-nav__item > span { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.settings-nav__item strong { font-size: 13px; font-weight: 650; }
+.settings-nav__item small { overflow: hidden; color: var(--na-muted-foreground); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.settings-nav__item.is-active small { color: color-mix(in srgb, var(--na-accent-foreground) 72%, var(--na-muted-foreground)); }
 
-  &:hover {
-    background: #6b7280;
-  }
+.settings-sidebar__summary {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 12px 14px;
+  padding: 12px 10px;
+  border-top: 1px solid var(--na-border);
 }
-</style>
 
-<style lang="scss" scoped>
-.reset-btn {
-  @apply rounded-lg font-medium transition-all duration-150 ease-in-out hover:-translate-y-0.5 hover:brightness-90 hover:shadow-lg;
+.settings-sidebar__swatch { width: 22px; height: 22px; flex: 0 0 22px; border: 3px solid var(--na-card); border-radius: 6px; box-shadow: 0 0 0 1px var(--na-border-strong); }
+.settings-sidebar__summary > span:last-child { display: flex; min-width: 0; flex-direction: column; }
+.settings-sidebar__summary small { color: var(--na-muted-foreground); font-size: 9px; }
+.settings-sidebar__summary strong { overflow: hidden; color: var(--na-foreground); font-size: 11px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+
+.settings-content {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  background: var(--na-background);
+  overscroll-behavior: contain;
+}
+
+.settings-content__inner { width: 100%; max-width: 660px; margin: 0 auto; padding: 28px; }
+
+.settings-module { color: var(--na-foreground); }
+.settings-module__header { margin-bottom: 28px; }
+.settings-module__eyebrow { margin: 0 0 5px; color: var(--na-accent-foreground); font-size: 10px; font-weight: 650; }
+.settings-module__header h3 { margin: 0; color: var(--na-foreground); font-size: 22px; font-weight: 680; line-height: 1.35; }
+.settings-module__header p:last-child { margin: 6px 0 0; color: var(--na-muted-foreground); font-size: 12px; line-height: 1.6; }
+
+.settings-section { margin-bottom: 28px; padding-bottom: 28px; border-bottom: 1px solid var(--na-border); }
+.settings-section:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: 0; }
+.settings-section__header { margin-bottom: 14px; }
+.settings-section__header h4 { margin: 0; color: var(--na-foreground); font-size: 14px; font-weight: 650; }
+.settings-section__header p { margin: 4px 0 0; color: var(--na-muted-foreground); font-size: 11px; line-height: 1.55; }
+.settings-section__meta { color: var(--na-muted-foreground); font-size: 10px; }
+
+.settings-panel {
+  overflow: hidden;
+  border: 1px solid var(--na-border);
+  border-radius: 8px;
+  background: var(--na-card);
+  box-shadow: var(--na-shadow-sm);
+}
+
+.settings-view-enter-active,
+.settings-view-leave-active { transition: opacity 140ms ease, transform 140ms ease; }
+.settings-view-enter-from { opacity: 0; transform: translateY(4px); }
+.settings-view-leave-to { opacity: 0; transform: translateY(-2px); }
+
+@keyframes settings-saving { from { opacity: .42; } to { opacity: 1; } }
+
+@media (max-width: 700px) {
+  .gva-theme-drawer .el-drawer__header { height: 64px; }
+  .gva-theme-drawer .el-drawer__body { height: calc(100% - 64px); }
+  .settings-header { padding: 0 12px 0 14px; }
+  .settings-header__identity p,
+  .settings-save-state,
+  .settings-header__actions > .el-button:not(.settings-close-button) { display: none; }
+  .settings-header__icon { width: 34px; height: 34px; flex-basis: 34px; }
+  .settings-workspace { display: flex; flex-direction: column; }
+  .settings-sidebar { flex: 0 0 auto; border-right: 0; border-bottom: 1px solid var(--na-border); }
+  .settings-nav { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 8px 10px; }
+  .settings-nav__item { min-height: 46px; grid-template-columns: 20px auto; justify-content: center; gap: 6px; padding: 6px 8px; text-align: center; }
+  .settings-nav__item > .el-icon { width: 20px; font-size: 15px; }
+  .settings-nav__item > span { display: block; }
+  .settings-nav__item strong { font-size: 12px; }
+  .settings-nav__item small,
+  .settings-sidebar__summary { display: none; }
+  .settings-content { flex: 1 1 auto; }
+  .settings-content__inner { padding: 22px 16px 32px; }
+  .settings-module__header { margin-bottom: 22px; }
+  .settings-module__header h3 { font-size: 20px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-view-enter-active,
+  .settings-view-leave-active { transition: none; }
+  .settings-save-state.is-saving i { animation: none; }
 }
 </style>

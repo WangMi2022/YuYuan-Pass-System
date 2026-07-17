@@ -2,11 +2,16 @@
   <div class="flex h-full">
     <!-- 一级菜单常驻侧边栏 -->
     <div
-      class="na-sidebar !h-full"
+      class="na-sidebar na-sidebar--rail !h-full"
       :style="{
         width: config.layout_side_collapsed_width + 'px'
       }"
     >
+      <div class="na-sidebar-heading is-collapsed">
+        <span class="na-sidebar-heading__icon" aria-hidden="true">
+          <el-icon><Menu /></el-icon>
+        </span>
+      </div>
       <el-scrollbar>
         <el-menu
           :collapse="true"
@@ -69,6 +74,12 @@
         width: layoutSideWidth + 'px'
       }"
     >
+      <div class="na-sidebar-heading" :class="{ 'is-collapsed': isCollapse }">
+        <span class="na-sidebar-heading__icon" aria-hidden="true">
+          <el-icon><Menu /></el-icon>
+        </span>
+        <span v-if="!isCollapse" class="na-sidebar-heading__label">主菜单</span>
+      </div>
       <el-scrollbar>
         <el-menu
           :collapse="isCollapse"
@@ -100,6 +111,7 @@
         <el-icon v-else>
           <DArrowRight />
         </el-icon>
+        <span v-if="!isCollapse">收起导航</span>
       </button>
     </div>
   </div>

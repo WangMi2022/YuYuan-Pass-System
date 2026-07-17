@@ -6,6 +6,12 @@
       width: layoutSideWidth + 'px'
     }"
   >
+    <div class="na-sidebar-heading" :class="{ 'is-collapsed': isCollapse }">
+      <span class="na-sidebar-heading__icon" aria-hidden="true">
+        <el-icon><Menu /></el-icon>
+      </span>
+      <span v-if="!isCollapse" class="na-sidebar-heading__label">主菜单</span>
+    </div>
     <el-scrollbar>
       <el-menu
         :collapse="isCollapse"
@@ -37,6 +43,7 @@
       <el-icon v-else>
         <DArrowRight />
       </el-icon>
+      <span v-if="!isCollapse">收起导航</span>
     </button>
   </aside>
 </template>

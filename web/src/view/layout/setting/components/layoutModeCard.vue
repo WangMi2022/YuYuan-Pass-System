@@ -1,65 +1,43 @@
 <template>
-  <div class="grid grid-cols-2 gap-6 gva-theme-font px-6">
-    <div
+  <div class="layout-mode-grid" role="radiogroup" aria-label="布局模式" :style="{ '--layout-accent': primaryColor }">
+    <button
       v-for="layout in layoutModes"
       :key="layout.value"
-      class="gva-theme-layout-card"
-      :class="{
-        'ring-2 ring-offset-2 ring-offset-gray-50 dark:ring-offset-gray-900 transform -translate-y-1 shadow-xl': modelValue === layout.value
-      }"
-      :style="modelValue === layout.value ? {
-        borderColor: primaryColor,
-        ringColor: primaryColor + '40'
-      } : {}"
+      type="button"
+      class="layout-mode-option"
+      :class="{ 'is-active': modelValue === layout.value }"
+      role="radio"
+      :aria-checked="modelValue === layout.value"
       @click="handleLayoutChange(layout.value)"
     >
-      <div class="flex justify-center mb-5">
-        <div
-          class="w-28 h-20 bg-gray-50 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded-lg p-2 flex gap-1.5 shadow-inner"
-          :class="layout.containerClass"
-        >
-          <div
-            v-if="layout.showSidebar"
-            class="rounded-sm"
-            :class="[layout.sidebarClass]"
-            :style="getSidebarStyle(layout)"
-          ></div>
-
-          <div class="flex-1 flex flex-col gap-1.5">
-            <div
-              v-if="layout.showHeader"
-              class="rounded-sm"
-              :class="layout.headerClass"
-              :style="getHeaderStyle(layout)"
-            ></div>
-
-            <div
-              class="flex-1 rounded-sm"
-              :class="layout.contentClass"
-              :style="getContentStyle(layout)"
-            ></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="text-center">
-        <span class="block text-base font-semibold gva-theme-text-main mb-2" :class="{ 'text-current': modelValue === layout.value }" :style="modelValue === layout.value ? { color: primaryColor } : {}">{{ layout.label }}</span>
-        <span class="block text-sm text-gray-500 dark:text-gray-400">{{ layout.description }}</span>
-      </div>
-    </div>
+      <span class="layout-mode-preview" :class="`is-${layout.value}`" aria-hidden="true">
+        <i class="layout-mode-preview__header" />
+        <i class="layout-mode-preview__sidebar" />
+        <span class="layout-mode-preview__content"><i /><i /><i /></span>
+        <i class="layout-mode-preview__secondary" />
+      </span>
+      <span class="layout-mode-option__copy">
+        <strong>{{ layout.label }}</strong>
+        <small>{{ layout.description }}</small>
+      </span>
+      <span v-if="modelValue === layout.value" class="layout-mode-option__check" aria-hidden="true">
+        <el-icon><Check /></el-icon>
+      </span>
+    </button>
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
+import { Check } from '@element-plus/icons-vue'
 import { useAppStore } from '@/pinia'
 
 defineOptions({
   name: 'LayoutModeCard'
 })
 
-const props = defineProps({
+defineProps({
   modelValue: {
     type: String,
     default: 'normal'
@@ -67,139 +45,81 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:modelValue'])
-
 const appStore = useAppStore()
 const { config } = storeToRefs(appStore)
-
 const primaryColor = computed(() => config.value.primaryColor)
-const lighterPrimaryColor = computed(() => {
-  const hex = config.value.primaryColor.replace('#', '')
-  const r = parseInt(hex.substr(0, 2), 16)
-  const g = parseInt(hex.substr(2, 2), 16)
-  const b = parseInt(hex.substr(4, 2), 16)
-  return `rgba(${r}, ${g}, ${b}, 0.7)`
-})
-const lightestPrimaryColor = computed(() => {
-  const hex = config.value.primaryColor.replace('#', '')
-  const r = parseInt(hex.substr(0, 2), 16)
-  const g = parseInt(hex.substr(2, 2), 16)
-  const b = parseInt(hex.substr(4, 2), 16)
-  return `rgba(${r}, ${g}, ${b}, 0.4)`
-})
 
 const layoutModes = [
-  {
-    value: 'normal',
-    label: '经典布局',
-    description: '左侧导航，顶部标题栏',
-    containerClass: '',
-    showSidebar: true,
-    sidebarClass: 'w-1/4',
-    showHeader: true,
-    headerClass: 'h-1/4',
-    contentClass: '',
-    showRightSidebar: false,
-    primaryElement: 'sidebar'
-  },
-  {
-    value: 'head',
-    label: '顶部导航',
-    description: '水平导航栏布局',
-    containerClass: 'flex-col',
-    showSidebar: false,
-    showHeader: true,
-    headerClass: 'h-1/3',
-    contentClass: '',
-    showRightSidebar: false,
-    primaryElement: 'header'
-  },
-  {
-    value: 'combination',
-    label: '混合布局',
-    description: '多级导航组合模式',
-    containerClass: '',
-    showSidebar: true,
-    sidebarClass: 'w-1/5',
-    showHeader: true,
-    headerClass: 'h-1/4',
-    contentClass: '',
-    showRightSidebar: true,
-    rightSidebarClass: 'w-1/5',
-    primaryElement: 'header',
-    secondaryElement: 'sidebar'
-  },
-  {
-    value: 'sidebar',
-    label: '侧栏常驻',
-    description: '二级菜单会始终打开',
-    containerClass: '',
-    showSidebar: true,
-    sidebarClass: 'w-1/3',
-    showHeader: true,
-    headerClass: 'h-1/4',
-    contentClass: '',
-    showRightSidebar: false,
-    primaryElement: 'sidebar'
-  }
+  { value: 'normal', label: '经典布局', description: '左侧导航与顶部工具栏' },
+  { value: 'head', label: '顶部导航', description: '主菜单集中在顶部' },
+  { value: 'combination', label: '混合布局', description: '顶部与侧栏组合导航' },
+  { value: 'sidebar', label: '侧栏常驻', description: '二级菜单持续展开' }
 ]
-
-const getSidebarStyle = (layout) => {
-  if (layout.primaryElement === 'sidebar') {
-    return { backgroundColor: primaryColor.value, opacity: '0.95' }
-  } else if (layout.secondaryElement === 'sidebar') {
-    return { backgroundColor: lighterPrimaryColor.value, opacity: '0.85' }
-  } else {
-    return { backgroundColor: lightestPrimaryColor.value, opacity: '0.6' }
-  }
-}
-
-const getHeaderStyle = (layout) => {
-  if (layout.primaryElement === 'header') {
-    return { backgroundColor: primaryColor.value, opacity: '0.95' }
-  } else if (layout.secondaryElement === 'header') {
-    return { backgroundColor: lighterPrimaryColor.value, opacity: '0.85' }
-  } else {
-    return { backgroundColor: lightestPrimaryColor.value, opacity: '0.6' }
-  }
-}
-
-const getContentStyle = () => {
-  return { backgroundColor: lightestPrimaryColor.value, opacity: '0.5' }
-}
 
 const handleLayoutChange = (layout) => {
   emit('update:modelValue', layout)
 }
 </script>
 
-<style scoped>
-.flex-col {
-  flex-direction: column;
+<style scoped lang="scss">
+.layout-mode-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+
+.layout-mode-option {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 136px;
+  grid-template-columns: 116px minmax(0, 1fr);
+  align-items: center;
+  gap: 13px;
+  padding: 12px;
+  border: 1px solid var(--na-border);
+  border-radius: 8px;
+  background: var(--na-card);
+  color: var(--na-foreground);
+  text-align: left;
+  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
 }
 
-.w-1\/4 {
-  width: 25%;
+.layout-mode-option:hover { border-color: var(--na-border-strong); background: color-mix(in srgb, var(--na-muted) 55%, var(--na-card)); }
+.layout-mode-option.is-active { border-color: var(--layout-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--layout-accent) 16%, transparent); }
+
+.layout-mode-preview {
+  position: relative;
+  display: block;
+  width: 116px;
+  height: 78px;
+  overflow: hidden;
+  border: 1px solid var(--na-border-strong);
+  border-radius: 5px;
+  background: var(--na-background);
 }
 
-.w-1\/3 {
-  width: 33.333333%;
-}
+.layout-mode-preview__header { position: absolute; top: 0; right: 0; left: 25px; height: 15px; border-bottom: 1px solid var(--na-border); background: var(--na-card); }
+.layout-mode-preview__sidebar { position: absolute; inset: 0 auto 0 0; width: 25px; background: var(--layout-accent); }
+.layout-mode-preview__content { position: absolute; inset: 23px 8px 8px 33px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.layout-mode-preview__content i { border-radius: 2px; background: var(--na-card); }
+.layout-mode-preview__content i:first-child { grid-column: 1 / -1; }
+.layout-mode-preview__secondary { display: none; }
 
-.w-1\/5 {
-  width: 20%;
-}
+.layout-mode-preview.is-head .layout-mode-preview__header { left: 0; height: 20px; background: var(--layout-accent); }
+.layout-mode-preview.is-head .layout-mode-preview__sidebar { display: none; }
+.layout-mode-preview.is-head .layout-mode-preview__content { inset: 28px 8px 8px; }
+.layout-mode-preview.is-combination .layout-mode-preview__header { left: 18px; background: var(--layout-accent); }
+.layout-mode-preview.is-combination .layout-mode-preview__sidebar { width: 18px; background: color-mix(in srgb, var(--layout-accent) 55%, var(--na-card)); }
+.layout-mode-preview.is-combination .layout-mode-preview__content { inset: 23px 19px 8px 26px; }
+.layout-mode-preview.is-combination .layout-mode-preview__secondary { display: block; position: absolute; inset: 15px 0 0 auto; width: 11px; border-left: 1px solid var(--na-border); background: var(--na-card); }
+.layout-mode-preview.is-sidebar .layout-mode-preview__sidebar { width: 36px; }
+.layout-mode-preview.is-sidebar .layout-mode-preview__header { left: 36px; }
+.layout-mode-preview.is-sidebar .layout-mode-preview__content { left: 44px; }
 
-.h-1\/4 {
-  height: 25%;
-}
+.layout-mode-option__copy { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
+.layout-mode-option__copy strong { font-size: 12px; font-weight: 650; }
+.layout-mode-option__copy small { color: var(--na-muted-foreground); font-size: 10px; line-height: 1.5; }
+.layout-mode-option__check { position: absolute; top: 8px; right: 8px; display: grid; width: 18px; height: 18px; place-items: center; border-radius: 50%; background: var(--layout-accent); color: var(--na-on-primary); font-size: 11px; }
 
-.h-1\/3 {
-  height: 33.333333%;
-}
-
-@media (max-width: 480px) {
-  .grid-cols-2 {
-    grid-template-columns: repeat(1, minmax(0, 1fr));
-  }
+@media (max-width: 560px) {
+  .layout-mode-grid { grid-template-columns: 1fr; }
+  .layout-mode-option { min-height: 112px; grid-template-columns: 120px minmax(0, 1fr); }
 }
 </style>

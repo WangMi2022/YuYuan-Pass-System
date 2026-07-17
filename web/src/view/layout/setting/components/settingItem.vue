@@ -1,20 +1,17 @@
 <template>
-  <div class="gva-theme-setting-item" :style="themeStyleVars">
-    <div class="flex items-center gap-2">
-      <span class="gva-theme-setting-label">{{ label }}</span>
-      <slot name="suffix"></slot>
+  <div class="setting-row">
+    <div class="setting-row__label">
+      <strong>{{ label }}</strong>
+      <p v-if="description">{{ description }}</p>
+      <slot v-else name="suffix" />
     </div>
-    <div class="flex items-center setting-controls">
-      <slot></slot>
+    <div class="setting-row__control">
+      <slot />
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
-import { storeToRefs } from 'pinia'
-import { useAppStore } from '@/pinia'
-
 defineOptions({
   name: 'SettingItem'
 })
@@ -23,91 +20,43 @@ defineProps({
   label: {
     type: String,
     required: true
+  },
+  description: {
+    type: String,
+    default: ''
   }
 })
-
-const appStore = useAppStore()
-const { config } = storeToRefs(appStore)
-
-const themeStyleVars = computed(() => ({
-  '--setting-primary-color': config.value.primaryColor,
-  '--setting-primary-color-opacity': config.value.primaryColor + '40'
-}))
 </script>
 
-<style scoped>
-
-
-.setting-controls {
-  ::v-deep(.el-switch) {
-    --el-switch-on-color: var(--setting-primary-color);
-    --el-switch-off-color: #d1d5db;
-  }
-
-  ::v-deep(.el-select) {
-    .el-input__wrapper {
-      border: 1px solid #e5e7eb;
-      border-radius: 6px;
-      transition: all 150ms ease-in-out;
-
-      &:hover {
-        border-color: var(--setting-primary-color);
-        transform: translateY(-1px);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      }
-
-      &.is-focus {
-        border-color: var(--setting-primary-color);
-        box-shadow: 0 0 0 2px var(--setting-primary-color-opacity);
-      }
-    }
-  }
-
-  ::v-deep(.el-input-number) {
-    .el-input__wrapper {
-      border: 1px solid #e5e7eb;
-      border-radius: 6px;
-      transition: all 150ms ease-in-out;
-
-      &:hover {
-        border-color: var(--setting-primary-color);
-        transform: translateY(-1px);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      }
-
-      &.is-focus {
-        border-color: var(--setting-primary-color);
-        box-shadow: 0 0 0 2px var(--setting-primary-color-opacity);
-      }
-    }
-  }
+<style scoped lang="scss">
+.setting-row {
+  display: flex;
+  min-height: 68px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--na-border);
 }
 
-.dark .setting-controls {
-  ::v-deep(.el-switch) {
-    --el-switch-off-color: #4b5563;
-  }
+.setting-row:last-child { border-bottom: 0; }
+.setting-row__label { min-width: 0; }
+.setting-row__label strong { display: block; color: var(--na-foreground); font-size: 12px; font-weight: 620; line-height: 1.5; }
+.setting-row__label p { margin: 3px 0 0; color: var(--na-muted-foreground); font-size: 10px; line-height: 1.5; }
+.setting-row__control { display: flex; min-width: 120px; flex: 0 0 auto; align-items: center; justify-content: flex-end; }
 
-  ::v-deep(.el-select) {
-    .el-input__wrapper {
-      border-color: #4b5563;
-      background-color: #374151;
+.setting-row__control :deep(.el-switch) {
+  --el-switch-on-color: var(--na-primary);
+}
 
-      &:hover {
-        border-color: var(--setting-primary-color);
-      }
-    }
-  }
+.setting-row__control :deep(.el-select) { width: 148px; }
+.setting-row__control :deep(.el-input-number) { width: 126px; }
 
-  ::v-deep(.el-input-number) {
-    .el-input__wrapper {
-      border-color: #4b5563;
-      background-color: #374151;
-
-      &:hover {
-        border-color: var(--setting-primary-color);
-      }
-    }
-  }
+@media (max-width: 480px) {
+  .setting-row { min-height: 72px; gap: 12px; padding: 12px 14px; }
+  .setting-row__label p { max-width: 180px; }
+  .setting-row__control { min-width: auto; }
+  .setting-row__control :deep(.el-select) { width: 124px; }
+  .setting-row__control :deep(.el-input-number) { width: 112px; }
 }
 </style>

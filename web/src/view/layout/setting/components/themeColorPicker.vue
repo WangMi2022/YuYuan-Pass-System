@@ -1,77 +1,45 @@
 <template>
-  <div class="gva-theme-font">
-    <div class="gva-theme-card-bg p-4">
-      <div class="mb-4">
-        <p class="text-base font-semibold text-gray-700 dark:text-gray-300 mb-4">精选色彩</p>
-        <div class="grid grid-cols-3 gap-4">
-          <div
-            v-for="colorItem in presetColors"
-            :key="colorItem.color"
-            class="flex items-center gap-4 p-2 bg-white dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-xl cursor-pointer transition-all duration-150 ease-in-out hover:transform hover:-translate-y-1 hover:shadow-lg"
-            :class="{
-              'ring-2 ring-offset-2 ring-offset-gray-50 dark:ring-offset-gray-800 transform -translate-y-1 shadow-lg': modelValue === colorItem.color
-            }"
-            :style="modelValue === colorItem.color ? {
-              borderColor: colorItem.color,
-              ringColor: colorItem.color + '40'
-            } : {}"
-            @click="handleColorChange(colorItem.color)"
-          >
-            <div
-              class="relative w-10 h-10 rounded-lg border border-gray-300 dark:border-gray-500 flex-shrink-0 shadow-sm"
-              :style="{ backgroundColor: colorItem.color }"
-            >
-              <div
-                v-if="modelValue === colorItem.color"
-                class="absolute inset-0 flex items-center justify-center text-white text-base"
-                style="text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);"
-              >
-                <el-icon>
-                  <Check />
-                </el-icon>
-              </div>
-            </div>
-            <div class="min-w-0 flex-1">
-              <span class="block text-sm font-semibold gva-theme-text-main">{{ colorItem.name }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
+  <div class="theme-color-picker">
+    <div class="theme-color-grid" role="radiogroup" aria-label="预设主题颜色">
+      <button
+        v-for="colorItem in presetColors"
+        :key="colorItem.color"
+        type="button"
+        class="theme-color-option"
+        :class="{ 'is-active': normalizedValue === colorItem.color.toLowerCase() }"
+        role="radio"
+        :aria-checked="normalizedValue === colorItem.color.toLowerCase()"
+        :aria-label="`使用${colorItem.name}主题色`"
+        @click="handleColorChange(colorItem.color)"
+      >
+        <span class="theme-color-option__swatch" :style="{ backgroundColor: colorItem.color }">
+          <el-icon v-if="normalizedValue === colorItem.color.toLowerCase()"><Check /></el-icon>
+        </span>
+        <span>{{ colorItem.name }}</span>
+      </button>
+    </div>
 
-      <div class="flex items-center justify-between p-4 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl mb-6 shadow-sm">
-        <div class="flex-1">
-          <h4 class="text-base font-semibold gva-theme-text-main">自定义颜色</h4>
-          <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">选择任意颜色作为主题色</p>
-        </div>
+    <div class="theme-color-custom">
+      <div>
+        <strong>自定义主题色</strong>
+        <p>从色板中选择任意品牌颜色</p>
+      </div>
+      <div class="theme-color-custom__control">
+        <code>{{ modelValue.toUpperCase() }}</code>
         <el-color-picker
           v-model="customColor"
           size="large"
           :predefine="presetColors.map(item => item.color)"
+          aria-label="选择自定义主题色"
           @change="handleCustomColorChange"
-          class="custom-color-picker"
         />
-      </div>
-
-      <div class="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-4 shadow-sm">
-        <div class="flex items-center justify-between">
-          <span class="text-base font-semibold text-gray-700 dark:text-gray-300">当前主题色</span>
-          <div class="flex items-center gap-3">
-            <div
-              class="w-6 h-6 rounded-lg border border-gray-300 dark:border-gray-500 shadow-sm"
-              :style="{ backgroundColor: modelValue }"
-            ></div>
-            <code class="text-sm font-mono bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-500">
-              {{ modelValue }}
-            </code>
-          </div>
-        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Check } from '@element-plus/icons-vue'
 
 defineOptions({
@@ -81,16 +49,16 @@ defineOptions({
 const props = defineProps({
   modelValue: {
     type: String,
-    default: '#3b82f6'
+    default: '#20aaa6'
   }
 })
 
 const emit = defineEmits(['update:modelValue'])
-
 const customColor = ref(props.modelValue)
+const normalizedValue = computed(() => props.modelValue.toLowerCase())
 
 const presetColors = [
-  { color: '#4E80EE', name: '默认' },
+  { color: '#20aaa6', name: '默认青' },
   { color: '#8bb5d1', name: '晨雾蓝' },
   { color: '#a8c8a8', name: '薄荷绿' },
   { color: '#d4a5a5', name: '玫瑰粉' },
@@ -111,9 +79,7 @@ const handleColorChange = (color) => {
 }
 
 const handleCustomColorChange = (color) => {
-  if (color) {
-    emit('update:modelValue', color)
-  }
+  if (color) emit('update:modelValue', color)
 }
 
 watch(() => props.modelValue, (newValue) => {
@@ -121,30 +87,65 @@ watch(() => props.modelValue, (newValue) => {
 })
 </script>
 
-<style scoped>
+<style scoped lang="scss">
+.theme-color-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 
-
-.custom-color-picker {
-  ::v-deep(.el-color-picker__trigger) {
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    transition: all 150ms ease-in-out;
-
-    &:hover {
-      border-color: #9ca3af;
-      transform: translateY(-1px);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-  }
+.theme-color-option {
+  display: flex;
+  min-width: 0;
+  min-height: 48px;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid var(--na-border);
+  border-radius: 6px;
+  background: var(--na-card);
+  color: var(--na-foreground);
+  font-size: 10px;
+  font-weight: 580;
+  text-align: left;
+  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
 }
 
-.dark .custom-color-picker {
-  ::v-deep(.el-color-picker__trigger) {
-    border-color: #4b5563;
+.theme-color-option:hover { border-color: var(--na-border-strong); background: var(--na-muted); }
+.theme-color-option.is-active { border-color: var(--na-primary); box-shadow: 0 0 0 2px var(--na-ring); }
+.theme-color-option > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-    &:hover {
-      border-color: #6b7280;
-    }
-  }
+.theme-color-option__swatch {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  flex: 0 0 28px;
+  border: 2px solid rgb(255 255 255 / 78%);
+  border-radius: 6px;
+  color: var(--na-on-primary);
+  font-size: 12px;
+  box-shadow: 0 0 0 1px var(--na-border-strong);
+}
+
+.theme-color-custom {
+  display: flex;
+  min-height: 70px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--na-border);
+  border-radius: 8px;
+  background: var(--na-card);
+}
+
+.theme-color-custom strong { display: block; color: var(--na-foreground); font-size: 12px; font-weight: 650; }
+.theme-color-custom p { margin: 3px 0 0; color: var(--na-muted-foreground); font-size: 10px; }
+.theme-color-custom__control { display: flex; align-items: center; gap: 9px; }
+.theme-color-custom code { padding: 6px 8px; border: 1px solid var(--na-border); border-radius: 5px; background: var(--na-muted); color: var(--na-foreground); font-size: 10px; }
+.theme-color-custom :deep(.el-color-picker__trigger) { border-color: var(--na-border-strong); border-radius: 6px; }
+
+@media (max-width: 520px) {
+  .theme-color-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .theme-color-custom { align-items: flex-start; flex-direction: column; }
+  .theme-color-custom__control { width: 100%; justify-content: space-between; }
 }
 </style>

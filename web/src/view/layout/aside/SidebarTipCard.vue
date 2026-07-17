@@ -28,31 +28,34 @@
 <style scoped lang="scss">
   .na-sidebar-tip {
     position: absolute;
-    right: 10px;
-    bottom: 56px;
-    left: 10px;
-    height: 116px;
+    right: 12px;
+    bottom: 50px;
+    left: 12px;
+    height: 88px;
     overflow: hidden;
-    border: 1px solid color-mix(in srgb, var(--na-primary) 12%, var(--na-border));
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--na-primary-soft) 52%, var(--na-card));
-    color: var(--na-foreground);
+    border: 1px solid var(--sidebar-line);
+    border-radius: 6px;
+    background: var(--sidebar-surface);
+    color: var(--sidebar-text-strong);
+    box-shadow: none;
   }
-  .na-sidebar-tip__content { position: relative; z-index: 1; width: 128px; padding: 14px 0 0 14px; }
-  .na-sidebar-tip__content strong { display: block; font-size: 13px; font-weight: 650; line-height: 1.5; }
-  .na-sidebar-tip__content p { margin: 5px 0 0; color: var(--na-muted-foreground); font-size: 11px; line-height: 1.55; }
+  .na-sidebar-tip::before { position: absolute; inset: 11px auto 11px 0; width: 2px; border-radius: 0 2px 2px 0; background: var(--na-primary); content: ''; }
+  .na-sidebar-tip__content { position: relative; z-index: 1; width: calc(100% - 56px); padding: 11px 0 0 13px; }
+  .na-sidebar-tip__content strong { display: block; font-size: 11px; font-weight: 650; line-height: 1.5; }
+  .na-sidebar-tip__content p { margin: 3px 0 0; color: var(--sidebar-text); font-size: 9px; line-height: 1.55; }
   .na-sidebar-tip__illustration {
     position: absolute;
-    right: 5px;
-    bottom: 8px;
-    width: 76px;
-    height: 54px;
-    color: var(--na-primary);
+    right: 4px;
+    bottom: 6px;
+    width: 60px;
+    height: 44px;
+    color: color-mix(in srgb, var(--na-primary) 72%, white);
+    opacity: .72;
   }
   .plant-stem { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
   .plant-leaf { fill: currentColor; opacity: .82; }
   .plant-leaf--soft { opacity: .46; }
-  .plant-pot { fill: color-mix(in srgb, var(--na-primary) 18%, var(--na-card)); stroke: color-mix(in srgb, var(--na-primary) 36%, var(--na-border)); stroke-width: 1.5; }
-  .plant-base { fill: none; stroke: var(--na-border-strong); stroke-linecap: round; stroke-width: 3; }
+  .plant-pot { fill: color-mix(in srgb, var(--na-primary) 22%, var(--sidebar-surface)); stroke: color-mix(in srgb, var(--na-primary) 42%, var(--sidebar-line)); stroke-width: 1.5; }
+  .plant-base { fill: none; stroke: var(--sidebar-line); stroke-linecap: round; stroke-width: 3; }
   @media (max-height: 680px) { .na-sidebar-tip { display: none; } }
 </style>

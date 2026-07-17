@@ -558,18 +558,18 @@ watch(operationType, async () => {
 </script>
 
 <style scoped lang="scss">
-.operation-page { min-height: 100%; overflow-x: hidden; padding: 24px; background: var(--na-background); color: var(--na-foreground); }
+.operation-page { min-height: 100%; overflow-x: hidden; padding: 20px; background: var(--na-background); color: var(--na-foreground); }
 .page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
 .eyebrow { margin: 0 0 5px; color: var(--na-primary); font: 600 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; }
 h1 { margin: 0; font-size: 30px; line-height: 1.2; }
 .subtitle { margin: 8px 0 0; color: var(--na-muted-foreground); font-size: 14px; }
 .filter-panel, .table-panel { border: 1px solid var(--na-border); border-radius: var(--na-radius); background: var(--na-card); box-shadow: var(--na-shadow-sm); }
-.filter-panel { margin-bottom: 16px; padding: 18px 20px 2px; }
+.filter-panel { margin-bottom: 12px; padding: 14px 16px 0; }
 .filter-grid { display: grid; grid-template-columns: minmax(240px, 1.4fr) minmax(150px, .7fr) minmax(300px, 1.2fr) auto; gap: 14px; align-items: end; }
 .filter-grid :deep(.el-date-editor) { width: 100%; }
-.filter-actions { display: flex; gap: 8px; padding-bottom: 18px; }
+.filter-actions { display: flex; gap: 8px; padding-bottom: 14px; }
 .table-panel { overflow: hidden; }
-.panel-header { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 17px 20px; border-bottom: 1px solid var(--na-border); }
+.panel-header { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 14px 16px; border-bottom: 1px solid var(--na-border); }
 .panel-header h2 { margin: 0 0 3px; font-size: 17px; }
 .panel-header span { color: var(--na-muted-foreground); font-size: 12px; }
 .operation-table { --el-table-header-bg-color: var(--na-table-header); --el-table-row-hover-bg-color: var(--na-table-hover); }
@@ -579,7 +579,7 @@ h1 { margin: 0; font-size: 30px; line-height: 1.2; }
 .asset-summary strong, .asset-summary span, .two-line span, .two-line small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .asset-summary span, .two-line small { color: var(--na-muted-foreground); font-size: 12px; }
 .number { font-variant-numeric: tabular-nums; }
-.pagination-wrap { display: flex; justify-content: flex-end; padding: 16px 20px; border-top: 1px solid var(--na-border); }
+.pagination-wrap { display: flex; justify-content: flex-end; padding: 12px 16px; border-top: 1px solid var(--na-border); }
 .drawer-title { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
 .drawer-title span { color: var(--na-foreground); font-size: 20px; font-weight: 700; }
 .drawer-title small { overflow: hidden; color: var(--na-muted-foreground); font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }

@@ -127,13 +127,38 @@ function addOpacityToColor(u, opacity) {
   return `rgba(${t[0]}, ${t[1]}, ${t[2]}, ${opacity})`
 }
 
+const getContrastTextColor = (color) => {
+  const rgb = colorToHex(color).map((channel) => {
+    const value = channel / 255
+    return value <= 0.04045
+      ? value / 12.92
+      : Math.pow((value + 0.055) / 1.055, 2.4)
+  })
+  const luminance = 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]
+  return luminance > 0.42 ? '#27313c' : '#ffffff'
+}
+
 export const setBodyPrimaryColor = (primaryColor, darkMode) => {
   let fmtColorFunc = generateAllColors
   if (darkMode === 'light') {
     fmtColorFunc = generateAllLightColors
   }
 
+  const hoverColor = darkMode === 'dark'
+    ? generateAllLightColors(primaryColor, 0.14)
+    : generateAllColors(primaryColor, 0.14)
+  const accentForeground = darkMode === 'dark'
+    ? generateAllLightColors(primaryColor, 0.48)
+    : generateAllColors(primaryColor, 0.48)
+
   document.documentElement.style.setProperty('--el-color-primary', primaryColor)
+  document.documentElement.style.setProperty('--na-primary', primaryColor)
+  document.documentElement.style.setProperty('--na-on-primary', getContrastTextColor(primaryColor))
+  document.documentElement.style.setProperty('--na-primary-hover', hoverColor)
+  document.documentElement.style.setProperty('--na-primary-soft', addOpacityToColor(primaryColor, darkMode === 'dark' ? 0.18 : 0.1))
+  document.documentElement.style.setProperty('--na-accent', addOpacityToColor(primaryColor, darkMode === 'dark' ? 0.2 : 0.12))
+  document.documentElement.style.setProperty('--na-accent-foreground', accentForeground)
+  document.documentElement.style.setProperty('--na-ring', addOpacityToColor(primaryColor, 0.2))
   document.documentElement.style.setProperty(
     '--el-color-primary-bg',
     addOpacityToColor(primaryColor, 0.4)
