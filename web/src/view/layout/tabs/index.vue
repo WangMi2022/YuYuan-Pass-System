@@ -4,7 +4,6 @@
       v-model="activeValue"
       :closable="!(historys.length === 1 && $route.name === defaultRouter)"
       type="card"
-      class="bg-white text-slate-700 dark:text-slate-500 dark:bg-slate-900 pt-1"
       @contextmenu.prevent="openContextMenu($event)"
       @tab-click="changeTab"
       @tab-remove="removeTab"
@@ -21,17 +20,9 @@
         <template #label>
           <span
             :tab="item"
-            :class="
-              activeValue === getFmtString(item)
-                ? 'text-active'
-                : 'text-gray-600 dark:text-slate-400 '
-            "
+            :class="activeValue === getFmtString(item) ? 'text-active' : ''"
             ><i
-              :class="
-                activeValue === getFmtString(item)
-                  ? 'text-active'
-                  : 'text-gray-600 dark:text-slate-400'
-              "
+              :class="activeValue === getFmtString(item) ? 'text-active' : ''"
             />
             {{ fmtTitle(item.meta.title, item) }}</span
           >

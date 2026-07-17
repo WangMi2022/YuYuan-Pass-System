@@ -54,7 +54,7 @@
 </script>
 <style scoped lang="scss">
   .search-component {
-    @apply inline-flex overflow-hidden text-center gap-5 mr-5 text-black dark:text-gray-100;
+    @apply inline-flex overflow-hidden text-center gap-5 mr-5 text-foreground;
     div {
       @apply cursor-pointer;
     }

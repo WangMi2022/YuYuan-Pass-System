@@ -25,7 +25,7 @@
               v-if="!item.hidden && (!item.children || item.children.length === 0)"
               :key="item.name"
               :index="item.name"
-              class="dark:text-slate-300 overflow-hidden"
+              class="overflow-hidden"
               :style="{
                 height: config.layout_side_item_height + 'px'
               }"
@@ -45,7 +45,7 @@
               :key="item.name"
               :index="item.name"
               :class="{'is-active': topActive === item.name}"
-              class="dark:text-slate-300 overflow-hidden"
+              class="overflow-hidden"
               :style="{
                 height: config.layout_side_item_height + 'px'
               }"

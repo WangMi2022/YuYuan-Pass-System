@@ -159,6 +159,7 @@
 /* ---- Sidebar ---- */
 .na-sidebar {
   --sidebar-shell: var(--na-sidebar);
+  --sidebar-surface: color-mix(in srgb, var(--na-primary) 4%, var(--na-sidebar));
   --sidebar-hover: var(--na-muted);
   --sidebar-active: var(--na-primary-soft);
   --sidebar-active-foreground: var(--na-primary);

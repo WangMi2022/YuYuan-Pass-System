@@ -85,27 +85,27 @@ const handleModeChange = (mode) => {
   height: 70px;
   overflow: hidden;
   margin-bottom: 9px;
-  border: 1px solid #dfe5e9;
+  border: 1px solid #e4e4e7;
   border-radius: 5px;
-  background: #f3f6f8;
+  background: #f4f4f5;
 }
 
-.theme-mode-preview__header { position: absolute; inset: 0 0 auto 0; height: 14px; border-bottom: 1px solid #e0e6ea; background: #fff; }
-.theme-mode-preview__sidebar { position: absolute; inset: 14px auto 0 0; width: 24px; border-right: 1px solid #e0e6ea; background: #fff; }
+.theme-mode-preview__header { position: absolute; inset: 0 0 auto 0; height: 14px; border-bottom: 1px solid #e4e4e7; background: #fff; }
+.theme-mode-preview__sidebar { position: absolute; inset: 14px auto 0 0; width: 24px; border-right: 1px solid #e4e4e7; background: #fff; }
 .theme-mode-preview__content { position: absolute; inset: 22px 8px 8px 32px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
 .theme-mode-preview__content i { display: block; border-radius: 2px; background: #fff; }
 .theme-mode-preview__content i:first-child { grid-column: 1 / -1; }
 
-.theme-mode-preview.is-dark { border-color: #434b50; background: #202528; }
+.theme-mode-preview.is-dark { border-color: #3f3f46; background: #101012; }
 .theme-mode-preview.is-dark .theme-mode-preview__header,
 .theme-mode-preview.is-dark .theme-mode-preview__sidebar,
-.theme-mode-preview.is-dark .theme-mode-preview__content i { border-color: #40484c; background: #30373a; }
-.theme-mode-preview.is-dark .theme-mode-preview__content i:first-child { background: color-mix(in srgb, var(--mode-accent) 48%, #30373a); }
+.theme-mode-preview.is-dark .theme-mode-preview__content i { border-color: #2c2c30; background: #1f1f23; }
+.theme-mode-preview.is-dark .theme-mode-preview__content i:first-child { background: color-mix(in srgb, var(--mode-accent) 48%, #1f1f23); }
 
 .theme-mode-preview.is-light .theme-mode-preview__content i:first-child,
 .theme-mode-preview.is-auto .theme-mode-preview__content i:first-child { background: color-mix(in srgb, var(--mode-accent) 30%, #fff); }
-.theme-mode-preview.is-auto .theme-mode-preview__sidebar { background: #30373a; }
-.theme-mode-preview.is-auto .theme-mode-preview__content i:last-child { background: #3a4246; }
+.theme-mode-preview.is-auto .theme-mode-preview__sidebar { background: #1f1f23; }
+.theme-mode-preview.is-auto .theme-mode-preview__content i:last-child { background: #2c2c30; }
 
 .theme-mode-option__label { display: flex; align-items: center; gap: 6px; }
 .theme-mode-option__label .el-icon { color: var(--na-muted-foreground); font-size: 14px; }

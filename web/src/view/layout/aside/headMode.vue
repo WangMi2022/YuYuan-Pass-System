@@ -126,15 +126,4 @@
   .el-menu--horizontal>.el-sub-menu.is-active .el-sub-menu__title {
     border-bottom: none !important;
   }
-
-  .na-head-nav .el-menu-item.is-active {
-    background-color: var(--na-primary-soft) !important;
-    color: var(--na-accent-foreground) !important;
-  }
-
-  .dark {
-    .na-head-nav .el-menu-item.is-active {
-      background-color: var(--na-primary-soft) !important;
-    }
-  }
 </style>

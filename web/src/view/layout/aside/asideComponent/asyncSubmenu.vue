@@ -3,7 +3,7 @@
     ref="subMenu"
     :index="routerInfo.name"
     :style="menuStyleVars"
-    class="gva-sub-menu dark:text-slate-300 relative"
+    class="gva-sub-menu relative"
   >
     <template #title>
       <div

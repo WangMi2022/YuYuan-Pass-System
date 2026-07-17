@@ -288,8 +288,8 @@
     position: relative;
     min-width: 0;
     min-height: 0;
-    background-color: #0f172a;
-    background-image: linear-gradient(rgb(15 23 42 / 10%), rgb(15 23 42 / 24%)), var(--na-login-background-image);
+    background-color: #09090b;
+    background-image: linear-gradient(rgb(9 9 11 / 12%), rgb(9 9 11 / 28%)), var(--na-login-background-image);
     background-position: center;
     background-size: cover;
   }
