@@ -2,6 +2,39 @@
 
 YuYuan Pass System 是一套面向企业内部资产管理、文档协作和工作入口整合的管理平台。项目基于 Go、Gin、Vue 3、Element Plus 和 PostgreSQL 构建，提供资产全生命周期档案、可视化大屏、文档预览与在线编辑、站点收藏、公告提醒、媒体库和角色权限管理。
 
+## 产品界面
+
+<table>
+  <tr>
+    <td width="50%">
+      <strong>资产可视化大屏</strong><br />
+      <a href="web/src/assets/product/asset-dashboard.webp">
+        <img src="web/src/assets/product/asset-dashboard.webp" alt="资产可视化大屏" />
+      </a>
+    </td>
+    <td width="50%">
+      <strong>资产档案</strong><br />
+      <a href="web/src/assets/product/asset-inventory.webp">
+        <img src="web/src/assets/product/asset-inventory.webp" alt="资产档案" />
+      </a>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <strong>资产领用流程</strong><br />
+      <a href="web/src/assets/product/asset-issue-workflow.webp">
+        <img src="web/src/assets/product/asset-issue-workflow.webp" alt="资产领用流程" />
+      </a>
+    </td>
+    <td width="50%">
+      <strong>文档管理中心</strong><br />
+      <a href="web/src/assets/product/document-center.webp">
+        <img src="web/src/assets/product/document-center.webp" alt="文档管理中心" />
+      </a>
+    </td>
+  </tr>
+</table>
+
 ## 当前版本
 
 ### v2.9.2（2026-07-16）
