@@ -134,10 +134,22 @@
     '--na-login-background-image': `url(${JSON.stringify(backgroundUrl.value)})`
   }))
 
+  const isImageReachable = (url) => new Promise((resolve) => {
+    if (!url) {
+      resolve(false)
+      return
+    }
+    const image = new Image()
+    image.onload = () => resolve(true)
+    image.onerror = () => resolve(false)
+    image.src = url
+  })
+
   const loadLoginBackground = async () => {
     try {
       const res = await getCurrentLoginBackground()
-      if (res.code === 0) loginBackgroundUrl.value = res.data?.url || ''
+      const url = res.code === 0 ? (res.data?.url || '') : ''
+      loginBackgroundUrl.value = await isImageReachable(url) ? url : ''
     } catch {
       loginBackgroundUrl.value = ''
     }
@@ -146,7 +158,8 @@
   const loadLoginLogo = async () => {
     try {
       const res = await getCurrentLoginLogo()
-      if (res.code === 0) loginLogoUrl.value = res.data?.url || ''
+      const url = res.code === 0 ? (res.data?.url || '') : ''
+      loginLogoUrl.value = await isImageReachable(url) ? url : ''
     } catch {
       loginLogoUrl.value = ''
     }
