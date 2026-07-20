@@ -57,7 +57,8 @@ func (i *initMenu) InitializeData(ctx context.Context) (next context.Context, er
 		{MenuLevel: 0, Hidden: true, ParentId: 0, Path: "about", Name: "about", Component: "view/about/index.vue", Sort: 9, Meta: Meta{Title: "关于我们", Icon: "info-filled"}},
 		{MenuLevel: 0, Hidden: false, ParentId: 0, Path: "collaborationCenter", Name: "collaborationCenter", Component: "view/routerHolder.vue", Sort: 3, Meta: Meta{Title: "协同办公", Icon: "briefcase"}},
 		{MenuLevel: 0, Hidden: false, ParentId: 0, Path: "monitorCenter", Name: "monitorCenter", Component: "view/routerHolder.vue", Sort: 4, Meta: Meta{Title: "监控状态", Icon: "monitor"}},
-		{MenuLevel: 0, Hidden: false, ParentId: 0, Path: "admin", Name: "superAdmin", Component: "view/superAdmin/index.vue", Sort: 5, Meta: Meta{Title: "系统管理", Icon: "setting"}},
+		{MenuLevel: 0, Hidden: false, ParentId: 0, Path: "permissionManagement", Name: "permissionManagement", Component: "view/routerHolder.vue", Sort: 5, Meta: Meta{Title: "权限管理", Icon: "lock"}},
+		{MenuLevel: 0, Hidden: false, ParentId: 0, Path: "admin", Name: "superAdmin", Component: "view/superAdmin/index.vue", Sort: 6, Meta: Meta{Title: "系统管理", Icon: "setting"}},
 		{MenuLevel: 0, Hidden: true, ParentId: 0, Path: "person", Name: "person", Component: "view/person/person.vue", Sort: 4, Meta: Meta{Title: "个人信息", Icon: "message"}},
 		{MenuLevel: 0, Hidden: true, ParentId: 0, Path: "example", Name: "example", Component: "view/example/index.vue", Sort: 7, Meta: Meta{Title: "示例文件", Icon: "management"}},
 		{MenuLevel: 0, Hidden: true, ParentId: 0, Path: "systemTools", Name: "systemTools", Component: "view/systemTools/index.vue", Sort: 5, Meta: Meta{Title: "编程辅助", Icon: "tools"}},
@@ -75,25 +76,16 @@ func (i *initMenu) InitializeData(ctx context.Context) (next context.Context, er
 	for _, menu := range allMenus {
 		menuNameMap[menu.Name] = menu.ID
 	}
-	permissionMenu := SysBaseMenu{
-		MenuLevel: 1, Hidden: false, ParentId: menuNameMap["superAdmin"],
-		Path: "permissionManagement", Name: "permissionManagement", Component: "view/routerHolder.vue", Sort: 1,
-		Meta: Meta{Title: "权限管理", Icon: "lock"},
-	}
-	if err = db.Create(&permissionMenu).Error; err != nil {
-		return ctx, errors.Wrap(err, SysBaseMenu{}.TableName()+"权限菜单初始化失败!")
-	}
-
 	// 定义子菜单，并设置正确的ParentId
 	childMenus := []SysBaseMenu{
 		// 监控状态子菜单
 		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["monitorCenter"], Path: "state", Name: "state", Component: "view/system/state.vue", Sort: 1, Meta: Meta{Title: "服务器负载", Icon: "cpu", KeepAlive: true}},
 
 		// 权限管理子菜单
-		{MenuLevel: 2, Hidden: false, ParentId: permissionMenu.ID, Path: "user", Name: "user", Component: "view/superAdmin/user/user.vue", Sort: 1, Meta: Meta{Title: "用户管理", Icon: "coordinate"}},
-		{MenuLevel: 2, Hidden: false, ParentId: permissionMenu.ID, Path: "authority", Name: "authority", Component: "view/superAdmin/authority/authority.vue", Sort: 2, Meta: Meta{Title: "角色管理", Icon: "avatar"}},
-		{MenuLevel: 2, Hidden: false, ParentId: permissionMenu.ID, Path: "api", Name: "api", Component: "view/superAdmin/api/api.vue", Sort: 3, Meta: Meta{Title: "API 管理", Icon: "platform", KeepAlive: true}},
-		{MenuLevel: 2, Hidden: false, ParentId: permissionMenu.ID, Path: "menu", Name: "menu", Component: "view/superAdmin/menu/menu.vue", Sort: 4, Meta: Meta{Title: "菜单管理", Icon: "tickets", KeepAlive: true}},
+		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["permissionManagement"], Path: "user", Name: "user", Component: "view/superAdmin/user/user.vue", Sort: 1, Meta: Meta{Title: "用户管理", Icon: "coordinate"}},
+		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["permissionManagement"], Path: "authority", Name: "authority", Component: "view/superAdmin/authority/authority.vue", Sort: 2, Meta: Meta{Title: "角色管理", Icon: "avatar"}},
+		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["permissionManagement"], Path: "api", Name: "api", Component: "view/superAdmin/api/api.vue", Sort: 3, Meta: Meta{Title: "API 管理", Icon: "platform", KeepAlive: true}},
+		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["permissionManagement"], Path: "menu", Name: "menu", Component: "view/superAdmin/menu/menu.vue", Sort: 4, Meta: Meta{Title: "菜单管理", Icon: "tickets", KeepAlive: true}},
 
 		// superAdmin子菜单
 		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["superAdmin"], Path: "dictionary", Name: "dictionary", Component: "view/superAdmin/dictionary/sysDictionary.vue", Sort: 5, Meta: Meta{Title: "字典管理", Icon: "notebook"}},
@@ -135,8 +127,7 @@ func (i *initMenu) InitializeData(ctx context.Context) (next context.Context, er
 	}
 
 	// 组合所有菜单作为返回结果
-	allEntities := append(allMenus, permissionMenu)
-	allEntities = append(allEntities, childMenus...)
+	allEntities := append(allMenus, childMenus...)
 	next = context.WithValue(ctx, i.InitializerName(), allEntities)
 	return next, nil
 }

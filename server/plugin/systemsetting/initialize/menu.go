@@ -19,7 +19,7 @@ func Menu(ctx context.Context) {
 	utils.RegisterMenus(
 		system.SysBaseMenu{
 			ParentId: 0, Path: "admin", Name: "superAdmin", Hidden: false,
-			Component: "view/superAdmin/index.vue", Sort: 5,
+			Component: "view/superAdmin/index.vue", Sort: 6,
 			Meta: system.Meta{Title: "系统管理", Icon: "setting"},
 		},
 		system.SysBaseMenu{

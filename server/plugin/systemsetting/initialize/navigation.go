@@ -58,10 +58,39 @@ func syncBusinessNavigation(ctx context.Context) error {
 			return err
 		}
 
+		permissionParent := system.SysBaseMenu{
+			ParentId: 0,
+			Path:     "permissionManagement", Name: permissionMenuName, Hidden: false,
+			Component: "view/routerHolder.vue", Sort: 5,
+			Meta: system.Meta{Title: "权限管理", Icon: "lock"},
+		}
+		if err := tx.Where("name = ?", permissionParent.Name).FirstOrCreate(&permissionParent).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&system.SysBaseMenu{}).Where("name = ?", permissionParent.Name).Updates(map[string]any{
+			"parent_id": 0, "menu_level": 0, "path": permissionParent.Path,
+			"component": permissionParent.Component, "hidden": false, "sort": permissionParent.Sort,
+			"title": permissionParent.Meta.Title, "icon": permissionParent.Meta.Icon,
+		}).Error; err != nil {
+			return err
+		}
+
+		permissionMenus := []navigationItem{
+			{name: "user", title: "用户管理", icon: "coordinate", sort: 1},
+			{name: "authority", title: "角色管理", icon: "avatar", sort: 2},
+			{name: "api", title: "API 管理", icon: "platform", sort: 3},
+			{name: "menu", title: "菜单管理", icon: "tickets", sort: 4},
+		}
+		for _, item := range permissionMenus {
+			if err := updateChildMenu(tx, permissionParent.ID, item); err != nil {
+				return err
+			}
+		}
+
 		canonicalMenus := []navigationItem{
 			{name: "dashboard", title: "首页驾驶舱", icon: "odometer", sort: 1},
 			{name: "assetCenter", title: "资产管理", icon: "box", sort: 2},
-			{name: "superAdmin", title: "系统管理", icon: "setting", sort: 5},
+			{name: "superAdmin", title: "系统管理", icon: "setting", sort: 6},
 		}
 		for _, item := range canonicalMenus {
 			if err := tx.Model(&system.SysBaseMenu{}).Where("name = ?", item.name).Updates(map[string]any{
@@ -111,35 +140,6 @@ func syncBusinessNavigation(ctx context.Context) error {
 
 		var systemParent system.SysBaseMenu
 		if err := tx.Where("name = ?", "superAdmin").First(&systemParent).Error; err == nil {
-			permissionParent := system.SysBaseMenu{
-				ParentId: systemParent.ID,
-				Path:     "permissionManagement", Name: permissionMenuName, Hidden: false,
-				Component: "view/routerHolder.vue", Sort: 1, MenuLevel: 1,
-				Meta: system.Meta{Title: "权限管理", Icon: "lock"},
-			}
-			if err := tx.Where("name = ?", permissionParent.Name).FirstOrCreate(&permissionParent).Error; err != nil {
-				return err
-			}
-			if err := tx.Model(&system.SysBaseMenu{}).Where("name = ?", permissionParent.Name).Updates(map[string]any{
-				"parent_id": systemParent.ID, "menu_level": 1, "path": permissionParent.Path,
-				"component": permissionParent.Component, "hidden": false, "sort": permissionParent.Sort,
-				"title": permissionParent.Meta.Title, "icon": permissionParent.Meta.Icon,
-			}).Error; err != nil {
-				return err
-			}
-
-			permissionMenus := []navigationItem{
-				{name: "user", title: "用户管理", icon: "coordinate", sort: 1},
-				{name: "authority", title: "角色管理", icon: "avatar", sort: 2},
-				{name: "api", title: "API 管理", icon: "platform", sort: 3},
-				{name: "menu", title: "菜单管理", icon: "tickets", sort: 4},
-			}
-			for _, item := range permissionMenus {
-				if err := updateNestedMenu(tx, permissionParent.ID, item); err != nil {
-					return err
-				}
-			}
-
 			systemMenus := []navigationItem{
 				{name: "dictionary", title: "字典管理", icon: "notebook", sort: 5},
 				{name: "operation", title: "操作历史", icon: "pie-chart", sort: 6},
@@ -156,12 +156,6 @@ func syncBusinessNavigation(ctx context.Context) error {
 					return err
 				}
 			}
-			if err := migrateAuthoritiesForParent(tx, permissionParent.ID, permissionMenus); err != nil {
-				return err
-			}
-			if err := migrateAuthoritiesForParent(tx, systemParent.ID, []navigationItem{{name: permissionMenuName}}); err != nil {
-				return err
-			}
 		}
 
 		hiddenMenus := []string{
@@ -175,20 +169,22 @@ func syncBusinessNavigation(ctx context.Context) error {
 		if err := migrateAuthoritiesForParent(tx, collaboration.ID, collaborationMenus); err != nil {
 			return err
 		}
-		return migrateAuthoritiesForParent(tx, monitor.ID, monitorMenus)
+		if err := migrateAuthoritiesForParent(tx, monitor.ID, monitorMenus); err != nil {
+			return err
+		}
+		if err := migrateAuthoritiesForParent(tx, permissionParent.ID, permissionMenus); err != nil {
+			return err
+		}
+		if systemParent.ID != 0 {
+			return removeParentAuthoritiesWithoutChildren(tx, systemParent.ID)
+		}
+		return nil
 	})
 }
 
 func updateChildMenu(tx *gorm.DB, parentID uint, item navigationItem) error {
 	return tx.Model(&system.SysBaseMenu{}).Where("name = ?", item.name).Updates(map[string]any{
 		"parent_id": parentID, "menu_level": 1, "hidden": false,
-		"title": item.title, "icon": item.icon, "sort": item.sort,
-	}).Error
-}
-
-func updateNestedMenu(tx *gorm.DB, parentID uint, item navigationItem) error {
-	return tx.Model(&system.SysBaseMenu{}).Where("name = ?", item.name).Updates(map[string]any{
-		"parent_id": parentID, "menu_level": 2, "hidden": false,
 		"title": item.title, "icon": item.icon, "sort": item.sort,
 	}).Error
 }
@@ -227,4 +223,37 @@ func migrateAuthoritiesForParent(tx *gorm.DB, parentID uint, items []navigationI
 		}
 	}
 	return nil
+}
+
+// removeParentAuthoritiesWithoutChildren 清理由菜单重组产生的空父菜单授权。
+// 仅根据父菜单当前实际拥有的子菜单判断，以兼容后续新增的自定义系统菜单。
+func removeParentAuthoritiesWithoutChildren(tx *gorm.DB, parentID uint) error {
+	var childMenuIDs []uint
+	if err := tx.Model(&system.SysBaseMenu{}).
+		Where("parent_id = ?", parentID).
+		Pluck("id", &childMenuIDs).Error; err != nil {
+		return err
+	}
+	if len(childMenuIDs) == 0 {
+		return nil
+	}
+
+	childIDs := make([]string, 0, len(childMenuIDs))
+	for _, menuID := range childMenuIDs {
+		childIDs = append(childIDs, strconv.Itoa(int(menuID)))
+	}
+
+	var authoritiesWithChildren []string
+	if err := tx.Model(&system.SysAuthorityMenu{}).
+		Distinct("sys_authority_authority_id").
+		Where("sys_base_menu_id IN ?", childIDs).
+		Pluck("sys_authority_authority_id", &authoritiesWithChildren).Error; err != nil {
+		return err
+	}
+
+	query := tx.Where("sys_base_menu_id = ?", strconv.Itoa(int(parentID)))
+	if len(authoritiesWithChildren) > 0 {
+		query = query.Where("sys_authority_authority_id NOT IN ?", authoritiesWithChildren)
+	}
+	return query.Delete(&system.SysAuthorityMenu{}).Error
 }
