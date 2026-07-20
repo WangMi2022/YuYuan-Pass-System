@@ -10,7 +10,7 @@ import (
 )
 
 var menuNames = []string{
-	"systemSettings", collaborationMenuName, monitorMenuName, "state",
+	"systemSettings", collaborationMenuName, monitorMenuName, permissionMenuName, "state",
 	"authority", "menu", "api", "user", "dictionary", "operation", "sysParams",
 	"system", "apiToken", "loginLog", "sysVersion", "sysError",
 }

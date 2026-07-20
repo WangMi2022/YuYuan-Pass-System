@@ -11,6 +11,7 @@ import (
 
 const collaborationMenuName = "collaborationCenter"
 const monitorMenuName = "monitorCenter"
+const permissionMenuName = "permissionManagement"
 
 type navigationItem struct {
 	name  string
@@ -110,11 +111,36 @@ func syncBusinessNavigation(ctx context.Context) error {
 
 		var systemParent system.SysBaseMenu
 		if err := tx.Where("name = ?", "superAdmin").First(&systemParent).Error; err == nil {
-			systemMenus := []navigationItem{
-				{name: "authority", title: "角色管理", icon: "avatar", sort: 1},
-				{name: "menu", title: "菜单管理", icon: "tickets", sort: 2},
+			permissionParent := system.SysBaseMenu{
+				ParentId: systemParent.ID,
+				Path:     "permissionManagement", Name: permissionMenuName, Hidden: false,
+				Component: "view/routerHolder.vue", Sort: 1, MenuLevel: 1,
+				Meta: system.Meta{Title: "权限管理", Icon: "lock"},
+			}
+			if err := tx.Where("name = ?", permissionParent.Name).FirstOrCreate(&permissionParent).Error; err != nil {
+				return err
+			}
+			if err := tx.Model(&system.SysBaseMenu{}).Where("name = ?", permissionParent.Name).Updates(map[string]any{
+				"parent_id": systemParent.ID, "menu_level": 1, "path": permissionParent.Path,
+				"component": permissionParent.Component, "hidden": false, "sort": permissionParent.Sort,
+				"title": permissionParent.Meta.Title, "icon": permissionParent.Meta.Icon,
+			}).Error; err != nil {
+				return err
+			}
+
+			permissionMenus := []navigationItem{
+				{name: "user", title: "用户管理", icon: "coordinate", sort: 1},
+				{name: "authority", title: "角色管理", icon: "avatar", sort: 2},
 				{name: "api", title: "API 管理", icon: "platform", sort: 3},
-				{name: "user", title: "用户管理", icon: "coordinate", sort: 4},
+				{name: "menu", title: "菜单管理", icon: "tickets", sort: 4},
+			}
+			for _, item := range permissionMenus {
+				if err := updateNestedMenu(tx, permissionParent.ID, item); err != nil {
+					return err
+				}
+			}
+
+			systemMenus := []navigationItem{
 				{name: "dictionary", title: "字典管理", icon: "notebook", sort: 5},
 				{name: "operation", title: "操作历史", icon: "pie-chart", sort: 6},
 				{name: "sysParams", title: "参数管理", icon: "compass", sort: 7},
@@ -129,6 +155,12 @@ func syncBusinessNavigation(ctx context.Context) error {
 				if err := updateChildMenu(tx, systemParent.ID, item); err != nil {
 					return err
 				}
+			}
+			if err := migrateAuthoritiesForParent(tx, permissionParent.ID, permissionMenus); err != nil {
+				return err
+			}
+			if err := migrateAuthoritiesForParent(tx, systemParent.ID, []navigationItem{{name: permissionMenuName}}); err != nil {
+				return err
 			}
 		}
 
@@ -150,6 +182,13 @@ func syncBusinessNavigation(ctx context.Context) error {
 func updateChildMenu(tx *gorm.DB, parentID uint, item navigationItem) error {
 	return tx.Model(&system.SysBaseMenu{}).Where("name = ?", item.name).Updates(map[string]any{
 		"parent_id": parentID, "menu_level": 1, "hidden": false,
+		"title": item.title, "icon": item.icon, "sort": item.sort,
+	}).Error
+}
+
+func updateNestedMenu(tx *gorm.DB, parentID uint, item navigationItem) error {
+	return tx.Model(&system.SysBaseMenu{}).Where("name = ?", item.name).Updates(map[string]any{
+		"parent_id": parentID, "menu_level": 2, "hidden": false,
 		"title": item.title, "icon": item.icon, "sort": item.sort,
 	}).Error
 }
