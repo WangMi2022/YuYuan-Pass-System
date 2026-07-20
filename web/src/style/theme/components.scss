@@ -16,26 +16,58 @@
 }
 .el-button--small { min-height: 30px; padding: 5px 11px; border-radius: 8px; }
 .el-button--large { min-height: 42px; padding: 9px 19px; border-radius: 11px; }
-.el-button--default {
+.el-button--default:not(.el-button--primary, .el-button--success, .el-button--warning, .el-button--danger, .el-button--info) {
   border-color: var(--na-border-strong);
   background: var(--na-card);
   color: var(--na-foreground);
 }
-.el-button--default:hover,
-.el-button--default:focus-visible {
+.el-button--default:not(.el-button--primary, .el-button--success, .el-button--warning, .el-button--danger, .el-button--info):hover,
+.el-button--default:not(.el-button--primary, .el-button--success, .el-button--warning, .el-button--danger, .el-button--info):focus-visible {
   border-color: color-mix(in srgb, var(--na-primary) 22%, var(--na-border-strong));
   background: color-mix(in srgb, var(--na-primary) 4%, var(--na-muted));
   color: var(--na-foreground);
 }
-.el-button--primary { border-color: var(--na-primary); background: var(--na-primary); color: var(--na-on-primary); }
-.el-button--primary:hover,
-.el-button--primary:focus-visible {
+.el-button--primary:not(.is-plain, .is-link, .is-text) { border-color: var(--na-primary); background: var(--na-primary); color: var(--na-on-primary); }
+.el-button--primary:not(.is-plain, .is-link, .is-text):hover,
+.el-button--primary:not(.is-plain, .is-link, .is-text):focus-visible {
   border-color: var(--na-primary-hover);
   background: var(--na-primary-hover);
   box-shadow: 0 7px 18px color-mix(in srgb, var(--na-primary) 20%, transparent);
 }
+.el-button--primary:is(.is-plain, .is-link, .is-text) {
+  --na-button-primary-plain: color-mix(in srgb, var(--na-primary) 60%, var(--na-foreground));
+}
+.el-button--primary.is-plain {
+  border-color: var(--na-button-primary-plain);
+  background: var(--na-card);
+  color: var(--na-button-primary-plain);
+}
+.el-button--primary:is(.is-link, .is-text) {
+  color: var(--na-button-primary-plain);
+}
+.el-button--primary.is-plain:hover,
+.el-button--primary.is-plain:focus-visible {
+  border-color: var(--na-primary);
+  background: var(--na-primary);
+  color: var(--na-on-primary);
+}
+.el-button--danger.is-plain {
+  border-color: var(--na-danger);
+  background: var(--na-card);
+  color: var(--na-danger);
+}
+.el-button--danger.is-plain:hover,
+.el-button--danger.is-plain:focus-visible {
+  border-color: var(--na-danger);
+  background: var(--na-danger);
+  color: #fff;
+}
+html.dark .el-button--danger.is-plain:hover,
+html.dark .el-button--danger.is-plain:focus-visible {
+  background: color-mix(in srgb, var(--na-danger) 8%, var(--na-card));
+  color: var(--na-danger);
+}
 .el-button:not(.is-disabled):active { transform: translateY(1px); }
-.el-button.is-plain { background: transparent; }
 .el-button.is-link { min-height: 26px; padding: 4px 5px; }
 .el-button.is-disabled { opacity: .5; }
 

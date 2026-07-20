@@ -155,15 +155,22 @@ function addOpacityToColor(u, opacity) {
   return `rgba(${t[0]}, ${t[1]}, ${t[2]}, ${opacity})`
 }
 
-const getContrastTextColor = (color) => {
+const getRelativeLuminance = (color) => {
   const rgb = colorToHex(color).map((channel) => {
     const value = channel / 255
     return value <= 0.04045
       ? value / 12.92
       : Math.pow((value + 0.055) / 1.055, 2.4)
   })
-  const luminance = 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]
-  return luminance > 0.42 ? '#27313c' : '#ffffff'
+  return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]
+}
+
+const getContrastTextColor = (color) => {
+  const surfaceLuminance = getRelativeLuminance(color)
+  const darkText = '#27313c'
+  const darkContrast = (surfaceLuminance + 0.05) / (getRelativeLuminance(darkText) + 0.05)
+  const lightContrast = 1.05 / (surfaceLuminance + 0.05)
+  return darkContrast > lightContrast ? darkText : '#ffffff'
 }
 
 export const setBodyPrimaryColor = (primaryColor, darkMode) => {

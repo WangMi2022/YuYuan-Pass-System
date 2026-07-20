@@ -300,10 +300,10 @@ onMounted(async () => {
 .page-heading,
 .filter-panel,
 .site-panel {
-  border: 1px solid var(--na-border, var(--el-border-color-light));
+  border: 1px solid var(--na-border-strong, var(--el-border-color));
   border-radius: 14px;
   background: var(--na-card, var(--el-bg-color));
-  box-shadow: 0 10px 24px rgb(15 23 42 / 4%);
+  box-shadow: none;
 }
 
 .page-heading {
@@ -395,11 +395,18 @@ h1,
   min-width: 0;
   min-height: 202px;
   flex-direction: column;
-  border: 1px solid var(--el-border-color-lighter);
+  border: 1px solid var(--na-border-strong, var(--el-border-color));
   border-radius: 12px;
   background: var(--el-bg-color);
   padding: 14px;
   cursor: pointer;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.site-card:hover,
+.site-card:focus-visible {
+  border-color: color-mix(in srgb, var(--na-primary) 34%, var(--na-border-strong));
+  background: color-mix(in srgb, var(--na-primary) 2%, var(--na-card));
 }
 
 .site-card.disabled {
