@@ -142,8 +142,11 @@
 <style scoped lang="scss">
   .workbench {
     min-height: 100%;
-    padding: 24px;
-    background: var(--na-background);
+    width: 100%;
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 28px 32px 38px;
+    background: transparent;
     color: var(--na-foreground);
   }
 
@@ -151,11 +154,13 @@
   .hero {
     position: relative;
     overflow: hidden;
-    min-height: 176px;
-    background:
-      radial-gradient(110% 150% at 92% -20%, var(--na-primary-soft), transparent 52%),
-      var(--na-card);
+    min-height: 90px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
   }
+  .hero-canvas { opacity: .18; }
   .hero-content {
     position: relative;
     z-index: 1;
@@ -163,45 +168,49 @@
     align-items: flex-end;
     justify-content: space-between;
     gap: 20px;
-    padding: 28px 28px 26px;
+    padding: 10px 0 20px;
   }
-  .hero-kicker { margin: 0 0 6px; color: var(--na-muted-foreground); font-size: 12px; }
-  .hero h1 { margin: 0; font-size: 24px; font-weight: 650; }
-  .hero-subtitle { margin: 8px 0 0; color: var(--na-muted-foreground); font-size: 13px; }
+  .hero-kicker { margin: 0 0 7px; color: var(--na-muted-foreground); font-size: 10px; }
+  .hero h1 { margin: 0; font-size: 25px; font-weight: 570; letter-spacing: -.035em; }
+  .hero-subtitle { margin: 7px 0 0; color: var(--na-muted-foreground); font-size: 12px; }
   .hero-actions { display: flex; flex: 0 0 auto; gap: 8px; }
 
   /* KPI row */
   .kpi-row {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 12px;
-    margin-top: 14px;
+    gap: 0;
+    overflow: hidden;
+    margin-top: 0;
+    border: 1px solid var(--na-border);
+    border-radius: 12px;
+    background: var(--na-card);
+    box-shadow: var(--na-shadow-sm);
   }
   .kpi {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 15px 16px;
-    transition: border-color 150ms ease, transform 150ms ease;
+    gap: 0;
+    padding: 16px 18px;
+    border: 0;
+    border-right: 1px solid var(--na-border);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    transition: background-color 150ms ease;
   }
-  .kpi:hover { border-color: color-mix(in srgb, var(--kpi-color) 36%, var(--na-border)); transform: translateY(-1px); }
+  .kpi:last-child { border-right: 0; }
+  .kpi:hover { background: color-mix(in srgb, var(--na-primary) 3%, var(--na-card)); }
   .kpi-icon {
-    display: grid;
-    width: 38px;
-    height: 38px;
-    place-items: center;
-    flex: 0 0 38px;
-    border-radius: 9px;
-    color: var(--kpi-color);
-    background: color-mix(in srgb, var(--kpi-color) 12%, transparent);
-    font-size: 17px;
+    display: none;
   }
   .kpi-body { display: flex; min-width: 0; flex-direction: column; }
-  .kpi-body span { color: var(--na-muted-foreground); font-size: 12px; }
+  .kpi-body span { color: var(--na-muted-foreground); font-size: 10px; }
   .kpi-body strong {
     overflow: hidden;
-    margin-top: 3px;
+    margin-top: 5px;
     font-size: 19px;
+    font-weight: 570;
     font-variant-numeric: tabular-nums;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -210,7 +219,7 @@
   /* Two-column grid */
   .workbench-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr);
+    grid-template-columns: minmax(0, 1fr) 285px;
     gap: 14px;
     margin-top: 14px;
   }
@@ -282,6 +291,9 @@
 
   @media (max-width: 1200px) {
     .kpi-row { grid-template-columns: repeat(3, 1fr); }
+    .kpi { border-bottom: 1px solid var(--na-border); }
+    .kpi:nth-child(3) { border-right: 0; }
+    .kpi:nth-child(n + 4) { border-bottom: 0; }
   }
   @media (max-width: 900px) {
     .workbench { padding: 14px; }
@@ -289,9 +301,15 @@
     .hero-content { align-items: stretch; flex-direction: column; }
     .hero-actions { flex-wrap: wrap; }
     .kpi-row { grid-template-columns: repeat(2, 1fr); }
+    .kpi:nth-child(3) { border-right: 1px solid var(--na-border); }
+    .kpi:nth-child(even) { border-right: 0; }
+    .kpi:nth-child(n + 4) { border-bottom: 1px solid var(--na-border); }
+    .kpi:last-child { border-right: 0; border-bottom: 0; }
     .shortcut-grid { grid-template-columns: 1fr; }
   }
   @media (max-width: 560px) {
     .kpi-row { grid-template-columns: 1fr; }
+    .kpi { border-right: 0; border-bottom: 1px solid var(--na-border); }
+    .kpi:last-child { border-bottom: 0; }
   }
 </style>

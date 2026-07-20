@@ -10,27 +10,27 @@
 
 :root {
   /* surfaces */
-  --na-background: #f7f7fb;
-  --na-foreground: #18181b;
+  --na-background: #f6f5fa;
+  --na-foreground: #19172c;
   --na-card: #ffffff;
-  --na-card-foreground: #18181b;
+  --na-card-foreground: #19172c;
   --na-popover: #ffffff;
-  --na-muted: #f2f1f7;
-  --na-muted-foreground: #71717a;
+  --na-muted: #f3f2f7;
+  --na-muted-foreground: #77738c;
 
   /* primary — runtime-injected, fallback = indigo */
-  --na-primary: #6366f1;
+  --na-primary: #6d5dfb;
   --na-on-primary: #ffffff;
-  --na-primary-hover: #4f46e5;
-  --na-primary-soft: rgb(99 102 241 / 10%);
-  --na-accent: rgb(99 102 241 / 12%);
-  --na-accent-foreground: #4338ca;
-  --na-ring: rgb(99 102 241 / 20%);
+  --na-primary-hover: #5948eb;
+  --na-primary-soft: rgb(109 93 251 / 10%);
+  --na-accent: rgb(109 93 251 / 12%);
+  --na-accent-foreground: #5543e9;
+  --na-ring: rgb(109 93 251 / 20%);
 
   /* lines */
-  --na-border: #e3e1ea;
-  --na-border-strong: #d3d0dc;
-  --na-input: #d3d0dc;
+  --na-border: #e2e0ec;
+  --na-border-strong: #d5d1e2;
+  --na-input: #d5d1e2;
 
   /* status */
   --na-success: #059669;
@@ -43,7 +43,7 @@
   --na-info-soft: rgb(2 132 199 / 10%);
 
   /* categorical chart palette — chart-1 follows the primary color at runtime */
-  --na-chart-1: #6366f1;
+  --na-chart-1: #6d5dfb;
   --na-chart-2: #0ea5e9;
   --na-chart-3: #10b981;
   --na-chart-4: #f59e0b;
@@ -53,22 +53,22 @@
   --na-chart-label: #71717a;
 
   /* shell */
-  --na-sidebar: #fbfbfd;
-  --na-sidebar-border: #e3e1ea;
-  --na-table-header: #f8f7fb;
-  --na-table-hover: #f2f1f7;
+  --na-sidebar: #ffffff;
+  --na-sidebar-border: #e2e0ec;
+  --na-table-header: #faf9fc;
+  --na-table-hover: #f6f4fc;
 
   /* geometry & depth */
-  --na-radius: 12px;
+  --na-radius: 14px;
   --na-radius-sm: 9px;
-  --na-radius-lg: 16px;
-  --na-shadow-sm: 0 2px 5px rgb(45 38 88 / 5%);
-  --na-shadow-md: 0 10px 30px rgb(45 38 88 / 10%);
-  --na-header-height: 60px;
-  --na-tabs-height: 42px;
+  --na-radius-lg: 14px;
+  --na-shadow-sm: 0 2px 4px rgb(53 45 111 / 4%);
+  --na-shadow-md: 0 12px 28px rgb(53 45 111 / 10%);
+  --na-header-height: 62px;
+  --na-tabs-height: 38px;
 
-  --na-font-sans: Inter, 'Public Sans', ui-sans-serif, system-ui, -apple-system,
-    BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --na-font-sans: 'Avenir Next', Avenir, 'Segoe UI', 'PingFang SC',
+    'Microsoft YaHei', ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
 html.dark {
@@ -82,10 +82,10 @@ html.dark {
   --na-muted-foreground: #a1a1aa;
 
   /* primary fallbacks (runtime override still applies) */
-  --na-primary-soft: rgb(99 102 241 / 16%);
-  --na-accent: rgb(99 102 241 / 20%);
+  --na-primary-soft: rgb(109 93 251 / 16%);
+  --na-accent: rgb(109 93 251 / 20%);
   --na-accent-foreground: #a5b4fc;
-  --na-ring: rgb(99 102 241 / 28%);
+  --na-ring: rgb(109 93 251 / 28%);
 
   /* lines */
   --na-border: #2b2934;

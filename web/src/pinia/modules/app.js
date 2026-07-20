@@ -10,14 +10,14 @@ export const useAppStore = defineStore('app', () => {
   const config = reactive({
     weakness: false,
     grey: false,
-    primaryColor: '#6366f1',
-    showTabs: true,
+    primaryColor: '#6D5DFB',
+    showTabs: false,
     darkMode: 'auto',
     layout_side_width: 220,
     layout_side_collapsed_width: 64,
     layout_side_item_height: 40,
     show_watermark: false,
-    side_mode: 'normal',
+    side_mode: 'head',
     // 页面过渡动画配置
     transition_type: 'fade',
     global_size: 'default'
@@ -107,14 +107,14 @@ export const useAppStore = defineStore('app', () => {
   const baseCoinfg = {
     weakness: false,
     grey: false,
-    primaryColor: '#6366f1',
-    showTabs: true,
+    primaryColor: '#6D5DFB',
+    showTabs: false,
     darkMode: 'auto',
     layout_side_width: 220,
     layout_side_collapsed_width: 64,
     layout_side_item_height: 40,
     show_watermark: false,
-    side_mode: 'normal',
+    side_mode: 'head',
     // 页面过渡动画配置
     transition_type: 'fade',
     global_size: 'default'

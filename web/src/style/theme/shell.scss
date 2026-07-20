@@ -28,9 +28,7 @@
   min-width: 0;
   height: 100%;
   overflow: hidden;
-  background:
-    radial-gradient(90% 70% at 48% -20%, var(--na-primary-soft), transparent 52%),
-    var(--na-background);
+  background: var(--na-background);
 }
 
 .na-page-scroll {
@@ -51,12 +49,11 @@
   align-items: center;
   justify-content: space-between;
   height: var(--na-header-height);
-  padding: 0 20px;
+  padding: 0 28px;
   border-bottom: 1px solid var(--na-border);
-  background: color-mix(in srgb, var(--na-card) 96%, transparent);
+  background: var(--na-card);
   color: var(--na-foreground);
-  box-shadow: 0 1px 10px color-mix(in srgb, var(--na-primary) 4%, transparent);
-  backdrop-filter: blur(18px);
+  box-shadow: none;
 }
 
 .na-header-left,
@@ -72,8 +69,8 @@
 
 .na-brand {
   flex: 0 0 auto;
-  gap: 11px;
-  min-width: 222px;
+  gap: 10px;
+  min-width: 224px;
   height: 100%;
   padding: 0 4px;
   border: 0;
@@ -85,12 +82,25 @@
 
 .na-brand:hover { opacity: .85; }
 .na-brand-logo {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 10px;
-  box-shadow: 0 7px 16px color-mix(in srgb, var(--na-primary) 20%, transparent);
+  box-shadow: 0 7px 16px color-mix(in srgb, var(--na-primary) 14%, transparent);
 }
-.na-brand-name { font-size: 14px; font-weight: 650; letter-spacing: -.015em; white-space: nowrap; }
+.na-brand-name {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  white-space: nowrap;
+}
+.na-brand-name strong { font-size: 14px; font-weight: 650; letter-spacing: -.015em; line-height: 1.2; }
+.na-brand-name small {
+  color: var(--na-muted-foreground);
+  font-size: 8px;
+  font-weight: 550;
+  letter-spacing: .15em;
+  line-height: 1.2;
+}
 
 .na-header .el-breadcrumb { margin-left: 10px; }
 .na-header .el-breadcrumb__inner,
@@ -372,14 +382,15 @@
 .na-head-nav {
   display: flex;
   align-items: center;
-  width: calc(100vw - 600px);
+  flex: 1 1 auto;
+  width: auto;
   height: 100%;
-  margin: 0 8px;
+  margin: 0 12px;
   overflow: auto hidden;
   color: var(--na-foreground);
 }
 .na-head-nav .el-menu--horizontal {
-  gap: 2px;
+  gap: 8px;
   height: 100%;
   border-bottom: 0;
 }
@@ -391,7 +402,12 @@
   border: 0;
   border-radius: 999px;
   color: var(--na-muted-foreground);
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.na-head-nav .el-menu--horizontal > .el-menu-item > .el-icon,
+.na-head-nav .el-menu--horizontal > .el-sub-menu .el-sub-menu__title > .flex > .el-icon {
+  display: none;
 }
 .na-head-nav .el-menu--horizontal > .el-menu-item:hover,
 .na-head-nav .el-menu--horizontal > .el-sub-menu .el-sub-menu__title:hover {
@@ -410,39 +426,39 @@
   align-items: center;
   flex: 0 0 var(--na-tabs-height);
   height: var(--na-tabs-height);
-  padding: 5px 10px;
+  padding: 3px 28px;
   border-bottom: 1px solid var(--na-border);
-  background: color-mix(in srgb, var(--na-card) 72%, var(--na-background));
+  background: var(--na-card);
 }
 .gva-tabs > .el-tabs {
   flex: 1;
   min-width: 0;
-  height: 32px;
+  height: 30px;
   overflow: hidden;
   padding-top: 0;
   background: transparent;
 }
-.gva-tabs .el-tabs__header { height: 32px; margin: 0; }
+.gva-tabs .el-tabs__header { height: 30px; margin: 0; }
 .gva-tabs .el-tabs__nav-scroll { padding: 0 4px; }
 .gva-tabs .el-tabs--card > .el-tabs__header { border-bottom: 0; }
 .gva-tabs .el-tabs--card > .el-tabs__header .el-tabs__nav { border: 0; }
 .gva-tabs .el-tabs__item {
   position: relative;
-  height: 30px;
+  height: 28px;
   margin: 0 5px 0 0;
   padding: 0 10px;
   border: 1px solid transparent;
-  border-radius: 9px;
+  border-radius: 999px;
   color: var(--na-muted-foreground);
   font-size: 12.5px;
   transition: color 150ms ease;
 }
 .gva-tabs .el-tabs__item:hover { background: var(--na-muted); color: var(--na-foreground); }
 .gva-tabs .el-tabs__item.is-active {
-  border-color: color-mix(in srgb, var(--na-primary) 18%, var(--na-border));
+  border-color: transparent;
   background: var(--na-primary-soft);
   color: var(--na-primary);
-  box-shadow: var(--na-shadow-sm);
+  box-shadow: none;
 }
 .gva-tabs .el-tabs__item.is-active::after {
   display: none;
@@ -482,7 +498,9 @@
 /* ---- Page scaffolding (shared by rewritten pages) ---- */
 .na-page {
   min-height: 100%;
-  padding: 26px;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 28px 32px 38px;
   background: transparent;
   color: var(--na-foreground);
 }
@@ -497,10 +515,9 @@
   color: var(--na-muted-foreground);
   font-size: 11px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: .09em !important;
+  letter-spacing: .02em !important;
 }
-.na-page-title { margin: 3px 0 0; color: var(--na-foreground); font-size: 22px; font-weight: 650; }
+.na-page-title { margin: 4px 0 0; color: var(--na-foreground); font-size: 25px; font-weight: 570; letter-spacing: -.03em; }
 .na-page-description { margin-top: 6px; color: var(--na-muted-foreground); font-size: 13px; }
 .na-page-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; }
 

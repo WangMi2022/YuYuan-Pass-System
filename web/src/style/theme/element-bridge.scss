@@ -9,11 +9,11 @@
 
 :root {
   --el-color-primary: var(--na-primary);
-  --el-color-primary-light-3: #8789f4;
-  --el-color-primary-light-5: #a5a7f7;
-  --el-color-primary-light-7: #c8c9fa;
-  --el-color-primary-light-8: #d9dafc;
-  --el-color-primary-light-9: #eceafd;
+  --el-color-primary-light-3: #9186fc;
+  --el-color-primary-light-5: #b6affd;
+  --el-color-primary-light-7: #d3cefe;
+  --el-color-primary-light-8: #e2dffe;
+  --el-color-primary-light-9: #f0edff;
   --el-color-primary-dark-2: var(--na-primary-hover);
 
   --el-color-success: var(--na-success);
@@ -63,11 +63,11 @@
 /* Re-assert on dark so this bridge outranks EP's official dark css-vars. */
 html.dark {
   --el-color-primary: var(--na-primary);
-  --el-color-primary-light-3: #7577e8;
-  --el-color-primary-light-5: #55579f;
-  --el-color-primary-light-7: #3b3c68;
-  --el-color-primary-light-8: #2e2f4e;
-  --el-color-primary-light-9: #232338;
+  --el-color-primary-light-3: #8b7ff6;
+  --el-color-primary-light-5: #6259a8;
+  --el-color-primary-light-7: #433d70;
+  --el-color-primary-light-8: #342f54;
+  --el-color-primary-light-9: #29263e;
   --el-color-primary-dark-2: var(--na-primary-hover);
 
   --el-color-success: var(--na-success);

@@ -2,8 +2,8 @@
   <title id="title">资产管理中心</title>
   <defs>
     <linearGradient id="g" x1="10" y1="8" x2="54" y2="58" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#62B5F0"/>
-      <stop offset="1" stop-color="#2E86C7"/>
+      <stop stop-color="#8A7CFF"/>
+      <stop offset="1" stop-color="#5B48EA"/>
     </linearGradient>
   </defs>
   <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#g)"/>
