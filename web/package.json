@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "node openDocument.js && vite --host --mode development",
     "serve": "node openDocument.js && vite --host --mode development",
+    "prototype:admin": "vite --host 0.0.0.0 --mode development --open /prototypes/admin-redesign/index.html?variant=01",
     "build": "vite build --mode production",
     "limit-build": "npm install increase-memory-limit-fixbug cross-env -g && npm run fix-memory-limit && node ./limit && npm run build",
     "preview": "vite preview --host --mode development",
