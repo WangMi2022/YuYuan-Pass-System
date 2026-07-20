@@ -20,15 +20,16 @@ export function useThreeScene(hostRef, { setup, onFrame } = {}) {
   let renderer = null
   let scene = null
   let camera = null
-  let clock = null
+  let timer = null
   let observer = null
   let reduceMotion = false
   let running = false
 
   const renderFrame = () => {
     if (!renderer) return
-    const delta = clock.getDelta()
-    const elapsed = clock.getElapsedTime()
+    timer.update()
+    const delta = timer.getDelta()
+    const elapsed = timer.getElapsed()
     onFrame?.({ elapsed, delta, scene, camera })
     renderer.render(scene, camera)
   }
@@ -96,7 +97,8 @@ export function useThreeScene(hostRef, { setup, onFrame } = {}) {
 
     scene = new THREE.Scene()
     camera = new THREE.PerspectiveCamera(50, 1, 0.1, 200)
-    clock = new THREE.Clock()
+    timer = new THREE.Timer()
+    timer.connect(document)
 
     const resize = () => {
       const w = host.clientWidth
@@ -146,6 +148,8 @@ export function useThreeScene(hostRef, { setup, onFrame } = {}) {
     renderer = null
     scene = null
     camera = null
+    timer?.dispose()
+    timer = null
     api.value = null
   }
 
