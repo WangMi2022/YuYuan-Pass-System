@@ -1,92 +1,150 @@
 <template>
-  <main class="workbench">
-    <!-- 问候横幅 · Three.js 波浪粒子 -->
-    <section class="hero na-panel">
-      <HeroCanvas />
-      <div class="hero-content">
-        <div>
-          <p class="hero-kicker">{{ todayText }}</p>
-          <h1>{{ greeting }}，{{ userStore.userInfo.nickName || '朋友' }}</h1>
-          <p class="hero-subtitle">欢迎回到资产管理中心，今天也保持从容高效。</p>
-        </div>
-        <div class="hero-actions">
-          <el-button type="primary" :icon="DataAnalysis" @click="go('assetDashboard')">进入资产大屏</el-button>
-          <el-button :icon="Plus" @click="go('assetInventory')">登记资产</el-button>
+  <main v-loading="loading" class="blueprint-dashboard">
+    <section class="blueprint-hero" aria-labelledby="dashboard-title">
+      <div class="blueprint-copy">
+        <span class="coordinate">ASSET CONTROL / LIVE DATA</span>
+        <h1 id="dashboard-title">{{ greeting }}，{{ userStore.userInfo.nickName || '朋友' }}</h1>
+        <p>今日 {{ pendingCount }} 项业务待处理，资产整体健康度保持稳定。</p>
+        <div class="hero-buttons">
+          <el-button type="primary" :icon="Plus" @click="go('assetInventory')">登记资产</el-button>
+          <el-button @click="go('assetDashboard')">
+            查看资产大屏
+            <el-icon><ArrowRight /></el-icon>
+          </el-button>
         </div>
       </div>
+
+      <aside class="health-blueprint" aria-label="资产健康度">
+        <span>ASSET HEALTH / LIVE</span>
+        <strong>{{ healthRate }}<small>%</small></strong>
+        <div class="health-line" aria-hidden="true">
+          <i :style="{ width: `${healthRate}%` }" />
+        </div>
+        <p><i />{{ formatNumber(controlledQuantity) }} 件资产处于正常受控状态</p>
+      </aside>
     </section>
 
-    <!-- 资产概览 -->
-    <section class="kpi-row" aria-label="资产概览">
-      <article v-for="item in kpis" :key="item.label" class="kpi na-panel" :style="{ '--kpi-color': item.color }">
-        <div class="kpi-icon"><el-icon><component :is="item.icon" /></el-icon></div>
-        <div class="kpi-body">
-          <span>{{ item.label }}</span>
+    <section class="metric-strip" aria-label="资产核心指标">
+      <article v-for="(item, index) in metrics" :key="item.label">
+        <span>{{ String(index + 1).padStart(2, '0') }} / {{ item.label }}</span>
+        <div>
           <strong>{{ item.value }}</strong>
+          <em>{{ item.hint }}</em>
         </div>
+        <svg viewBox="0 0 72 26" preserveAspectRatio="none" aria-hidden="true">
+          <polyline :points="item.spark" />
+        </svg>
       </article>
     </section>
 
-    <div class="workbench-grid">
-      <!-- 快捷入口 -->
-      <section class="na-panel">
-        <header class="na-panel-header"><h2 class="na-panel-title">快捷入口</h2></header>
-        <div class="shortcut-grid">
-          <button
-            v-for="item in visibleShortcuts"
-            :key="item.route"
-            type="button"
-            class="shortcut"
-            @click="go(item.route)"
-          >
-            <span class="shortcut-icon"><el-icon><component :is="item.icon" /></el-icon></span>
-            <span class="shortcut-text">
-              <strong>{{ item.title }}</strong>
-              <small>{{ item.desc }}</small>
-            </span>
-            <el-icon class="shortcut-arrow"><ArrowRight /></el-icon>
+    <section class="lower-grid">
+      <article class="sheet-panel recent-panel">
+        <header>
+          <div>
+            <span>REGISTER / 资产台账</span>
+            <h2>最近登记</h2>
+          </div>
+          <button type="button" class="text-button" @click="go('assetInventory')">
+            查看全部 <el-icon><ArrowRight /></el-icon>
           </button>
-        </div>
-      </section>
-
-      <!-- 最新公告 -->
-      <section class="na-panel">
-        <header class="na-panel-header">
-          <h2 class="na-panel-title">最新公告</h2>
-          <el-tag v-if="unreadCount" type="danger" effect="plain" round size="small">{{ unreadCount }} 未读</el-tag>
         </header>
-        <div v-if="notices.length" class="notice-list">
-          <div v-for="item in notices" :key="item.ID" class="notice-item" :class="{ 'is-unread': !item.isRead }">
-            <span class="notice-dot" />
-            <div class="notice-body">
-              <strong>{{ item.title }}</strong>
-              <small>{{ item.publisher || '系统管理员' }} · {{ formatDateText(item.publishedAt || item.CreatedAt) }}</small>
-            </div>
+
+        <div class="recent-table-wrap">
+          <table v-if="recentAssets.length" class="recent-table">
+            <thead>
+              <tr>
+                <th>资产编号</th>
+                <th>资产名称</th>
+                <th>位置 / 保管人</th>
+                <th>状态</th>
+                <th class="number-cell">入账原值</th>
+                <th><span class="sr-only">操作</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in recentAssets" :key="row.ID">
+                <td><code>{{ row.assetCode }}</code></td>
+                <td><strong>{{ row.name }}</strong></td>
+                <td>
+                  <span class="location-cell">{{ row.location || '位置待补充' }}</span>
+                  <small>{{ row.custodian || '未指定保管人' }}</small>
+                </td>
+                <td>
+                  <span class="asset-status" :class="`is-${statusMeta(row.status).tone}`">
+                    <i />{{ statusMeta(row.status).label }}
+                  </span>
+                </td>
+                <td class="number-cell">{{ formatCurrency(row.originalValue) }}</td>
+                <td>
+                  <button type="button" class="row-more" :aria-label="`查看资产 ${row.name}`" @click="go('assetInventory')">
+                    <el-icon><MoreFilled /></el-icon>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div v-else class="empty-state">
+            <strong>暂无资产登记</strong>
+            <span>完成首条资产建档后，这里会显示最新记录。</span>
           </div>
         </div>
-        <el-empty v-else description="暂无公告" :image-size="72" />
-      </section>
-    </div>
+      </article>
+
+      <aside class="sheet-panel task-panel">
+        <header>
+          <div>
+            <span>QUEUE / TODAY</span>
+            <h2>今日待办</h2>
+          </div>
+          <b>{{ pendingCount > 99 ? '99+' : pendingCount }}</b>
+        </header>
+
+        <div v-if="tasks.length" class="task-list">
+          <button v-for="task in tasks" :key="task.ID" type="button" class="task-line" @click="openTask(task)">
+            <time>{{ taskTime(task.CreatedAt || task.businessDate) }}</time>
+            <span>
+              <strong>{{ taskTitle(task) }}</strong>
+              <small>{{ taskDescription(task) }}</small>
+            </span>
+            <el-icon><ArrowRight /></el-icon>
+          </button>
+        </div>
+        <div v-else class="task-empty">
+          <span>✓</span>
+          <strong>暂无待处理业务</strong>
+          <small>新的草稿单据会显示在这里。</small>
+        </div>
+      </aside>
+    </section>
   </main>
 </template>
 
 <script setup>
-  import { computed, markRaw, onMounted, ref } from 'vue'
+  import { computed, onMounted, ref } from 'vue'
   import { useRouter } from 'vue-router'
-  import {
-    ArrowRight, Box, Coin, CollectionTag, DataAnalysis, Document, Files,
-    Goods, Plus, Service, Setting, User
-  } from '@element-plus/icons-vue'
-  import HeroCanvas from '@/components/three/HeroCanvas.vue'
-  import { formatCompactCurrency, formatDateText, formatNumber } from '@/utils/format'
+  import { ArrowRight, MoreFilled, Plus } from '@element-plus/icons-vue'
+  import { formatCompactCurrency, formatCurrency, formatNumber } from '@/utils/format'
   import { getAssetDashboard } from '@/plugin/asset/api/asset'
-  import { getNotifications } from '@/plugin/announcement/api/info'
+  import { getAssetOperationList } from '@/plugin/asset/api/operation'
   import { useUserStore } from '@/pinia/modules/user'
 
   defineOptions({ name: 'Dashboard' })
 
   const router = useRouter()
   const userStore = useUserStore()
+  const loading = ref(false)
+
+  const dashboard = ref({
+    assetKinds: 0,
+    totalQuantity: 0,
+    categoryCount: 0,
+    originalValue: 0,
+    currentValue: 0,
+    statusSummary: [],
+    recentAssets: []
+  })
+  const tasks = ref([])
+  const pendingCount = ref(0)
 
   const greeting = computed(() => {
     const hour = new Date().getHours()
@@ -96,220 +154,369 @@
     if (hour < 18) return '下午好'
     return '晚上好'
   })
-  const todayText = new Date().toLocaleDateString('zh-CN', {
-    year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
+
+  const maintenanceQuantity = computed(() => Number(
+    dashboard.value.statusSummary.find((item) => item.status === 'maintenance')?.quantity || 0
+  ))
+  const controlledQuantity = computed(() => Math.max(
+    Number(dashboard.value.totalQuantity || 0) - maintenanceQuantity.value,
+    0
+  ))
+  const healthRate = computed(() => {
+    const total = Number(dashboard.value.totalQuantity || 0)
+    return total ? ((controlledQuantity.value / total) * 100).toFixed(1) : '0.0'
+  })
+  const retentionRate = computed(() => {
+    const original = Number(dashboard.value.originalValue || 0)
+    return original ? `${((Number(dashboard.value.currentValue || 0) / original) * 100).toFixed(1)}%` : '0.0%'
   })
 
-  const summary = ref({ totalQuantity: 0, assetKinds: 0, categoryCount: 0, originalValue: 0, currentValue: 0 })
-  const kpis = computed(() => [
-    { label: '资产实物总量', value: formatNumber(summary.value.totalQuantity), icon: markRaw(Box), color: 'var(--na-chart-1)' },
-    { label: '资产档案', value: formatNumber(summary.value.assetKinds), icon: markRaw(Files), color: 'var(--na-chart-2)' },
-    { label: '资产分类', value: formatNumber(summary.value.categoryCount), icon: markRaw(CollectionTag), color: 'var(--na-chart-5)' },
-    { label: '资产原值', value: formatCompactCurrency(summary.value.originalValue), icon: markRaw(Coin), color: 'var(--na-chart-4)' },
-    { label: '当前估值', value: formatCompactCurrency(summary.value.currentValue), icon: markRaw(Goods), color: 'var(--na-chart-3)' }
+  const metrics = computed(() => [
+    {
+      label: '资产实物总量',
+      value: formatNumber(dashboard.value.totalQuantity),
+      hint: `${formatNumber(dashboard.value.categoryCount)} 类`,
+      spark: '2,21 14,17 25,19 37,10 49,14 60,6 70,9'
+    },
+    {
+      label: '资产档案',
+      value: formatNumber(dashboard.value.assetKinds),
+      hint: `${dashboard.value.recentAssets.length} 条最近登记`,
+      spark: '2,20 14,15 25,18 37,8 49,12 60,4 70,7'
+    },
+    {
+      label: '资产原值',
+      value: formatCompactCurrency(dashboard.value.originalValue),
+      hint: '账面原值',
+      spark: '2,22 14,18 25,20 37,12 49,16 60,8 70,11'
+    },
+    {
+      label: '当前估值',
+      value: formatCompactCurrency(dashboard.value.currentValue),
+      hint: retentionRate.value,
+      spark: '2,21 14,16 25,18 37,9 49,13 60,5 70,8'
+    }
   ])
 
-  const shortcuts = [
-    { icon: markRaw(DataAnalysis), title: '资产大屏', desc: '总览资产结构与价值', route: 'assetDashboard' },
-    { icon: markRaw(Files), title: '资产档案', desc: '登记与维护资产信息', route: 'assetInventory' },
-    { icon: markRaw(Document), title: '文档中心', desc: '在线预览与协作编辑', route: 'documentViewer' },
-    { icon: markRaw(User), title: '用户管理', desc: '维护账号与角色指派', route: 'user' },
-    { icon: markRaw(Service), title: '角色管理', desc: '配置权限与数据范围', route: 'authority' },
-    { icon: markRaw(Setting), title: '系统设置', desc: '登录外观与系统参数', route: 'systemSetting' }
-  ]
-  // 仅展示当前用户权限内已注册的路由
-  const visibleShortcuts = computed(() => shortcuts.filter((item) => router.hasRoute(item.route)))
+  const recentAssets = computed(() => (dashboard.value.recentAssets || []).slice(0, 5))
+
+  const statusMap = {
+    pending_inbound: { label: '待入库', tone: 'info' },
+    idle: { label: '闲置', tone: 'neutral' },
+    in_use: { label: '在用', tone: 'success' },
+    maintenance: { label: '维保', tone: 'warning' },
+    retired: { label: '已处置', tone: 'danger' }
+  }
+  const statusMeta = (status) => statusMap[status] || { label: status || '未知', tone: 'neutral' }
+
+  const operationMap = {
+    inbound: { label: '资产入库', route: 'assetInbound' },
+    issue: { label: '资产领用', route: 'assetIssue' },
+    transfer: { label: '资产调拨', route: 'assetTransfer' },
+    return: { label: '资产归还', route: 'assetReturn' },
+    maintenance: { label: '维修维保', route: 'assetMaintenance' },
+    scrap: { label: '资产报废', route: 'assetScrap' }
+  }
+  const operationMeta = (type) => operationMap[type] || { label: '资产业务', route: 'assetInventory' }
+
+  const taskTime = (value) => {
+    if (!value) return '--:--'
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return '--:--'
+    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+  }
+  const taskTitle = (task) => task.reason?.trim() || `${operationMeta(task.type).label}待处理`
+  const taskDescription = (task) => {
+    const items = task.items || []
+    const firstName = items[0]?.assetName || task.orderNo || '业务草稿'
+    return `${firstName} · ${items.length} 项档案`
+  }
 
   const go = (name) => {
     if (router.hasRoute(name)) router.push({ name })
   }
+  const openTask = (task) => go(operationMeta(task.type).route)
 
-  const notices = ref([])
-  const unreadCount = computed(() => notices.value.filter((item) => !item.isRead).length)
+  const loadDashboard = async () => {
+    loading.value = true
+    try {
+      const [dashboardResult, taskResult] = await Promise.allSettled([
+        getAssetDashboard(),
+        getAssetOperationList({ page: 1, pageSize: 4, status: 'draft' })
+      ])
 
-  onMounted(async () => {
-    try {
-      const res = await getAssetDashboard()
-      if (res.code === 0) summary.value = { ...summary.value, ...res.data }
-    } catch { /* 概览加载失败不阻塞工作台 */ }
-    try {
-      const res = await getNotifications({ limit: 6 })
-      if (res.code === 0) notices.value = res.data?.list || res.data || []
-    } catch { /* 公告加载失败不阻塞工作台 */ }
-  })
+      if (dashboardResult.status === 'fulfilled' && dashboardResult.value.code === 0) {
+        const data = dashboardResult.value.data || {}
+        dashboard.value = {
+          ...dashboard.value,
+          ...data,
+          statusSummary: data.statusSummary || [],
+          recentAssets: data.recentAssets || []
+        }
+      }
+      if (taskResult.status === 'fulfilled' && taskResult.value.code === 0) {
+        tasks.value = taskResult.value.data?.list || []
+        pendingCount.value = Number(taskResult.value.data?.total || 0)
+      }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  onMounted(loadDashboard)
 </script>
 
 <style scoped lang="scss">
-  .workbench {
-    min-height: 100%;
+  .blueprint-dashboard {
+    --blueprint-accent: var(--na-primary);
+    --blueprint-ink: color-mix(in srgb, var(--na-foreground) 92%, #0f2d5c);
+    --blueprint-muted: color-mix(in srgb, var(--na-muted-foreground) 88%, #486998);
     width: 100%;
-    max-width: 1440px;
-    margin: 0 auto;
-    padding: 28px 32px 38px;
-    background: transparent;
-    color: var(--na-foreground);
+    min-height: 100%;
+    padding: 22px 24px 28px;
+    background: var(--na-background);
+    color: var(--blueprint-ink);
   }
 
-  /* Hero */
-  .hero {
+  .blueprint-hero {
     position: relative;
-    overflow: hidden;
-    min-height: 90px;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-  }
-  .hero-canvas { opacity: .18; }
-  .hero-content {
-    position: relative;
-    z-index: 1;
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 20px;
-    padding: 10px 0 20px;
-  }
-  .hero-kicker { margin: 0 0 7px; color: var(--na-muted-foreground); font-size: 10px; }
-  .hero h1 { margin: 0; font-size: 25px; font-weight: 570; letter-spacing: -.035em; }
-  .hero-subtitle { margin: 7px 0 0; color: var(--na-muted-foreground); font-size: 12px; }
-  .hero-actions { display: flex; flex: 0 0 auto; gap: 8px; }
-
-  /* KPI row */
-  .kpi-row {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 0;
+    min-height: 176px;
     overflow: hidden;
-    margin-top: 0;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    align-items: center;
+    gap: 30px;
+    padding: 26px 28px;
+    border: 1px solid color-mix(in srgb, var(--blueprint-accent) 22%, var(--na-border));
+    background-color: color-mix(in srgb, var(--na-card) 94%, var(--blueprint-accent));
+    background-image:
+      linear-gradient(color-mix(in srgb, var(--blueprint-accent) 9%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in srgb, var(--blueprint-accent) 9%, transparent) 1px, transparent 1px),
+      linear-gradient(color-mix(in srgb, var(--blueprint-accent) 4%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in srgb, var(--blueprint-accent) 4%, transparent) 1px, transparent 1px);
+    background-size: 40px 40px, 40px 40px, 8px 8px, 8px 8px;
+  }
+  .blueprint-hero::before {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    color: var(--blueprint-accent);
+    content: 'A-01';
+    font: 600 8px/1 Bahnschrift, 'Segoe UI', sans-serif;
+    letter-spacing: .14em;
+  }
+  .coordinate {
+    color: var(--blueprint-muted);
+    font: 600 8px/1.4 Bahnschrift, 'Segoe UI', sans-serif;
+    letter-spacing: .15em;
+  }
+  .blueprint-copy h1 {
+    margin: 8px 0 5px;
+    color: var(--blueprint-ink);
+    font-size: clamp(24px, 2.2vw, 32px);
+    font-weight: 650;
+    letter-spacing: -.04em;
+  }
+  .blueprint-copy p { margin: 0; color: var(--blueprint-muted); font-size: 12px; }
+  .hero-buttons { display: flex; gap: 8px; margin-top: 22px; }
+  .hero-buttons :deep(.el-button) { min-height: 34px; border-radius: 5px; }
+
+  .health-blueprint {
+    position: relative;
+    padding: 17px 20px;
+    border: 1px solid color-mix(in srgb, var(--blueprint-accent) 48%, var(--na-border));
+    background: color-mix(in srgb, var(--na-card) 94%, transparent);
+    box-shadow: 6px 6px 0 color-mix(in srgb, var(--blueprint-accent) 5%, transparent);
+  }
+  .health-blueprint::before,
+  .health-blueprint::after {
+    position: absolute;
+    width: 7px;
+    height: 7px;
+    border-color: var(--blueprint-accent);
+    border-style: solid;
+    content: '';
+  }
+  .health-blueprint::before { top: -1px; left: -1px; border-width: 1px 0 0 1px; }
+  .health-blueprint::after { right: -1px; bottom: -1px; border-width: 0 1px 1px 0; }
+  .health-blueprint > span {
+    color: var(--blueprint-muted);
+    font: 600 8px/1.4 Bahnschrift, 'Segoe UI', sans-serif;
+    letter-spacing: .15em;
+  }
+  .health-blueprint > strong {
+    display: block;
+    margin: 10px 0 4px;
+    color: color-mix(in srgb, var(--blueprint-accent) 58%, var(--blueprint-ink));
+    font: 42px/1 Bahnschrift, 'Segoe UI', sans-serif;
+  }
+  .health-blueprint > strong small { margin-left: 2px; font-size: 15px; }
+  .health-line { height: 4px; background: color-mix(in srgb, var(--blueprint-accent) 14%, var(--na-muted)); }
+  .health-line i { display: block; height: 100%; background: var(--blueprint-accent); transition: width 300ms ease-out; }
+  .health-blueprint p { display: flex; align-items: center; gap: 8px; margin: 13px 0 0; color: var(--blueprint-muted); font-size: 9px; }
+  .health-blueprint p i { width: 7px; height: 7px; border-radius: 50%; background: var(--na-success); box-shadow: 0 0 0 4px var(--na-success-soft); }
+
+  .metric-strip {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-top: 12px;
     border: 1px solid var(--na-border);
-    border-radius: 12px;
     background: var(--na-card);
-    box-shadow: var(--na-shadow-sm);
   }
-  .kpi {
-    display: flex;
-    align-items: center;
-    gap: 0;
-    padding: 16px 18px;
-    border: 0;
+  .metric-strip article {
+    position: relative;
+    min-width: 0;
+    padding: 15px 16px 10px;
     border-right: 1px solid var(--na-border);
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-    transition: background-color 150ms ease;
+    color: var(--blueprint-accent);
   }
-  .kpi:last-child { border-right: 0; }
-  .kpi:hover { background: color-mix(in srgb, var(--na-primary) 3%, var(--na-card)); }
-  .kpi-icon {
-    display: none;
+  .metric-strip article:last-child { border-right: 0; }
+  .metric-strip article > span {
+    color: var(--blueprint-muted);
+    font: 600 8px/1.4 Bahnschrift, 'Segoe UI', sans-serif;
+    letter-spacing: .08em;
   }
-  .kpi-body { display: flex; min-width: 0; flex-direction: column; }
-  .kpi-body span { color: var(--na-muted-foreground); font-size: 10px; }
-  .kpi-body strong {
-    overflow: hidden;
-    margin-top: 5px;
-    font-size: 19px;
-    font-weight: 570;
-    font-variant-numeric: tabular-nums;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+  .metric-strip article > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 6px; }
+  .metric-strip strong { color: var(--blueprint-ink); font: 24px/1.2 Bahnschrift, 'Segoe UI', sans-serif; }
+  .metric-strip em { overflow: hidden; color: var(--na-success); font-size: 9px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
+  .metric-strip svg { position: absolute; right: 15px; bottom: 8px; width: 72px; height: 26px; opacity: .18; }
+  .metric-strip polyline { fill: none; stroke: var(--blueprint-accent); stroke-width: 2; vector-effect: non-scaling-stroke; }
 
-  /* Two-column grid */
-  .workbench-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 285px;
-    gap: 14px;
-    margin-top: 14px;
-  }
-
-  .shortcut-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-    padding: 14px 16px 16px;
-  }
-  .shortcut {
+  .lower-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; margin-top: 12px; }
+  .sheet-panel { min-width: 0; overflow: hidden; border: 1px solid var(--na-border); background: var(--na-card); }
+  .sheet-panel > header {
     display: flex;
+    height: 58px;
     align-items: center;
-    gap: 12px;
-    padding: 12px 14px;
-    border: 1px solid var(--na-border);
-    border-radius: var(--na-radius-sm);
-    background: transparent;
-    color: var(--na-foreground);
-    text-align: left;
-    transition: border-color 150ms ease, background-color 150ms ease;
-  }
-  .shortcut:hover { border-color: color-mix(in srgb, var(--na-primary) 40%, var(--na-border)); background: var(--na-primary-soft); }
-  .shortcut:hover .shortcut-arrow { translate: 2px 0; color: var(--na-primary); }
-  .shortcut-icon {
-    display: grid;
-    width: 36px;
-    height: 36px;
-    place-items: center;
-    flex: 0 0 36px;
-    border-radius: 9px;
-    color: var(--na-primary);
-    background: var(--na-primary-soft);
-    font-size: 16px;
-  }
-  .shortcut-text { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 2px; }
-  .shortcut-text strong { font-size: 13px; font-weight: 550; }
-  .shortcut-text small { overflow: hidden; color: var(--na-muted-foreground); font-size: 11.5px; text-overflow: ellipsis; white-space: nowrap; }
-  .shortcut-arrow { color: var(--na-muted-foreground); font-size: 13px; transition: translate 150ms ease, color 150ms ease; }
-
-  .notice-list { padding: 6px 16px 12px; }
-  .notice-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 11px 2px;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 0 15px;
     border-bottom: 1px solid var(--na-border);
   }
-  .notice-item:last-child { border-bottom: 0; }
-  .notice-dot {
-    flex: 0 0 6px;
-    width: 6px;
-    height: 6px;
-    margin-top: 6px;
-    border-radius: 50%;
-    background: var(--na-border-strong);
+  .sheet-panel header span {
+    color: var(--blueprint-muted);
+    font: 600 7px/1.4 Bahnschrift, 'Segoe UI', sans-serif;
+    letter-spacing: .13em;
   }
-  .notice-item.is-unread .notice-dot { background: var(--na-primary); box-shadow: 0 0 0 3px var(--na-primary-soft); }
-  .notice-body { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
-  .notice-body strong {
+  .sheet-panel h2 { margin: 3px 0 0; color: var(--blueprint-ink); font-size: 13px; font-weight: 650; }
+  .text-button { display: flex; align-items: center; gap: 6px; border: 0; background: transparent; color: color-mix(in srgb, var(--blueprint-accent) 65%, var(--blueprint-ink)); font-size: 9px; }
+  .text-button .el-icon { width: 13px; }
+
+  .recent-table-wrap { width: 100%; overflow-x: auto; }
+  .recent-table { width: 100%; min-width: 860px; border-collapse: collapse; table-layout: fixed; }
+  .recent-table th {
+    height: 39px;
+    padding: 0 12px;
+    border-bottom: 1px solid var(--na-border);
+    color: var(--blueprint-muted);
+    font-size: 9px;
+    font-weight: 550;
+    text-align: left;
+  }
+  .recent-table th:nth-child(1) { width: 18%; }
+  .recent-table th:nth-child(2) { width: 29%; }
+  .recent-table th:nth-child(3) { width: 23%; }
+  .recent-table th:nth-child(4) { width: 14%; }
+  .recent-table th:nth-child(5) { width: 13%; }
+  .recent-table th:last-child { width: 36px; }
+  .recent-table td { height: 54px; padding: 0 12px; border-bottom: 1px solid var(--na-border); color: var(--blueprint-muted); font-size: 11px; }
+  .recent-table tbody tr:last-child td { border-bottom: 0; }
+  .recent-table tbody tr:hover { background: color-mix(in srgb, var(--blueprint-accent) 3%, var(--na-card)); }
+  .recent-table code { color: color-mix(in srgb, var(--blueprint-accent) 72%, var(--blueprint-ink)); font: 9px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .recent-table td > strong { color: var(--blueprint-ink); font-size: 11px; font-weight: 550; }
+  .recent-table td:nth-child(3) { line-height: 1.3; }
+  .location-cell,
+  .recent-table td:nth-child(3) small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .recent-table td:nth-child(3) small { margin-top: 3px; color: var(--na-muted-foreground); font-size: 8px; }
+  .number-cell { text-align: right !important; font-variant-numeric: tabular-nums; }
+  .asset-status { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+  .asset-status i { width: 6px; height: 6px; border-radius: 50%; background: var(--na-muted-foreground); }
+  .asset-status.is-success { color: var(--na-success); }
+  .asset-status.is-success i { background: var(--na-success); }
+  .asset-status.is-warning { color: var(--na-warning); }
+  .asset-status.is-warning i { background: var(--na-warning); }
+  .asset-status.is-danger { color: var(--na-danger); }
+  .asset-status.is-danger i { background: var(--na-danger); }
+  .asset-status.is-info { color: var(--na-info); }
+  .asset-status.is-info i { background: var(--na-info); }
+  .row-more { display: grid; width: 28px; height: 28px; place-items: center; border: 0; border-radius: 5px; background: transparent; color: var(--blueprint-muted); }
+  .row-more:hover { background: var(--na-muted); color: var(--blueprint-ink); }
+
+  .task-panel header b { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 50%; background: var(--na-primary-soft); color: var(--blueprint-accent); font: 11px/1 Bahnschrift, 'Segoe UI', sans-serif; }
+  .task-line {
+    display: grid;
+    width: 100%;
+    padding: 13px 14px;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 9px;
+    border: 0;
+    border-bottom: 1px solid var(--na-border);
+    background: var(--na-card);
+    color: var(--blueprint-ink);
+    text-align: left;
+  }
+  .task-line:hover { background: color-mix(in srgb, var(--blueprint-accent) 3%, var(--na-card)); }
+  .task-line time { color: var(--blueprint-accent); font: 10px/1 Bahnschrift, 'Segoe UI', sans-serif; }
+  .task-line > span { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+  .task-line strong { overflow: hidden; font-size: 10px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+  .task-line small { overflow: hidden; color: var(--blueprint-muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+  .task-line .el-icon { width: 12px; color: var(--na-muted-foreground); }
+  .task-empty,
+  .empty-state { display: flex; min-height: 210px; align-items: center; justify-content: center; flex-direction: column; gap: 6px; color: var(--blueprint-muted); text-align: center; }
+  .task-empty span { display: grid; width: 32px; height: 32px; margin-bottom: 3px; place-items: center; border-radius: 50%; background: var(--na-success-soft); color: var(--na-success); }
+  .task-empty strong,
+  .empty-state strong { color: var(--blueprint-ink); font-size: 11px; }
+  .task-empty small,
+  .empty-state span { font-size: 9px; }
+  .empty-state { min-height: 310px; }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
     overflow: hidden;
-    font-size: 13px;
-    font-weight: 500;
-    text-overflow: ellipsis;
+    clip: rect(0, 0, 0, 0);
     white-space: nowrap;
   }
-  .notice-item.is-unread .notice-body strong { font-weight: 650; }
-  .notice-body small { color: var(--na-muted-foreground); font-size: 11.5px; }
 
-  @media (max-width: 1200px) {
-    .kpi-row { grid-template-columns: repeat(3, 1fr); }
-    .kpi { border-bottom: 1px solid var(--na-border); }
-    .kpi:nth-child(3) { border-right: 0; }
-    .kpi:nth-child(n + 4) { border-bottom: 0; }
+  @media (max-width: 1120px) {
+    .blueprint-hero { grid-template-columns: minmax(0, 1fr) 300px; }
+    .lower-grid { grid-template-columns: 1fr; }
+    .task-list { display: grid; grid-template-columns: 1fr 1fr; }
+    .task-line:nth-last-child(-n + 2) { border-bottom: 0; }
   }
-  @media (max-width: 900px) {
-    .workbench { padding: 14px; }
-    .workbench-grid { grid-template-columns: 1fr; }
-    .hero-content { align-items: stretch; flex-direction: column; }
-    .hero-actions { flex-wrap: wrap; }
-    .kpi-row { grid-template-columns: repeat(2, 1fr); }
-    .kpi:nth-child(3) { border-right: 1px solid var(--na-border); }
-    .kpi:nth-child(even) { border-right: 0; }
-    .kpi:nth-child(n + 4) { border-bottom: 1px solid var(--na-border); }
-    .kpi:last-child { border-right: 0; border-bottom: 0; }
-    .shortcut-grid { grid-template-columns: 1fr; }
+
+  @media (max-width: 860px) {
+    .blueprint-dashboard { padding: 15px; }
+    .blueprint-hero { grid-template-columns: 1fr; }
+    .health-blueprint { display: none; }
+    .metric-strip { grid-template-columns: 1fr 1fr; }
+    .metric-strip article:nth-child(2) { border-right: 0; }
+    .metric-strip article:nth-child(-n + 2) { border-bottom: 1px solid var(--na-border); }
   }
+
   @media (max-width: 560px) {
-    .kpi-row { grid-template-columns: 1fr; }
-    .kpi { border-right: 0; border-bottom: 1px solid var(--na-border); }
-    .kpi:last-child { border-bottom: 0; }
+    .blueprint-hero { min-height: 0; padding: 24px 18px; }
+    .blueprint-copy h1 { font-size: 23px; }
+    .hero-buttons { align-items: stretch; flex-direction: column; }
+    .hero-buttons :deep(.el-button) { width: 100%; margin-left: 0; }
+    .metric-strip { grid-template-columns: 1fr; }
+    .metric-strip article { border-right: 0; border-bottom: 1px solid var(--na-border); }
+    .metric-strip article:last-child { border-bottom: 0; }
+    .recent-table { min-width: 0; }
+    .recent-table th:nth-child(1) { width: 42%; }
+    .recent-table th:nth-child(2) { width: auto; }
+    .recent-table th:nth-child(n + 3):nth-child(-n + 5),
+    .recent-table td:nth-child(n + 3):nth-child(-n + 5) { display: none; }
+    .recent-table code,
+    .recent-table td > strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .task-list { grid-template-columns: 1fr; }
+    .task-line { border-bottom: 1px solid var(--na-border) !important; }
+    .task-line:last-child { border-bottom: 0 !important; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .health-line i { transition: none; }
   }
 </style>
