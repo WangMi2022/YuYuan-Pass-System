@@ -10,12 +10,12 @@
 
 :root {
   /* surfaces */
-  --na-background: #fafafa;
+  --na-background: #f7f7fb;
   --na-foreground: #18181b;
   --na-card: #ffffff;
   --na-card-foreground: #18181b;
   --na-popover: #ffffff;
-  --na-muted: #f4f4f5;
+  --na-muted: #f2f1f7;
   --na-muted-foreground: #71717a;
 
   /* primary — runtime-injected, fallback = indigo */
@@ -28,9 +28,9 @@
   --na-ring: rgb(99 102 241 / 20%);
 
   /* lines */
-  --na-border: #e4e4e7;
-  --na-border-strong: #d4d4d8;
-  --na-input: #d4d4d8;
+  --na-border: #e3e1ea;
+  --na-border-strong: #d3d0dc;
+  --na-input: #d3d0dc;
 
   /* status */
   --na-success: #059669;
@@ -53,19 +53,19 @@
   --na-chart-label: #71717a;
 
   /* shell */
-  --na-sidebar: #fcfcfc;
-  --na-sidebar-border: #e4e4e7;
-  --na-table-header: #fafafa;
-  --na-table-hover: #f4f4f5;
+  --na-sidebar: #fbfbfd;
+  --na-sidebar-border: #e3e1ea;
+  --na-table-header: #f8f7fb;
+  --na-table-hover: #f2f1f7;
 
   /* geometry & depth */
-  --na-radius: 10px;
-  --na-radius-sm: 8px;
-  --na-radius-lg: 14px;
-  --na-shadow-sm: 0 1px 2px rgb(0 0 0 / 4%);
-  --na-shadow-md: 0 4px 16px rgb(24 24 27 / 8%);
-  --na-header-height: 56px;
-  --na-tabs-height: 40px;
+  --na-radius: 12px;
+  --na-radius-sm: 9px;
+  --na-radius-lg: 16px;
+  --na-shadow-sm: 0 2px 5px rgb(45 38 88 / 5%);
+  --na-shadow-md: 0 10px 30px rgb(45 38 88 / 10%);
+  --na-header-height: 60px;
+  --na-tabs-height: 42px;
 
   --na-font-sans: Inter, 'Public Sans', ui-sans-serif, system-ui, -apple-system,
     BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
@@ -73,12 +73,12 @@
 
 html.dark {
   /* surfaces */
-  --na-background: #09090b;
+  --na-background: #0d0d12;
   --na-foreground: #fafafa;
-  --na-card: #111113;
+  --na-card: #14141a;
   --na-card-foreground: #fafafa;
-  --na-popover: #1b1b1f;
-  --na-muted: #1e1e22;
+  --na-popover: #1c1b24;
+  --na-muted: #201f28;
   --na-muted-foreground: #a1a1aa;
 
   /* primary fallbacks (runtime override still applies) */
@@ -88,9 +88,9 @@ html.dark {
   --na-ring: rgb(99 102 241 / 28%);
 
   /* lines */
-  --na-border: #26262a;
-  --na-border-strong: #3f3f46;
-  --na-input: #3f3f46;
+  --na-border: #2b2934;
+  --na-border-strong: #44414e;
+  --na-input: #44414e;
 
   /* status — lifted for dark surfaces */
   --na-success: #34d399;
@@ -106,11 +106,11 @@ html.dark {
   --na-chart-label: #a1a1aa;
 
   /* shell */
-  --na-sidebar: #0c0c0e;
-  --na-sidebar-border: #26262a;
-  --na-table-header: #17171a;
-  --na-table-hover: #1c1c20;
+  --na-sidebar: #101015;
+  --na-sidebar-border: #2b2934;
+  --na-table-header: #19181f;
+  --na-table-hover: #201f28;
 
-  --na-shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
-  --na-shadow-md: 0 8px 30px rgb(0 0 0 / 45%);
+  --na-shadow-sm: 0 2px 6px rgb(0 0 0 / 42%);
+  --na-shadow-md: 0 12px 34px rgb(0 0 0 / 48%);
 }
