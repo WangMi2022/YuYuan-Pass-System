@@ -44,9 +44,12 @@
   --el-fill-color-blank: var(--na-card);
   --el-fill-color-dark: color-mix(in srgb, var(--na-muted) 82%, var(--na-foreground) 4%);
 
-  --el-border-radius-base: 6px;
-  --el-border-radius-small: 5px;
+  --el-border-radius-base: 10px;
+  --el-border-radius-small: 8px;
   --el-border-radius-round: 999px;
+  --el-component-size: 36px;
+  --el-component-size-small: 30px;
+  --el-component-size-large: 42px;
 
   --el-box-shadow-light: var(--na-shadow-sm);
   --el-box-shadow: var(--na-shadow-md);

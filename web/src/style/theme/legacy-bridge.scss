@@ -13,15 +13,32 @@
 .gva-search-box,
 .gva-table-box,
 .gva-form-box {
-  margin: 12px !important;
-  padding: 16px !important;
+  position: relative;
+  margin: 14px !important;
+  padding: 18px !important;
   border: 1px solid var(--na-border) !important;
-  border-radius: var(--na-radius) !important;
+  border-radius: var(--na-radius-lg) !important;
   background: var(--na-card) !important;
   color: var(--na-card-foreground) !important;
   box-shadow: var(--na-shadow-sm) !important;
 }
-.gva-search-box { padding-bottom: 2px !important; }
+.gva-search-box {
+  padding-bottom: 4px !important;
+  background:
+    radial-gradient(80% 140% at 100% 0%, var(--na-primary-soft), transparent 58%),
+    var(--na-card) !important;
+}
+.gva-search-box::before,
+.gva-form-box::before {
+  position: absolute;
+  top: 14px;
+  left: -1px;
+  width: 3px;
+  height: 24px;
+  border-radius: 0 99px 99px 0;
+  background: var(--na-primary);
+  content: '';
+}
 .gva-search-box + .gva-table-box,
 .gva-table-box + .gva-table-box { margin-top: 0 !important; }
 .gva-table-box .el-table { margin: 0 !important; }
@@ -31,7 +48,7 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 8px !important;
-  margin-bottom: 14px !important;
+  margin-bottom: 16px !important;
 }
 .gva-btn-list .el-button + .el-button { margin-left: 0 !important; }
 .gva-btn-list .el-upload .el-button { margin-left: 0 !important; }
@@ -39,6 +56,7 @@
 .gva-pagination {
   display: flex;
   justify-content: flex-end;
+  padding-top: 2px;
 }
 
 .gva-customer-icon { width: 16px; height: 16px; }
@@ -49,6 +67,31 @@
 .el-form--inline .el-form-item .el-select,
 .el-form--inline .el-form-item .el-date-editor,
 .el-form--inline .el-form-item .el-autocomplete { width: 13rem; }
+
+.gva-search-box .el-form--inline {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 2px 0;
+}
+.gva-search-box .el-form--inline .el-form-item { margin-bottom: 14px; }
+.gva-table-box > .el-table,
+.gva-form-box > .el-form { position: relative; z-index: 1; }
+
+/* Shared headings on stock and generated pages. */
+.new-api-theme .page-header,
+.new-api-theme .page-heading,
+.new-api-theme .dashboard-header {
+  color: var(--na-foreground) !important;
+}
+.new-api-theme .page-header h1,
+.new-api-theme .page-heading h1,
+.new-api-theme .dashboard-header h1 {
+  letter-spacing: -.025em;
+}
+.new-api-theme .page-header p,
+.new-api-theme .page-heading p,
+.new-api-theme .dashboard-header p { color: var(--na-muted-foreground) !important; }
 
 /* ---- Normalization of leftover hardcoded utility classes ---- */
 .new-api-theme .bg-white,
