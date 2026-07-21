@@ -15,6 +15,7 @@ import (
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/plugin/document/model"
 	documentRequest "github.com/flipped-aurora/gin-vue-admin/server/plugin/document/model/request"
+	documentResponse "github.com/flipped-aurora/gin-vue-admin/server/plugin/document/model/response"
 	"github.com/flipped-aurora/gin-vue-admin/server/utils/upload"
 	"github.com/minio/minio-go/v7"
 	"gorm.io/gorm"
@@ -25,8 +26,9 @@ var Document = new(documentService)
 type documentService struct{}
 
 const (
-	maxDocumentSize  = 100 << 20 // 100MB
-	maxEditableBytes = 2 << 20   // 2MB
+	maxDocumentSize       = 100 << 20 // 100MB
+	MaxEditableBytes      = 2 << 20   // 2MB
+	MaxUpdateRequestBytes = MaxEditableBytes*6 + 64<<10
 )
 
 var allowedDocumentExt = map[string]struct{}{
@@ -55,7 +57,7 @@ func trimTitle(filename string) string {
 }
 
 func buildInitialContent(file *multipart.FileHeader, ext string) string {
-	if _, ok := textLikeExt[ext]; !ok || file.Size > maxEditableBytes {
+	if _, ok := textLikeExt[ext]; !ok || file.Size > MaxEditableBytes {
 		return ""
 	}
 	reader, err := file.Open()
@@ -63,7 +65,7 @@ func buildInitialContent(file *multipart.FileHeader, ext string) string {
 		return ""
 	}
 	defer reader.Close()
-	data, err := io.ReadAll(io.LimitReader(reader, maxEditableBytes+1))
+	data, err := io.ReadAll(io.LimitReader(reader, MaxEditableBytes+1))
 	if err != nil || len(data) == 0 {
 		return ""
 	}
@@ -155,8 +157,8 @@ func (s *documentService) Upload(file *multipart.FileHeader) (model.Document, er
 	return doc, nil
 }
 
-func (s *documentService) List(search documentRequest.DocumentSearch) ([]model.Document, int64, error) {
-	var list []model.Document
+func (s *documentService) List(search documentRequest.DocumentSearch) ([]documentResponse.DocumentListItem, int64, error) {
+	var list []documentResponse.DocumentListItem
 	var total int64
 	db := global.GVA_DB.Model(&model.Document{})
 	if keyword := strings.TrimSpace(search.Keyword); keyword != "" {
@@ -169,7 +171,9 @@ func (s *documentService) List(search documentRequest.DocumentSearch) ([]model.D
 	if err := db.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	if err := db.Order("updated_at DESC, created_at DESC").Scopes(search.Paginate()).Find(&list).Error; err != nil {
+	if err := db.Select(`id, created_at, updated_at, title, original_name, file_ext,
+		file_size, mime_type, storage_type, editable`).
+		Order("updated_at DESC, created_at DESC").Scopes(search.Paginate()).Find(&list).Error; err != nil {
 		return nil, 0, err
 	}
 	return list, total, nil
@@ -184,6 +188,9 @@ func (s *documentService) Get(id uint) (model.Document, error) {
 func (s *documentService) UpdateContent(req documentRequest.UpdateContent) (model.Document, error) {
 	if req.ID == 0 {
 		return model.Document{}, errors.New("缺少文档 ID")
+	}
+	if len(req.Content) > MaxEditableBytes {
+		return model.Document{}, errors.New("在线文档内容不能超过 2MB")
 	}
 	var doc model.Document
 	if err := global.GVA_DB.First(&doc, req.ID).Error; err != nil {

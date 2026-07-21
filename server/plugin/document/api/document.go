@@ -2,12 +2,14 @@ package api
 
 import (
 	"io"
+	"net/http"
 	"net/url"
 	"strconv"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
 	documentRequest "github.com/flipped-aurora/gin-vue-admin/server/plugin/document/model/request"
+	documentService "github.com/flipped-aurora/gin-vue-admin/server/plugin/document/service"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -104,6 +106,7 @@ func (a *documentAPI) Detail(c *gin.Context) {
 }
 
 func (a *documentAPI) UpdateContent(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, documentService.MaxUpdateRequestBytes)
 	var req documentRequest.UpdateContent
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.FailWithMessage(err.Error(), c)

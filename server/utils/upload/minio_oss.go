@@ -1,14 +1,13 @@
 package upload
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"io"
 	"mime"
 	"mime/multipart"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
@@ -19,6 +18,7 @@ import (
 )
 
 var MinioClient *Minio // 优化性能，但是不支持动态配置
+var minioClientMu sync.RWMutex
 
 type Minio struct {
 	Client *minio.Client
@@ -26,6 +26,14 @@ type Minio struct {
 }
 
 func GetMinio(endpoint, accessKeyID, secretAccessKey, bucketName string, useSSL bool) (*Minio, error) {
+	minioClientMu.RLock()
+	client := MinioClient
+	minioClientMu.RUnlock()
+	if client != nil {
+		return client, nil
+	}
+	minioClientMu.Lock()
+	defer minioClientMu.Unlock()
 	if MinioClient != nil {
 		return MinioClient, nil
 	}
@@ -59,14 +67,7 @@ func (m *Minio) UploadFile(file *multipart.FileHeader) (filePathres, key string,
 		global.GVA_LOG.Error("function file.Open() Failed", zap.Any("err", openError.Error()))
 		return "", "", errors.New("function file.Open() Failed, err:" + openError.Error())
 	}
-
-	filecontent := bytes.Buffer{}
-	_, err := io.Copy(&filecontent, f)
-	if err != nil {
-		global.GVA_LOG.Error("读取文件失败", zap.Any("err", err.Error()))
-		return "", "", errors.New("读取文件失败, err:" + err.Error())
-	}
-	f.Close() // 创建文件 defer 关闭
+	defer f.Close()
 
 	// 对文件名进行加密存储
 	ext := filepath.Ext(file.Filename)
@@ -86,7 +87,7 @@ func (m *Minio) UploadFile(file *multipart.FileHeader) (filePathres, key string,
 	defer cancel()
 
 	// Upload the file with PutObject   大文件自动切换为分片上传
-	info, err := m.Client.PutObject(ctx, global.GVA_CONFIG.Minio.BucketName, filePathres, &filecontent, file.Size, minio.PutObjectOptions{ContentType: contentType})
+	info, err := m.Client.PutObject(ctx, m.bucket, filePathres, f, file.Size, minio.PutObjectOptions{ContentType: contentType})
 	if err != nil {
 		global.GVA_LOG.Error("上传文件到minio失败", zap.Any("err", err.Error()))
 		return "", "", errors.New("上传文件到minio失败, err:" + err.Error())

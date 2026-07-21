@@ -5,10 +5,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/utils"
@@ -19,39 +17,25 @@ import (
 	"go.uber.org/zap"
 )
 
-var respPool sync.Pool
-var bufferSize = 1024
+const bufferSize = 1024
 
-func init() {
-	respPool.New = func() interface{} {
-		return make([]byte, bufferSize)
-	}
-}
+const (
+	fileBodySummary      = "[文件]"
+	truncatedBodySummary = "[超出记录长度]"
+	binaryBodySummary    = "[二进制响应]"
+)
 
 func OperationRecord() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var body []byte
 		var userId int
-		if c.Request.Method != http.MethodGet {
-			var err error
-			body, err = io.ReadAll(c.Request.Body)
-			if err != nil {
-				global.GVA_LOG.Error("read body from request error:", zap.Error(err))
-			} else {
-				c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
+		requestBody := newCappedBuffer(bufferSize)
+		isMultipart := strings.Contains(strings.ToLower(c.GetHeader("Content-Type")), "multipart/form-data")
+		if c.Request.Method != http.MethodGet && !isMultipart && c.Request.Body != nil {
+			originalBody := c.Request.Body
+			c.Request.Body = &teeReadCloser{
+				Reader: io.TeeReader(originalBody, requestBody),
+				Closer: originalBody,
 			}
-		} else {
-			query := c.Request.URL.RawQuery
-			query, _ = url.QueryUnescape(query)
-			split := strings.Split(query, "&")
-			m := make(map[string]string)
-			for _, v := range split {
-				kv := strings.Split(v, "=")
-				if len(kv) == 2 {
-					m[kv[0]] = kv[1]
-				}
-			}
-			body, _ = json.Marshal(&m)
 		}
 		claims, _ := utils.GetClaims(c)
 		if claims != nil && claims.BaseClaims.ID != 0 {
@@ -68,24 +52,17 @@ func OperationRecord() gin.HandlerFunc {
 			Method: c.Request.Method,
 			Path:   c.Request.URL.Path,
 			Agent:  c.Request.UserAgent(),
-			Body:   "",
 			UserID: userId,
 		}
 
-		// 上传文件时候 中间件日志进行裁断操作
-		if strings.Contains(c.GetHeader("Content-Type"), "multipart/form-data") {
-			record.Body = "[文件]"
-		} else {
-			if len(body) > bufferSize {
-				record.Body = "[超出记录长度]"
-			} else {
-				record.Body = string(body)
-			}
+		if c.Request.Method == http.MethodGet {
+			query, _ := json.Marshal(c.Request.URL.Query())
+			_, _ = requestBody.Write(query)
 		}
 
-		writer := responseBodyWriter{
+		writer := &responseBodyWriter{
 			ResponseWriter: c.Writer,
-			body:           &bytes.Buffer{},
+			body:           newCappedBuffer(bufferSize),
 		}
 		c.Writer = writer
 		now := time.Now()
@@ -96,21 +73,15 @@ func OperationRecord() gin.HandlerFunc {
 		record.ErrorMessage = c.Errors.ByType(gin.ErrorTypePrivate).String()
 		record.Status = c.Writer.Status()
 		record.Latency = latency
-		record.Resp = writer.body.String()
-
-		if strings.Contains(c.Writer.Header().Get("Pragma"), "public") ||
-			strings.Contains(c.Writer.Header().Get("Expires"), "0") ||
-			strings.Contains(c.Writer.Header().Get("Cache-Control"), "must-revalidate, post-check=0, pre-check=0") ||
-			strings.Contains(c.Writer.Header().Get("Content-Type"), "application/force-download") ||
-			strings.Contains(c.Writer.Header().Get("Content-Type"), "application/octet-stream") ||
-			strings.Contains(c.Writer.Header().Get("Content-Type"), "application/vnd.ms-excel") ||
-			strings.Contains(c.Writer.Header().Get("Content-Type"), "application/download") ||
-			strings.Contains(c.Writer.Header().Get("Content-Disposition"), "attachment") ||
-			strings.Contains(c.Writer.Header().Get("Content-Transfer-Encoding"), "binary") {
-			if len(record.Resp) > bufferSize {
-				// 截断
-				record.Body = "超出记录长度"
-			}
+		if isMultipart {
+			record.Body = fileBodySummary
+		} else {
+			record.Body = requestBody.Summary()
+		}
+		if isBinaryResponse(c.Writer.Header()) {
+			record.Resp = binaryBodySummary
+		} else {
+			record.Resp = writer.body.Summary()
 		}
 		if err := global.GVA_DB.Create(&record).Error; err != nil {
 			global.GVA_LOG.Error("create operation record error:", zap.Error(err))
@@ -120,10 +91,71 @@ func OperationRecord() gin.HandlerFunc {
 
 type responseBodyWriter struct {
 	gin.ResponseWriter
-	body *bytes.Buffer
+	body *cappedBuffer
 }
 
-func (r responseBodyWriter) Write(b []byte) (int, error) {
-	r.body.Write(b)
+func (r *responseBodyWriter) Write(b []byte) (int, error) {
+	_, _ = r.body.Write(b)
 	return r.ResponseWriter.Write(b)
+}
+
+func (r *responseBodyWriter) WriteString(s string) (int, error) {
+	_, _ = r.body.Write([]byte(s))
+	return r.ResponseWriter.WriteString(s)
+}
+
+type cappedBuffer struct {
+	bytes.Buffer
+	limit     int
+	truncated bool
+}
+
+func newCappedBuffer(limit int) *cappedBuffer {
+	return &cappedBuffer{limit: limit}
+}
+
+func (b *cappedBuffer) Write(p []byte) (int, error) {
+	written := len(p)
+	remaining := b.limit - b.Len()
+	if remaining > 0 {
+		if remaining > len(p) {
+			remaining = len(p)
+		}
+		_, _ = b.Buffer.Write(p[:remaining])
+	}
+	if written > remaining {
+		b.truncated = true
+	}
+	return written, nil
+}
+
+func (b *cappedBuffer) Summary() string {
+	prefix := strings.ToValidUTF8(b.String(), "�")
+	if b.truncated {
+		return prefix + truncatedBodySummary
+	}
+	return prefix
+}
+
+type teeReadCloser struct {
+	io.Reader
+	io.Closer
+}
+
+func isBinaryResponse(header http.Header) bool {
+	contentType := strings.ToLower(header.Get("Content-Type"))
+	contentDisposition := strings.ToLower(header.Get("Content-Disposition"))
+	contentTransferEncoding := strings.ToLower(header.Get("Content-Transfer-Encoding"))
+	return strings.Contains(contentDisposition, "attachment") ||
+		strings.Contains(contentTransferEncoding, "binary") ||
+		strings.HasPrefix(contentType, "image/") ||
+		strings.HasPrefix(contentType, "audio/") ||
+		strings.HasPrefix(contentType, "video/") ||
+		strings.Contains(contentType, "application/octet-stream") ||
+		strings.Contains(contentType, "application/pdf") ||
+		strings.Contains(contentType, "application/zip") ||
+		strings.Contains(contentType, "application/force-download") ||
+		strings.Contains(contentType, "application/download") ||
+		strings.Contains(contentType, "application/vnd.ms-excel") ||
+		strings.Contains(contentType, "application/vnd.openxmlformats-officedocument")
 }
