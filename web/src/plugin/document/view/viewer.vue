@@ -1,5 +1,5 @@
 <template>
-  <main class="na-page document-page">
+  <main class="na-page na-page--list document-page">
     <AppPageHeader
       title-id="document-title"
       title="文档管理"

@@ -1,5 +1,5 @@
 <template>
-  <main class="na-page category-page">
+  <main class="na-page na-page--list category-page">
     <AppPageHeader
       title-id="category-title"
       title="分类管理"

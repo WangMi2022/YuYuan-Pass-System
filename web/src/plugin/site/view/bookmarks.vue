@@ -1,5 +1,5 @@
 <template>
-  <main class="na-page site-page">
+  <main class="na-page na-page--list site-page">
     <AppPageHeader
       title-id="site-title"
       title="站点收藏"

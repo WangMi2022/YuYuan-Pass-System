@@ -503,6 +503,12 @@
   background: transparent;
   color: var(--na-foreground);
 }
+.na-page--list {
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+  min-width: 0;
+}
 .na-page-header {
   display: flex;
   align-items: flex-end;

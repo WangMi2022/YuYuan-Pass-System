@@ -1,5 +1,5 @@
 <template>
-  <main class="na-page asset-page">
+  <main class="na-page na-page--list asset-page">
     <AppPageHeader
       title-id="asset-inventory-title"
       title="资产档案"

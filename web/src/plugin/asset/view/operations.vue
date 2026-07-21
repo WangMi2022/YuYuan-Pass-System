@@ -1,5 +1,5 @@
 <template>
-  <main class="na-page operation-page">
+  <main class="na-page na-page--list operation-page">
     <AppPageHeader
       :title-id="`${operationType}-title`"
       :title="currentMeta.title"

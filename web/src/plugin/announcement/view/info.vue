@@ -1,5 +1,5 @@
 <template>
-  <main class="na-page announcement-page">
+  <main class="na-page na-page--list announcement-page">
     <AppPageHeader
       title-id="announcement-title"
       title="公告中心"
