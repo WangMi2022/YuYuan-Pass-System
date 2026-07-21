@@ -1,17 +1,19 @@
 <template>
-  <main class="operation-page">
-    <section class="page-heading" :aria-labelledby="`${operationType}-title`">
-      <div>
-        <p class="eyebrow">{{ currentMeta.eyebrow }}</p>
-        <h1 :id="`${operationType}-title`">{{ currentMeta.title }}</h1>
-        <p class="subtitle">{{ currentMeta.description }}</p>
-      </div>
-      <el-button type="primary" :icon="Plus" size="large" @click="openCreate">
-        新增{{ currentMeta.shortLabel }}单
-      </el-button>
-    </section>
+  <main class="na-page operation-page">
+    <AppPageHeader
+      :title-id="`${operationType}-title`"
+      :kicker="currentMeta.eyebrow"
+      :title="currentMeta.title"
+      :description="currentMeta.description"
+    >
+      <template #actions>
+        <el-button type="primary" :icon="Plus" size="large" @click="openCreate">
+          新增{{ currentMeta.shortLabel }}单
+        </el-button>
+      </template>
+    </AppPageHeader>
 
-    <section class="filter-panel" aria-label="业务单筛选">
+    <section class="na-panel filter-panel" aria-label="业务单筛选">
       <el-form :model="search" label-position="top" @keyup.enter="submitSearch">
         <div class="filter-grid">
           <el-form-item label="关键词">
@@ -47,8 +49,8 @@
       </el-form>
     </section>
 
-    <section class="table-panel" aria-label="资产业务单列表">
-      <header class="panel-header">
+    <section class="na-panel table-panel" aria-label="资产业务单列表">
+      <header class="na-panel-header panel-header">
         <div>
           <h2>{{ currentMeta.shortLabel }}单据</h2>
           <span>共 {{ total }} 张单据；草稿可编辑，提交完成后转为只读审计记录</span>
@@ -117,7 +119,7 @@
         </template>
       </el-table>
 
-      <div class="pagination-wrap">
+      <div class="na-pagination pagination-wrap">
         <el-pagination
           v-model:current-page="search.page"
           v-model:page-size="search.pageSize"
@@ -277,7 +279,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Close, Delete, Edit, Lock, Plus, Refresh, Search, View } from '@element-plus/icons-vue'
@@ -292,6 +294,8 @@ import {
 } from '@/plugin/asset/api/operation'
 import { getLocationOptions } from '@/plugin/asset/api/location'
 import { formatDateText } from '@/utils/format'
+import AppPageHeader from '@/components/page/AppPageHeader.vue'
+import { usePagedList } from '@/hooks/usePagedList'
 
 defineOptions({ name: 'AssetOperations' })
 
@@ -346,10 +350,6 @@ const operationMeta = {
 
 const currentMeta = computed(() => operationMeta[route.name] || operationMeta.assetInbound)
 const operationType = computed(() => currentMeta.value.type)
-const search = reactive({ page: 1, pageSize: 10, keyword: '', status: '', dateRange: [] })
-const tableData = ref([])
-const total = ref(0)
-const loading = ref(false)
 const processingId = ref(0)
 const drawerVisible = ref(false)
 const editing = ref(false)
@@ -399,22 +399,30 @@ const itemSummary = (row) => {
 const optionMap = computed(() => new Map(assetOptions.value.map((asset) => [asset.ID, asset])))
 const selectedAssets = computed(() => formData.value.assetIds.map((id) => optionMap.value.get(id)).filter(Boolean))
 
-const loadOrders = async () => {
-  loading.value = true
-  try {
-    const [startDate, endDate] = search.dateRange || []
-    const res = await getAssetOperationList({
-      page: search.page, pageSize: search.pageSize, keyword: search.keyword,
-      status: search.status, type: operationType.value, startDate, endDate
+const {
+  search,
+  items: tableData,
+  total,
+  loading,
+  load: loadOrders,
+  submit: submitSearch,
+  reset: resetOrderSearch,
+  changePageSize: sizeChanged
+} = usePagedList({
+  defaults: { page: 1, pageSize: 10, keyword: '', status: '', dateRange: [] },
+  request: (params) => {
+    const [startDate, endDate] = params.dateRange || []
+    return getAssetOperationList({
+      page: params.page,
+      pageSize: params.pageSize,
+      keyword: params.keyword,
+      status: params.status,
+      type: operationType.value,
+      startDate,
+      endDate
     })
-    if (res.code === 0) {
-      tableData.value = res.data?.list || []
-      total.value = res.data?.total || 0
-    }
-  } finally {
-    loading.value = false
   }
-}
+})
 
 const loadAssetOptions = async (extraAssets = []) => {
   optionsLoading.value = true
@@ -445,12 +453,7 @@ const loadLocationOptions = async () => {
   }
 }
 
-const submitSearch = () => { search.page = 1; loadOrders() }
-const resetSearch = () => {
-  Object.assign(search, { page: 1, pageSize: 10, keyword: '', status: '', dateRange: [] })
-  loadOrders()
-}
-const sizeChanged = () => { search.page = 1; loadOrders() }
+const resetSearch = () => resetOrderSearch()
 
 const openCreate = async () => {
   editing.value = false
@@ -559,18 +562,13 @@ watch(operationType, async () => {
 </script>
 
 <style scoped lang="scss">
-.operation-page { min-height: 100%; overflow-x: hidden; padding: 20px; background: var(--na-background); color: var(--na-foreground); }
-.page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
-.eyebrow { margin: 0 0 5px; color: var(--na-primary); font: 600 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; }
-h1 { margin: 0; font-size: 30px; line-height: 1.2; }
-.subtitle { margin: 8px 0 0; color: var(--na-muted-foreground); font-size: 14px; }
-.filter-panel, .table-panel { border: 1px solid var(--na-border); border-radius: var(--na-radius); background: var(--na-card); box-shadow: var(--na-shadow-sm); }
-.filter-panel { margin-bottom: 12px; padding: 14px 16px 0; }
+.operation-page { overflow-x: hidden; }
+.filter-panel { padding: 14px 16px 0; }
 .filter-grid { display: grid; grid-template-columns: minmax(240px, 1.4fr) minmax(150px, .7fr) minmax(300px, 1.2fr) auto; gap: 14px; align-items: end; }
 .filter-grid :deep(.el-date-editor) { width: 100%; }
 .filter-actions { display: flex; gap: 8px; padding-bottom: 14px; }
 .table-panel { overflow: hidden; }
-.panel-header { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 14px 16px; border-bottom: 1px solid var(--na-border); }
+.panel-header { gap: 18px; }
 .panel-header h2 { margin: 0 0 3px; font-size: 17px; }
 .panel-header span { color: var(--na-muted-foreground); font-size: 12px; }
 .operation-table { --el-table-header-bg-color: var(--na-table-header); --el-table-row-hover-bg-color: var(--na-table-hover); }
@@ -580,7 +578,6 @@ h1 { margin: 0; font-size: 30px; line-height: 1.2; }
 .asset-summary strong, .asset-summary span, .two-line span, .two-line small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .asset-summary span, .two-line small { color: var(--na-muted-foreground); font-size: 12px; }
 .number { font-variant-numeric: tabular-nums; }
-.pagination-wrap { display: flex; justify-content: flex-end; padding: 12px 16px; border-top: 1px solid var(--na-border); }
 .drawer-title { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
 .drawer-title span { color: var(--na-foreground); font-size: 20px; font-weight: 700; }
 .drawer-title small { overflow: hidden; color: var(--na-muted-foreground); font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
@@ -601,12 +598,8 @@ h1 { margin: 0; font-size: 30px; line-height: 1.2; }
 
 @media (max-width: 1100px) { .filter-grid { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 767px) {
-  .operation-page { padding: 14px; }
-  .page-heading { align-items: stretch; flex-direction: column; }
-  .page-heading .el-button { align-self: flex-start; }
   .filter-grid, .form-grid { grid-template-columns: 1fr; }
   .filter-actions { padding-bottom: 16px; }
-  .pagination-wrap { overflow-x: auto; justify-content: flex-start; }
   .drawer-actions { flex-wrap: wrap; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; } }

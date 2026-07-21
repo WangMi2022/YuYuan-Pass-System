@@ -77,7 +77,7 @@
 </template>
 
 <script setup>
-import { ref, getCurrentInstance, onMounted } from 'vue'
+import { ref, getCurrentInstance } from 'vue'
 import { ElLoading, ElMessage } from 'element-plus'
 import { RefreshLeft, RefreshRight, Plus, Minus } from '@element-plus/icons-vue'
 import 'vue-cropper/dist/index.css'
@@ -85,7 +85,7 @@ import { VueCropper } from 'vue-cropper'
 import { getBaseUrl } from '@/utils/format'
 import { isImageExt, isImageMime } from '@/utils/image'
 import { useRouter } from 'vue-router'
-import { useUserStore } from "@/pinia";
+import { useWindowResize } from '@/hooks/use-windows-resize'
 
 defineOptions({
   name: 'scanUpload'
@@ -102,11 +102,7 @@ const getWindowResize = function() {
   windowWidth.value = window.innerWidth
 }
 
-// 生命周期
-onMounted(() => {
-  getWindowResize()
-  window.addEventListener('resize', getWindowResize)
-})
+useWindowResize(getWindowResize)
 
 const router = useRouter()
 router.isReady().then(() => {

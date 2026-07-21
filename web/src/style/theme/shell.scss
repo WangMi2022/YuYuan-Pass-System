@@ -198,7 +198,6 @@
     radial-gradient(120% 55% at 50% 0%, var(--na-primary-soft), transparent 58%),
     var(--sidebar-shell);
   color: var(--sidebar-text);
-  transition: width 180ms ease;
 }
 
 .na-sidebar-heading {
@@ -539,6 +538,13 @@
 }
 .na-panel-title { color: var(--na-foreground); font-size: 14px; font-weight: 600; }
 .na-panel-body { padding: 16px; }
+.na-pagination {
+  display: flex;
+  justify-content: flex-end;
+  overflow-x: auto;
+  padding: 12px 16px;
+  border-top: 1px solid var(--na-border);
+}
 .na-toolbar {
   display: flex;
   align-items: center;
@@ -583,6 +589,7 @@
   .na-icon-button { min-width: 32px; width: 32px; }
   .na-page { padding: 14px; }
   .na-page-header { align-items: stretch; flex-direction: column; }
+  .na-pagination { justify-content: flex-start; }
   .gva-tabs-clear { flex-basis: 42px; width: 42px; padding: 0; }
   .gva-tabs-clear span { display: none; }
 }

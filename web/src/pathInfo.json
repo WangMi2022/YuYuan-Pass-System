@@ -59,7 +59,7 @@
   "/src/view/systemTools/autoCode/index.vue": "AutoCode",
   "/src/view/systemTools/autoCode/mcp.vue": "MCP",
   "/src/view/systemTools/autoCode/mcpTest.vue": "MCPTest",
-  "/src/view/systemTools/autoCode/picture.vue": "Picture",
+  "/src/view/systemTools/autoCode/picture.vue": "AutoCodePicture",
   "/src/view/systemTools/autoCodeAdmin/index.vue": "AutoCodeAdmin",
   "/src/view/systemTools/autoPkg/autoPkg.vue": "AutoPkg",
   "/src/view/systemTools/exportTemplate/exportTemplate.vue": "ExportTemplate",

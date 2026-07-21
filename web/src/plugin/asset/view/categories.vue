@@ -1,17 +1,19 @@
 <template>
-  <main class="category-page">
-    <section class="page-heading" aria-labelledby="category-title">
-      <div>
-        <p class="eyebrow">CLASSIFICATION & LOCATION</p>
-        <h1 id="category-title">分类管理</h1>
-        <p>统一维护资产分类及各业务环节可选位置。</p>
-      </div>
-      <el-button type="primary" :icon="Plus" size="large" @click="openCreate">
-        {{ activeTab === 'category' ? '新增分类' : `新增${activeLocation.label}` }}
-      </el-button>
-    </section>
+  <main class="na-page category-page">
+    <AppPageHeader
+      title-id="category-title"
+      kicker="CLASSIFICATION & LOCATION"
+      title="分类管理"
+      description="统一维护资产分类及各业务环节可选位置。"
+    >
+      <template #actions>
+        <el-button type="primary" :icon="Plus" size="large" @click="openCreate">
+          {{ activeTab === 'category' ? '新增分类' : `新增${activeLocation.label}` }}
+        </el-button>
+      </template>
+    </AppPageHeader>
 
-    <section class="category-panel">
+    <section class="na-panel category-panel">
       <el-tabs v-model="activeTab" class="manage-tabs" @tab-change="changeTab">
         <el-tab-pane label="资产分类" name="category" />
         <el-tab-pane v-for="item in locationTabs" :key="item.type" :label="item.label" :name="item.type" />
@@ -103,7 +105,7 @@
         <template #empty><el-empty :description="`暂无${activeLocation.label}`" /></template>
       </el-table>
 
-      <footer class="pagination-wrap">
+      <footer class="na-pagination pagination-wrap">
         <el-pagination
           v-model:current-page="currentSearch.page"
           v-model:page-size="currentSearch.pageSize"
@@ -183,6 +185,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Edit, Location, Plus, Refresh, Search } from '@element-plus/icons-vue'
 import { createCategory, deleteCategory, getCategoryList, updateCategory } from '@/plugin/asset/api/category'
 import { createLocation, deleteLocation, getLocationList, updateLocation } from '@/plugin/asset/api/location'
+import AppPageHeader from '@/components/page/AppPageHeader.vue'
 
 defineOptions({ name: 'AssetCategories' })
 
@@ -343,12 +346,8 @@ onMounted(loadCategories)
 </script>
 
 <style scoped lang="scss">
-.category-page { --bg:var(--na-background); --surface:var(--na-card); --text:var(--na-foreground); --muted:var(--na-muted-foreground); --border:var(--na-border); min-height:100%; overflow-x:hidden; padding:20px; background:var(--bg); color:var(--text); }
-.page-heading { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; margin-bottom:20px; }
-.eyebrow { margin:0 0 5px; color:var(--na-primary); font:600 12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.12em; }
-h1 { margin:0; font-size:30px; line-height:1.2; }
-.page-heading p:last-child { margin:8px 0 0; color:var(--muted); font-size:14px; }
-.category-panel { overflow:hidden; border:1px solid var(--border); border-radius:var(--na-radius); background:var(--surface); box-shadow:var(--na-shadow-sm); }
+.category-page { --bg:var(--na-background); --surface:var(--na-card); --text:var(--na-foreground); --muted:var(--na-muted-foreground); --border:var(--na-border); overflow-x:hidden; }
+.category-panel { overflow:hidden; }
 .manage-tabs { padding:0 16px; border-bottom:1px solid var(--border); }
 .manage-tabs :deep(.el-tabs__header) { margin:0; }
 .manage-tabs :deep(.el-tabs__nav-wrap::after) { display:none; }
@@ -364,22 +363,18 @@ h1 { margin:0; font-size:30px; line-height:1.2; }
 .location-name .el-icon { flex:0 0 auto; color:var(--na-primary); font-size:18px; }
 .location-name strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .metric { color:var(--na-primary); font-size:16px; font-variant-numeric:tabular-nums; }
-.pagination-wrap { display:flex; justify-content:flex-end; padding:12px 16px; border-top:1px solid var(--border); }
 .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:0 16px; }
 .color-field { display:flex; align-items:center; gap:10px; width:100%; }
 .color-field .el-input { flex:1; }
 :deep(.el-form-item__label) { color:var(--text); font-weight:600; }
 @media (max-width:767px) {
-  .category-page { padding:14px; }
-  .page-heading { align-items:stretch; flex-direction:column; }
-  .page-heading .el-button { align-self:flex-start; }
   .manage-tabs { padding:0 12px; }
   .manage-tabs :deep(.el-tabs__item) { padding:0 14px; }
   .panel-toolbar { align-items:stretch; flex-direction:column; padding:12px; }
   .panel-toolbar > .el-input { width:100%; }
   .toolbar-actions .el-button { flex:1; }
   .form-grid { grid-template-columns:1fr; }
-  .pagination-wrap { overflow:hidden; justify-content:flex-start; padding:12px; }
+  .pagination-wrap { overflow:hidden; padding:12px; }
   .pagination-wrap :deep(.el-pagination__sizes), .pagination-wrap :deep(.el-pagination__total) { display:none; }
 }
 </style>

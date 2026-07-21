@@ -307,14 +307,6 @@
           @blur="handleBlur"
         />
 
-        <input
-          ref="imageFileInputRef"
-          type="file"
-          accept="image/*"
-          style="display:none"
-          @change="handleImageSelect"
-        />
-
         <div class="flex absolute right-2 bottom-2">
           <el-tooltip effect="light">
             <template #content>
@@ -353,7 +345,7 @@
   } from '@/api/sysDictionary' // 此处请自行替换地址
   import { llmAuto } from '@/api/autoCode'
   import WarningBar from '@/components/warningBar/warningBar.vue'
-  import { ref, computed, watch } from 'vue'
+  import { ref, watch } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
 
   import sysDictionaryDetail from './sysDictionaryDetail.vue'
@@ -419,7 +411,6 @@
   const aiGenerating = ref(false)
 
   // 图片上传/识别相关
-  const imageFileInputRef = ref(null)
   const focused = ref(false)
 
   const handleFocus = () => {
@@ -427,11 +418,6 @@
   }
   const handleBlur = () => {
     focused.value = false
-  }
-
-  // 触发图片选择
-  const triggerImageSelect = () => {
-    imageFileInputRef.value?.click()
   }
 
   const handlePaste = (event) => {
@@ -493,13 +479,6 @@
       jsonPreview.value = null
     }
   })
-
-  // 格式化JSON预览
-  const jsonPreviewFormatted = computed(() => {
-    if (!jsonPreview.value) return ''
-    return JSON.stringify(jsonPreview.value, null, 2)
-  })
-
 
   // 查询
   const getTableData = async () => {
@@ -679,12 +658,12 @@
   }
 
   // 处理拖拽进入
-  const handleDragOver = (e) => {
+  const handleDragOver = () => {
     isDragging.value = true
   }
 
   // 处理拖拽离开
-  const handleDragLeave = (e) => {
+  const handleDragLeave = () => {
     isDragging.value = false
   }
   // 处理文件拖拽
@@ -833,23 +812,23 @@
 
   /* 拖拽上传区域 */
   .drag-upload-area {
-    border: 2px dashed #dcdfe6;
+    border: 2px dashed var(--na-border-strong);
     border-radius: 8px;
     padding: 40px 20px;
     text-align: center;
-    background-color: #fafafa;
-    transition: all 0.3s ease;
+    background-color: var(--na-card);
+    transition: border-color 0.3s ease, background-color 0.3s ease;
     cursor: pointer;
   }
 
   .drag-upload-area:hover {
-    border-color: #409eff;
-    background-color: #ecf5ff;
+    border-color: var(--na-primary);
+    background-color: var(--na-primary-soft);
   }
 
   .drag-upload-area.is-dragging {
-    border-color: #409eff;
-    background-color: #ecf5ff;
+    border-color: var(--na-primary);
+    background-color: var(--na-primary-soft);
     transform: scale(1.02);
   }
 

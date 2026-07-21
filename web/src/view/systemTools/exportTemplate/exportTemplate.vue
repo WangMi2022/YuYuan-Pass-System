@@ -1009,10 +1009,29 @@ JOINS模式下不支持导入
 
   const webCode = ref('')
 
-  const showCode = (row) => {
+  const showCode = async (row) => {
     webCode.value = getCode(row.templateID)
     activeTab.value = 'code'
     drawerVisible.value = true
+
+    previewTemplate.value = null
+    previewConditions.value = []
+    previewSQLCode.value = ''
+    const res = await findSysExportTemplate({ ID: row.ID })
+    if (res.code !== 0) return
+
+    previewTemplate.value = res.data.resysExportTemplate
+    previewConditions.value = (previewTemplate.value.conditions || []).map((condition) => ({
+      from: condition.from,
+      column: condition.column,
+      operator: condition.operator
+    }))
+    Object.assign(previewForm.value, {
+      filterDeleted: true,
+      order: previewTemplate.value.order || '',
+      limit: previewTemplate.value.limit || 0,
+      offset: 0
+    })
   }
 
   // 预览 SQL
@@ -1021,26 +1040,6 @@ JOINS模式下不支持导入
   const previewTemplate = ref(null)
   const previewConditions = ref([])
   const aceOptions = { wrap: true, showPrintMargin: false, fontSize: 14 }
-
-  const openPreview = async (row) => {
-    // 获取模板完整信息以展示条件输入项
-    const res = await findSysExportTemplate({ ID: row.ID })
-    if (res.code === 0) {
-      previewTemplate.value = res.data.resysExportTemplate
-      previewConditions.value = (previewTemplate.value.conditions || []).map((c) => ({
-        from: c.from,
-        column: c.column,
-        operator: c.operator
-      }))
-      // 预填默认的排序与限制
-      previewForm.value.order = previewTemplate.value.order || ''
-      previewForm.value.limit = previewTemplate.value.limit || 0
-      previewForm.value.offset = 0
-      previewSQLCode.value = ''
-      activeTab.value = 'sql'
-      drawerVisible.value = true
-    }
-  }
 
   const runPreview = async () => {
     if (!previewTemplate.value) return

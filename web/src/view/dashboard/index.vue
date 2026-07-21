@@ -18,7 +18,7 @@
         <span>ASSET HEALTH / LIVE</span>
         <strong>{{ healthRate }}<small>%</small></strong>
         <div class="health-line" aria-hidden="true">
-          <i :style="{ width: `${healthRate}%` }" />
+          <i :style="{ transform: `scaleX(${healthRate / 100})` }" />
         </div>
         <p><i />{{ formatNumber(controlledQuantity) }} 件资产处于正常受控状态</p>
       </aside>
@@ -352,7 +352,7 @@
   }
   .health-blueprint > strong small { margin-left: 2px; font-size: 15px; }
   .health-line { height: 4px; background: color-mix(in srgb, var(--blueprint-accent) 14%, var(--na-muted)); }
-  .health-line i { display: block; height: 100%; background: var(--blueprint-accent); transition: width 300ms ease-out; }
+  .health-line i { display: block; width: 100%; height: 100%; transform-origin: left; background: var(--blueprint-accent); transition: transform 300ms ease-out; }
   .health-blueprint p { display: flex; align-items: center; gap: 8px; margin: 13px 0 0; color: var(--blueprint-muted); font-size: 9px; }
   .health-blueprint p i { width: 7px; height: 7px; border-radius: 50%; background: var(--na-success); box-shadow: 0 0 0 4px var(--na-success-soft); }
 

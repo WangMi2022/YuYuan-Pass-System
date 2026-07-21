@@ -107,6 +107,7 @@ let streamController
 let reconnectTimer
 let pollTimer
 let disposed = false
+const pollInterval = 60000
 
 const notificationLabel = computed(() => unreadCount.value ? `公告提醒，${unreadCount.value} 条未读` : '公告提醒，无未读公告')
 const attachments = computed(() => Array.isArray(currentNotice.value?.attachments) ? currentNotice.value.attachments : [])
@@ -198,17 +199,38 @@ const handleStreamBlock = async (block) => {
   })
 }
 
+const startPolling = () => {
+  if (disposed || pollTimer) return
+  pollTimer = setInterval(loadNotifications, pollInterval)
+}
+
+const stopPolling = () => {
+  clearInterval(pollTimer)
+  pollTimer = undefined
+}
+
+const scheduleReconnect = () => {
+  if (disposed) return
+  clearTimeout(reconnectTimer)
+  reconnectTimer = setTimeout(startStream, 5000)
+}
+
 const startStream = async () => {
-  if (disposed || !userStore.token) return
+  if (disposed || !userStore.token) {
+    startPolling()
+    return
+  }
   streamController?.abort()
-  streamController = new AbortController()
+  const controller = new AbortController()
+  streamController = controller
   try {
     const response = await fetch(`${getBaseUrl()}/info/stream`, {
       headers: { Accept: 'text/event-stream', 'x-token': userStore.token },
       cache: 'no-store',
-      signal: streamController.signal
+      signal: controller.signal
     })
     if (!response.ok || !response.body) throw new Error(`SSE ${response.status}`)
+    stopPolling()
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
@@ -220,10 +242,14 @@ const startStream = async () => {
       buffer = blocks.pop() || ''
       for (const block of blocks) await handleStreamBlock(block)
     }
+    if (!disposed && streamController === controller) {
+      startPolling()
+      scheduleReconnect()
+    }
   } catch (error) {
-    if (error?.name !== 'AbortError' && !disposed) {
-      clearTimeout(reconnectTimer)
-      reconnectTimer = setTimeout(startStream, 5000)
+    if (error?.name !== 'AbortError' && !disposed && streamController === controller) {
+      startPolling()
+      scheduleReconnect()
     }
   }
 }
@@ -241,15 +267,15 @@ onMounted(() => {
   window.addEventListener('resize', updatePopoverWidth)
   document.addEventListener('visibilitychange', handleVisibility)
   loadNotifications()
+  startPolling()
   startStream()
-  pollTimer = setInterval(loadNotifications, 60000)
 })
 
 onBeforeUnmount(() => {
   disposed = true
   streamController?.abort()
   clearTimeout(reconnectTimer)
-  clearInterval(pollTimer)
+  stopPolling()
   window.removeEventListener('resize', updatePopoverWidth)
   document.removeEventListener('visibilitychange', handleVisibility)
 })

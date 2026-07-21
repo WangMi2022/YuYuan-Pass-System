@@ -3,6 +3,16 @@ import presetWind3 from '@unocss/preset-wind3';
 import transformerDirectives from '@unocss/transformer-directives'
 
 export default defineConfig({
+  content: {
+    pipeline: {
+      include: [
+        /[\\/]src[\\/].*\.(?:vue|[jt]sx?|html)(?:\?.*)?$/,
+        /[\\/]prototypes[\\/].*\.(?:vue|[jt]sx?|html)(?:\?.*)?$/,
+        /[\\/]index\.html(?:\?.*)?$/
+      ],
+      exclude: [/[\\/]node_modules[\\/]/, /[\\/]dist[\\/]/, /\.css(?:\?.*)?$/]
+    }
+  },
   theme: {
     colors: {
       // semantic tokens — keep utility classes in sync with the SaaS theme

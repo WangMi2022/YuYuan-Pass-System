@@ -116,7 +116,7 @@
     </div>
 
     <div class="!hidden">
-      <img class="h-full" src="@/assets/login_right_banner.jpg" alt="banner" />
+      <img class="h-full" src="@/assets/login_right_banner.webp" alt="Gin Vue Admin 技术展示" />
     </div>
   </div>
 </template>

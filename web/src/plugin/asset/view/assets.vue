@@ -1,16 +1,18 @@
 <template>
-  <main class="asset-page">
-    <section class="page-heading" aria-labelledby="asset-inventory-title">
-      <div>
-        <p class="eyebrow">ASSET INVENTORY</p>
-        <h1 id="asset-inventory-title">资产档案</h1>
-        <p class="subtitle">统一登记资产数量、采购原值、当前估值、责任人与实物照片。</p>
-      </div>
-      <el-button type="primary" :icon="Plus" size="large" @click="openCreate">新增资产</el-button>
-    </section>
+  <main class="na-page asset-page">
+    <AppPageHeader
+      title-id="asset-inventory-title"
+      kicker="ASSET INVENTORY"
+      title="资产档案"
+      description="统一登记资产数量、采购原值、当前估值、责任人与实物照片。"
+    >
+      <template #actions>
+        <el-button type="primary" :icon="Plus" size="large" @click="openCreate">新增资产</el-button>
+      </template>
+    </AppPageHeader>
 
-    <section class="filter-panel" aria-label="资产筛选">
-      <el-form :model="search" label-position="top" @keyup.enter="loadAssets">
+    <section class="na-panel filter-panel" aria-label="资产筛选">
+      <el-form :model="search" label-position="top" @keyup.enter="submitSearch">
         <div class="filter-grid">
           <el-form-item label="关键词">
             <el-input v-model="search.keyword" clearable placeholder="编号、名称、品牌、型号、责任人" :prefix-icon="Search" />
@@ -38,8 +40,8 @@
       </el-form>
     </section>
 
-    <section class="table-panel">
-      <header class="panel-header">
+    <section class="na-panel table-panel">
+      <header class="na-panel-header panel-header">
         <div>
           <h2>资产清单</h2>
           <span>共 {{ total }} 条档案</span>
@@ -135,7 +137,7 @@
         </template>
       </el-table>
 
-      <div class="pagination-wrap">
+      <div class="na-pagination pagination-wrap">
         <el-pagination
           v-model:current-page="search.page"
           v-model:page-size="search.pageSize"
@@ -269,7 +271,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Edit, Picture, Plus, Refresh, Search } from '@element-plus/icons-vue'
 import {
@@ -282,6 +284,8 @@ import {
   uploadAssetPhoto
 } from '@/plugin/asset/api/asset'
 import { formatCurrency, formatDateText } from '@/utils/format'
+import AppPageHeader from '@/components/page/AppPageHeader.vue'
+import { usePagedList } from '@/hooks/usePagedList'
 
 defineOptions({ name: 'AssetInventory' })
 
@@ -315,12 +319,8 @@ const emptyForm = () => ({
   remarks: ''
 })
 
-const search = reactive({ page: 1, pageSize: 10, keyword: '', categoryId: undefined, status: '', location: '' })
-const tableData = ref([])
 const categories = ref([])
-const total = ref(0)
 const statusCounts = ref({})
-const loading = ref(false)
 const drawerVisible = ref(false)
 const editing = ref(false)
 const saving = ref(false)
@@ -351,18 +351,19 @@ const loadCategories = async () => {
   if (res.code === 0) categories.value = res.data || []
 }
 
-const loadAssets = async () => {
-  loading.value = true
-  try {
-    const res = await getAssetList(search)
-    if (res.code === 0) {
-      tableData.value = res.data.list || []
-      total.value = res.data.total || 0
-    }
-  } finally {
-    loading.value = false
-  }
-}
+const {
+  search,
+  items: tableData,
+  total,
+  loading,
+  load: loadAssets,
+  submit: submitSearch,
+  reset: resetAssetSearch,
+  changePageSize: sizeChanged
+} = usePagedList({
+  defaults: { page: 1, pageSize: 10, keyword: '', categoryId: undefined, status: '', location: '' },
+  request: getAssetList
+})
 
 const loadStatusCounts = async () => {
   const res = await getAssetDashboard()
@@ -377,12 +378,7 @@ const selectStatus = (status) => {
   loadAssets()
 }
 
-const submitSearch = () => { search.page = 1; loadAssets() }
-const resetSearch = () => {
-  Object.assign(search, { page: 1, pageSize: 10, keyword: '', categoryId: undefined, status: '', location: '' })
-  loadAssets()
-}
-const sizeChanged = () => { search.page = 1; loadAssets() }
+const resetSearch = () => resetAssetSearch()
 
 const openCreate = () => {
   editing.value = false
@@ -485,18 +481,11 @@ onMounted(async () => {
   --asset-text: var(--na-foreground);
   --asset-muted: var(--na-muted-foreground);
   --asset-border: var(--na-border);
-  min-height: 100%; padding: 20px; background: var(--asset-bg); color: var(--asset-text);
 }
-.page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
-.eyebrow { margin: 0 0 5px; color: var(--na-primary); font: 600 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; }
-h1 { margin: 0; font-size: 24px; line-height: 1.2; }
-.subtitle { margin: 8px 0 0; color: var(--asset-muted); }
-.filter-panel, .table-panel { border: 1px solid var(--asset-border); border-radius: var(--na-radius); background: var(--asset-surface); box-shadow: var(--na-shadow-sm); }
-.filter-panel { padding: 14px 16px 0; margin-bottom: 12px; }
+.filter-panel { padding: 14px 16px 0; }
 .filter-grid { display: grid; grid-template-columns: minmax(220px, 1.5fr) repeat(3, minmax(160px, 1fr)) auto; gap: 14px; align-items: end; }
 .filter-actions { display: flex; gap: 8px; padding-bottom: 14px; }
 .table-panel { overflow: hidden; }
-.panel-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--asset-border); }
 .panel-header h2 { margin: 0 0 3px; font-size: 17px; }
 .panel-header span { color: var(--asset-muted); font-size: 13px; }
 .status-overview { display: flex; flex-wrap: wrap; gap: 7px; padding: 10px 16px; border-bottom: 1px solid var(--asset-border); background: var(--na-muted); }
@@ -519,7 +508,6 @@ h1 { margin: 0; font-size: 24px; line-height: 1.2; }
 .category-pill i { width: 8px; height: 8px; border-radius: 50%; }
 .number, .money { font-variant-numeric: tabular-nums; }
 .money--current { color: var(--na-primary); font-weight: 600; }
-.pagination-wrap { display: flex; justify-content: flex-end; padding: 12px 16px; border-top: 1px solid var(--asset-border); }
 .drawer-title { display: flex; flex-direction: column; gap: 4px; }
 .drawer-title span { color: var(--asset-text); font-size: 20px; font-weight: 700; }
 .drawer-title small { color: var(--asset-muted); font-weight: 400; }
@@ -541,11 +529,8 @@ h1 { margin: 0; font-size: 24px; line-height: 1.2; }
 
 @media (max-width: 1200px) { .filter-grid { grid-template-columns: repeat(2, minmax(180px, 1fr)); } .filter-actions { align-self: end; } }
 @media (max-width: 767px) {
-  .asset-page { padding: 14px; }
-  .page-heading { align-items: stretch; flex-direction: column; }
   .filter-grid, .form-grid, .valuation-box { grid-template-columns: 1fr; }
   .filter-actions { padding-bottom: 16px; }
-  .pagination-wrap { overflow-x: auto; justify-content: flex-start; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; } }
 </style>

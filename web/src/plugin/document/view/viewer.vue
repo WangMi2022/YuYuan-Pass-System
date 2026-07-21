@@ -1,23 +1,25 @@
 <template>
-  <main class="document-page">
-    <section class="page-heading" aria-labelledby="document-title">
-      <div>
-        <p class="eyebrow">DOCUMENT CENTER</p>
-        <h1 id="document-title">文档管理</h1>
-        <p class="subtitle">支持 MD、TXT、HTML、PDF、Word、Excel 等文档上传、预览与在线版本维护。</p>
-      </div>
-      <el-upload
-        :show-file-list="false"
-        :http-request="uploadFile"
-        :before-upload="beforeUpload"
-        accept=".txt,.md,.markdown,.html,.htm,.json,.xml,.csv,.yaml,.yml,.ini,.conf,.log,.doc,.docs,.docx,.pdf,.xls,.xlsx"
-      >
-        <el-button type="primary" size="large" :icon="UploadFilled" :loading="uploading">上传文档</el-button>
-      </el-upload>
-    </section>
+  <main class="na-page document-page">
+    <AppPageHeader
+      title-id="document-title"
+      kicker="DOCUMENT CENTER"
+      title="文档管理"
+      description="支持 MD、TXT、HTML、PDF、Word、Excel 等文档上传、预览与在线版本维护。"
+    >
+      <template #actions>
+        <el-upload
+          :show-file-list="false"
+          :http-request="uploadFile"
+          :before-upload="beforeUpload"
+          accept=".txt,.md,.markdown,.html,.htm,.json,.xml,.csv,.yaml,.yml,.ini,.conf,.log,.doc,.docs,.docx,.pdf,.xls,.xlsx"
+        >
+          <el-button type="primary" size="large" :icon="UploadFilled" :loading="uploading">上传文档</el-button>
+        </el-upload>
+      </template>
+    </AppPageHeader>
 
     <section class="document-workspace">
-      <aside class="document-list-panel">
+      <aside class="na-panel document-list-panel">
         <header class="panel-header">
           <div>
             <h2>已上传文档</h2>
@@ -70,7 +72,7 @@
           </el-empty>
         </div>
 
-        <footer class="pagination-wrap">
+        <footer class="na-pagination pagination-wrap">
           <el-pagination
             v-model:current-page="search.page"
             v-model:page-size="search.pageSize"
@@ -84,7 +86,7 @@
         </footer>
       </aside>
 
-      <section class="document-editor-panel">
+      <section class="na-panel document-editor-panel">
         <template v-if="current.ID">
           <header class="editor-header">
             <div>
@@ -313,19 +315,19 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Check, Delete, Document, Download, Edit, Refresh, Search, UploadFilled } from '@element-plus/icons-vue'
 import { marked } from 'marked'
 import '@vue-office/docx/lib/index.css'
-import RichEdit from '@/components/richtext/rich-edit.vue'
-import SpreadsheetEditor from '@/plugin/document/components/SpreadsheetEditor.vue'
 import { deleteDocument, downloadDocumentFile, getDocumentDetail, getDocumentList, updateDocumentContent, uploadDocument } from '@/plugin/document/api/document'
+import { formatDateText } from '@/utils/format'
+import AppPageHeader from '@/components/page/AppPageHeader.vue'
+import { usePagedList } from '@/hooks/usePagedList'
+
+const RichEdit = defineAsyncComponent(() => import('@/components/richtext/rich-edit.vue'))
+const SpreadsheetEditor = defineAsyncComponent(() => import('@/plugin/document/components/SpreadsheetEditor.vue'))
 
 const VueOfficeDocx = defineAsyncComponent(() => import('@vue-office/docx'))
 const VueOfficePdf = defineAsyncComponent(() => import('@vue-office/pdf'))
 
 const route = useRoute()
 const router = useRouter()
-const search = reactive({ page: 1, pageSize: 10, keyword: '', fileExt: '' })
-const tableData = ref([])
-const total = ref(0)
-const loading = ref(false)
 const uploading = ref(false)
 const saving = ref(false)
 const previewLoading = ref(false)
@@ -367,7 +369,7 @@ const fileSize = (size) => {
   return `${(value / 1024 / 1024).toFixed(1)} MB`
 }
 
-const dateText = (value) => value ? new Date(value).toLocaleDateString('zh-CN') : '—'
+const dateText = formatDateText
 
 const currentExt = computed(() => extFromDoc(current.value))
 const isMarkdown = computed(() => markdownExts.includes(currentExt.value))
@@ -436,31 +438,6 @@ const richEditorHeight = computed(() => {
   if (isWordDocument.value) return 'clamp(620px, calc(100vh - 320px), 860px)'
   return '560px'
 })
-
-const activeExcelSheet = computed(() => {
-  return excelState.sheets.find((sheet) => sheet.name === excelState.activeSheet) || excelState.sheets[0] || null
-})
-
-const activeExcelPreviewRows = computed(() => {
-  const rows = Array.isArray(activeExcelSheet.value?.rows) ? activeExcelSheet.value.rows : []
-  return rows.filter((row) => Array.isArray(row) && row.some((cell) => String(cell || '').trim() !== ''))
-})
-
-const activeExcelColumns = computed(() => {
-  const max = activeExcelPreviewRows.value.reduce((count, row) => Math.max(count, row.length), 1)
-  return Array.from({ length: Math.min(Math.max(max, 1), 80) }, (_, index) => index)
-})
-
-const excelColumnName = (index) => {
-  let value = Number(index) + 1
-  let name = ''
-  while (value > 0) {
-    const mod = (value - 1) % 26
-    name = String.fromCharCode(65 + mod) + name
-    value = Math.floor((value - mod) / 26)
-  }
-  return name
-}
 
 
 const excelStoredType = 'asset-center-excel-v1'
@@ -849,18 +826,19 @@ const syncEditor = (doc) => {
   }
 }
 
-const loadDocuments = async () => {
-  loading.value = true
-  try {
-    const res = await getDocumentList(search)
-    if (res.code === 0) {
-      tableData.value = res.data.list || []
-      total.value = res.data.total || 0
-    }
-  } finally {
-    loading.value = false
-  }
-}
+const {
+  search,
+  items: tableData,
+  total,
+  loading,
+  load: loadDocuments,
+  submit: submitSearch,
+  reset: resetSearch,
+  changePageSize: sizeChanged
+} = usePagedList({
+  defaults: { page: 1, pageSize: 10, keyword: '', fileExt: '' },
+  request: getDocumentList
+})
 
 const loadPreviewSource = async (doc = current.value) => {
   if (!doc?.ID || !shouldPreview(doc)) return
@@ -940,23 +918,6 @@ const openDocument = (row) => {
 
 const reloadCurrent = async () => {
   await loadDetail(editor.ID)
-}
-
-const submitSearch = () => {
-  search.page = 1
-  loadDocuments()
-}
-
-const resetSearch = () => {
-  search.page = 1
-  search.keyword = ''
-  search.fileExt = ''
-  loadDocuments()
-}
-
-const sizeChanged = () => {
-  search.page = 1
-  loadDocuments()
 }
 
 const beforeUpload = (file) => {
@@ -1073,45 +1034,14 @@ onBeforeUnmount(() => {
 .document-page {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 18px;
-  min-height: 100%;
-  background: var(--na-background, #f6f8fb);
 }
 
-.page-heading,
-.document-list-panel,
-.document-editor-panel {
-  border: 1px solid var(--el-border-color-light);
-  border-radius: 18px;
-  background: var(--el-bg-color);
-  box-shadow: 0 14px 34px rgb(15 23 42 / 5%);
-}
-
-.page-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 22px 24px;
-}
-
-.eyebrow {
-  margin: 0 0 6px;
-  color: var(--el-color-primary);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-}
-
-.page-heading h1,
 .editor-header h2,
 .panel-header h2 {
   margin: 0;
   color: var(--el-text-color-primary);
 }
 
-.subtitle,
 .panel-header span,
 .editor-header span {
   color: var(--el-text-color-secondary);
@@ -1129,6 +1059,8 @@ onBeforeUnmount(() => {
   min-width: 0;
   padding: 18px;
 }
+
+.document-editor-panel { margin-top: 0; }
 
 .document-list-panel {
   position: sticky;
@@ -1261,8 +1193,6 @@ onBeforeUnmount(() => {
 }
 
 .pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
   margin-top: 14px;
 }
 
@@ -1657,11 +1587,6 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 640px) {
-  .document-page {
-    padding: 12px;
-  }
-
-  .page-heading,
   .panel-header,
   .editor-header {
     flex-direction: column;

@@ -179,7 +179,7 @@ const resetForm = () => {
   if (!formRef.value) return
   formRef.value.resetFields()
 }
-<\/script>
+</scr${'ipt'}>
 `
   }
 
@@ -205,4 +205,3 @@ const resetForm = () => {
 <style scoped>
 
 </style>
-

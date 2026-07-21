@@ -175,16 +175,14 @@
 
 <script setup>
 import { llmAuto } from '@/api/autoCode'
-import { ref, reactive, markRaw } from 'vue'
+import { defineAsyncComponent, markRaw, ref } from 'vue'
 import * as Vue from "vue";
 import WarningBar from '@/components/warningBar/warningBar.vue'
 import { ElMessage } from 'element-plus'
-import { defineAsyncComponent } from 'vue'
 import { DocumentCopy } from '@element-plus/icons-vue'
-import { loadModule } from "vue3-sfc-loader";
 
 defineOptions({
-  name: 'Picture'
+  name: 'AutoCodePicture'
 })
 
 const handleFocus = () => {
@@ -210,7 +208,7 @@ const copySnippet = (vueString) => {
           type: 'success',
         })
       })
-      .catch(err => {
+      .catch(() => {
         ElMessage({
           message: '复制失败',
           type: 'warning',
@@ -257,6 +255,7 @@ const loadVueComponent = async (vueCode) => {
     const component = defineAsyncComponent({
       loader: async () => {
         try {
+          const { loadModule } = await import('vue3-sfc-loader')
           const options = {
             moduleCache: {
               vue: Vue,
@@ -284,7 +283,7 @@ const loadVueComponent = async (vueCode) => {
               // 稍后会将样式添加到Shadow DOM中
               return textContent
             },
-            handleModule(type, source, path, options) {
+            handleModule() {
               // 默认处理器
               return undefined
             },

@@ -31,6 +31,7 @@
   import { useRouterStore } from '@/pinia/modules/router'
   import { useAppStore } from '@/pinia'
   import { storeToRefs } from 'pinia'
+  import { useEventListener } from '@vueuse/core'
   const appStore = useAppStore()
   const { device } = storeToRefs(appStore)
 
@@ -91,8 +92,8 @@
 
   onMounted(() => {
     calculateEllipsis()
-    window.addEventListener('resize', calculateEllipsis)
   })
+  useEventListener(window, 'resize', calculateEllipsis, { passive: true })
 
   const selectMenuItem = (index) => {
     const query = {}

@@ -1,15 +1,17 @@
 <template>
-  <main class="announcement-page">
-    <section class="page-heading" aria-labelledby="announcement-title">
-      <div>
-        <p class="eyebrow">ANNOUNCEMENTS</p>
-        <h1 id="announcement-title">公告中心</h1>
-        <p class="subtitle">发布与管理系统公告，在线用户实时提醒，离线用户登录后可见未读标记。</p>
-      </div>
-      <el-button type="primary" icon="plus" size="large" @click="openDialog">发布公告</el-button>
-    </section>
+  <main class="na-page announcement-page">
+    <AppPageHeader
+      title-id="announcement-title"
+      kicker="ANNOUNCEMENTS"
+      title="公告中心"
+      description="发布与管理系统公告，在线用户实时提醒，离线用户登录后可见未读标记。"
+    >
+      <template #actions>
+        <el-button type="primary" icon="plus" size="large" @click="openDialog">发布公告</el-button>
+      </template>
+    </AppPageHeader>
 
-    <section class="filter-panel" aria-label="公告筛选">
+    <section class="na-panel filter-panel" aria-label="公告筛选">
       <el-form
         ref="elSearchFormRef"
         :model="searchInfo"
@@ -67,8 +69,8 @@
       </el-form>
     </section>
 
-    <section class="table-panel">
-      <header class="panel-header">
+    <section class="na-panel table-panel">
+      <header class="na-panel-header panel-header">
         <div>
           <h2>公告列表</h2>
           <span>共 {{ total }} 条公告</span>
@@ -137,7 +139,7 @@
         </template>
       </el-table>
 
-      <div class="pagination-wrap">
+      <div class="na-pagination pagination-wrap">
         <el-pagination
           layout="total, sizes, prev, pager, next, jumper"
           :current-page="page"
@@ -216,6 +218,7 @@
   import { formatDate, filterDataSource } from '@/utils/format'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import { ref, reactive } from 'vue'
+  import AppPageHeader from '@/components/page/AppPageHeader.vue'
 
   defineOptions({
     name: 'Info'
@@ -465,39 +468,19 @@
 </script>
 
 <style scoped lang="scss">
-  .announcement-page {
-    min-height: 100%;
-    padding: 20px;
-    background: var(--na-background);
-    color: var(--na-foreground);
-  }
-  .page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
-  .eyebrow { margin: 0 0 5px; color: var(--na-primary); font: 600 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em !important; }
-  h1 { margin: 0; font-size: 24px; line-height: 1.2; }
-  .subtitle { margin: 8px 0 0; color: var(--na-muted-foreground); }
-
-  .filter-panel,
-  .table-panel {
-    border: 1px solid var(--na-border);
-    border-radius: var(--na-radius);
-    background: var(--na-card);
-    box-shadow: var(--na-shadow-sm);
-  }
-  .filter-panel { padding: 14px 16px 0; margin-bottom: 12px; }
+  .filter-panel { padding: 14px 16px 0; }
   .filter-grid { display: grid; grid-template-columns: minmax(320px, 1.6fr) minmax(160px, 1fr) auto; gap: 14px; align-items: end; }
   .date-range { display: flex; align-items: center; gap: 8px; }
   .date-sep { color: var(--na-muted-foreground); }
   .filter-actions { display: flex; gap: 8px; padding-bottom: 18px; }
 
   .table-panel { overflow: hidden; }
-  .panel-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--na-border); }
   .panel-header h2 { margin: 0 0 3px; font-size: 17px; }
   .panel-header span { color: var(--na-muted-foreground); font-size: 13px; }
 
   .file-list { display: flex; flex-wrap: wrap; gap: 4px; }
   .file-tag { cursor: pointer; }
   .file-empty { color: var(--na-muted-foreground); }
-  .pagination-wrap { display: flex; justify-content: flex-end; padding: 12px 16px; border-top: 1px solid var(--na-border); }
 
   .drawer-head { display: flex; flex: 1; align-items: center; justify-content: space-between; gap: 16px; }
   .drawer-title { display: flex; flex-direction: column; gap: 4px; }
@@ -507,9 +490,6 @@
 
   @media (max-width: 1000px) { .filter-grid { grid-template-columns: 1fr; } .date-range { flex-wrap: wrap; } }
   @media (max-width: 767px) {
-    .announcement-page { padding: 14px; }
-    .page-heading { align-items: stretch; flex-direction: column; }
     .drawer-head { align-items: flex-start; flex-direction: column; }
-    .pagination-wrap { overflow-x: auto; justify-content: flex-start; }
   }
 </style>

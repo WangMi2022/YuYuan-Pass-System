@@ -262,7 +262,7 @@ a {
   background-color: #007bff;
   color: #ffffff;
   font-weight: 500;
-  transition: all 0.3s ease-in-out;
+  transition: background-color 0.3s ease-in-out;
   margin-right: 5px;
 }
 
@@ -330,7 +330,7 @@ a {
 }
 .list-enter-active,
 .list-leave-active {
-  transition: all 1s;
+  transition: opacity 1s, transform 1s;
 }
 .list-enter, .list-leave-to
   /* .list-leave-active for below version 2.1.8 */ {

@@ -72,6 +72,7 @@
   import { toDoc } from '@/utils/doc'
   import { isDev } from '@/utils/env.js'
   import NotificationCenter from '@/components/notification/NotificationCenter.vue'
+  import { useEventListener } from '@vueuse/core'
 
   const appStore = useAppStore()
   const showSettingDrawer = ref(false)
@@ -92,27 +93,18 @@
   const command = ref()
 
   const handleCommand = () => {
-    command.value.open()
+    command.value?.open()
   }
-  const initPage = () => {
-    // 判断当前用户的操作系统
-    if (window.localStorage.getItem('osType') === 'WIN') {
-      first.value = 'Ctrl'
-    } else {
-      first.value = '⌘'
-    }
-    // 当用户同时按下ctrl和k键的时候
-    const handleKeyDown = (e) => {
-      if (e.ctrlKey && e.key === 'k') {
-        // 阻止浏览器默认事件
-        e.preventDefault()
-        handleCommand()
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-  }
+  // 判断当前用户的操作系统
+  first.value = window.localStorage.getItem('osType') === 'WIN' ? 'Ctrl' : '⌘'
 
-  initPage()
+  const handleKeyDown = (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+      event.preventDefault()
+      handleCommand()
+    }
+  }
+  useEventListener(window, 'keydown', handleKeyDown)
 
   const videoList = [
     {

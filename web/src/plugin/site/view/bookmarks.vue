@@ -1,15 +1,17 @@
 <template>
-  <main class="site-page">
-    <section class="page-heading" aria-labelledby="site-title">
-      <div>
-        <p class="eyebrow">SITE WORKBENCH</p>
-        <h1 id="site-title">站点收藏</h1>
-        <p class="subtitle">集中收藏工作中常用的 HTTP/HTTPS 网页站点，点击卡片即可新窗口跳转。</p>
-      </div>
-      <el-button type="primary" size="large" :icon="Plus" @click="openCreate">新增站点</el-button>
-    </section>
+  <main class="na-page site-page">
+    <AppPageHeader
+      title-id="site-title"
+      kicker="SITE WORKBENCH"
+      title="站点收藏"
+      description="集中收藏工作中常用的 HTTP/HTTPS 网页站点，点击卡片即可新窗口跳转。"
+    >
+      <template #actions>
+        <el-button type="primary" size="large" :icon="Plus" @click="openCreate">新增站点</el-button>
+      </template>
+    </AppPageHeader>
 
-    <section class="filter-panel" aria-label="站点筛选">
+    <section class="na-panel filter-panel" aria-label="站点筛选">
       <el-form :model="search" @keyup.enter="submitSearch">
         <div class="filter-grid">
           <el-form-item label="关键词">
@@ -34,8 +36,8 @@
       </el-form>
     </section>
 
-    <section class="site-panel">
-      <header class="panel-header">
+    <section class="na-panel site-panel">
+      <header class="na-panel-header panel-header">
         <div>
           <h2>工作站点</h2>
           <span>共 {{ total }} 个站点</span>
@@ -50,9 +52,11 @@
           class="site-card"
           :class="{ disabled: !row.enabled }"
           role="button"
-          tabindex="0"
+          :tabindex="row.enabled ? 0 : -1"
+          :aria-disabled="!row.enabled"
           @click="openSite(row)"
           @keyup.enter="openSite(row)"
+          @keyup.space.prevent="openSite(row)"
         >
           <header class="site-card-top">
             <div class="site-identity">
@@ -85,7 +89,7 @@
         </el-empty>
       </div>
 
-      <footer class="pagination-wrap">
+      <footer class="na-pagination pagination-wrap">
         <el-pagination
           v-model:current-page="search.page"
           v-model:page-size="search.pageSize"
@@ -141,16 +145,14 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Edit, Link, Plus, Position, Refresh, Search } from '@element-plus/icons-vue'
 import { createSite, deleteSite, getSiteCategories, getSiteList, updateSite, visitSite } from '@/plugin/site/api/site'
+import AppPageHeader from '@/components/page/AppPageHeader.vue'
+import { usePagedList } from '@/hooks/usePagedList'
 
-const loading = ref(false)
 const saving = ref(false)
 const dialogVisible = ref(false)
 const editing = ref(false)
 const formRef = ref(null)
-const tableData = ref([])
-const total = ref(0)
 const categories = ref([])
-const search = reactive({ page: 1, pageSize: 12, keyword: '', category: '', enabled: '' })
 const formData = reactive({ ID: 0, name: '', url: '', category: '常用站点', description: '', color: '#6366f1', sort: 0, enabled: true })
 
 const categoryOptions = computed(() => Array.from(new Set([...(categories.value || []), ...tableData.value.map((item) => item.category).filter(Boolean)])))
@@ -182,38 +184,22 @@ const loadCategories = async () => {
   if (res.code === 0) categories.value = res.data || []
 }
 
-const loadSites = async () => {
-  loading.value = true
-  try {
-    const params = { ...search }
+const {
+  search,
+  items: tableData,
+  total,
+  loading,
+  load: loadSites,
+  submit: submitSearch,
+  reset: resetSearch,
+  changePageSize: sizeChanged
+} = usePagedList({
+  defaults: { page: 1, pageSize: 12, keyword: '', category: '', enabled: '' },
+  request: (params) => {
     if (params.enabled === '') delete params.enabled
-    const res = await getSiteList(params)
-    if (res.code === 0) {
-      tableData.value = res.data.list || []
-      total.value = res.data.total || 0
-    }
-  } finally {
-    loading.value = false
+    return getSiteList(params)
   }
-}
-
-const submitSearch = () => {
-  search.page = 1
-  loadSites()
-}
-
-const resetSearch = () => {
-  search.page = 1
-  search.keyword = ''
-  search.category = ''
-  search.enabled = ''
-  loadSites()
-}
-
-const sizeChanged = () => {
-  search.page = 1
-  loadSites()
-}
+})
 
 const openCreate = () => {
   editing.value = false
@@ -290,61 +276,15 @@ onMounted(async () => {
 </script>
 
 <style scoped lang="scss">
-.site-page {
-  min-height: 100%;
-  padding: 18px;
-  background: var(--na-background);
-  color: var(--na-foreground);
-}
-
-.page-heading,
-.filter-panel,
-.site-panel {
-  border: 1px solid var(--na-border-strong, var(--el-border-color));
-  border-radius: 14px;
-  background: var(--na-card, var(--el-bg-color));
-  box-shadow: none;
-}
-
-.page-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  margin-bottom: 12px;
-  padding: 16px 20px;
-}
-
-.eyebrow {
-  margin: 0 0 6px;
-  color: var(--el-color-primary);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-}
-
-h1,
 .panel-header h2 {
   margin: 0;
   color: var(--el-text-color-primary);
 }
-
-.page-heading h1 {
-  font-size: 18px;
-}
-
-.subtitle,
 .panel-header span {
   color: var(--el-text-color-secondary);
 }
 
-.subtitle {
-  margin: 4px 0 0;
-  font-size: 13px;
-}
-
 .filter-panel {
-  margin-bottom: 12px;
   padding: 12px 16px 0;
 }
 
@@ -370,11 +310,7 @@ h1,
 }
 
 .panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--na-border, var(--el-border-color-light));
+  gap: 12px;
 }
 
 .panel-header h2 {
@@ -545,10 +481,7 @@ h1,
 }
 
 .pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
-  padding: 12px 16px 14px;
-  border-top: 1px solid var(--na-border, var(--el-border-color-light));
+  padding-bottom: 14px;
 }
 
 .form-grid {
@@ -580,11 +513,6 @@ h1,
 }
 
 @media (max-width: 640px) {
-  .site-page {
-    padding: 12px;
-  }
-
-  .page-heading,
   .panel-header {
     align-items: stretch;
     flex-direction: column;
@@ -600,9 +528,5 @@ h1,
     grid-template-columns: 1fr;
   }
 
-  .pagination-wrap {
-    justify-content: flex-start;
-    overflow-x: auto;
-  }
 }
 </style>

@@ -45,9 +45,9 @@
       
       <!-- 弹窗底部 -->
       <div class="py-2 px-4 border-t border-gray-100 dark:border-gray-700 flex justify-end">
-        <div class="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white dark:text-gray-100 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors font-medium text-sm shadow-sm cursor-pointer" @click="handleConfirm">
+        <button type="button" class="px-4 py-2 border-0 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors font-medium text-sm shadow-sm cursor-pointer" @click="handleConfirm">
           确定
-        </div>
+        </button>
       </div>
     </div>
   </div>

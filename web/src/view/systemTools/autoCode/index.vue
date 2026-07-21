@@ -793,7 +793,6 @@
 
 <script setup>
   import FieldDialog from '@/view/systemTools/autoCode/component/fieldDialog.vue'
-  import PreviewCodeDialog from '@/view/systemTools/autoCode/component/previewCodeDialog.vue'
   import {
     toUpperCase,
     toHump,
@@ -811,12 +810,14 @@
     llmAuto
   } from '@/api/autoCode'
   import { getDict } from '@/utils/dictionary'
-  import { ref, watch, toRaw, onMounted, nextTick } from 'vue'
+  import { defineAsyncComponent, ref, watch, toRaw, onMounted, nextTick } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import WarningBar from '@/components/warningBar/warningBar.vue'
   import Sortable from 'sortablejs'
   import { useUserStore } from "@/pinia";
+
+  const PreviewCodeDialog = defineAsyncComponent(() => import('@/view/systemTools/autoCode/component/previewCodeDialog.vue'))
 
   const userStore = useUserStore()
 
@@ -1339,7 +1340,7 @@
           item.fieldName = toUpperCase(item.fieldName)
           if (item.fieldType === 'enum') {
             // 判断一下 item.dataTypeLong 按照,切割后的每个元素是否都使用 '' 包裹，如果没包 则修改为包裹起来的 然后再转为字符串赋值给 item.dataTypeLong
-            item.dataTypeLong = item.dataTypeLong.replace(/[\[\]{}()]/g, '')
+            item.dataTypeLong = item.dataTypeLong.replace(/[[\]{}()]/g, '')
             const arr = item.dataTypeLong.split(',')
             arr.forEach((ele, index) => {
               if (ele.indexOf("'") === -1) {

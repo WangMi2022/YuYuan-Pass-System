@@ -68,6 +68,7 @@
   import { useUserStore } from '@/pinia/modules/user'
   import { fmtTitle } from '@/utils/fmtRouterTitle'
   import { CloseBold } from '@element-plus/icons-vue'
+  import { useEventListener } from '@vueuse/core'
 
   defineOptions({
     name: 'HistoryComponent'
@@ -246,20 +247,9 @@
     historys.value.splice(index, 1)
   }
 
-  watch(
-    () => contextMenuVisible.value,
-    () => {
-      if (contextMenuVisible.value) {
-        document.body.addEventListener('click', () => {
-          contextMenuVisible.value = false
-        })
-      } else {
-        document.body.removeEventListener('click', () => {
-          contextMenuVisible.value = false
-        })
-      }
-    }
-  )
+  useEventListener(document, 'click', () => {
+    contextMenuVisible.value = false
+  })
 
   watch(
     () => route,
