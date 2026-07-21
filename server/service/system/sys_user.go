@@ -25,6 +25,10 @@ type UserService struct{}
 
 var UserServiceApp = new(UserService)
 
+// maxBulkUserPageSize preserves the bounded bulk selector used by role and
+// token management without making every collection endpoint unbounded.
+const maxBulkUserPageSize = 1000
+
 func (userService *UserService) Register(u system.SysUser) (userInter system.SysUser, err error) {
 	var user system.SysUser
 	if !errors.Is(global.GVA_DB.Where("username = ?", u.Username).First(&user).Error, gorm.ErrRecordNotFound) { // 判断用户名是否注册
@@ -87,8 +91,6 @@ func (userService *UserService) ChangePassword(u *system.SysUser, newPassword st
 //@return: err error, list interface{}, total int64
 
 func (userService *UserService) GetUserInfoList(info systemReq.GetUserList) (list interface{}, total int64, err error) {
-	limit := info.PageSize
-	offset := info.PageSize * (info.Page - 1)
 	db := global.GVA_DB.Model(&system.SysUser{})
 	var userList []system.SysUser
 
@@ -127,7 +129,7 @@ func (userService *UserService) GetUserInfoList(info systemReq.GetUserList) (lis
 		}
 	}
 
-	err = db.Limit(limit).Offset(offset).Order(orderStr).Preload("Authorities").Preload("Authority").Find(&userList).Error
+	err = db.Scopes(info.PaginateWithMax(maxBulkUserPageSize)).Order(orderStr).Preload("Authorities").Preload("Authority").Find(&userList).Error
 	return userList, total, err
 }
 

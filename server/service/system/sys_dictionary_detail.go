@@ -177,8 +177,6 @@ func (dictionaryDetailService *DictionaryDetailService) GetSysDictionaryDetail(i
 //@return: list interface{}, total int64, err error
 
 func (dictionaryDetailService *DictionaryDetailService) GetSysDictionaryDetailInfoList(info request.SysDictionaryDetailSearch) (list interface{}, total int64, err error) {
-	limit := info.PageSize
-	offset := info.PageSize * (info.Page - 1)
 	// 创建db
 	db := global.GVA_DB.Model(&system.SysDictionaryDetail{})
 	var sysDictionaryDetails []system.SysDictionaryDetail
@@ -205,7 +203,7 @@ func (dictionaryDetailService *DictionaryDetailService) GetSysDictionaryDetailIn
 	if err != nil {
 		return
 	}
-	err = db.Limit(limit).Offset(offset).Order("sort").Order("id").Find(&sysDictionaryDetails).Error
+	err = db.Scopes(info.Paginate()).Order("sort").Order("id").Find(&sysDictionaryDetails).Error
 	return sysDictionaryDetails, total, err
 }
 
@@ -233,7 +231,7 @@ func (dictionaryDetailService *DictionaryDetailService) GetDictionaryTreeList(di
 		} else {
 			sysDictionaryDetails[i].Disabled = false // 默认不禁用
 		}
-		
+
 		err = dictionaryDetailService.loadChildren(&sysDictionaryDetails[i])
 		if err != nil {
 			return nil, err
@@ -258,7 +256,7 @@ func (dictionaryDetailService *DictionaryDetailService) loadChildren(detail *sys
 		} else {
 			children[i].Disabled = false // 默认不禁用
 		}
-		
+
 		err = dictionaryDetailService.loadChildren(&children[i])
 		if err != nil {
 			return err
@@ -335,7 +333,7 @@ func (dictionaryDetailService *DictionaryDetailService) GetDictionaryTreeListByT
 		} else {
 			sysDictionaryDetails[i].Disabled = false // 默认不禁用
 		}
-		
+
 		err = dictionaryDetailService.loadChildren(&sysDictionaryDetails[i])
 		if err != nil {
 			return nil, err

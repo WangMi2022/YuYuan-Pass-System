@@ -52,8 +52,6 @@ func (sysErrorService *SysErrorService) GetSysError(ctx context.Context, ID stri
 // GetSysErrorInfoList 分页获取错误日志记录
 // Author [yourname](https://github.com/yourname)
 func (sysErrorService *SysErrorService) GetSysErrorInfoList(ctx context.Context, info systemReq.SysErrorSearch) (list []system.SysError, total int64, err error) {
-	limit := info.PageSize
-	offset := info.PageSize * (info.Page - 1)
 	// 创建db
 	db := global.GVA_DB.Model(&system.SysError{}).Order("created_at desc")
 	var sysErrors []system.SysError
@@ -73,11 +71,7 @@ func (sysErrorService *SysErrorService) GetSysErrorInfoList(ctx context.Context,
 		return
 	}
 
-	if limit != 0 {
-		db = db.Limit(limit).Offset(offset)
-	}
-
-	err = db.Find(&sysErrors).Error
+	err = db.Scopes(info.Paginate()).Find(&sysErrors).Error
 	return sysErrors, total, err
 }
 

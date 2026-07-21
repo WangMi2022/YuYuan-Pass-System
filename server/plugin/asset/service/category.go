@@ -94,9 +94,7 @@ func (s *categoryService) List(search assetRequest.CategorySearch) ([]assetRespo
 		COALESCE(SUM(assets.quantity), 0) AS quantity`).
 		Joins("LEFT JOIN assets ON assets.category_id = asset_categories.id AND assets.deleted_at IS NULL").
 		Group("asset_categories.id").Order("asset_categories.sort ASC, asset_categories.id ASC")
-	if search.PageSize > 0 {
-		query = query.Scopes(search.Paginate())
-	}
+	query = query.Scopes(search.Paginate())
 	if err := query.Scan(&list).Error; err != nil {
 		return nil, 0, err
 	}

@@ -119,10 +119,7 @@ func (s *locationService) List(search assetRequest.LocationSearch) ([]model.Loca
 	if err := db.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	query := db.Order("sort ASC, id ASC")
-	if search.PageSize > 0 {
-		query = query.Scopes(search.Paginate())
-	}
+	query := db.Order("sort ASC, id ASC").Scopes(search.Paginate())
 	if err := query.Find(&list).Error; err != nil {
 		return nil, 0, err
 	}

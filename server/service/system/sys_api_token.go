@@ -68,8 +68,6 @@ func (apiVersion *ApiTokenService) CreateApiToken(apiToken system.SysApiToken, d
 }
 
 func (apiVersion *ApiTokenService) GetApiTokenList(info sysReq.SysApiTokenSearch) (list []system.SysApiToken, total int64, err error) {
-	limit := info.PageSize
-	offset := info.PageSize * (info.Page - 1)
 	db := global.GVA_DB.Model(&system.SysApiToken{})
 
 	db = db.Preload("User")
@@ -85,7 +83,7 @@ func (apiVersion *ApiTokenService) GetApiTokenList(info sysReq.SysApiTokenSearch
 	if err != nil {
 		return
 	}
-	err = db.Limit(limit).Offset(offset).Order("created_at desc").Find(&list).Error
+	err = db.Scopes(info.Paginate()).Order("created_at desc").Find(&list).Error
 	return list, total, err
 }
 

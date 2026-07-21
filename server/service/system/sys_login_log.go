@@ -32,8 +32,6 @@ func (loginLogService *LoginLogService) GetLoginLog(id uint) (loginLog system.Sy
 }
 
 func (loginLogService *LoginLogService) GetLoginLogInfoList(info systemReq.SysLoginLogSearch) (list interface{}, total int64, err error) {
-	limit := info.PageSize
-	offset := info.PageSize * (info.Page - 1)
 	// 创建db
 	db := global.GVA_DB.Model(&system.SysLoginLog{})
 	var loginLogs []system.SysLoginLog
@@ -48,6 +46,6 @@ func (loginLogService *LoginLogService) GetLoginLogInfoList(info systemReq.SysLo
 	if err != nil {
 		return
 	}
-	err = db.Limit(limit).Offset(offset).Order("id desc").Preload("User").Find(&loginLogs).Error
+	err = db.Scopes(info.Paginate()).Order("id desc").Preload("User").Find(&loginLogs).Error
 	return loginLogs, total, err
 }

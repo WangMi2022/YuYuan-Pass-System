@@ -106,8 +106,6 @@ func (s *info) GetInfo(ID string) (item model.Info, err error) {
 }
 
 func (s *info) GetInfoInfoList(search request.InfoSearch) (list []model.Info, total int64, err error) {
-	limit := search.PageSize
-	offset := search.PageSize * (search.Page - 1)
 	db := global.GVA_DB.Model(&model.Info{})
 	if search.StartCreatedAt != nil && search.EndCreatedAt != nil {
 		db = db.Where("created_at BETWEEN ? AND ?", search.StartCreatedAt, search.EndCreatedAt)
@@ -118,10 +116,7 @@ func (s *info) GetInfoInfoList(search request.InfoSearch) (list []model.Info, to
 	if err = db.Count(&total).Error; err != nil {
 		return
 	}
-	if limit != 0 {
-		db = db.Limit(limit).Offset(offset)
-	}
-	err = db.Order("COALESCE(published_at, created_at) DESC").Find(&list).Error
+	err = db.Order("COALESCE(published_at, created_at) DESC").Scopes(search.Paginate()).Find(&list).Error
 	return list, total, err
 }
 

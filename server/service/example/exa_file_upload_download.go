@@ -67,8 +67,6 @@ func (e *FileUploadAndDownloadService) EditFileName(file example.ExaFileUploadAn
 //@return: list interface{}, total int64, err error
 
 func (e *FileUploadAndDownloadService) GetFileRecordInfoList(info request.ExaAttachmentCategorySearch) (list []example.ExaFileUploadAndDownload, total int64, err error) {
-	limit := info.PageSize
-	offset := info.PageSize * (info.Page - 1)
 	db := global.GVA_DB.Model(&example.ExaFileUploadAndDownload{})
 
 	if len(info.Keyword) > 0 {
@@ -87,7 +85,7 @@ func (e *FileUploadAndDownloadService) GetFileRecordInfoList(info request.ExaAtt
 	if err != nil {
 		return
 	}
-	err = db.Limit(limit).Offset(offset).Order("id desc").Find(&list).Error
+	err = db.Scopes(info.Paginate()).Order("id desc").Find(&list).Error
 	return list, total, err
 }
 

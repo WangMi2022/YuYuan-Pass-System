@@ -22,6 +22,9 @@ type ApiService struct{}
 
 var ApiServiceApp = new(ApiService)
 
+// maxBulkAPIPageSize preserves version packaging's bounded all-API selector.
+const maxBulkAPIPageSize = 10000
+
 func (apiService *ApiService) CreateApi(api system.SysApi) (err error) {
 	if !errors.Is(global.GVA_DB.Where("path = ? AND method = ?", api.Path, api.Method).First(&system.SysApi{}).Error, gorm.ErrRecordNotFound) {
 		return errors.New("存在相同api")
@@ -180,8 +183,6 @@ func (apiService *ApiService) DeleteApi(api system.SysApi) (err error) {
 //@return: list interface{}, total int64, err error
 
 func (apiService *ApiService) GetAPIInfoList(api system.SysApi, info request.PageInfo, order string, desc bool) (list interface{}, total int64, err error) {
-	limit := info.PageSize
-	offset := info.PageSize * (info.Page - 1)
 	db := global.GVA_DB.Model(&system.SysApi{})
 	var apiList []system.SysApi
 
@@ -207,7 +208,7 @@ func (apiService *ApiService) GetAPIInfoList(api system.SysApi, info request.Pag
 		return apiList, total, err
 	}
 
-	db = db.Limit(limit).Offset(offset)
+	db = db.Scopes(info.PaginateWithMax(maxBulkAPIPageSize))
 	OrderStr := "id desc"
 	if order != "" {
 		orderMap := make(map[string]bool, 5)

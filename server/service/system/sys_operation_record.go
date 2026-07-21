@@ -59,8 +59,6 @@ func (operationRecordService *OperationRecordService) GetSysOperationRecord(id u
 //@return: list interface{}, total int64, err error
 
 func (operationRecordService *OperationRecordService) GetSysOperationRecordInfoList(info systemReq.SysOperationRecordSearch) (list interface{}, total int64, err error) {
-	limit := info.PageSize
-	offset := info.PageSize * (info.Page - 1)
 	// 创建db
 	db := global.GVA_DB.Model(&system.SysOperationRecord{})
 	var sysOperationRecords []system.SysOperationRecord
@@ -78,6 +76,6 @@ func (operationRecordService *OperationRecordService) GetSysOperationRecordInfoL
 	if err != nil {
 		return
 	}
-	err = db.Order("id desc").Limit(limit).Offset(offset).Preload("User").Find(&sysOperationRecords).Error
+	err = db.Order("id desc").Scopes(info.Paginate()).Preload("User").Find(&sysOperationRecords).Error
 	return sysOperationRecords, total, err
 }

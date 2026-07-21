@@ -127,8 +127,6 @@ func (sysExportTemplateService *SysExportTemplateService) GetSysExportTemplate(i
 // GetSysExportTemplateInfoList 分页获取导出模板记录
 // Author [piexlmax](https://github.com/piexlmax)
 func (sysExportTemplateService *SysExportTemplateService) GetSysExportTemplateInfoList(info systemReq.SysExportTemplateSearch) (list []system.SysExportTemplate, total int64, err error) {
-	limit := info.PageSize
-	offset := info.PageSize * (info.Page - 1)
 	// 创建db
 	db := global.GVA_DB.Model(&system.SysExportTemplate{})
 	var sysExportTemplates []system.SysExportTemplate
@@ -150,11 +148,7 @@ func (sysExportTemplateService *SysExportTemplateService) GetSysExportTemplateIn
 		return
 	}
 
-	if limit != 0 {
-		db = db.Limit(limit).Offset(offset)
-	}
-
-	err = db.Find(&sysExportTemplates).Error
+	err = db.Scopes(info.Paginate()).Find(&sysExportTemplates).Error
 	return sysExportTemplates, total, err
 }
 
