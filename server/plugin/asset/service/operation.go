@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -233,7 +234,7 @@ func (s *operationService) Update(req assetRequest.SaveOperation, userID uint, u
 		return order, err
 	}
 	err := global.GVA_DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.First(&order, req.ID).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&order, req.ID).Error; err != nil {
 			return errors.New("业务单不存在")
 		}
 		if order.Status != model.OperationStatusDraft {
@@ -275,6 +276,88 @@ func (s *operationService) Update(req assetRequest.SaveOperation, userID uint, u
 	return order, err
 }
 
+type assetUpdate struct {
+	setStatus       bool
+	status          string
+	setLocation     bool
+	location        string
+	setCustodian    bool
+	custodian       string
+	resetAssetValue bool
+}
+
+func newAssetUpdate(asset model.Asset, toStatus, toLocation, toCustodian string, resetAssetValue bool) assetUpdate {
+	return assetUpdate{
+		setStatus:       asset.Status != toStatus,
+		status:          toStatus,
+		setLocation:     asset.Location != toLocation,
+		location:        toLocation,
+		setCustodian:    asset.Custodian != toCustodian,
+		custodian:       toCustodian,
+		resetAssetValue: resetAssetValue && asset.CurrentValue != 0,
+	}
+}
+
+func (u assetUpdate) values() map[string]any {
+	updates := make(map[string]any, 4)
+	if u.setStatus {
+		updates["status"] = u.status
+	}
+	if u.setLocation {
+		updates["location"] = u.location
+	}
+	if u.setCustodian {
+		updates["custodian"] = u.custodian
+	}
+	if u.resetAssetValue {
+		updates["current_value"] = 0
+	}
+	return updates
+}
+
+func (u assetUpdate) empty() bool {
+	return !u.setStatus && !u.setLocation && !u.setCustodian && !u.resetAssetValue
+}
+
+type assetUpdateGroup struct {
+	update   assetUpdate
+	assetIDs []uint
+}
+
+func lockOperationAssets(tx *gorm.DB, items []model.AssetOperationItem) ([]model.Asset, error) {
+	assetIDs := make([]uint, 0, len(items))
+	seen := make(map[uint]struct{}, len(items))
+	for _, item := range items {
+		if _, exists := seen[item.AssetID]; exists {
+			return nil, errors.New("业务单包含重复资产")
+		}
+		seen[item.AssetID] = struct{}{}
+		assetIDs = append(assetIDs, item.AssetID)
+	}
+	sort.Slice(assetIDs, func(i, j int) bool { return assetIDs[i] < assetIDs[j] })
+
+	var assets []model.Asset
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("id IN ?", assetIDs).
+		Order("id ASC").
+		Find(&assets).Error; err != nil {
+		return nil, err
+	}
+	if len(assets) != len(assetIDs) {
+		found := make(map[uint]struct{}, len(assets))
+		for _, asset := range assets {
+			found[asset.ID] = struct{}{}
+		}
+		for _, item := range items {
+			if _, exists := found[item.AssetID]; !exists {
+				return nil, fmt.Errorf("资产 %s 不存在", item.AssetCode)
+			}
+		}
+		return nil, errors.New("部分资产不存在或已删除")
+	}
+	return assets, nil
+}
+
 func (s *operationService) complete(tx *gorm.DB, order *model.AssetOperationOrder, userID uint, userName string) error {
 	if order.Status != model.OperationStatusDraft {
 		return errors.New("该业务单已经提交")
@@ -284,13 +367,25 @@ func (s *operationService) complete(tx *gorm.DB, order *model.AssetOperationOrde
 			return err
 		}
 	}
+	if len(order.Items) == 0 {
+		return errors.New("业务单没有资产明细")
+	}
+	assets, err := lockOperationAssets(tx, order.Items)
+	if err != nil {
+		return err
+	}
+	assetsByID := make(map[uint]model.Asset, len(assets))
+	for _, asset := range assets {
+		assetsByID[asset.ID] = asset
+	}
+
 	now := time.Now()
+	records := make([]model.AssetOperationRecord, 0, len(order.Items))
+	groups := make([]assetUpdateGroup, 0, 1)
+	groupIndex := make(map[assetUpdate]int)
 	for i := range order.Items {
 		item := &order.Items[i]
-		var asset model.Asset
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&asset, item.AssetID).Error; err != nil {
-			return fmt.Errorf("资产 %s 不存在", item.AssetCode)
-		}
+		asset := assetsByID[item.AssetID]
 		req := assetRequest.SaveOperation{
 			Type: order.Type, TargetLocation: order.TargetLocation,
 			TargetCustodian: order.TargetCustodian, Reason: order.Reason,
@@ -299,12 +394,15 @@ func (s *operationService) complete(tx *gorm.DB, order *model.AssetOperationOrde
 		if err != nil {
 			return fmt.Errorf("资产 %s：%w", asset.AssetCode, err)
 		}
-		updates := map[string]any{"status": toStatus, "location": toLocation, "custodian": toCustodian}
-		if order.Type == "scrap" {
-			updates["current_value"] = 0
-		}
-		if err := tx.Model(&asset).Updates(updates).Error; err != nil {
-			return err
+		update := newAssetUpdate(asset, toStatus, toLocation, toCustodian, order.Type == "scrap")
+		if !update.empty() {
+			index, exists := groupIndex[update]
+			if !exists {
+				index = len(groups)
+				groupIndex[update] = index
+				groups = append(groups, assetUpdateGroup{update: update})
+			}
+			groups[index].assetIDs = append(groups[index].assetIDs, asset.ID)
 		}
 		item.FromStatus = asset.Status
 		item.ToStatus = toStatus
@@ -313,23 +411,38 @@ func (s *operationService) complete(tx *gorm.DB, order *model.AssetOperationOrde
 		item.FromCustodian = asset.Custodian
 		item.ToCustodian = toCustodian
 		item.Quantity = asset.Quantity
-		if err := tx.Model(item).Updates(map[string]any{
-			"quantity": item.Quantity, "asset_code": asset.AssetCode, "asset_name": asset.Name,
-			"from_status": item.FromStatus, "to_status": item.ToStatus,
-			"from_location": item.FromLocation, "to_location": item.ToLocation,
-			"from_custodian": item.FromCustodian, "to_custodian": item.ToCustodian,
-		}).Error; err != nil {
-			return err
-		}
-		record := model.AssetOperationRecord{
+		item.AssetCode = asset.AssetCode
+		item.AssetName = asset.Name
+		records = append(records, model.AssetOperationRecord{
 			OrderID: order.ID, OrderNo: order.OrderNo, Type: order.Type,
 			AssetID: asset.ID, AssetCode: asset.AssetCode, AssetName: asset.Name, Quantity: asset.Quantity,
 			FromStatus: item.FromStatus, ToStatus: item.ToStatus,
 			FromLocation: item.FromLocation, ToLocation: item.ToLocation,
 			FromCustodian: item.FromCustodian, ToCustodian: item.ToCustodian,
 			OperatorID: userID, OperatorName: userName, OperatedAt: now,
+		})
+	}
+
+	for _, group := range groups {
+		result := tx.Model(&model.Asset{}).Where("id IN ?", group.assetIDs).Updates(group.update.values())
+		if result.Error != nil {
+			return result.Error
 		}
-		if err := tx.Create(&record).Error; err != nil {
+		if result.RowsAffected != int64(len(group.assetIDs)) {
+			return errors.New("部分资产更新失败")
+		}
+	}
+	if err := tx.Omit("Asset").Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "id"}},
+		DoUpdates: clause.AssignmentColumns([]string{
+			"quantity", "asset_code", "asset_name", "from_status", "to_status",
+			"from_location", "to_location", "from_custodian", "to_custodian", "updated_at",
+		}),
+	}).Create(&order.Items).Error; err != nil {
+		return err
+	}
+	if len(records) > 0 {
+		if err := tx.Create(&records).Error; err != nil {
 			return err
 		}
 	}
@@ -406,7 +519,7 @@ func (s *operationService) Delete(id uint) error {
 	}
 	return global.GVA_DB.Transaction(func(tx *gorm.DB) error {
 		var order model.AssetOperationOrder
-		if err := tx.First(&order, id).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&order, id).Error; err != nil {
 			return errors.New("业务单不存在")
 		}
 		if order.Status != model.OperationStatusDraft {
