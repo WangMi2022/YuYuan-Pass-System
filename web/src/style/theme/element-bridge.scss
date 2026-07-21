@@ -29,7 +29,7 @@
   --el-text-color-primary: var(--na-foreground);
   --el-text-color-regular: color-mix(in srgb, var(--na-foreground) 82%, var(--na-muted-foreground));
   --el-text-color-secondary: var(--na-muted-foreground);
-  --el-text-color-placeholder: color-mix(in srgb, var(--na-muted-foreground) 62%, transparent);
+  --el-text-color-placeholder: var(--na-muted-foreground);
   --el-text-color-disabled: color-mix(in srgb, var(--na-muted-foreground) 50%, transparent);
 
   --el-border-color: var(--na-border-strong);

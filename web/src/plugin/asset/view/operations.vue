@@ -2,7 +2,6 @@
   <main class="na-page operation-page">
     <AppPageHeader
       :title-id="`${operationType}-title`"
-      :kicker="currentMeta.eyebrow"
       :title="currentMeta.title"
       :description="currentMeta.description"
     >
@@ -302,14 +301,14 @@ defineOptions({ name: 'AssetOperations' })
 const route = useRoute()
 const operationMeta = {
   assetInbound: {
-    type: 'inbound', title: '入库管理', shortLabel: '入库', eyebrow: 'ASSET INBOUND',
+    type: 'inbound', title: '入库管理', shortLabel: '入库',
     description: '将已建档的待入库资产登记到库位，提交后进入闲置待领用状态。',
     locationType: 'inbound',
     showLocation: true, locationRequired: true, locationLabel: '入库位置', locationPlaceholder: '仓库 / 库区 / 货架',
     showCustodian: false, reasonRequired: false, reasonPlaceholder: '采购入库、验收入库等', assetPlaceholder: '选择已建档的待入库资产'
   },
   assetIssue: {
-    type: 'issue', title: '领用管理', shortLabel: '领用', eyebrow: 'ASSET ISSUE',
+    type: 'issue', title: '领用管理', shortLabel: '领用',
     description: '记录资产领用人与使用位置，提交后资产进入使用中状态。',
     locationType: 'usage',
     showLocation: true, locationRequired: false, locationLabel: '使用位置', locationPlaceholder: '部门 / 楼层 / 工位，可选',
@@ -317,7 +316,7 @@ const operationMeta = {
     reasonRequired: false, reasonPlaceholder: '办公领用、项目领用等', assetPlaceholder: '选择可领用的闲置资产'
   },
   assetTransfer: {
-    type: 'transfer', title: '调拨管理', shortLabel: '调拨', eyebrow: 'ASSET TRANSFER',
+    type: 'transfer', title: '调拨管理', shortLabel: '调拨',
     description: '调整资产所在位置或责任人，保留调拨前后的完整快照。',
     locationType: 'transfer',
     showLocation: true, locationRequired: true, locationLabel: '调入位置', locationPlaceholder: '目标园区 / 楼层 / 房间',
@@ -325,14 +324,14 @@ const operationMeta = {
     reasonRequired: false, reasonPlaceholder: '部门调整、位置变更等', assetPlaceholder: '选择闲置或使用中的资产'
   },
   assetReturn: {
-    type: 'return', title: '归还管理', shortLabel: '归还', eyebrow: 'ASSET RETURN',
+    type: 'return', title: '归还管理', shortLabel: '归还',
     description: '登记使用或维修资产归还，提交后清空责任人并转为闲置。',
     locationType: 'return',
     showLocation: true, locationRequired: true, locationLabel: '归还位置', locationPlaceholder: '仓库 / 库区 / 货架',
     showCustodian: false, reasonRequired: false, reasonPlaceholder: '离职归还、项目结束、维修完成等', assetPlaceholder: '选择使用中或维修中的资产'
   },
   assetMaintenance: {
-    type: 'maintenance', title: '维修管理', shortLabel: '维修', eyebrow: 'ASSET MAINTENANCE',
+    type: 'maintenance', title: '维修管理', shortLabel: '维修',
     description: '记录故障原因和送修信息，提交后资产进入维修中状态。',
     locationType: 'maintenance',
     showLocation: true, locationRequired: false, locationLabel: '维修位置', locationPlaceholder: '维修点或服务商地址，可选',
@@ -340,7 +339,7 @@ const operationMeta = {
     reasonRequired: true, reasonPlaceholder: '请填写故障现象或送修原因', assetPlaceholder: '选择闲置或使用中的资产'
   },
   assetScrap: {
-    type: 'scrap', title: '报废管理', shortLabel: '报废', eyebrow: 'ASSET SCRAP',
+    type: 'scrap', title: '报废管理', shortLabel: '报废',
     description: '记录资产处置原因，提交后资产转为已处置且当前估值归零。',
     locationType: 'disposal',
     showLocation: true, locationRequired: false, locationLabel: '处置位置', locationPlaceholder: '报废库或处置地点，可选',

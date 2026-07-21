@@ -2,7 +2,6 @@
   <main class="na-page site-page">
     <AppPageHeader
       title-id="site-title"
-      kicker="SITE WORKBENCH"
       title="站点收藏"
       description="集中收藏工作中常用的 HTTP/HTTPS 网页站点，点击卡片即可新窗口跳转。"
     >

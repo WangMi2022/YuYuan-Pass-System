@@ -2,7 +2,6 @@
   <main class="na-page asset-page">
     <AppPageHeader
       title-id="asset-inventory-title"
-      kicker="ASSET INVENTORY"
       title="资产档案"
       description="统一登记资产数量、采购原值、当前估值、责任人与实物照片。"
     >

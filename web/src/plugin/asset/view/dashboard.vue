@@ -1,19 +1,17 @@
 <template>
   <main ref="screenRef" class="asset-dashboard">
-    <AmbientCanvas class="dashboard-ambient" />
     <div class="dashboard-content">
-      <header class="dashboard-header">
-        <div>
-          <p class="eyebrow">ASSET INTELLIGENCE</p>
-          <h1>资产可视化大屏</h1>
-          <p>实时汇总资产分类、数量、原值、当前估值与使用状态。</p>
-        </div>
-        <div class="header-actions">
+      <AppPageHeader
+        title-id="asset-dashboard-title"
+        title="资产可视化大屏"
+        description="实时汇总资产分类、数量、原值、当前估值与使用状态。"
+      >
+        <template #actions>
           <span class="update-time"><i /> 数据更新于 {{ updateTime }}</span>
           <el-button :icon="Refresh" :loading="loading" @click="loadDashboard">刷新</el-button>
           <el-button type="primary" :icon="FullScreen" @click="toggleFullScreen">全屏展示</el-button>
-        </div>
-      </header>
+        </template>
+      </AppPageHeader>
 
       <section class="kpi-grid" aria-label="资产核心指标">
         <article v-for="item in kpis" :key="item.label" class="kpi-card" :style="{ '--kpi-color': item.color }">
@@ -135,7 +133,7 @@
 import { computed, markRaw, onMounted, ref } from 'vue'
 import { Box, Coin, CollectionTag, DataAnalysis, FullScreen, Goods, Refresh } from '@element-plus/icons-vue'
 import Chart from '@/components/charts/index.vue'
-import AmbientCanvas from '@/components/three/AmbientCanvas.vue'
+import AppPageHeader from '@/components/page/AppPageHeader.vue'
 import { chartTheme } from '@/components/charts/theme'
 import { formatCurrency, formatCompactCurrency, formatNumber, formatPercent } from '@/utils/format'
 import { getAssetDashboard } from '@/plugin/asset/api/asset'
@@ -246,24 +244,16 @@ onMounted(loadDashboard)
   --surface: var(--na-card); --text: var(--na-foreground); --muted: var(--na-muted-foreground); --border: var(--na-border);
   position: relative;
   min-height: 100%; overflow: auto; background: var(--na-background); color: var(--text);
-  isolation: isolate;
 }
 .asset-dashboard:fullscreen { min-height: 100vh; }
-.dashboard-ambient { position: absolute; z-index: 0; }
-.dashboard-content { position: relative; z-index: 1; padding: 24px; }
-.dashboard-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 18px; }
-.eyebrow { margin: 0 0 4px; color: var(--muted); font: 600 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em !important; }
-h1 { margin: 0; font-size: 22px; font-weight: 650; }
-.dashboard-header p:last-child { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
-.header-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.dashboard-content { padding: 24px; }
 .update-time { display: inline-flex; align-items: center; gap: 7px; margin-right: 4px; color: var(--muted); font-size: 12px; }
 .update-time i { width: 6px; height: 6px; border-radius: 50%; background: var(--na-success); }
 .kpi-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
 .kpi-card {
   display: flex; min-width: 0; min-height: 108px; align-items: center; gap: 14px; padding: 16px;
   border: 1px solid var(--border); border-radius: var(--na-radius);
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  backdrop-filter: blur(6px);
+  background: var(--surface);
   box-shadow: var(--na-shadow-sm);
   transition: border-color 150ms ease, transform 150ms ease;
 }
@@ -281,8 +271,7 @@ h1 { margin: 0; font-size: 22px; font-weight: 650; }
 .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(280px, .72fr) minmax(310px, .82fr); gap: 12px; }
 .dashboard-card {
   overflow: hidden; border: 1px solid var(--border); border-radius: var(--na-radius);
-  background: color-mix(in srgb, var(--surface) 92%, transparent);
-  backdrop-filter: blur(6px);
+  background: var(--surface);
   box-shadow: var(--na-shadow-sm);
 }
 .card-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 18px 0; }
@@ -333,8 +322,8 @@ h1 { margin: 0; font-size: 22px; font-weight: 650; }
 .asset-cell span { color: var(--muted); font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
 .table-money { color: var(--na-primary); font-variant-numeric: tabular-nums; }
 @media (max-width: 1400px) { .kpi-grid { grid-template-columns: repeat(3, 1fr); } .dashboard-grid { grid-template-columns: 1.5fr 1fr; } .location-card { grid-column: 1/-1; } .location-list { display: grid; grid-template-columns: 1fr 1fr; column-gap: 24px; } .category-cards { grid-template-columns: repeat(3, 1fr); } .mini-category-card:nth-child(4n) { border-right: 1px solid var(--border); } .mini-category-card:nth-child(3n) { border-right: 0; } }
-@media (max-width: 900px) { .dashboard-header { align-items: stretch; flex-direction: column; } .header-actions { justify-content: flex-start; } .kpi-grid { grid-template-columns: repeat(2, 1fr); } .dashboard-grid, .bottom-grid { grid-template-columns: 1fr; } .location-card { grid-column: auto; } .category-cards { grid-template-columns: repeat(2, 1fr); } .mini-category-card:nth-child(3n) { border-right: 1px solid var(--border); } .mini-category-card:nth-child(2n) { border-right: 0; } }
-@media (max-width: 560px) { .dashboard-content { padding: 14px; } .kpi-grid { grid-template-columns: 1fr; } .location-list { grid-template-columns: 1fr; } .category-cards { grid-template-columns: 1fr; } .mini-category-card { border-right: 0; } .category-value-row { grid-template-columns: 10px 1fr 55px; } .category-value-row strong { grid-column: 2/-1; } .header-actions .el-button { flex: 1; } .update-time { width: 100%; margin-bottom: 4px; } }
+@media (max-width: 900px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } .dashboard-grid, .bottom-grid { grid-template-columns: 1fr; } .location-card { grid-column: auto; } .category-cards { grid-template-columns: repeat(2, 1fr); } .mini-category-card:nth-child(3n) { border-right: 1px solid var(--border); } .mini-category-card:nth-child(2n) { border-right: 0; } }
+@media (max-width: 560px) { .dashboard-content { padding: 14px; } .kpi-grid { grid-template-columns: 1fr; } .location-list { grid-template-columns: 1fr; } .category-cards { grid-template-columns: 1fr; } .mini-category-card { border-right: 0; } .category-value-row { grid-template-columns: 10px 1fr 55px; } .category-value-row strong { grid-column: 2/-1; } .update-time { width: 100%; margin-bottom: 4px; } }
 @keyframes category-value-scroll { to { transform: translateY(-50%); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } .category-value-list.is-scrolling { overflow-y: auto; mask-image: none; } .category-value-list.is-scrolling .category-value-track { animation: none !important; transform: none; } }
 </style>

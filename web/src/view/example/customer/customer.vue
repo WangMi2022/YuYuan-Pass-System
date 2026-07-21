@@ -11,6 +11,7 @@
       </div>
       <el-table
         ref="multipleTable"
+        v-loading="loading"
         :data="tableData"
         style="width: 100%"
         tooltip-effect="dark"
@@ -61,13 +62,13 @@
       </el-table>
       <div class="gva-pagination">
         <el-pagination
-          :current-page="page"
-          :page-size="pageSize"
+          :current-page="search.page"
+          :page-size="search.pageSize"
           :page-sizes="[10, 30, 50, 100]"
           :total="total"
           layout="total, sizes, prev, pager, next, jumper"
-          @current-change="handleCurrentChange"
-          @size-change="handleSizeChange"
+          @current-change="changePage"
+          @size-change="changePageSize"
         />
       </div>
     </div>
@@ -109,6 +110,7 @@
   import { ref } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import { formatDate } from '@/utils/format'
+  import { usePagedList } from '@/hooks/usePagedList'
 
   defineOptions({
     name: 'Customer'
@@ -119,35 +121,19 @@
     customerPhoneData: ''
   })
 
-  const page = ref(1)
-  const total = ref(0)
-  const pageSize = ref(10)
-  const tableData = ref([])
-
-  // 分页
-  const handleSizeChange = (val) => {
-    pageSize.value = val
-    getTableData()
-  }
-
-  const handleCurrentChange = (val) => {
-    page.value = val
-    getTableData()
-  }
-
-  // 查询
-  const getTableData = async () => {
-    const table = await getExaCustomerList({
-      page: page.value,
-      pageSize: pageSize.value
-    })
-    if (table.code === 0) {
-      tableData.value = table.data.list
-      total.value = table.data.total
-      page.value = table.data.page
-      pageSize.value = table.data.pageSize
-    }
-  }
+  const {
+    search,
+    items: tableData,
+    total,
+    loading,
+    load: getTableData,
+    changePage,
+    changePageSize,
+    reloadAfterRemoval
+  } = usePagedList({
+    defaults: { page: 1, pageSize: 10 },
+    request: getExaCustomerList
+  })
 
   getTableData()
 
@@ -180,10 +166,7 @@
           type: 'success',
           message: '删除成功'
         })
-        if (tableData.value.length === 1 && page.value > 1) {
-          page.value--
-        }
-        getTableData()
+        reloadAfterRemoval()
       }
     })
   }

@@ -2,9 +2,7 @@ import './style/element_visiable.scss'
 import 'element-plus/theme-chalk/dark/css-vars.css'
 import 'uno.css'
 import { createApp } from 'vue'
-import ElementPlus from 'element-plus'
 
-import 'element-plus/dist/index.css'
 import './style/theme/index.scss'
 // 引入gin-vue-admin前端初始化相关内容
 import './core/gin-vue-admin'
@@ -24,7 +22,6 @@ app.config.productionTip = false
 
 app
   .use(run)
-  .use(ElementPlus)
   .use(store)
   .use(auth)
   .use(clickOutSide)

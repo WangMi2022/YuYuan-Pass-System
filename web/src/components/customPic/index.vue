@@ -5,12 +5,13 @@
       <el-avatar v-else :size="30" :src="noAvatar" />
     </template>
     <template v-if="picType === 'img'">
-      <img v-if="userStore.userInfo.headerImg" :src="avatar" class="avatar" />
-      <img v-else :src="noAvatar" class="avatar" />
+      <img v-if="userStore.userInfo.headerImg" :src="avatar" alt="用户头像" class="avatar" />
+      <img v-else :src="noAvatar" alt="默认用户头像" class="avatar" />
     </template>
     <template v-if="picType === 'file'">
       <el-image
         :src="file"
+        alt="文件预览"
         class="file"
         :preview-src-list="previewSrcList"
         :preview-teleported="true"

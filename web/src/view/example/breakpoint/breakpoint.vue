@@ -5,17 +5,16 @@
       <form id="fromCont" method="post">
         <!-- 新增按钮容器，使用 Flexbox 对齐按钮 -->
         <div class="button-container">
-          <div class="fileUpload" @click="inputChange">
+          <label class="fileUpload" for="file">
             <span class="takeFile">选择文件</span>
             <input
               v-show="false"
               id="file"
-              ref="FileInput"
               multiple="multiple"
               type="file"
               @change="choseFile"
             />
-          </div>
+          </label>
           <el-button
             :disabled="limitFileSize"
             type="primary"
@@ -210,10 +209,6 @@ const upLoadFileSlice = async (item) => {
   }
 }
 
-const FileInput = ref(null)
-const inputChange = () => {
-  FileInput.value.dispatchEvent(new MouseEvent('click'))
-}
 </script>
 
 <style lang="scss" scoped>

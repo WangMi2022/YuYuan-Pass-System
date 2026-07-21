@@ -2,7 +2,6 @@
   <main class="na-page document-page">
     <AppPageHeader
       title-id="document-title"
-      kicker="DOCUMENT CENTER"
       title="文档管理"
       description="支持 MD、TXT、HTML、PDF、Word、Excel 等文档上传、预览与在线版本维护。"
     >

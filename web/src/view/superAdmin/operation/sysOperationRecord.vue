@@ -30,6 +30,7 @@
       </div>
       <el-table
         ref="multipleTable"
+        v-loading="loading"
         :data="tableData"
         style="width: 100%"
         tooltip-effect="dark"
@@ -122,13 +123,13 @@
       </el-table>
       <div class="gva-pagination">
         <el-pagination
-          :current-page="page"
-          :page-size="pageSize"
+          :current-page="searchInfo.page"
+          :page-size="searchInfo.pageSize"
           :page-sizes="[10, 30, 50, 100]"
           :total="total"
           layout="total, sizes, prev, pager, next, jumper"
-          @current-change="handleCurrentChange"
-          @size-change="handleSizeChange"
+          @current-change="changePage"
+          @size-change="changePageSize"
         />
       </div>
     </div>
@@ -144,53 +145,30 @@
   import { formatDate } from '@/utils/format'
   import { ref } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
+  import { usePagedList } from '@/hooks/usePagedList'
 
   defineOptions({
     name: 'SysOperationRecord'
   })
 
-  const page = ref(1)
-  const total = ref(0)
-  const pageSize = ref(10)
-  const tableData = ref([])
-  const searchInfo = ref({})
-  const onReset = () => {
-    searchInfo.value = {}
-  }
-  // 条件搜索前端看此方法
-  const onSubmit = () => {
-    page.value = 1
-    if (searchInfo.value.status === '') {
-      searchInfo.value.status = null
-    }
-    getTableData()
-  }
-
-  // 分页
-  const handleSizeChange = (val) => {
-    pageSize.value = val
-    getTableData()
-  }
-
-  const handleCurrentChange = (val) => {
-    page.value = val
-    getTableData()
-  }
-
-  // 查询
-  const getTableData = async () => {
-    const table = await getSysOperationRecordList({
-      page: page.value,
-      pageSize: pageSize.value,
-      ...searchInfo.value
+  const {
+    search: searchInfo,
+    items: tableData,
+    total,
+    loading,
+    load: getTableData,
+    submit: onSubmit,
+    reset: onReset,
+    changePage,
+    changePageSize,
+    reloadAfterRemoval
+  } = usePagedList({
+    defaults: { page: 1, pageSize: 10, method: '', path: '', status: '' },
+    request: (params) => getSysOperationRecordList({
+      ...params,
+      status: params.status === '' ? null : params.status
     })
-    if (table.code === 0) {
-      tableData.value = table.data.list
-      total.value = table.data.total
-      page.value = table.data.page
-      pageSize.value = table.data.pageSize
-    }
-  }
+  })
 
   getTableData()
 
@@ -215,10 +193,7 @@
           type: 'success',
           message: '删除成功'
         })
-        if (tableData.value.length === ids.length && page.value > 1) {
-          page.value--
-        }
-        getTableData()
+        reloadAfterRemoval(ids.length)
       }
     })
   }
@@ -234,10 +209,7 @@
           type: 'success',
           message: '删除成功'
         })
-        if (tableData.value.length === 1 && page.value > 1) {
-          page.value--
-        }
-        getTableData()
+        reloadAfterRemoval()
       }
     })
   }

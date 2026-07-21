@@ -2,7 +2,6 @@
   <main class="na-page category-page">
     <AppPageHeader
       title-id="category-title"
-      kicker="CLASSIFICATION & LOCATION"
       title="分类管理"
       description="统一维护资产分类及各业务环节可选位置。"
     >

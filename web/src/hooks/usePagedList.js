@@ -45,8 +45,22 @@ export const usePagedList = ({ defaults, request, selectResult = defaultSelectRe
     return load()
   }
 
-  const changePageSize = () => {
+  const changePage = (value) => {
+    const nextPage = Number(value)
+    if (Number.isInteger(nextPage) && nextPage > 0) search.page = nextPage
+    return load()
+  }
+
+  const changePageSize = (value) => {
+    const nextPageSize = Number(value)
+    if (Number.isInteger(nextPageSize) && nextPageSize > 0) search.pageSize = nextPageSize
     search.page = 1
+    return load()
+  }
+
+  const reloadAfterRemoval = (removedCount = 1) => {
+    const safeRemovedCount = Math.max(1, Number(removedCount) || 1)
+    if (items.value.length <= safeRemovedCount && search.page > 1) search.page--
     return load()
   }
 
@@ -54,5 +68,16 @@ export const usePagedList = ({ defaults, request, selectResult = defaultSelectRe
     latestRequestId++
   })
 
-  return { search, items, total, loading, load, submit, reset, changePageSize }
+  return {
+    search,
+    items,
+    total,
+    loading,
+    load,
+    submit,
+    reset,
+    changePage,
+    changePageSize,
+    reloadAfterRemoval
+  }
 }

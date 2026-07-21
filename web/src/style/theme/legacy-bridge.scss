@@ -28,17 +28,6 @@
     radial-gradient(80% 140% at 100% 0%, var(--na-primary-soft), transparent 58%),
     var(--na-card) !important;
 }
-.gva-search-box::before,
-.gva-form-box::before {
-  position: absolute;
-  top: 14px;
-  left: -1px;
-  width: 3px;
-  height: 24px;
-  border-radius: 0 99px 99px 0;
-  background: var(--na-primary);
-  content: '';
-}
 .gva-search-box + .gva-table-box,
 .gva-table-box + .gva-table-box { margin-top: 0 !important; }
 .gva-table-box .el-table { margin: 0 !important; }

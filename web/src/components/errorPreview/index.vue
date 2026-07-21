@@ -1,15 +1,18 @@
 <template>
   <div 
     class="fixed inset-0 bg-black/40 dark:bg-black/60 flex items-center justify-center z-[999]"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="error-preview-title"
     @click.self="closeModal"
   >
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-dialog dark:shadow-lg w-full max-w-md mx-4 transform transition-all duration-300 ease-in-out border border-transparent dark:border-gray-700">
       <!-- 弹窗头部 -->
       <div class="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
-        <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100">{{ displayData.title }}</h3>
-        <div class="text-gray-400 dark:text-gray-300 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer" @click="closeModal">
+        <h3 id="error-preview-title" class="text-lg font-semibold text-gray-800 dark:text-gray-100">{{ displayData.title }}</h3>
+        <button type="button" class="border-0 bg-transparent p-1 text-gray-400 dark:text-gray-300 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer" aria-label="关闭错误提示" @click="closeModal">
           <close class="h-6 w-6" />
-        </div>
+        </button>
       </div>
       
       <!-- 弹窗内容 -->

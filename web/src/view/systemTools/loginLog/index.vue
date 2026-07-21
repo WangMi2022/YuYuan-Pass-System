@@ -28,6 +28,7 @@
       </div>
       <el-table
         ref="multipleTable"
+        v-loading="loading"
         :data="tableData"
         style="width: 100%"
         tooltip-effect="dark"
@@ -71,13 +72,13 @@
       </el-table>
       <div class="gva-pagination">
         <el-pagination
-          :current-page="page"
-          :page-size="pageSize"
+          :current-page="searchInfo.page"
+          :page-size="searchInfo.pageSize"
           :page-sizes="[10, 30, 50, 100]"
           :total="total"
           layout="total, sizes, prev, pager, next, jumper"
-          @current-change="handleCurrentChange"
-          @size-change="handleSizeChange"
+          @current-change="changePage"
+          @size-change="changePageSize"
         />
       </div>
     </div>
@@ -93,26 +94,28 @@ import {
 import { ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { formatDate } from '@/utils/format'
+import { usePagedList } from '@/hooks/usePagedList'
 
-const page = ref(1)
-const total = ref(0)
-const pageSize = ref(10)
-const tableData = ref([])
-const searchInfo = ref({})
 const multipleSelection = ref([])
+
+const {
+  search: searchInfo,
+  items: tableData,
+  total,
+  loading,
+  load: getTableData,
+  submit: onSubmit,
+  reset: onReset,
+  changePage,
+  changePageSize,
+  reloadAfterRemoval
+} = usePagedList({
+  defaults: { page: 1, pageSize: 10, username: '', status: undefined },
+  request: getLoginLogList
+})
 
 const handleSelectionChange = (val) => {
   multipleSelection.value = val
-}
-
-const getTableData = async () => {
-  const table = await getLoginLogList({ page: page.value, pageSize: pageSize.value, ...searchInfo.value })
-  if (table.code === 0) {
-    tableData.value = table.data.list
-    total.value = table.data.total
-    page.value = table.data.page
-    pageSize.value = table.data.pageSize
-  }
 }
 
 const deleteRow = async (row) => {
@@ -123,10 +126,7 @@ const deleteRow = async (row) => {
       type: 'success',
       message: '删除成功'
     })
-    if (tableData.value.length === 1 && page.value > 1) {
-      page.value--
-    }
-    getTableData()
+    reloadAfterRemoval()
   }
 }
 
@@ -143,33 +143,9 @@ const onDelete = async() => {
                 type: 'success',
                 message: '删除成功'
             })
-            if (tableData.value.length === ids.length && page.value > 1) {
-                page.value--
-            }
-            getTableData()
+            reloadAfterRemoval(ids.length)
         }
     })
-}
-
-const onSubmit = () => {
-  page.value = 1
-  pageSize.value = 10
-  getTableData()
-}
-
-const onReset = () => {
-  searchInfo.value = {}
-  getTableData()
-}
-
-const handleSizeChange = (val) => {
-  pageSize.value = val
-  getTableData()
-}
-
-const handleCurrentChange = (val) => {
-  page.value = val
-  getTableData()
 }
 
 // 首次加载

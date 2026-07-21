@@ -7,6 +7,9 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 import VueFilePathPlugin from './vitePlugin/componentName/index.js'
 import { svgBuilder } from './vitePlugin/svgBuilder/index.js'
 import UnoCSS from '@unocss/vite'
+import AutoImport from 'unplugin-auto-import/vite'
+import Components from 'unplugin-vue-components/vite'
+import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 
 // @see https://cn.vitejs.dev/config/
 export default ({ mode }) => {
@@ -71,6 +74,14 @@ export default ({ mode }) => {
       env.VITE_POSITION === 'open' &&
       vueDevTools({ launchEditor: env.VITE_EDITOR }),
       vuePlugin(),
+      AutoImport({
+        dts: false,
+        resolvers: [ElementPlusResolver()]
+      }),
+      Components({
+        dts: false,
+        resolvers: [ElementPlusResolver({ importStyle: 'css' })]
+      }),
       svgBuilder(['./src/plugin/', './src/assets/icons/'], base, outDir, 'assets', mode),
       [Banner(`\n Build based on asset-center \n Time : ${timestamp}`)],
       VueFilePathPlugin('./src/pathInfo.json'),

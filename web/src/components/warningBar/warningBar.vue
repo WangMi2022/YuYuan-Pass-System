@@ -1,16 +1,23 @@
 <template>
-  <div class="na-warning-bar" :class="href && 'is-link'" @click="open">
+  <component
+    :is="href ? 'a' : 'div'"
+    class="na-warning-bar"
+    :class="href && 'is-link'"
+    :href="href || undefined"
+    :target="href ? '_blank' : undefined"
+    :rel="href ? 'noopener noreferrer' : undefined"
+  >
     <el-icon class="na-warning-bar__icon">
       <warning-filled />
     </el-icon>
     <span>
       {{ title }}
     </span>
-  </div>
+  </component>
 </template>
 <script setup>
   import { WarningFilled } from '@element-plus/icons-vue'
-  const prop = defineProps({
+  defineProps({
     title: {
       type: String,
       default: ''
@@ -21,11 +28,6 @@
     }
   })
 
-  const open = () => {
-    if (prop.href) {
-      window.open(prop.href)
-    }
-  }
 </script>
 
 <style lang="scss" scoped>
@@ -41,6 +43,7 @@
     color: var(--na-warning);
     font-size: 13px;
     line-height: 1.5;
+    text-decoration: none;
 
     &.is-link { cursor: pointer; }
 

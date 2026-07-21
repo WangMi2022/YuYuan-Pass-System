@@ -71,25 +71,32 @@
           </div>
           <div class="flex flex-wrap gap-4">
             <div v-for="(item,key) in picList" :key="key" class="w-40">
-              <div class="w-40 h-40 border rounded overflow-hidden border-dashed border-gray-300 cursor-pointer relative group">
-                <el-image :key="key" :src="getUrl(item.url)" fit="cover" class="w-full h-full relative" @click="toggleImageSelection(item)" :class="{ selected: isSelected(item) }">
-                  <template #error>
-                    <div class="w-full h-full object-cover flex items-center justify-center">
-                      <el-icon :size="32">
-                        <icon-picture />
-                      </el-icon>
-                    </div>
-                  </template>
-                </el-image>
-                <div class="absolute -right-1 top-1 w-8 h-8 group-hover:inline-block hidden" @click="deleteCheck(item)">
+              <div class="w-40 h-40 border rounded overflow-hidden border-dashed border-gray-300 relative group">
+                <button
+                  type="button"
+                  class="block w-full h-full border-0 p-0 bg-transparent cursor-pointer"
+                  :aria-label="`${isSelected(item) ? '取消选择' : '选择'}图片 ${item.name || ''}`"
+                  @click="toggleImageSelection(item)"
+                >
+                  <el-image :key="key" :src="getUrl(item.url)" fit="cover" class="w-full h-full relative" :class="{ selected: isSelected(item) }">
+                    <template #error>
+                      <div class="w-full h-full object-cover flex items-center justify-center">
+                        <el-icon :size="32">
+                          <icon-picture />
+                        </el-icon>
+                      </div>
+                    </template>
+                  </el-image>
+                </button>
+                <button type="button" class="absolute right-1 top-1 w-8 h-8 border-0 bg-transparent group-hover:inline-flex hidden items-center justify-center" :aria-label="`删除图片 ${item.name || ''}`" @click="deleteCheck(item)">
                   <el-icon :size="18">
                     <CloseBold />
                   </el-icon>
-                </div>
+                </button>
               </div>
-              <div class="overflow-hidden text-nowrap overflow-ellipsis text-center w-full cursor-pointer" @click="editFileNameFunc(item)">
+              <button type="button" class="overflow-hidden text-nowrap overflow-ellipsis text-center w-full cursor-pointer border-0 bg-transparent" :aria-label="`编辑图片名称 ${item.name || ''}`" @click="editFileNameFunc(item)">
                 {{ item.name }}
-              </div>
+              </button>
             </div>
           </div>
           <el-pagination

@@ -1,12 +1,14 @@
 <template>
   <div class="search-component items-center">
-    <div
+    <button
+      type="button"
       class="gvaIcon gvaIcon-refresh"
       :class="[reload ? 'reloading' : '']"
+      aria-label="刷新当前页面"
       @click="handleReload"
     />
     <Screenfull class="search-icon" />
-    <div class="gvaIcon gvaIcon-customer-service" @click="toService" />
+    <button type="button" class="gvaIcon gvaIcon-customer-service" aria-label="打开客户支持" @click="toService" />
     <el-switch
       v-model="isDark"
       :active-action-icon="Moon"
@@ -55,8 +57,11 @@
 <style scoped lang="scss">
   .search-component {
     @apply inline-flex overflow-hidden text-center gap-5 mr-5 text-foreground;
-    div {
+    button {
       @apply cursor-pointer;
+      border: 0;
+      background: transparent;
+      color: inherit;
     }
     .el-input__inner {
       @apply border-b border-solid border-gray-300;

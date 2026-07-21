@@ -2,7 +2,6 @@
   <main class="na-page announcement-page">
     <AppPageHeader
       title-id="announcement-title"
-      kicker="ANNOUNCEMENTS"
       title="公告中心"
       description="发布与管理系统公告，在线用户实时提醒，离线用户登录后可见未读标记。"
     >

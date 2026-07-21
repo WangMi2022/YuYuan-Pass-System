@@ -22,6 +22,7 @@
         <el-button type="primary" icon="plus" @click="openDrawer">签发</el-button>
       </div>
       <el-table
+        v-loading="loading"
         :data="tableData"
         style="width: 100%"
         tooltip-effect="dark"
@@ -63,13 +64,13 @@
       </el-table>
       <div class="gva-pagination">
         <el-pagination
-          :current-page="page"
-          :page-size="pageSize"
+          :current-page="searchInfo.page"
+          :page-size="searchInfo.pageSize"
           :page-sizes="[10, 30, 50, 100]"
           :total="total"
           layout="total, sizes, prev, pager, next, jumper"
-          @current-change="handleCurrentChange"
-          @size-change="handleSizeChange"
+          @current-change="changePage"
+          @size-change="changePageSize"
         />
       </div>
     </div>
@@ -160,12 +161,7 @@ import { getUserList } from '@/api/user'
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { formatDate } from '@/utils/format'
-
-const page = ref(1)
-const total = ref(0)
-const pageSize = ref(10)
-const tableData = ref([])
-const searchInfo = ref({})
+import { usePagedList } from '@/hooks/usePagedList'
 
 const drawerVisible = ref(false)
 const tokenDialogVisible = ref(false)
@@ -184,15 +180,20 @@ const form = ref({
 const userOptions = ref([])
 const authorityOptions = ref([])
 
-const getTableData = async () => {
-  const table = await getApiTokenList({ page: page.value, pageSize: pageSize.value, ...searchInfo.value })
-  if (table.code === 0) {
-    tableData.value = table.data.list
-    total.value = table.data.total
-    page.value = table.data.page
-    pageSize.value = table.data.pageSize
-  }
-}
+const {
+  search: searchInfo,
+  items: tableData,
+  total,
+  loading,
+  load: getTableData,
+  submit: onSubmit,
+  reset: onReset,
+  changePage,
+  changePageSize
+} = usePagedList({
+  defaults: { page: 1, pageSize: 10, userId: undefined, status: undefined },
+  request: getApiTokenList
+})
 
 const openDrawer = async () => {
     form.value = { userId: '', authorityId: '', days: 30, remark: '' }
@@ -269,27 +270,6 @@ const copyText = (text) => {
     document.execCommand('copy')
     document.body.removeChild(input)
     ElMessage.success('复制成功')
-}
-
-const onSubmit = () => {
-  page.value = 1
-  pageSize.value = 10
-  getTableData()
-}
-
-const onReset = () => {
-  searchInfo.value = {}
-  getTableData()
-}
-
-const handleSizeChange = (val) => {
-  pageSize.value = val
-  getTableData()
-}
-
-const handleCurrentChange = (val) => {
-  page.value = val
-  getTableData()
 }
 
 getTableData()

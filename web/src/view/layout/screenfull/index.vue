@@ -1,8 +1,13 @@
 <template>
-  <div @click="clickFull">
+  <button
+    type="button"
+    class="screenfull-button"
+    :aria-label="isShow ? '进入全屏' : '退出全屏'"
+    @click="clickFull"
+  >
     <div v-if="isShow" class="gvaIcon gvaIcon-fullscreen-expand" />
     <div v-else class="gvaIcon gvaIcon-fullscreen-shrink" />
-  </div>
+  </button>
 </template>
 
 <script setup>
@@ -51,6 +56,16 @@
 </script>
 
 <style scoped lang="scss">
+  .screenfull-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+  }
+
   .screenfull-svg {
     width: 16px;
     height: 16px;
