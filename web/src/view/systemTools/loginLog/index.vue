@@ -21,10 +21,17 @@
       <div class="gva-btn-list">
         <el-button
           icon="delete"
-          style="margin-left: 10px;"
           :disabled="!multipleSelection.length"
           @click="onDelete"
-        >删除</el-button>
+        >
+          删除选中
+        </el-button>
+        <LogClearButton
+          log-name="登录日志"
+          :count-request="getLoginLogList"
+          :clear-request="clearLoginLogs"
+          @cleared="handleLogsCleared"
+        />
       </div>
       <el-table
         ref="multipleTable"
@@ -87,6 +94,7 @@
 
 <script setup>
 import {
+  clearLoginLogs,
   getLoginLogList,
   deleteLoginLog,
   deleteLoginLogByIds
@@ -95,6 +103,7 @@ import { ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { formatDate } from '@/utils/format'
 import { usePagedList } from '@/hooks/usePagedList'
+import LogClearButton from '@/components/logClearButton/index.vue'
 
 const multipleSelection = ref([])
 
@@ -116,6 +125,12 @@ const {
 
 const handleSelectionChange = (val) => {
   multipleSelection.value = val
+}
+
+const handleLogsCleared = () => {
+  multipleSelection.value = []
+  searchInfo.value.page = 1
+  getTableData()
 }
 
 const deleteRow = async (row) => {

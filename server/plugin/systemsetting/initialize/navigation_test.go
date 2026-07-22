@@ -37,6 +37,9 @@ func TestSyncBusinessNavigationGroupsPermissionMenusAndMigratesAuthorities(t *te
 		{ParentId: systemParent.ID, MenuLevel: 1, Path: "api", Name: "api"},
 		{ParentId: systemParent.ID, MenuLevel: 1, Path: "menu", Name: "menu"},
 		{ParentId: systemParent.ID, MenuLevel: 1, Path: "dictionary", Name: "dictionary"},
+		{ParentId: systemParent.ID, MenuLevel: 1, Path: "operation", Name: "operation"},
+		{ParentId: systemParent.ID, MenuLevel: 1, Path: "loginLog", Name: "loginLog"},
+		{ParentId: systemParent.ID, MenuLevel: 1, Path: "sysError", Name: "sysError"},
 	}
 	if err = db.Create(&legacyMenus).Error; err != nil {
 		t.Fatalf("create legacy menus: %v", err)
@@ -49,11 +52,18 @@ func TestSyncBusinessNavigationGroupsPermissionMenusAndMigratesAuthorities(t *te
 		{MenuId: strconv.Itoa(int(legacyMenus[3].ID)), AuthorityId: "400"},
 		{MenuId: strconv.Itoa(int(legacyMenus[4].ID)), AuthorityId: "999"},
 		{MenuId: strconv.Itoa(int(legacyMenus[4].ID)), AuthorityId: "200"},
+		{MenuId: strconv.Itoa(int(legacyMenus[5].ID)), AuthorityId: "500"},
+		{MenuId: strconv.Itoa(int(legacyMenus[6].ID)), AuthorityId: "600"},
+		{MenuId: strconv.Itoa(int(legacyMenus[7].ID)), AuthorityId: "700"},
+		{MenuId: strconv.Itoa(int(legacyMenus[7].ID)), AuthorityId: "200"},
 		// 旧结构下，勾选权限子菜单时会同时保存系统管理父菜单。
 		{MenuId: strconv.Itoa(int(systemParent.ID)), AuthorityId: "100"},
 		{MenuId: strconv.Itoa(int(systemParent.ID)), AuthorityId: "200"},
 		{MenuId: strconv.Itoa(int(systemParent.ID)), AuthorityId: "400"},
 		{MenuId: strconv.Itoa(int(systemParent.ID)), AuthorityId: "999"},
+		{MenuId: strconv.Itoa(int(systemParent.ID)), AuthorityId: "500"},
+		{MenuId: strconv.Itoa(int(systemParent.ID)), AuthorityId: "600"},
+		{MenuId: strconv.Itoa(int(systemParent.ID)), AuthorityId: "700"},
 	}
 	if err = db.Create(&legacyRelations).Error; err != nil {
 		t.Fatalf("create legacy authority relations: %v", err)
@@ -72,10 +82,17 @@ func TestSyncBusinessNavigationGroupsPermissionMenusAndMigratesAuthorities(t *te
 	if permissionParent.ParentId != 0 || permissionParent.MenuLevel != 0 || permissionParent.Sort != 5 || permissionParent.Path != permissionMenuName || permissionParent.Component != "view/routerHolder.vue" || permissionParent.Meta.Title != "权限管理" {
 		t.Fatalf("unexpected permission parent: %#v", permissionParent)
 	}
+	var auditParent system.SysBaseMenu
+	if err = db.Where("name = ?", auditMenuName).First(&auditParent).Error; err != nil {
+		t.Fatalf("find audit parent: %v", err)
+	}
+	if auditParent.ParentId != 0 || auditParent.MenuLevel != 0 || auditParent.Sort != 6 || auditParent.Path != auditMenuName || auditParent.Component != "view/routerHolder.vue" || auditParent.Meta.Title != "审计平台" {
+		t.Fatalf("unexpected audit parent: %#v", auditParent)
+	}
 	if err = db.Where("name = ?", "superAdmin").First(&systemParent).Error; err != nil {
 		t.Fatalf("reload system parent: %v", err)
 	}
-	if systemParent.ParentId != 0 || systemParent.MenuLevel != 0 || systemParent.Sort != 6 {
+	if systemParent.ParentId != 0 || systemParent.MenuLevel != 0 || systemParent.Sort != 7 {
 		t.Fatalf("unexpected system parent: %#v", systemParent)
 	}
 
@@ -95,13 +112,34 @@ func TestSyncBusinessNavigationGroupsPermissionMenusAndMigratesAuthorities(t *te
 		}
 	}
 
+	auditMenus := []navigationItem{
+		{name: "operation", sort: 1},
+		{name: "loginLog", sort: 2},
+		{name: "sysError", sort: 3},
+	}
+	for _, expected := range auditMenus {
+		var menu system.SysBaseMenu
+		if err = db.Where("name = ?", expected.name).First(&menu).Error; err != nil {
+			t.Fatalf("find audit menu %q: %v", expected.name, err)
+		}
+		if menu.ParentId != auditParent.ID || menu.MenuLevel != 1 || menu.Sort != expected.sort {
+			t.Errorf("unexpected audit menu %q: %#v", expected.name, menu)
+		}
+	}
+
 	for _, authorityID := range []string{"100", "200", "300", "400"} {
 		assertAuthorityMenuRelation(t, db, permissionParent.ID, authorityID, 1)
+	}
+	for _, authorityID := range []string{"200", "500", "600", "700"} {
+		assertAuthorityMenuRelation(t, db, auditParent.ID, authorityID, 1)
 	}
 	// 仅有权限管理子菜单的角色不应残留空的系统管理入口。
 	assertAuthorityMenuRelation(t, db, systemParent.ID, "100", 0)
 	assertAuthorityMenuRelation(t, db, systemParent.ID, "300", 0)
 	assertAuthorityMenuRelation(t, db, systemParent.ID, "400", 0)
+	assertAuthorityMenuRelation(t, db, systemParent.ID, "500", 0)
+	assertAuthorityMenuRelation(t, db, systemParent.ID, "600", 0)
+	assertAuthorityMenuRelation(t, db, systemParent.ID, "700", 0)
 	// 同时拥有系统管理子菜单的角色必须保留系统管理父菜单。
 	assertAuthorityMenuRelation(t, db, systemParent.ID, "200", 1)
 	assertAuthorityMenuRelation(t, db, permissionParent.ID, "999", 0)

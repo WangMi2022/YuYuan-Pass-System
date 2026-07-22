@@ -75,16 +75,12 @@
         >
           删除选中
         </el-button>
-        <el-button
-          type="danger"
-          plain
-          icon="delete-filled"
-          :loading="clearing"
-          :disabled="clearing"
-          @click="onClear"
-        >
-          清空日志
-        </el-button>
+        <LogClearButton
+          log-name="错误日志"
+          :count-request="getSysErrorList"
+          :clear-request="clearSysError"
+          @cleared="handleLogsCleared"
+        />
       </div>
       <el-table
         ref="multipleTable"
@@ -263,6 +259,7 @@
   import { ElMessage, ElMessageBox } from 'element-plus'
   import { ref } from 'vue'
   import { useAppStore } from '@/pinia'
+  import LogClearButton from '@/components/logClearButton/index.vue'
 
   defineOptions({
     name: 'SysError'
@@ -281,7 +278,6 @@
   const pageSize = ref(10)
   const tableData = ref([])
   const searchInfo = ref({})
-  const clearing = ref(false)
   // 重置
   const onReset = () => {
     searchInfo.value = {}
@@ -402,49 +398,10 @@
     })
   }
 
-  // 永久清空全部错误日志
-  const onClear = async () => {
-    if (clearing.value) return
-
-    clearing.value = true
-    try {
-      const countRes = await getSysErrorList({ page: 1, pageSize: 1 })
-      if (countRes.code !== 0) return
-
-      const allTotal = Number(countRes.data.total) || 0
-      if (allTotal === 0) {
-        ElMessage({ type: 'info', message: '暂无错误日志需要清空' })
-        return
-      }
-
-      const confirmed = await ElMessageBox.confirm(
-        `将永久删除全部 ${allTotal} 条错误日志，包括当前筛选条件之外的记录。此操作不可恢复。`,
-        '清空全部错误日志？',
-        {
-          confirmButtonText: '确认清空',
-          cancelButtonText: '取消',
-          confirmButtonClass: 'el-button--danger',
-          type: 'warning'
-        }
-      ).catch(() => false)
-
-      if (!confirmed) return
-
-      const res = await clearSysError()
-      if (res.code === 0) {
-        page.value = 1
-        multipleSelection.value = []
-        await getTableData()
-        ElMessage({
-          type: 'success',
-          message: res.msg || '错误日志已清空'
-        })
-      }
-    } catch {
-      // 请求层已统一展示错误信息
-    } finally {
-      clearing.value = false
-    }
+  const handleLogsCleared = () => {
+    page.value = 1
+    multipleSelection.value = []
+    getTableData()
   }
 
   // 删除行

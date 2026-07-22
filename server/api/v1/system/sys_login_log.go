@@ -1,6 +1,8 @@
 package system
 
 import (
+	"fmt"
+
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/common/request"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
@@ -29,13 +31,31 @@ func (s *LoginLogApi) DeleteLoginLog(c *gin.Context) {
 }
 
 func (s *LoginLogApi) DeleteLoginLogByIds(c *gin.Context) {
-	var SDS request.IdsReq
-	err := c.ShouldBindJSON(&SDS)
+	var req request.LogDeleteReq
+	err := c.ShouldBindJSON(&req)
 	if err != nil {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
-	err = loginLogService.DeleteLoginLogByIds(SDS)
+	if req.ClearAll {
+		deleted, clearErr := loginLogService.ClearLoginLogs(c.Request.Context())
+		if clearErr != nil {
+			global.GVA_LOG.Error("清空失败!", zap.Error(clearErr))
+			response.FailWithMessage("清空失败", c)
+			return
+		}
+		response.OkWithDetailed(
+			gin.H{"deleted": deleted},
+			fmt.Sprintf("已清空 %d 条登录日志", deleted),
+			c,
+		)
+		return
+	}
+	if len(req.Ids) == 0 {
+		response.FailWithMessage("请选择要删除的登录日志", c)
+		return
+	}
+	err = loginLogService.DeleteLoginLogByIds(request.IdsReq{Ids: req.Ids})
 	if err != nil {
 		global.GVA_LOG.Error("批量删除失败!", zap.Error(err))
 		response.FailWithMessage("批量删除失败", c)

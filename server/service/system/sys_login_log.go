@@ -1,6 +1,8 @@
 package system
 
 import (
+	"context"
+
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/common/request"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/system"
@@ -19,6 +21,12 @@ func (loginLogService *LoginLogService) CreateLoginLog(loginLog system.SysLoginL
 func (loginLogService *LoginLogService) DeleteLoginLogByIds(ids request.IdsReq) (err error) {
 	err = global.GVA_DB.Delete(&[]system.SysLoginLog{}, "id in (?)", ids.Ids).Error
 	return err
+}
+
+// ClearLoginLogs 永久清空全部登录日志
+func (loginLogService *LoginLogService) ClearLoginLogs(ctx context.Context) (deleted int64, err error) {
+	result := global.GVA_DB.WithContext(ctx).Unscoped().Where("1 = 1").Delete(&system.SysLoginLog{})
+	return result.RowsAffected, result.Error
 }
 
 func (loginLogService *LoginLogService) DeleteLoginLog(loginLog system.SysLoginLog) (err error) {

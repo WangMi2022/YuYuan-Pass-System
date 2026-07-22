@@ -65,6 +65,12 @@ type IdsReq struct {
 	Ids []int `json:"ids" form:"ids"`
 }
 
+// LogDeleteReq 日志删除请求。ClearAll 仅供已有批量删除权限显式触发全量清空。
+type LogDeleteReq struct {
+	Ids      []int `json:"ids" form:"ids"`
+	ClearAll bool  `json:"clearAll" form:"clearAll"`
+}
+
 // GetAuthorityId Get role by id structure
 type GetAuthorityId struct {
 	AuthorityId uint `json:"authorityId" form:"authorityId"` // 角色ID

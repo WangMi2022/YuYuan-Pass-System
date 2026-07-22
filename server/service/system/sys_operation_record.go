@@ -1,6 +1,8 @@
 package system
 
 import (
+	"context"
+
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/common/request"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/system"
@@ -27,6 +29,12 @@ var OperationRecordServiceApp = new(OperationRecordService)
 func (operationRecordService *OperationRecordService) DeleteSysOperationRecordByIds(ids request.IdsReq) (err error) {
 	err = global.GVA_DB.Delete(&[]system.SysOperationRecord{}, "id in (?)", ids.Ids).Error
 	return err
+}
+
+// ClearOperationRecords 永久清空全部操作历史
+func (operationRecordService *OperationRecordService) ClearOperationRecords(ctx context.Context) (deleted int64, err error) {
+	result := global.GVA_DB.WithContext(ctx).Unscoped().Where("1 = 1").Delete(&system.SysOperationRecord{})
+	return result.RowsAffected, result.Error
 }
 
 //@author: [granty1](https://github.com/granty1)

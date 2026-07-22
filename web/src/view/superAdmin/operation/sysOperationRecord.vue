@@ -25,8 +25,15 @@
           icon="delete"
           :disabled="!multipleSelection.length"
           @click="onDelete"
-          >删除</el-button
         >
+          删除选中
+        </el-button>
+        <LogClearButton
+          log-name="操作历史"
+          :count-request="getSysOperationRecordList"
+          :clear-request="clearSysOperationRecords"
+          @cleared="handleLogsCleared"
+        />
       </div>
       <el-table
         ref="multipleTable"
@@ -138,6 +145,7 @@
 
 <script setup>
   import {
+    clearSysOperationRecords,
     deleteSysOperationRecord,
     getSysOperationRecordList,
     deleteSysOperationRecordByIds
@@ -146,6 +154,7 @@
   import { ref } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import { usePagedList } from '@/hooks/usePagedList'
+  import LogClearButton from '@/components/logClearButton/index.vue'
 
   defineOptions({
     name: 'SysOperationRecord'
@@ -175,6 +184,11 @@
   const multipleSelection = ref([])
   const handleSelectionChange = (val) => {
     multipleSelection.value = val
+  }
+  const handleLogsCleared = () => {
+    multipleSelection.value = []
+    searchInfo.value.page = 1
+    getTableData()
   }
   const onDelete = async () => {
     ElMessageBox.confirm('确定要删除吗?', '提示', {

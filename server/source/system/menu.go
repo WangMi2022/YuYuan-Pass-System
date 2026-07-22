@@ -58,7 +58,8 @@ func (i *initMenu) InitializeData(ctx context.Context) (next context.Context, er
 		{MenuLevel: 0, Hidden: false, ParentId: 0, Path: "collaborationCenter", Name: "collaborationCenter", Component: "view/routerHolder.vue", Sort: 3, Meta: Meta{Title: "协同办公", Icon: "briefcase"}},
 		{MenuLevel: 0, Hidden: false, ParentId: 0, Path: "monitorCenter", Name: "monitorCenter", Component: "view/routerHolder.vue", Sort: 4, Meta: Meta{Title: "监控状态", Icon: "monitor"}},
 		{MenuLevel: 0, Hidden: false, ParentId: 0, Path: "permissionManagement", Name: "permissionManagement", Component: "view/routerHolder.vue", Sort: 5, Meta: Meta{Title: "权限管理", Icon: "lock"}},
-		{MenuLevel: 0, Hidden: false, ParentId: 0, Path: "admin", Name: "superAdmin", Component: "view/superAdmin/index.vue", Sort: 6, Meta: Meta{Title: "系统管理", Icon: "setting"}},
+		{MenuLevel: 0, Hidden: false, ParentId: 0, Path: "auditPlatform", Name: "auditPlatform", Component: "view/routerHolder.vue", Sort: 6, Meta: Meta{Title: "审计平台", Icon: "document-checked"}},
+		{MenuLevel: 0, Hidden: false, ParentId: 0, Path: "admin", Name: "superAdmin", Component: "view/superAdmin/index.vue", Sort: 7, Meta: Meta{Title: "系统管理", Icon: "setting"}},
 		{MenuLevel: 0, Hidden: true, ParentId: 0, Path: "person", Name: "person", Component: "view/person/person.vue", Sort: 4, Meta: Meta{Title: "个人信息", Icon: "message"}},
 		{MenuLevel: 0, Hidden: true, ParentId: 0, Path: "example", Name: "example", Component: "view/example/index.vue", Sort: 7, Meta: Meta{Title: "示例文件", Icon: "management"}},
 		{MenuLevel: 0, Hidden: true, ParentId: 0, Path: "systemTools", Name: "systemTools", Component: "view/systemTools/index.vue", Sort: 5, Meta: Meta{Title: "编程辅助", Icon: "tools"}},
@@ -87,15 +88,17 @@ func (i *initMenu) InitializeData(ctx context.Context) (next context.Context, er
 		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["permissionManagement"], Path: "api", Name: "api", Component: "view/superAdmin/api/api.vue", Sort: 3, Meta: Meta{Title: "API 管理", Icon: "platform", KeepAlive: true}},
 		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["permissionManagement"], Path: "menu", Name: "menu", Component: "view/superAdmin/menu/menu.vue", Sort: 4, Meta: Meta{Title: "菜单管理", Icon: "tickets", KeepAlive: true}},
 
+		// 审计平台子菜单
+		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["auditPlatform"], Path: "operation", Name: "operation", Component: "view/superAdmin/operation/sysOperationRecord.vue", Sort: 1, Meta: Meta{Title: "操作历史", Icon: "pie-chart"}},
+		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["auditPlatform"], Path: "loginLog", Name: "loginLog", Component: "view/systemTools/loginLog/index.vue", Sort: 2, Meta: Meta{Title: "登录日志", Icon: "monitor"}},
+		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["auditPlatform"], Path: "sysError", Name: "sysError", Component: "view/systemTools/sysError/sysError.vue", Sort: 3, Meta: Meta{Title: "错误日志", Icon: "warn"}},
+
 		// superAdmin子菜单
-		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["superAdmin"], Path: "dictionary", Name: "dictionary", Component: "view/superAdmin/dictionary/sysDictionary.vue", Sort: 5, Meta: Meta{Title: "字典管理", Icon: "notebook"}},
-		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["superAdmin"], Path: "operation", Name: "operation", Component: "view/superAdmin/operation/sysOperationRecord.vue", Sort: 6, Meta: Meta{Title: "操作历史", Icon: "pie-chart"}},
-		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["superAdmin"], Path: "sysParams", Name: "sysParams", Component: "view/superAdmin/params/sysParams.vue", Sort: 7, Meta: Meta{Title: "参数管理", Icon: "compass"}},
-		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["superAdmin"], Path: "system", Name: "system", Component: "view/systemTools/system/system.vue", Sort: 8, Meta: Meta{Title: "运行配置", Icon: "operation"}},
-		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["superAdmin"], Path: "apiToken", Name: "apiToken", Component: "view/systemTools/apiToken/index.vue", Sort: 9, Meta: Meta{Title: "API Token", Icon: "key"}},
-		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["superAdmin"], Path: "loginLog", Name: "loginLog", Component: "view/systemTools/loginLog/index.vue", Sort: 10, Meta: Meta{Title: "登录日志", Icon: "monitor"}},
-		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["superAdmin"], Path: "sysVersion", Name: "sysVersion", Component: "view/systemTools/version/version.vue", Sort: 11, Meta: Meta{Title: "版本管理", Icon: "server"}},
-		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["superAdmin"], Path: "sysError", Name: "sysError", Component: "view/systemTools/sysError/sysError.vue", Sort: 12, Meta: Meta{Title: "错误日志", Icon: "warn"}},
+		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["superAdmin"], Path: "dictionary", Name: "dictionary", Component: "view/superAdmin/dictionary/sysDictionary.vue", Sort: 1, Meta: Meta{Title: "字典管理", Icon: "notebook"}},
+		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["superAdmin"], Path: "sysParams", Name: "sysParams", Component: "view/superAdmin/params/sysParams.vue", Sort: 2, Meta: Meta{Title: "参数管理", Icon: "compass"}},
+		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["superAdmin"], Path: "system", Name: "system", Component: "view/systemTools/system/system.vue", Sort: 3, Meta: Meta{Title: "运行配置", Icon: "operation"}},
+		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["superAdmin"], Path: "apiToken", Name: "apiToken", Component: "view/systemTools/apiToken/index.vue", Sort: 4, Meta: Meta{Title: "API Token", Icon: "key"}},
+		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["superAdmin"], Path: "sysVersion", Name: "sysVersion", Component: "view/systemTools/version/version.vue", Sort: 5, Meta: Meta{Title: "版本管理", Icon: "server"}},
 
 		// example子菜单
 		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["collaborationCenter"], Path: "upload", Name: "upload", Component: "view/example/upload/upload.vue", Sort: 4, Meta: Meta{Title: "媒体库", Icon: "picture"}},

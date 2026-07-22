@@ -10,7 +10,7 @@ import (
 )
 
 var menuNames = []string{
-	"systemSettings", collaborationMenuName, monitorMenuName, permissionMenuName, "state",
+	"systemSettings", collaborationMenuName, monitorMenuName, permissionMenuName, auditMenuName, "state",
 	"authority", "menu", "api", "user", "dictionary", "operation", "sysParams",
 	"system", "apiToken", "loginLog", "sysVersion", "sysError",
 }
@@ -19,7 +19,7 @@ func Menu(ctx context.Context) {
 	utils.RegisterMenus(
 		system.SysBaseMenu{
 			ParentId: 0, Path: "admin", Name: "superAdmin", Hidden: false,
-			Component: "view/superAdmin/index.vue", Sort: 6,
+			Component: "view/superAdmin/index.vue", Sort: 7,
 			Meta: system.Meta{Title: "系统管理", Icon: "setting"},
 		},
 		system.SysBaseMenu{

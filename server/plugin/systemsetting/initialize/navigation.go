@@ -12,6 +12,7 @@ import (
 const collaborationMenuName = "collaborationCenter"
 const monitorMenuName = "monitorCenter"
 const permissionMenuName = "permissionManagement"
+const auditMenuName = "auditPlatform"
 
 type navigationItem struct {
 	name  string
@@ -87,10 +88,37 @@ func syncBusinessNavigation(ctx context.Context) error {
 			}
 		}
 
+		auditParent := system.SysBaseMenu{
+			ParentId: 0,
+			Path:     "auditPlatform", Name: auditMenuName, Hidden: false,
+			Component: "view/routerHolder.vue", Sort: 6,
+			Meta: system.Meta{Title: "审计平台", Icon: "document-checked"},
+		}
+		if err := tx.Where("name = ?", auditParent.Name).FirstOrCreate(&auditParent).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&system.SysBaseMenu{}).Where("name = ?", auditParent.Name).Updates(map[string]any{
+			"parent_id": 0, "menu_level": 0, "path": auditParent.Path,
+			"component": auditParent.Component, "hidden": false, "sort": auditParent.Sort,
+			"title": auditParent.Meta.Title, "icon": auditParent.Meta.Icon,
+		}).Error; err != nil {
+			return err
+		}
+		auditMenus := []navigationItem{
+			{name: "operation", title: "操作历史", icon: "pie-chart", sort: 1},
+			{name: "loginLog", title: "登录日志", icon: "monitor", sort: 2},
+			{name: "sysError", title: "错误日志", icon: "warn", sort: 3},
+		}
+		for _, item := range auditMenus {
+			if err := updateChildMenu(tx, auditParent.ID, item); err != nil {
+				return err
+			}
+		}
+
 		canonicalMenus := []navigationItem{
 			{name: "dashboard", title: "首页驾驶舱", icon: "odometer", sort: 1},
 			{name: "assetCenter", title: "资产管理", icon: "box", sort: 2},
-			{name: "superAdmin", title: "系统管理", icon: "setting", sort: 6},
+			{name: "superAdmin", title: "系统管理", icon: "setting", sort: 7},
 		}
 		for _, item := range canonicalMenus {
 			if err := tx.Model(&system.SysBaseMenu{}).Where("name = ?", item.name).Updates(map[string]any{
@@ -141,15 +169,12 @@ func syncBusinessNavigation(ctx context.Context) error {
 		var systemParent system.SysBaseMenu
 		if err := tx.Where("name = ?", "superAdmin").First(&systemParent).Error; err == nil {
 			systemMenus := []navigationItem{
-				{name: "dictionary", title: "字典管理", icon: "notebook", sort: 5},
-				{name: "operation", title: "操作历史", icon: "pie-chart", sort: 6},
-				{name: "sysParams", title: "参数管理", icon: "compass", sort: 7},
-				{name: "system", title: "运行配置", icon: "operation", sort: 8},
-				{name: "apiToken", title: "API Token", icon: "key", sort: 9},
-				{name: "loginLog", title: "登录日志", icon: "monitor", sort: 10},
-				{name: "sysVersion", title: "版本管理", icon: "server", sort: 11},
-				{name: "sysError", title: "错误日志", icon: "warn", sort: 12},
-				{name: "systemSettings", title: "系统设置", icon: "setting", sort: 13},
+				{name: "dictionary", title: "字典管理", icon: "notebook", sort: 1},
+				{name: "sysParams", title: "参数管理", icon: "compass", sort: 2},
+				{name: "system", title: "运行配置", icon: "operation", sort: 3},
+				{name: "apiToken", title: "API Token", icon: "key", sort: 4},
+				{name: "sysVersion", title: "版本管理", icon: "server", sort: 5},
+				{name: "systemSettings", title: "系统设置", icon: "setting", sort: 6},
 			}
 			for _, item := range systemMenus {
 				if err := updateChildMenu(tx, systemParent.ID, item); err != nil {
@@ -173,6 +198,9 @@ func syncBusinessNavigation(ctx context.Context) error {
 			return err
 		}
 		if err := migrateAuthoritiesForParent(tx, permissionParent.ID, permissionMenus); err != nil {
+			return err
+		}
+		if err := migrateAuthoritiesForParent(tx, auditParent.ID, auditMenus); err != nil {
 			return err
 		}
 		if systemParent.ID != 0 {

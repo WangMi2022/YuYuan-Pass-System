@@ -31,6 +31,10 @@ export const deleteSysOperationRecordByIds = (data) => {
   })
 }
 
+export const clearSysOperationRecords = () => {
+  return deleteSysOperationRecordByIds({ clearAll: true })
+}
+
 // @Tags SysOperationRecord
 // @Summary 分页获取SysOperationRecord列表
 // @Security ApiKeyAuth

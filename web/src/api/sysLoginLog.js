@@ -16,6 +16,10 @@ export const deleteLoginLogByIds = (data) => {
   })
 }
 
+export const clearLoginLogs = () => {
+  return deleteLoginLogByIds({ clearAll: true })
+}
+
 export const getLoginLogList = (params) => {
   return service({
     url: '/sysLoginLog/getLoginLogList',

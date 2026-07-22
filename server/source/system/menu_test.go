@@ -41,8 +41,18 @@ func TestInitMenuCreatesTopLevelPermissionManagement(t *testing.T) {
 	if err = db.Where("name = ?", "superAdmin").First(&systemParent).Error; err != nil {
 		t.Fatalf("find system parent: %v", err)
 	}
-	if systemParent.ParentId != 0 || systemParent.MenuLevel != 0 || systemParent.Sort != 6 {
+	if systemParent.ParentId != 0 || systemParent.MenuLevel != 0 || systemParent.Sort != 7 {
 		t.Fatalf("unexpected system parent: %#v", systemParent)
+	}
+
+	var auditParent systemModel.SysBaseMenu
+	if err = db.Where("name = ?", "auditPlatform").First(&auditParent).Error; err != nil {
+		t.Fatalf("find audit parent: %v", err)
+	}
+	if auditParent.ParentId != 0 || auditParent.MenuLevel != 0 || auditParent.Sort != 6 ||
+		auditParent.Path != "auditPlatform" || auditParent.Component != "view/routerHolder.vue" ||
+		auditParent.Meta.Title != "审计平台" {
+		t.Fatalf("unexpected audit parent: %#v", auditParent)
 	}
 
 	expectedChildren := map[string]int{
@@ -58,6 +68,21 @@ func TestInitMenuCreatesTopLevelPermissionManagement(t *testing.T) {
 		}
 		if child.ParentId != permissionParent.ID || child.MenuLevel != 1 || child.Sort != sort {
 			t.Errorf("unexpected permission child %q: %#v", name, child)
+		}
+	}
+
+	expectedAuditChildren := map[string]int{
+		"operation": 1,
+		"loginLog":  2,
+		"sysError":  3,
+	}
+	for name, sort := range expectedAuditChildren {
+		var child systemModel.SysBaseMenu
+		if err = db.Where("name = ?", name).First(&child).Error; err != nil {
+			t.Fatalf("find audit child %q: %v", name, err)
+		}
+		if child.ParentId != auditParent.ID || child.MenuLevel != 1 || child.Sort != sort {
+			t.Errorf("unexpected audit child %q: %#v", name, child)
 		}
 	}
 }

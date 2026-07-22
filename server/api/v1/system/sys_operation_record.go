@@ -1,6 +1,8 @@
 package system
 
 import (
+	"fmt"
+
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/common/request"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
@@ -44,17 +46,35 @@ func (s *OperationRecordApi) DeleteSysOperationRecord(c *gin.Context) {
 // @Security  ApiKeyAuth
 // @accept    application/json
 // @Produce   application/json
-// @Param     data  body      request.IdsReq                 true  "批量删除SysOperationRecord"
+// @Param     data  body      request.LogDeleteReq           true  "批量删除或清空操作历史"
 // @Success   200   {object}  response.Response{msg=string}  "批量删除SysOperationRecord"
 // @Router    /sysOperationRecord/deleteSysOperationRecordByIds [delete]
 func (s *OperationRecordApi) DeleteSysOperationRecordByIds(c *gin.Context) {
-	var IDS request.IdsReq
-	err := c.ShouldBindJSON(&IDS)
+	var req request.LogDeleteReq
+	err := c.ShouldBindJSON(&req)
 	if err != nil {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
-	err = operationRecordService.DeleteSysOperationRecordByIds(IDS)
+	if req.ClearAll {
+		deleted, clearErr := operationRecordService.ClearOperationRecords(c.Request.Context())
+		if clearErr != nil {
+			global.GVA_LOG.Error("清空失败!", zap.Error(clearErr))
+			response.FailWithMessage("清空失败", c)
+			return
+		}
+		response.OkWithDetailed(
+			gin.H{"deleted": deleted},
+			fmt.Sprintf("已清空 %d 条操作历史", deleted),
+			c,
+		)
+		return
+	}
+	if len(req.Ids) == 0 {
+		response.FailWithMessage("请选择要删除的操作历史", c)
+		return
+	}
+	err = operationRecordService.DeleteSysOperationRecordByIds(request.IdsReq{Ids: req.Ids})
 	if err != nil {
 		global.GVA_LOG.Error("批量删除失败!", zap.Error(err))
 		response.FailWithMessage("批量删除失败", c)
