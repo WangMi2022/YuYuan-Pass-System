@@ -79,41 +79,12 @@
         />
         <el-table-column align="left" label="请求" prop="path" width="80">
           <template #default="scope">
-            <div>
-              <el-popover
-                v-if="scope.row.body"
-                placement="left-start"
-                :width="444"
-              >
-                <div class="popover-box">
-                  <pre>{{ fmtBody(scope.row.body) }}</pre>
-                </div>
-                <template #reference>
-                  <el-icon style="cursor: pointer"><warning /></el-icon>
-                </template>
-              </el-popover>
-
-              <span v-else>无</span>
-            </div>
+            <PayloadPreviewPopover title="请求数据" :value="scope.row.body" />
           </template>
         </el-table-column>
         <el-table-column align="left" label="响应" prop="path" width="80">
           <template #default="scope">
-            <div>
-              <el-popover
-                v-if="scope.row.resp"
-                placement="left-start"
-                :width="444"
-              >
-                <div class="popover-box">
-                  <pre>{{ fmtBody(scope.row.resp) }}</pre>
-                </div>
-                <template #reference>
-                  <el-icon style="cursor: pointer"><warning /></el-icon>
-                </template>
-              </el-popover>
-              <span v-else>无</span>
-            </div>
+            <PayloadPreviewPopover title="响应数据" :value="scope.row.resp" />
           </template>
         </el-table-column>
         <el-table-column align="left" label="操作">
@@ -155,6 +126,7 @@
   import { ElMessage, ElMessageBox } from 'element-plus'
   import { usePagedList } from '@/hooks/usePagedList'
   import LogClearButton from '@/components/logClearButton/index.vue'
+  import PayloadPreviewPopover from '@/components/payloadPreviewPopover/index.vue'
 
   defineOptions({
     name: 'SysOperationRecord'
@@ -227,37 +199,4 @@
       }
     })
   }
-  const fmtBody = (value) => {
-    try {
-      return JSON.parse(value)
-    } catch (_) {
-      return value
-    }
-  }
 </script>
-
-<style lang="scss">
-  .table-expand {
-    padding-left: 60px;
-    font-size: 0;
-    label {
-      width: 90px;
-      color: #99a9bf;
-      .el-form-item {
-        margin-right: 0;
-        margin-bottom: 0;
-        width: 50%;
-      }
-    }
-  }
-  .popover-box {
-    background: #112435;
-    color: #f08047;
-    height: 600px;
-    width: 420px;
-    overflow: auto;
-  }
-  .popover-box::-webkit-scrollbar {
-    display: none; /* Chrome Safari */
-  }
-</style>
