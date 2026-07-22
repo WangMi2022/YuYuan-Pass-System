@@ -3,12 +3,14 @@
     <warning-bar title="注：右上角头像下拉可切换角色" />
     <div class="gva-table-box">
       <div class="gva-btn-list">
-        <el-button type="primary" icon="plus" @click="addAuthority(0)"
+        <el-button size="small" type="primary" icon="plus" @click="addAuthority(0)"
           >新增角色</el-button
         >
       </div>
       <el-table
+        class="authority-table"
         :data="tableData"
+        size="small"
         :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
         row-key="authorityId"
         style="width: 100%"
@@ -22,48 +24,56 @@
         />
         <el-table-column align="left" label="操作" width="560">
           <template #default="scope">
-            <el-button
-              icon="setting"
-              type="primary"
-              link
-              @click="openDrawer(scope.row)"
-              >设置权限</el-button
-            >
-            <el-button
-              icon="user"
-              type="primary"
-              link
-              @click="openAssignDrawer(scope.row)"
-              >分配给用户</el-button
-            >
-            <el-button
-              icon="plus"
-              type="primary"
-              link
-              @click="addAuthority(scope.row.authorityId)"
-              >新增子角色</el-button
-            >
-            <el-button
-              icon="copy-document"
-              type="primary"
-              link
-              @click="copyAuthorityFunc(scope.row)"
-              >拷贝</el-button
-            >
-            <el-button
-              icon="edit"
-              type="primary"
-              link
-              @click="editAuthority(scope.row)"
-              >编辑</el-button
-            >
-            <el-button
-              icon="delete"
-              type="primary"
-              link
-              @click="deleteAuth(scope.row)"
-              >删除</el-button
-            >
+            <div class="authority-actions">
+              <el-button
+                size="small"
+                icon="setting"
+                type="primary"
+                link
+                @click="openDrawer(scope.row)"
+                >设置权限</el-button
+              >
+              <el-button
+                size="small"
+                icon="user"
+                type="primary"
+                link
+                @click="openAssignDrawer(scope.row)"
+                >分配给用户</el-button
+              >
+              <el-button
+                size="small"
+                icon="plus"
+                type="primary"
+                link
+                @click="addAuthority(scope.row.authorityId)"
+                >新增子角色</el-button
+              >
+              <el-button
+                size="small"
+                icon="copy-document"
+                type="primary"
+                link
+                @click="copyAuthorityFunc(scope.row)"
+                >拷贝</el-button
+              >
+              <el-button
+                size="small"
+                icon="edit"
+                type="primary"
+                link
+                @click="editAuthority(scope.row)"
+                >编辑</el-button
+              >
+              <el-button
+                size="small"
+                icon="delete"
+                type="primary"
+                link
+                @click="deleteAuth(scope.row)"
+                >删除</el-button
+              >
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -580,6 +590,46 @@
 
 <style lang="scss">
   .authority {
+    .authority-table {
+      font-size: 0.75rem;
+
+      th.el-table__cell {
+        height: 38px;
+        font-size: 0.75rem;
+      }
+
+      td.el-table__cell {
+        height: 40px;
+        padding: 2px 0;
+      }
+
+      .cell {
+        line-height: 1.35;
+      }
+    }
+
+    .authority-actions {
+      display: flex;
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 0.125rem;
+      white-space: nowrap;
+
+      .el-button {
+        min-height: 28px;
+        padding: 4px 5px;
+        font-size: 0.75rem;
+      }
+
+      .el-button + .el-button {
+        margin-left: 0;
+      }
+
+      .el-icon {
+        font-size: 0.8125rem;
+      }
+    }
+
     .el-input-number {
       margin-left: 15px;
       span {
