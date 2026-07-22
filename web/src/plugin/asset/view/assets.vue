@@ -123,10 +123,12 @@
         <el-table-column label="购置日期" min-width="120">
           <template #default="{ row }">{{ dateText(row.purchaseDate) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right" align="center">
+        <el-table-column label="操作" width="132" fixed="right" align="center">
           <template #default="{ row }">
-            <el-button type="primary" link :icon="Edit" @click="openEdit(row)">编辑</el-button>
-            <el-button type="danger" link :icon="Delete" @click="removeAsset(row)">删除</el-button>
+            <div class="asset-actions">
+              <el-button size="small" type="primary" link :icon="Edit" @click="openEdit(row)">编辑</el-button>
+              <el-button size="small" type="danger" link :icon="Delete" @click="removeAsset(row)">删除</el-button>
+            </div>
           </template>
         </el-table-column>
         <template #empty>
@@ -507,6 +509,9 @@ onMounted(async () => {
 .category-pill i { width: 8px; height: 8px; border-radius: 50%; }
 .number, .money { font-variant-numeric: tabular-nums; }
 .money--current { color: var(--na-primary); font-weight: 600; }
+.asset-actions { display: flex; min-width: 0; flex-wrap: nowrap; align-items: center; justify-content: center; gap: 2px; white-space: nowrap; }
+.asset-actions :deep(.el-button) { min-height: 28px; flex: 0 0 auto; padding: 4px 3px; }
+.asset-actions :deep(.el-button + .el-button) { margin-left: 0; }
 .drawer-title { display: flex; flex-direction: column; gap: 4px; }
 .drawer-title span { color: var(--asset-text); font-size: 20px; font-weight: 700; }
 .drawer-title small { color: var(--asset-muted); font-weight: 400; }
