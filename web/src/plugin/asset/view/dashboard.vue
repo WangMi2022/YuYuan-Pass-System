@@ -54,7 +54,41 @@
                 </div>
               </div>
               <div v-if="hasCategoryData" class="category-chart">
-                <Chart :options="categoryBarOption" height="228px" />
+                <div class="category-value-header" aria-hidden="true">
+                  <span>分类</span>
+                  <span>价值规模</span>
+                  <span>估值 / 占比</span>
+                </div>
+                <div class="category-value-list" role="list" aria-label="分类当前估值排行">
+                  <div
+                    v-for="item in categoryValueRows"
+                    :key="item.categoryId"
+                    class="category-value-row"
+                    :style="{ '--category-color': item.color }"
+                    role="listitem"
+                  >
+                    <div class="category-value-label">
+                      <span class="category-value-rank">{{ String(item.rank).padStart(2, '0') }}</span>
+                      <i />
+                      <span :title="item.categoryName">{{ item.categoryName }}</span>
+                    </div>
+                    <div
+                      class="category-value-track"
+                      role="progressbar"
+                      :aria-label="item.categoryName"
+                      :aria-valuemin="0"
+                      :aria-valuemax="item.maxValue"
+                      :aria-valuenow="item.currentValue"
+                      :aria-valuetext="formatCompactCurrency(item.currentValue)"
+                    >
+                      <i :style="{ width: item.barPercent + '%' }" />
+                    </div>
+                    <div class="category-value-number">
+                      <strong>{{ formatCompactCurrency(item.currentValue) }}</strong>
+                      <small>{{ item.valuePercent.toFixed(1) }}%</small>
+                    </div>
+                  </div>
+                </div>
               </div>
               <el-empty v-else description="登记资产后显示分类价值" :image-size="72" />
             </article>
@@ -378,6 +412,24 @@ const activeCategories = computed(() => {
       color: item.color || palette[index % palette.length]
     }))
 })
+const categoryValueRows = computed(() => {
+  const categories = [...activeCategories.value]
+    .sort((a, b) => Number(b.currentValue || 0) - Number(a.currentValue || 0))
+  const totalValue = categories.reduce((sum, item) => sum + Math.max(0, Number(item.currentValue || 0)), 0)
+  const maxValue = Math.max(1, ...categories.map((item) => Math.max(0, Number(item.currentValue || 0))))
+
+  return categories.slice(0, 7).map((item, index) => {
+    const currentValue = Math.max(0, Number(item.currentValue || 0))
+    return {
+      ...item,
+      rank: index + 1,
+      currentValue,
+      maxValue,
+      barPercent: currentValue ? Math.max(5, currentValue / maxValue * 100) : 0,
+      valuePercent: totalValue ? currentValue / totalValue * 100 : 0
+    }
+  })
+})
 const hasCategoryData = computed(() => activeCategories.value.length > 0)
 const recentAssets = computed(() => dashboard.value.recentAssets || [])
 
@@ -396,51 +448,6 @@ const statusRows = computed(() => (dashboard.value.statusSummary || [])
   }))
   .sort((a, b) => statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status)))
 const hasStatusData = computed(() => statusRows.value.some((item) => Number(item.quantity) > 0))
-
-const categoryBarOption = computed(() => {
-  const theme = chartColors.value
-  return {
-    animationDuration: 420,
-    grid: { top: 4, right: 40, bottom: 4, left: 10, containLabel: true },
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: { type: 'shadow' },
-      valueFormatter: (value) => Number(value).toFixed(1) + ' 万元'
-    },
-    xAxis: {
-      type: 'value',
-      axisLabel: { show: false },
-      axisLine: { show: false },
-      axisTick: { show: false },
-      splitLine: { show: false }
-    },
-    yAxis: {
-      type: 'category',
-      inverse: true,
-      data: activeCategories.value.slice(0, 7).map((item) => item.categoryName),
-      axisLabel: { color: theme.muted, fontSize: 11 },
-      axisLine: { show: false },
-      axisTick: { show: false }
-    },
-    series: [{
-      type: 'bar',
-      barWidth: 7,
-      showBackground: true,
-      backgroundStyle: { color: '#efedf4', borderRadius: 4 },
-      label: {
-        show: true,
-        position: 'right',
-        color: theme.text,
-        fontSize: 10,
-        formatter: ({ value }) => Number(value).toFixed(1)
-      },
-      data: activeCategories.value.slice(0, 7).map((item) => ({
-        value: Number(item.currentValue || 0) / 10000,
-        itemStyle: { color: item.color, borderRadius: 4 }
-      }))
-    }]
-  }
-})
 
 const statusOption = computed(() => {
   const theme = chartColors.value
@@ -720,7 +727,110 @@ onMounted(loadDashboard)
 }
 
 .category-chart {
-  padding: 12px 8px 4px;
+  padding: 12px 14px 14px;
+}
+
+.category-value-header,
+.category-value-row {
+  display: grid;
+  grid-template-columns: minmax(88px, 1.15fr) minmax(56px, 1.5fr) 68px;
+  align-items: center;
+  gap: 8px;
+}
+
+.category-value-header {
+  min-height: 23px;
+  padding: 0 2px 5px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.category-value-header span:last-child {
+  text-align: right;
+}
+
+.category-value-row {
+  min-height: 32px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.category-value-row:last-child {
+  border-bottom: 0;
+}
+
+.category-value-label {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.category-value-rank {
+  width: 16px;
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+
+.category-value-label i {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--category-color);
+}
+
+.category-value-label span:last-child {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 550;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-value-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface-soft));
+}
+
+.category-value-track > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+  transition: width 420ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.category-value-number {
+  min-width: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.category-value-number strong,
+.category-value-number small {
+  display: block;
+}
+
+.category-value-number strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-value-number small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 9px;
 }
 
 .orbit-panel {
