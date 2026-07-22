@@ -47,6 +47,15 @@ export const deleteSysErrorByIds = (params) => {
   })
 }
 
+// 永久清空全部错误日志。复用批量删除权限，服务端仅在 clearAll=true 时执行。
+export const clearSysError = () => {
+  return service({
+    url: '/sysError/deleteSysErrorByIds',
+    method: 'delete',
+    params: { clearAll: true }
+  })
+}
+
 // @Tags SysError
 // @Summary 更新错误日志
 // @Security ApiKeyAuth

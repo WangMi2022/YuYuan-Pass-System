@@ -35,6 +35,12 @@ func (sysErrorService *SysErrorService) DeleteSysErrorByIds(ctx context.Context,
 	return err
 }
 
+// ClearSysErrors 永久清空全部错误日志记录
+func (sysErrorService *SysErrorService) ClearSysErrors(ctx context.Context) (deleted int64, err error) {
+	result := global.GVA_DB.WithContext(ctx).Unscoped().Where("1 = 1").Delete(&system.SysError{})
+	return result.RowsAffected, result.Error
+}
+
 // UpdateSysError 更新错误日志记录
 // Author [yourname](https://github.com/yourname)
 func (sysErrorService *SysErrorService) UpdateSysError(ctx context.Context, sysError system.SysError) (err error) {

@@ -1,6 +1,8 @@
 package system
 
 import (
+	"fmt"
+
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/system"
@@ -68,13 +70,33 @@ func (sysErrorApi *SysErrorApi) DeleteSysError(c *gin.Context) {
 // @Security ApiKeyAuth
 // @Accept application/json
 // @Produce application/json
+// @Param clearAll query bool false "是否永久清空全部错误日志"
 // @Success 200 {object} response.Response{msg=string} "批量删除成功"
 // @Router /sysError/deleteSysErrorByIds [delete]
 func (sysErrorApi *SysErrorApi) DeleteSysErrorByIds(c *gin.Context) {
 	// 创建业务用Context
 	ctx := c.Request.Context()
 
+	if c.Query("clearAll") == "true" {
+		deleted, err := sysErrorService.ClearSysErrors(ctx)
+		if err != nil {
+			global.GVA_LOG.Error("清空失败!", zap.Error(err))
+			response.FailWithMessage("清空失败:"+err.Error(), c)
+			return
+		}
+		response.OkWithDetailed(
+			gin.H{"deleted": deleted},
+			fmt.Sprintf("已清空 %d 条错误日志", deleted),
+			c,
+		)
+		return
+	}
+
 	IDs := c.QueryArray("IDs[]")
+	if len(IDs) == 0 {
+		response.FailWithMessage("请选择要删除的错误日志", c)
+		return
+	}
 	err := sysErrorService.DeleteSysErrorByIds(ctx, IDs)
 	if err != nil {
 		global.GVA_LOG.Error("批量删除失败!", zap.Error(err))
