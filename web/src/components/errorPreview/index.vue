@@ -10,9 +10,14 @@
       <!-- 弹窗头部 -->
       <div class="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
         <h3 id="error-preview-title" class="text-lg font-semibold text-gray-800 dark:text-gray-100">{{ displayData.title }}</h3>
-        <button type="button" class="border-0 bg-transparent p-1 text-gray-400 dark:text-gray-300 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer" aria-label="关闭错误提示" @click="closeModal">
-          <close class="h-6 w-6" />
-        </button>
+        <el-button
+          text
+          circle
+          aria-label="关闭错误提示"
+          @click="closeModal"
+        >
+          <close class="h-5 w-5" />
+        </el-button>
       </div>
       
       <!-- 弹窗内容 -->
@@ -48,9 +53,9 @@
       
       <!-- 弹窗底部 -->
       <div class="py-2 px-4 border-t border-gray-100 dark:border-gray-700 flex justify-end">
-        <button type="button" class="px-4 py-2 border-0 bg-blue-600 dark:bg-blue-500 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors font-medium text-sm shadow-sm cursor-pointer" @click="handleConfirm">
+        <el-button type="primary" @click="handleConfirm">
           确定
-        </button>
+        </el-button>
       </div>
     </div>
   </div>

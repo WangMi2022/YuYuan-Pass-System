@@ -319,7 +319,7 @@
   }
   .blueprint-copy p { margin: 0; color: var(--blueprint-muted); font-size: 12px; }
   .hero-buttons { display: flex; gap: 8px; margin-top: 22px; }
-  .hero-buttons :deep(.el-button) { min-height: 34px; border-radius: 5px; }
+  .hero-buttons :deep(.el-button) { min-height: 36px; }
 
   .health-blueprint {
     position: relative;

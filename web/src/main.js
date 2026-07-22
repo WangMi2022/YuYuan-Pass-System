@@ -1,5 +1,7 @@
 import './style/element_visiable.scss'
 import 'element-plus/theme-chalk/dark/css-vars.css'
+// 先加载通用组件基础样式，再由下方主题入口稳定覆盖视觉规范。
+import 'element-plus/theme-chalk/el-button.css'
 // Element Plus 的程序式服务不会经过模板组件解析器，需要显式引入基础样式。
 import 'element-plus/theme-chalk/el-loading.css'
 import 'element-plus/theme-chalk/el-message.css'

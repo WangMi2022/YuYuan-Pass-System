@@ -35,12 +35,20 @@
   /* status */
   --na-success: #059669;
   --na-success-soft: rgb(5 150 105 / 10%);
+  --na-action-success: #047857;
+  --na-on-success: #ffffff;
   --na-warning: #d97706;
   --na-warning-soft: rgb(217 119 6 / 12%);
+  --na-action-warning: #b45309;
+  --na-on-warning: #ffffff;
   --na-danger: #dc2626;
   --na-danger-soft: rgb(220 38 38 / 10%);
+  --na-action-danger: #b91c1c;
+  --na-on-danger: #ffffff;
   --na-info: #0284c7;
   --na-info-soft: rgb(2 132 199 / 10%);
+  --na-action-info: #0369a1;
+  --na-on-info: #ffffff;
 
   /* categorical chart palette — chart-1 follows the primary color at runtime */
   --na-chart-1: #6d5dfb;
@@ -95,12 +103,20 @@ html.dark {
   /* status — lifted for dark surfaces */
   --na-success: #34d399;
   --na-success-soft: rgb(52 211 153 / 14%);
+  --na-action-success: #34d399;
+  --na-on-success: #052e16;
   --na-warning: #fbbf24;
   --na-warning-soft: rgb(251 191 36 / 14%);
+  --na-action-warning: #fbbf24;
+  --na-on-warning: #422006;
   --na-danger: #f87171;
   --na-danger-soft: rgb(248 113 113 / 14%);
+  --na-action-danger: #f87171;
+  --na-on-danger: #450a0a;
   --na-info: #38bdf8;
   --na-info-soft: rgb(56 189 248 / 14%);
+  --na-action-info: #38bdf8;
+  --na-on-info: #082f49;
 
   --na-chart-grid: #232327;
   --na-chart-label: #a1a1aa;

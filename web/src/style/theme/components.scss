@@ -6,70 +6,202 @@
 
 /* Buttons */
 .el-button {
+  --na-button-accent: var(--na-border-strong);
+  --na-button-accent-hover: color-mix(in srgb, var(--na-primary) 24%, var(--na-border-strong));
+  --na-button-label: var(--na-foreground);
+  --na-button-on-accent: var(--na-foreground);
+  --na-button-tint: var(--na-muted);
+  --na-button-focus-ring: var(--na-ring);
+
+  gap: 6px;
   min-height: 36px;
   padding: 7px 15px;
+  border: 1px solid var(--na-border-strong);
   border-radius: 9px;
-  font-weight: 550;
+  background: var(--na-card);
+  color: var(--na-foreground);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
   box-shadow: none;
-  transition: color 150ms ease, border-color 150ms ease,
-    background-color 150ms ease, box-shadow 150ms ease, transform 150ms ease, opacity 150ms ease;
+  transition:
+    color 180ms cubic-bezier(.22, 1, .36, 1),
+    border-color 180ms cubic-bezier(.22, 1, .36, 1),
+    background-color 180ms cubic-bezier(.22, 1, .36, 1),
+    box-shadow 180ms cubic-bezier(.22, 1, .36, 1),
+    transform 120ms cubic-bezier(.22, 1, .36, 1),
+    opacity 180ms ease-out;
+  user-select: none;
+  vertical-align: middle;
 }
-.el-button--small { min-height: 30px; padding: 5px 11px; border-radius: 8px; }
-.el-button--large { min-height: 42px; padding: 9px 19px; border-radius: 11px; }
-.el-button--default:not(.el-button--primary, .el-button--success, .el-button--warning, .el-button--danger, .el-button--info) {
-  border-color: var(--na-border-strong);
-  background: var(--na-card);
+
+.el-button .el-icon {
+  width: 1em;
+  height: 1em;
+  flex: 0 0 auto;
+  font-size: 15px;
+}
+
+.el-button > .el-icon + span { margin-left: 0; }
+
+.el-button--small {
+  min-height: 30px;
+  padding: 5px 11px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.el-button--small .el-icon { font-size: 14px; }
+
+.el-button--large {
+  min-height: 42px;
+  padding: 9px 19px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.el-button--large .el-icon { font-size: 16px; }
+
+.el-button:not(.is-disabled, .is-link, .is-text, .is-plain):hover {
+  border-color: color-mix(in srgb, var(--na-primary) 28%, var(--na-border-strong));
+  background: color-mix(in srgb, var(--na-primary) 5%, var(--na-card));
   color: var(--na-foreground);
 }
-.el-button--default:not(.el-button--primary, .el-button--success, .el-button--warning, .el-button--danger, .el-button--info):hover,
-.el-button--default:not(.el-button--primary, .el-button--success, .el-button--warning, .el-button--danger, .el-button--info):focus-visible {
-  border-color: color-mix(in srgb, var(--na-primary) 22%, var(--na-border-strong));
-  background: color-mix(in srgb, var(--na-primary) 4%, var(--na-muted));
-  color: var(--na-foreground);
+
+.el-button:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 3px solid var(--na-button-focus-ring);
+  outline-offset: 2px;
 }
-.el-button--primary:not(.is-plain, .is-link, .is-text) { border-color: var(--na-primary); background: var(--na-primary); color: var(--na-on-primary); }
-.el-button--primary:not(.is-plain, .is-link, .is-text):hover,
-.el-button--primary:not(.is-plain, .is-link, .is-text):focus-visible {
-  border-color: var(--na-primary-hover);
-  background: var(--na-primary-hover);
-  box-shadow: 0 7px 18px color-mix(in srgb, var(--na-primary) 20%, transparent);
+
+.el-button--primary {
+  --na-button-accent: var(--na-primary);
+  --na-button-accent-hover: var(--na-primary-hover);
+  --na-button-label: color-mix(in srgb, var(--na-primary) 62%, var(--na-foreground));
+  --na-button-on-accent: var(--na-on-primary);
+  --na-button-tint: var(--na-primary-soft);
+  --na-button-focus-ring: var(--na-ring);
 }
-.el-button--primary:is(.is-plain, .is-link, .is-text) {
-  --na-button-primary-plain: color-mix(in srgb, var(--na-primary) 60%, var(--na-foreground));
+
+.el-button--success {
+  --na-button-accent: var(--na-action-success);
+  --na-button-accent-hover: color-mix(in srgb, var(--na-action-success) 88%, var(--na-foreground));
+  --na-button-label: var(--na-action-success);
+  --na-button-on-accent: var(--na-on-success);
+  --na-button-tint: var(--na-success-soft);
+  --na-button-focus-ring: color-mix(in srgb, var(--na-success) 26%, transparent);
 }
-.el-button--primary.is-plain {
-  border-color: var(--na-button-primary-plain);
-  background: var(--na-card);
-  color: var(--na-button-primary-plain);
+
+.el-button--warning {
+  --na-button-accent: var(--na-action-warning);
+  --na-button-accent-hover: color-mix(in srgb, var(--na-action-warning) 88%, var(--na-foreground));
+  --na-button-label: var(--na-action-warning);
+  --na-button-on-accent: var(--na-on-warning);
+  --na-button-tint: var(--na-warning-soft);
+  --na-button-focus-ring: color-mix(in srgb, var(--na-warning) 28%, transparent);
 }
-.el-button--primary:is(.is-link, .is-text) {
-  color: var(--na-button-primary-plain);
+
+.el-button--danger {
+  --na-button-accent: var(--na-action-danger);
+  --na-button-accent-hover: color-mix(in srgb, var(--na-action-danger) 88%, var(--na-foreground));
+  --na-button-label: var(--na-danger);
+  --na-button-on-accent: var(--na-on-danger);
+  --na-button-tint: var(--na-danger-soft);
+  --na-button-focus-ring: color-mix(in srgb, var(--na-danger) 26%, transparent);
 }
-.el-button--primary.is-plain:hover,
-.el-button--primary.is-plain:focus-visible {
-  border-color: var(--na-primary);
-  background: var(--na-primary);
-  color: var(--na-on-primary);
+
+.el-button--info {
+  --na-button-accent: var(--na-action-info);
+  --na-button-accent-hover: color-mix(in srgb, var(--na-action-info) 88%, var(--na-foreground));
+  --na-button-label: var(--na-action-info);
+  --na-button-on-accent: var(--na-on-info);
+  --na-button-tint: var(--na-info-soft);
+  --na-button-focus-ring: color-mix(in srgb, var(--na-info) 26%, transparent);
 }
-.el-button--danger.is-plain {
-  border-color: var(--na-danger);
-  background: var(--na-card);
-  color: var(--na-danger);
+
+.el-button:is(
+  .el-button--primary,
+  .el-button--success,
+  .el-button--warning,
+  .el-button--danger,
+  .el-button--info
+):not(.is-plain, .is-link, .is-text) {
+  border-color: var(--na-button-accent);
+  background: var(--na-button-accent);
+  color: var(--na-button-on-accent);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 14%);
 }
-.el-button--danger.is-plain:hover,
-.el-button--danger.is-plain:focus-visible {
-  border-color: var(--na-danger);
-  background: var(--na-danger);
-  color: #fff;
+
+.el-button:is(
+  .el-button--primary,
+  .el-button--success,
+  .el-button--warning,
+  .el-button--danger,
+  .el-button--info
+):not(.is-disabled, .is-plain, .is-link, .is-text):hover {
+  border-color: var(--na-button-accent-hover);
+  background: var(--na-button-accent-hover);
+  color: var(--na-button-on-accent);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 18%);
 }
-html.dark .el-button--danger.is-plain:hover,
-html.dark .el-button--danger.is-plain:focus-visible {
-  background: color-mix(in srgb, var(--na-danger) 8%, var(--na-card));
-  color: var(--na-danger);
+
+.el-button.is-plain:not(.is-disabled) {
+  border-color: color-mix(in srgb, var(--na-button-label) 28%, var(--na-border));
+  background: var(--na-button-tint);
+  color: var(--na-button-label);
 }
-.el-button:not(.is-disabled):active { transform: translateY(1px); }
-.el-button.is-link { min-height: 26px; padding: 4px 5px; }
-.el-button.is-disabled { opacity: .5; }
+
+.el-button.is-plain:not(.is-disabled):hover {
+  border-color: color-mix(in srgb, var(--na-button-label) 44%, var(--na-border));
+  background: color-mix(in srgb, var(--na-button-label) 13%, var(--na-card));
+  color: var(--na-button-label);
+}
+
+.el-button:is(.is-link, .is-text) {
+  min-height: 30px;
+  padding: 5px 7px;
+  border-color: transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--na-button-label);
+}
+
+.el-button:is(.is-link, .is-text):not(.is-disabled):hover {
+  border-color: transparent;
+  background: var(--na-button-tint);
+  color: var(--na-button-label);
+}
+
+.el-button.is-round { border-radius: 999px; }
+
+.el-button.is-circle {
+  width: 36px;
+  min-width: 36px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.el-button--small.is-circle { width: 30px; min-width: 30px; }
+.el-button--large.is-circle { width: 42px; min-width: 42px; }
+
+.el-button:not(.is-disabled, .is-loading):active { transform: translateY(1px); }
+
+.el-button.is-loading {
+  cursor: wait;
+  opacity: .8;
+}
+
+.el-button.is-disabled,
+.el-button.is-disabled:hover,
+.el-button.is-disabled:focus-visible {
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: .46;
+  transform: none;
+}
+
+.el-button-group > .el-button:focus-visible { z-index: 2; }
 
 /* Inputs */
 .el-input__wrapper,
