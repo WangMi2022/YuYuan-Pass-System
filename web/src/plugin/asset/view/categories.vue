@@ -43,7 +43,7 @@
         </div>
       </header>
 
-      <el-table v-if="activeTab === 'category'" v-loading="loading" :data="tableData" row-key="ID" stripe>
+      <el-table v-if="activeTab === 'category'" v-loading="loading" :data="tableData" row-key="ID" stripe size="small" class="manage-table">
         <el-table-column label="分类" min-width="220">
           <template #default="{ row }">
             <div class="category-name">
@@ -67,14 +67,14 @@
         </el-table-column>
         <el-table-column label="操作" width="150" fixed="right" align="center">
           <template #default="{ row }">
-            <el-button type="primary" link :icon="Edit" @click="openEdit(row)">编辑</el-button>
-            <el-button type="danger" link :icon="Delete" :disabled="row.assetKinds > 0" @click="removeCategory(row)">删除</el-button>
+            <el-button size="small" type="primary" link :icon="Edit" @click="openEdit(row)">编辑</el-button>
+            <el-button size="small" type="danger" link :icon="Delete" :disabled="row.assetKinds > 0" @click="removeCategory(row)">删除</el-button>
           </template>
         </el-table-column>
         <template #empty><el-empty description="暂无资产分类" /></template>
       </el-table>
 
-      <el-table v-else v-loading="loading" :data="tableData" row-key="ID" stripe>
+      <el-table v-else v-loading="loading" :data="tableData" row-key="ID" stripe size="small" class="manage-table">
         <el-table-column label="位置名称" min-width="220">
           <template #default="{ row }">
             <div class="location-name">
@@ -97,8 +97,8 @@
         </el-table-column>
         <el-table-column label="操作" width="150" fixed="right" align="center">
           <template #default="{ row }">
-            <el-button type="primary" link :icon="Edit" @click="openEdit(row)">编辑</el-button>
-            <el-button type="danger" link :icon="Delete" @click="removeLocation(row)">删除</el-button>
+            <el-button size="small" type="primary" link :icon="Edit" @click="openEdit(row)">编辑</el-button>
+            <el-button size="small" type="danger" link :icon="Delete" @click="removeLocation(row)">删除</el-button>
           </template>
         </el-table-column>
         <template #empty><el-empty :description="`暂无${activeLocation.label}`" /></template>
@@ -354,14 +354,19 @@ onMounted(loadCategories)
 .panel-toolbar { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:12px 16px; border-bottom:1px solid var(--border); }
 .panel-toolbar > .el-input { width:min(100%,420px); }
 .toolbar-actions { display:flex; gap:8px; }
-.category-name { display:flex; align-items:center; gap:12px; }
-.category-name .color-mark { width:10px; height:36px; border-radius:5px; box-shadow:inset 0 0 0 1px rgb(255 255 255 / 24%); }
+.manage-table { font-size:0.75rem; }
+.manage-table :deep(th.el-table__cell) { height:38px; font-size:0.75rem; }
+.manage-table :deep(td.el-table__cell) { height:42px; padding:3px 0; }
+.manage-table :deep(.cell) { line-height:1.35; }
+.manage-table :deep(.el-button) { min-height:28px; padding:4px 5px; font-size:0.75rem; }
+.category-name { display:flex; align-items:center; gap:8px; }
+.category-name .color-mark { width:8px; height:32px; border-radius:4px; box-shadow:inset 0 0 0 1px rgb(255 255 255 / 24%); }
 .category-name div { display:flex; flex-direction:column; gap:3px; }
 .category-name small, .code-text { color:var(--muted); font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace; }
 .location-name { display:flex; min-width:0; align-items:center; gap:10px; }
-.location-name .el-icon { flex:0 0 auto; color:var(--na-primary); font-size:18px; }
+.location-name .el-icon { flex:0 0 auto; color:var(--na-primary); font-size:16px; }
 .location-name strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.metric { color:var(--na-primary); font-size:16px; font-variant-numeric:tabular-nums; }
+.metric { color:var(--na-primary); font-size:14px; font-variant-numeric:tabular-nums; }
 .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:0 16px; }
 .color-field { display:flex; align-items:center; gap:10px; width:100%; }
 .color-field .el-input { flex:1; }
