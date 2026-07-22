@@ -6,7 +6,7 @@
     "dev": "node openDocument.js && vite --host --mode development",
     "serve": "node openDocument.js && vite --host --mode development",
     "prototype:admin": "vite --host 0.0.0.0 --mode development --open /prototypes/admin-redesign/index.html?variant=01",
-    "test": "node --test src/hooks/usePagedList.test.js",
+    "test": "node --test src/hooks/usePagedList.test.js src/components/logClearButton/range.test.js",
     "lint": "eslint src --format stylish",
     "lint:fix": "eslint src --fix",
     "check": "npm run lint && npm run build",

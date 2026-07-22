@@ -56,8 +56,13 @@ func (s *OperationRecordApi) DeleteSysOperationRecordByIds(c *gin.Context) {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
-	if req.ClearAll {
-		deleted, clearErr := operationRecordService.ClearOperationRecords(c.Request.Context())
+	startTime, endTime, shouldClear, rangeErr := resolveLogClearRange(req)
+	if rangeErr != nil {
+		response.FailWithMessage(rangeErr.Error(), c)
+		return
+	}
+	if shouldClear {
+		deleted, clearErr := operationRecordService.ClearOperationRecords(c.Request.Context(), startTime, endTime)
 		if clearErr != nil {
 			global.GVA_LOG.Error("清空失败!", zap.Error(clearErr))
 			response.FailWithMessage("清空失败", c)
@@ -65,7 +70,7 @@ func (s *OperationRecordApi) DeleteSysOperationRecordByIds(c *gin.Context) {
 		}
 		response.OkWithDetailed(
 			gin.H{"deleted": deleted},
-			fmt.Sprintf("已清空 %d 条操作历史", deleted),
+			fmt.Sprintf("已清理 %d 条操作历史", deleted),
 			c,
 		)
 		return

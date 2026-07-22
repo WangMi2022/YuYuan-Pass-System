@@ -16,8 +16,8 @@ export const deleteLoginLogByIds = (data) => {
   })
 }
 
-export const clearLoginLogs = () => {
-  return deleteLoginLogByIds({ clearAll: true })
+export const clearLoginLogs = (scope) => {
+  return deleteLoginLogByIds(scope)
 }
 
 export const getLoginLogList = (params) => {

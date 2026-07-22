@@ -47,12 +47,12 @@ export const deleteSysErrorByIds = (params) => {
   })
 }
 
-// 永久清空全部错误日志。复用批量删除权限，服务端仅在 clearAll=true 时执行。
-export const clearSysError = () => {
+// 按时间范围永久清理错误日志，复用批量删除权限。
+export const clearSysError = (scope) => {
   return service({
     url: '/sysError/deleteSysErrorByIds',
     method: 'delete',
-    params: { clearAll: true }
+    params: scope
   })
 }
 

@@ -31,8 +31,8 @@ export const deleteSysOperationRecordByIds = (data) => {
   })
 }
 
-export const clearSysOperationRecords = () => {
-  return deleteSysOperationRecordByIds({ clearAll: true })
+export const clearSysOperationRecords = (scope) => {
+  return deleteSysOperationRecordByIds(scope)
 }
 
 // @Tags SysOperationRecord

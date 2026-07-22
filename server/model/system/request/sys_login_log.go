@@ -7,5 +7,6 @@ import (
 
 type SysLoginLogSearch struct {
 	system.SysLoginLog
+	request.LogTimeRange
 	request.PageInfo
 }

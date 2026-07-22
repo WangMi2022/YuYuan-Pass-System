@@ -7,5 +7,6 @@ import (
 
 type SysOperationRecordSearch struct {
 	system.SysOperationRecord
+	request.LogTimeRange
 	request.PageInfo
 }

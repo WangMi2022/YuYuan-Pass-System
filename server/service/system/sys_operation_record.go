@@ -2,6 +2,7 @@ package system
 
 import (
 	"context"
+	"time"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/common/request"
@@ -31,10 +32,9 @@ func (operationRecordService *OperationRecordService) DeleteSysOperationRecordBy
 	return err
 }
 
-// ClearOperationRecords 永久清空全部操作历史
-func (operationRecordService *OperationRecordService) ClearOperationRecords(ctx context.Context) (deleted int64, err error) {
-	result := global.GVA_DB.WithContext(ctx).Unscoped().Where("1 = 1").Delete(&system.SysOperationRecord{})
-	return result.RowsAffected, result.Error
+// ClearOperationRecords 永久清理指定时间范围内的操作历史；边界均为空时清空全部。
+func (operationRecordService *OperationRecordService) ClearOperationRecords(ctx context.Context, startTime, endTime *time.Time) (deleted int64, err error) {
+	return clearAuditLogs(ctx, &system.SysOperationRecord{}, startTime, endTime)
 }
 
 //@author: [granty1](https://github.com/granty1)
@@ -80,6 +80,7 @@ func (operationRecordService *OperationRecordService) GetSysOperationRecordInfoL
 	if info.Status != 0 {
 		db = db.Where("status = ?", info.Status)
 	}
+	db = applyAuditLogTimeRange(db, info.StartTime, info.EndTime)
 	err = db.Count(&total).Error
 	if err != nil {
 		return

@@ -3,6 +3,8 @@ package system
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/common"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/system"
@@ -35,10 +37,9 @@ func (sysErrorService *SysErrorService) DeleteSysErrorByIds(ctx context.Context,
 	return err
 }
 
-// ClearSysErrors 永久清空全部错误日志记录
-func (sysErrorService *SysErrorService) ClearSysErrors(ctx context.Context) (deleted int64, err error) {
-	result := global.GVA_DB.WithContext(ctx).Unscoped().Where("1 = 1").Delete(&system.SysError{})
-	return result.RowsAffected, result.Error
+// ClearSysErrors 永久清理指定时间范围内的错误日志；边界均为空时清空全部。
+func (sysErrorService *SysErrorService) ClearSysErrors(ctx context.Context, startTime, endTime *time.Time) (deleted int64, err error) {
+	return clearAuditLogs(ctx, &system.SysError{}, startTime, endTime)
 }
 
 // UpdateSysError 更新错误日志记录
@@ -65,6 +66,7 @@ func (sysErrorService *SysErrorService) GetSysErrorInfoList(ctx context.Context,
 	if len(info.CreatedAtRange) == 2 {
 		db = db.Where("created_at BETWEEN ? AND ?", info.CreatedAtRange[0], info.CreatedAtRange[1])
 	}
+	db = applyAuditLogTimeRange(db, info.StartTime, info.EndTime)
 
 	if info.Form != nil && *info.Form != "" {
 		db = db.Where("form = ?", *info.Form)

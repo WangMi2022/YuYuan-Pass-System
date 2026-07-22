@@ -40,7 +40,7 @@ func TestClearSysErrorsPermanentlyDeletesAllRows(t *testing.T) {
 		t.Fatalf("soft delete sys_error: %v", err)
 	}
 
-	deleted, err := (&SysErrorService{}).ClearSysErrors(context.Background())
+	deleted, err := (&SysErrorService{}).ClearSysErrors(context.Background(), nil, nil)
 	if err != nil {
 		t.Fatalf("clear sys_error: %v", err)
 	}

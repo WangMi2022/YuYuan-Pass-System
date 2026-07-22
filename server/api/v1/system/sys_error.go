@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
+	"github.com/flipped-aurora/gin-vue-admin/server/model/common/request"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/system"
 	systemReq "github.com/flipped-aurora/gin-vue-admin/server/model/system/request"
@@ -71,14 +72,26 @@ func (sysErrorApi *SysErrorApi) DeleteSysError(c *gin.Context) {
 // @Accept application/json
 // @Produce application/json
 // @Param clearAll query bool false "是否永久清空全部错误日志"
+// @Param startTime query string false "清理开始时间（包含）"
+// @Param endTime query string false "清理结束时间（包含）"
 // @Success 200 {object} response.Response{msg=string} "批量删除成功"
 // @Router /sysError/deleteSysErrorByIds [delete]
 func (sysErrorApi *SysErrorApi) DeleteSysErrorByIds(c *gin.Context) {
 	// 创建业务用Context
 	ctx := c.Request.Context()
 
-	if c.Query("clearAll") == "true" {
-		deleted, err := sysErrorService.ClearSysErrors(ctx)
+	var clearReq request.LogDeleteReq
+	if err := c.ShouldBindQuery(&clearReq); err != nil {
+		response.FailWithMessage(err.Error(), c)
+		return
+	}
+	startTime, endTime, shouldClear, rangeErr := resolveLogClearRange(clearReq)
+	if rangeErr != nil {
+		response.FailWithMessage(rangeErr.Error(), c)
+		return
+	}
+	if shouldClear {
+		deleted, err := sysErrorService.ClearSysErrors(ctx, startTime, endTime)
 		if err != nil {
 			global.GVA_LOG.Error("清空失败!", zap.Error(err))
 			response.FailWithMessage("清空失败:"+err.Error(), c)
@@ -86,7 +99,7 @@ func (sysErrorApi *SysErrorApi) DeleteSysErrorByIds(c *gin.Context) {
 		}
 		response.OkWithDetailed(
 			gin.H{"deleted": deleted},
-			fmt.Sprintf("已清空 %d 条错误日志", deleted),
+			fmt.Sprintf("已清理 %d 条错误日志", deleted),
 			c,
 		)
 		return

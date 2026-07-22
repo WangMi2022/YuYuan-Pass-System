@@ -2,6 +2,7 @@ package system
 
 import (
 	"context"
+	"time"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/common/request"
@@ -23,10 +24,9 @@ func (loginLogService *LoginLogService) DeleteLoginLogByIds(ids request.IdsReq) 
 	return err
 }
 
-// ClearLoginLogs 永久清空全部登录日志
-func (loginLogService *LoginLogService) ClearLoginLogs(ctx context.Context) (deleted int64, err error) {
-	result := global.GVA_DB.WithContext(ctx).Unscoped().Where("1 = 1").Delete(&system.SysLoginLog{})
-	return result.RowsAffected, result.Error
+// ClearLoginLogs 永久清理指定时间范围内的登录日志；边界均为空时清空全部。
+func (loginLogService *LoginLogService) ClearLoginLogs(ctx context.Context, startTime, endTime *time.Time) (deleted int64, err error) {
+	return clearAuditLogs(ctx, &system.SysLoginLog{}, startTime, endTime)
 }
 
 func (loginLogService *LoginLogService) DeleteLoginLog(loginLog system.SysLoginLog) (err error) {
@@ -50,6 +50,7 @@ func (loginLogService *LoginLogService) GetLoginLogInfoList(info systemReq.SysLo
 	if info.Status != false {
 		db = db.Where("status = ?", info.Status)
 	}
+	db = applyAuditLogTimeRange(db, info.StartTime, info.EndTime)
 	err = db.Count(&total).Error
 	if err != nil {
 		return

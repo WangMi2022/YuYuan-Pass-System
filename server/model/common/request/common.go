@@ -1,6 +1,8 @@
 package request
 
 import (
+	"time"
+
 	"gorm.io/gorm"
 )
 
@@ -65,10 +67,17 @@ type IdsReq struct {
 	Ids []int `json:"ids" form:"ids"`
 }
 
-// LogDeleteReq 日志删除请求。ClearAll 仅供已有批量删除权限显式触发全量清空。
+// LogDeleteReq 日志删除请求。全量或时间范围清理均复用已有批量删除权限。
 type LogDeleteReq struct {
 	Ids      []int `json:"ids" form:"ids"`
 	ClearAll bool  `json:"clearAll" form:"clearAll"`
+	LogTimeRange
+}
+
+// LogTimeRange 日志时间范围。边界均包含，任一边界为空表示不限制该方向。
+type LogTimeRange struct {
+	StartTime *time.Time `json:"startTime" form:"startTime" time_format:"2006-01-02T15:04:05.000Z07:00"`
+	EndTime   *time.Time `json:"endTime" form:"endTime" time_format:"2006-01-02T15:04:05.000Z07:00"`
 }
 
 // GetAuthorityId Get role by id structure
