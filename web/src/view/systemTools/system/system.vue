@@ -1172,8 +1172,8 @@
       </el-tabs>
     </el-form>
     <div class="mt-4">
-      <el-button type="primary" @click="update">立即更新 </el-button>
-      <el-button type="primary" @click="reload">重载服务 </el-button>
+      <el-button type="primary" :disabled="reloading" @click="update">立即更新 </el-button>
+      <el-button type="primary" :loading="reloading" :disabled="reloading" @click="reload">重载服务 </el-button>
     </div>
   </div>
 </template>
@@ -1202,6 +1202,7 @@
     () => Number(userStore.userInfo.authorityId) === 888
   )
   const testingProvider = ref('')
+  const reloading = ref(false)
 
   const defaultInvoiceRecognition = () => ({
     'fallback-threshold': 0.82,
@@ -1324,27 +1325,32 @@
     }
   }
   initForm()
-  const reload = () => {
-    ElMessageBox.confirm('确定要重载服务?', '警告', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-      .then(async () => {
-        const res = await reloadSystem()
-        if (res.code === 0) {
-          ElMessage({
-            type: 'success',
-            message: '操作成功'
-          })
-        }
+  const reload = async () => {
+    if (reloading.value) return
+    try {
+      await ElMessageBox.confirm('确定要重载服务?', '警告', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
       })
-      .catch(() => {
-        ElMessage({
-          type: 'info',
-          message: '取消重启'
-        })
-      })
+    } catch (action) {
+      if (action === 'cancel' || action === 'close') {
+        ElMessage({ type: 'info', message: '已取消重载' })
+      }
+      return
+    }
+
+    reloading.value = true
+    try {
+      const res = await reloadSystem()
+      if (res.code === 0) {
+        ElMessage({ type: 'success', message: '系统配置重载完成' })
+      }
+    } catch {
+      // 请求错误由全局拦截器统一展示，避免重复提示。
+    } finally {
+      reloading.value = false
+    }
   }
 
   const update = async () => {
