@@ -19,6 +19,7 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	gormLogger "gorm.io/gorm/logger"
 )
 
 type RecognitionService struct{}
@@ -85,7 +86,8 @@ func claimRecognitionJob() (model.RecognitionJob, error) {
 	err := global.GVA_DB.Transaction(func(tx *gorm.DB) error {
 		var candidate model.RecognitionJob
 		now := time.Now()
-		candidateQuery := tx.Where("status = ? AND attempts < max_attempts AND (next_run_at IS NULL OR next_run_at <= ?)", model.RecognitionJobPending, now).
+		candidateQuery := tx.Session(&gorm.Session{Logger: gormLogger.Discard}).
+			Where("status = ? AND attempts < max_attempts AND (next_run_at IS NULL OR next_run_at <= ?)", model.RecognitionJobPending, now).
 			Order("next_run_at ASC, id ASC")
 		if tx.Dialector.Name() == "postgres" {
 			candidateQuery = candidateQuery.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"})

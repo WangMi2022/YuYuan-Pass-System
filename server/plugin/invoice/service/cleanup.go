@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	gormLogger "gorm.io/gorm/logger"
 )
 
 func runInvoiceFileCleanupWorker() {
@@ -68,7 +69,8 @@ func claimInvoiceFileCleanupJob(id uint) (model.InvoiceFileCleanupJob, error) {
 	err := global.GVA_DB.Transaction(func(tx *gorm.DB) error {
 		var candidate model.InvoiceFileCleanupJob
 		now := time.Now()
-		query := tx.Where("status = ? AND (next_run_at IS NULL OR next_run_at <= ?)", model.FileCleanupJobPending, now).
+		query := tx.Session(&gorm.Session{Logger: gormLogger.Discard}).
+			Where("status = ? AND (next_run_at IS NULL OR next_run_at <= ?)", model.FileCleanupJobPending, now).
 			Order("next_run_at ASC, id ASC")
 		if id != 0 {
 			query = query.Where("id = ?", id)
