@@ -12,6 +12,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/flipped-aurora/gin-vue-admin/server/config"
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/model"
 	"github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/provider"
@@ -147,7 +148,7 @@ func processRecognitionJob(job model.RecognitionJob) {
 		finishRecognitionFailure(job, readErr)
 		return
 	}
-	result, err := provider.NewFromEnvironment().Recognize(ctx, provider.Input{
+	result, err := provider.New(global.GVA_CONFIG.InvoiceRecognition).Recognize(ctx, provider.Input{
 		FileName: invoice.FileName, ContentType: invoice.MimeType, Data: data,
 	})
 	if err != nil {
@@ -157,6 +158,16 @@ func processRecognitionJob(job model.RecognitionJob) {
 	if err = saveRecognitionResult(invoice, job, result); err != nil {
 		finishRecognitionFailure(job, err)
 	}
+}
+
+func (RecognitionService) TestProviderConnection(
+	ctx context.Context,
+	target string,
+	configuration config.InvoiceRecognition,
+) error {
+	configuration = configuration.MergeSecrets(global.GVA_CONFIG.InvoiceRecognition, true)
+	configuration.Normalize()
+	return provider.TestConnection(ctx, target, configuration)
 }
 
 func saveRecognitionResult(invoice model.Invoice, job model.RecognitionJob, result provider.Result) error {
@@ -254,6 +265,7 @@ func saveRecognitionResult(invoice model.Invoice, job model.RecognitionJob, resu
 }
 
 func normalizeRecognitionResult(result *provider.Result) error {
+	result.Provider = strings.TrimSpace(result.Provider)
 	result.InvoiceType = strings.TrimSpace(result.InvoiceType)
 	result.InvoiceCode = strings.TrimSpace(result.InvoiceCode)
 	result.InvoiceNumber = strings.TrimSpace(result.InvoiceNumber)
@@ -261,7 +273,8 @@ func normalizeRecognitionResult(result *provider.Result) error {
 	result.BuyerTaxNo = strings.TrimSpace(result.BuyerTaxNo)
 	result.SellerName = strings.TrimSpace(result.SellerName)
 	result.SellerTaxNo = strings.TrimSpace(result.SellerTaxNo)
-	if len(result.InvoiceType) > 60 || len(result.InvoiceCode) > 80 || len(result.InvoiceNumber) > 80 ||
+	if result.Provider == "" || len(result.Provider) > 50 || len(result.InvoiceType) > 60 ||
+		len(result.InvoiceCode) > 80 || len(result.InvoiceNumber) > 80 ||
 		len(result.BuyerName) > 200 || len(result.BuyerTaxNo) > 80 ||
 		len(result.SellerName) > 200 || len(result.SellerTaxNo) > 80 {
 		return errors.New("OCR 返回的发票字段长度超出限制")

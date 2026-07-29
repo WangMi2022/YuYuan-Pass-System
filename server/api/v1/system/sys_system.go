@@ -44,7 +44,7 @@ func (s *SystemApi) SetSystemConfig(c *gin.Context) {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
-	err = systemConfigService.SetSystemConfig(sys)
+	err = systemConfigService.SetSystemConfig(sys, utils.GetUserAuthorityId(c) == 888)
 	if err != nil {
 		global.GVA_LOG.Error("设置失败!", zap.Error(err))
 		response.FailWithMessage("设置失败", c)

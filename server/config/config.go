@@ -37,4 +37,7 @@ type Server struct {
 
 	// MCP配置
 	MCP MCP `mapstructure:"mcp" json:"mcp" yaml:"mcp"`
+
+	// 发票智能识别
+	InvoiceRecognition InvoiceRecognition `mapstructure:"invoice-recognition" json:"invoice-recognition" yaml:"invoice-recognition"`
 }

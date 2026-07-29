@@ -77,3 +77,22 @@ func TestIsBinaryResponse(t *testing.T) {
 		})
 	}
 }
+
+func TestSanitizeOperationBodyRedactsNestedSecrets(t *testing.T) {
+	body := `{"config":{"api-key":"ocr-secret","nested":{"password":"db-secret"},"api-key-configured":true},"model":"vision"}`
+	sanitized := sanitizeOperationBody(body)
+	if strings.Contains(sanitized, "ocr-secret") || strings.Contains(sanitized, "db-secret") {
+		t.Fatalf("sensitive value leaked: %s", sanitized)
+	}
+	if !strings.Contains(sanitized, `"api-key-configured":true`) || !strings.Contains(sanitized, `"model":"vision"`) {
+		t.Fatalf("non-sensitive fields were lost: %s", sanitized)
+	}
+}
+
+func TestSanitizeOperationBodyRedactsTruncatedJSON(t *testing.T) {
+	body := `{"payload":"value","api-key":"ocr-sec` + truncatedBodySummary
+	sanitized := sanitizeOperationBody(body)
+	if strings.Contains(sanitized, "ocr-secret") || !strings.HasSuffix(sanitized, truncatedBodySummary) {
+		t.Fatalf("truncated body was not safely sanitized: %s", sanitized)
+	}
+}

@@ -1,0 +1,247 @@
+package provider
+
+import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
+	"time"
+
+	"github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/model"
+)
+
+const maxMultimodalResponseSize = 4 << 20
+
+const invoiceExtractionPrompt = `识别图片中的中国发票并只返回一个 JSON 对象，不要返回 Markdown。金额全部换算为整数分，日期格式为 YYYY-MM-DD。无法确认的文本字段返回空字符串，无法确认的金额返回 0。JSON 字段必须是：invoiceType、invoiceCode、invoiceNumber、issueDate、buyerName、buyerTaxNo、sellerName、sellerTaxNo、amountCents、taxCents、totalCents、rawText、confidence、fieldConfidences、items。confidence 和 fieldConfidences 的值范围为 0 到 1。items 每项字段必须是：name、specification、unit、quantityText、unitPriceCents、amountCents、taxRate、taxCents。`
+
+type MultimodalRecognizer struct {
+	BaseURL string
+	APIKey  string
+	Model   string
+	Timeout time.Duration
+}
+
+type multimodalInvoiceResult struct {
+	InvoiceType      string                      `json:"invoiceType"`
+	InvoiceCode      string                      `json:"invoiceCode"`
+	InvoiceNumber    string                      `json:"invoiceNumber"`
+	IssueDate        string                      `json:"issueDate"`
+	BuyerName        string                      `json:"buyerName"`
+	BuyerTaxNo       string                      `json:"buyerTaxNo"`
+	SellerName       string                      `json:"sellerName"`
+	SellerTaxNo      string                      `json:"sellerTaxNo"`
+	AmountCents      int64                       `json:"amountCents"`
+	TaxCents         int64                       `json:"taxCents"`
+	TotalCents       int64                       `json:"totalCents"`
+	RawText          string                      `json:"rawText"`
+	Confidence       float64                     `json:"confidence"`
+	FieldConfidences map[string]float64          `json:"fieldConfidences"`
+	Items            []multimodalInvoiceLineItem `json:"items"`
+}
+
+type multimodalInvoiceLineItem struct {
+	Name           string `json:"name"`
+	Specification  string `json:"specification"`
+	Unit           string `json:"unit"`
+	QuantityText   string `json:"quantityText"`
+	UnitPriceCents int64  `json:"unitPriceCents"`
+	AmountCents    int64  `json:"amountCents"`
+	TaxRate        string `json:"taxRate"`
+	TaxCents       int64  `json:"taxCents"`
+}
+
+func (r *MultimodalRecognizer) Recognize(ctx context.Context, input Input) (Result, error) {
+	payload, err := r.chat(ctx, input, invoiceExtractionPrompt, 4000)
+	if err != nil {
+		return Result{}, err
+	}
+	content, err := multimodalResponseContent(payload)
+	if err != nil {
+		return Result{}, err
+	}
+	var extracted multimodalInvoiceResult
+	if err = json.Unmarshal(extractJSONObject(content), &extracted); err != nil {
+		return Result{}, fmt.Errorf("多模态识别结果解析失败: %w", err)
+	}
+	issueDate, err := parseIssueDate(extracted.IssueDate)
+	if err != nil {
+		return Result{}, err
+	}
+	items := make([]model.InvoiceItem, 0, len(extracted.Items))
+	for _, item := range extracted.Items {
+		items = append(items, model.InvoiceItem{
+			Name: item.Name, Specification: item.Specification, Unit: item.Unit,
+			QuantityText: item.QuantityText, UnitPriceCents: item.UnitPriceCents,
+			AmountCents: item.AmountCents, TaxRate: item.TaxRate, TaxCents: item.TaxCents,
+		})
+	}
+	confidence := extracted.Confidence
+	if confidence == 0 && len(extracted.FieldConfidences) > 0 {
+		for _, value := range extracted.FieldConfidences {
+			confidence += value
+		}
+		confidence /= float64(len(extracted.FieldConfidences))
+	}
+	return Result{
+		Provider: "multimodal-ai", InvoiceType: extracted.InvoiceType,
+		InvoiceCode: extracted.InvoiceCode, InvoiceNumber: extracted.InvoiceNumber,
+		IssueDate: issueDate, BuyerName: extracted.BuyerName, BuyerTaxNo: extracted.BuyerTaxNo,
+		SellerName: extracted.SellerName, SellerTaxNo: extracted.SellerTaxNo,
+		AmountCents: extracted.AmountCents, TaxCents: extracted.TaxCents, TotalCents: extracted.TotalCents,
+		RawText: extracted.RawText, RawPayload: string(payload), Confidence: confidence,
+		FieldConfidences: extracted.FieldConfidences, Items: items,
+	}, nil
+}
+
+func (r *MultimodalRecognizer) Probe(ctx context.Context) error {
+	payload, err := r.chat(ctx, Input{
+		FileName: "connection-test.png", ContentType: "image/png", Data: probePNG,
+	}, "请确认你能读取这张测试图片，只回复 OK。", 16)
+	if err != nil {
+		return err
+	}
+	_, err = multimodalResponseContent(payload)
+	return err
+}
+
+func (r *MultimodalRecognizer) chat(ctx context.Context, input Input, prompt string, maxTokens int) ([]byte, error) {
+	mimeType := strings.TrimSpace(input.ContentType)
+	if mimeType != "image/jpeg" && mimeType != "image/png" {
+		mimeType = "image/png"
+	}
+	requestBody := map[string]any{
+		"model": r.Model,
+		"messages": []map[string]any{{
+			"role": "user",
+			"content": []map[string]any{
+				{"type": "text", "text": prompt},
+				{"type": "image_url", "image_url": map[string]any{
+					"url":    "data:" + mimeType + ";base64," + base64.StdEncoding.EncodeToString(input.Data),
+					"detail": "high",
+				}},
+			},
+		}},
+		"temperature": 0,
+		"max_tokens":  maxTokens,
+	}
+	encoded, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, chatCompletionsURL(r.BaseURL), bytes.NewReader(encoded))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if strings.TrimSpace(r.APIKey) != "" {
+		req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(r.APIKey))
+	}
+	client := &http.Client{Timeout: r.Timeout}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("多模态模型请求失败: %w", err)
+	}
+	defer resp.Body.Close()
+	payload, err := io.ReadAll(io.LimitReader(resp.Body, maxMultimodalResponseSize+1))
+	if err != nil {
+		return nil, fmt.Errorf("多模态模型响应读取失败: %w", err)
+	}
+	if len(payload) > maxMultimodalResponseSize {
+		return nil, errors.New("多模态模型响应超过 4MB 限制")
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+			return nil, fmt.Errorf("多模态模型鉴权失败（HTTP %d）", resp.StatusCode)
+		}
+		return nil, fmt.Errorf("多模态模型返回状态 %d", resp.StatusCode)
+	}
+	return payload, nil
+}
+
+func chatCompletionsURL(baseURL string) string {
+	parsed, err := url.Parse(strings.TrimSpace(baseURL))
+	if err != nil {
+		return strings.TrimSpace(baseURL)
+	}
+	path := strings.TrimRight(parsed.Path, "/")
+	if !strings.HasSuffix(path, "/chat/completions") {
+		if strings.HasSuffix(path, "/v1") {
+			path += "/chat/completions"
+		} else {
+			path += "/v1/chat/completions"
+		}
+	}
+	parsed.Path = path
+	parsed.RawPath = ""
+	parsed.Fragment = ""
+	return parsed.String()
+}
+
+func multimodalResponseContent(payload []byte) (string, error) {
+	var response struct {
+		Choices []struct {
+			Message struct {
+				Content json.RawMessage `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+	if err := json.Unmarshal(payload, &response); err != nil {
+		return "", fmt.Errorf("多模态模型响应解析失败: %w", err)
+	}
+	if len(response.Choices) == 0 {
+		return "", errors.New("多模态模型未返回结果")
+	}
+	var content string
+	if err := json.Unmarshal(response.Choices[0].Message.Content, &content); err == nil {
+		if strings.TrimSpace(content) == "" {
+			return "", errors.New("多模态模型返回内容为空")
+		}
+		return content, nil
+	}
+	var parts []struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+	}
+	if err := json.Unmarshal(response.Choices[0].Message.Content, &parts); err != nil {
+		return "", errors.New("多模态模型返回内容格式不兼容")
+	}
+	var builder strings.Builder
+	for _, part := range parts {
+		if part.Type == "text" || part.Type == "output_text" {
+			builder.WriteString(part.Text)
+		}
+	}
+	if strings.TrimSpace(builder.String()) == "" {
+		return "", errors.New("多模态模型返回内容为空")
+	}
+	return builder.String(), nil
+}
+
+func extractJSONObject(content string) []byte {
+	content = strings.TrimSpace(content)
+	if start := strings.Index(content, "{"); start >= 0 {
+		if end := strings.LastIndex(content, "}"); end >= start {
+			content = content[start : end+1]
+		}
+	}
+	return []byte(content)
+}
+
+func parseIssueDate(value string) (*time.Time, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil, nil
+	}
+	for _, layout := range []string{"2006-01-02", "2006/01/02", time.RFC3339} {
+		if parsed, err := time.Parse(layout, value); err == nil {
+			return &parsed, nil
+		}
+	}
+	return nil, errors.New("多模态模型返回的开票日期格式不正确")
+}

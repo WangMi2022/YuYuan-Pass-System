@@ -3,10 +3,12 @@ package provider
 import (
 	"context"
 	"errors"
+	"math"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/flipped-aurora/gin-vue-admin/server/config"
 	"github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/model"
 )
 
@@ -41,44 +43,96 @@ type Recognizer interface {
 }
 
 type Chain struct {
-	qr   Recognizer
-	http Recognizer
+	qr                Recognizer
+	ocr               Recognizer
+	multimodal        Recognizer
+	fallbackThreshold float64
 }
 
 func NewFromEnvironment() *Chain {
 	endpoint := strings.TrimSpace(os.Getenv("INVOICE_OCR_ENDPOINT"))
-	var httpRecognizer Recognizer
+	var ocrRecognizer Recognizer
 	if endpoint != "" {
-		httpRecognizer = &HTTPRecognizer{
+		ocrRecognizer = &HTTPRecognizer{
 			Endpoint: endpoint,
 			Token:    strings.TrimSpace(os.Getenv("INVOICE_OCR_TOKEN")),
 			Timeout:  30 * time.Second,
 		}
 	}
-	return &Chain{qr: QRRecognizer{}, http: httpRecognizer}
+	return &Chain{qr: QRRecognizer{}, ocr: ocrRecognizer, fallbackThreshold: 0.82}
+}
+
+func New(configuration config.InvoiceRecognition) *Chain {
+	configuration.Normalize()
+	chain := &Chain{qr: QRRecognizer{}, fallbackThreshold: configuration.FallbackThreshold}
+	if configuration.PublicOCR.Enabled && configuration.PublicOCR.Endpoint != "" {
+		chain.ocr = &HTTPRecognizer{
+			Endpoint: configuration.PublicOCR.Endpoint,
+			Token:    configuration.PublicOCR.APIKey,
+			Timeout:  time.Duration(configuration.PublicOCR.TimeoutSeconds) * time.Second,
+			Provider: configuration.PublicOCR.Provider,
+		}
+	}
+	if configuration.Multimodal.Enabled && configuration.Multimodal.BaseURL != "" {
+		chain.multimodal = &MultimodalRecognizer{
+			BaseURL: configuration.Multimodal.BaseURL,
+			APIKey:  configuration.Multimodal.APIKey,
+			Model:   configuration.Multimodal.Model,
+			Timeout: time.Duration(configuration.Multimodal.TimeoutSeconds) * time.Second,
+		}
+	}
+	return chain
 }
 
 func (c *Chain) Recognize(ctx context.Context, input Input) (Result, error) {
 	qrResult, qrErr := c.qr.Recognize(ctx, input)
-	if c.http == nil {
-		if qrErr == nil {
-			return qrResult, nil
+
+	var ocrResult Result
+	var ocrErr error
+	if c.ocr != nil {
+		ocrResult, ocrErr = c.ocr.Recognize(ctx, input)
+		if ocrErr == nil && !validConfidence(ocrResult.Confidence) {
+			ocrErr = errors.New("公网 OCR 返回的识别置信度不正确")
 		}
-		return Result{Provider: "manual", RawText: "", Confidence: 0}, nil
+		if ocrErr == nil && !hasRecognitionData(ocrResult) {
+			ocrErr = errors.New("公网 OCR 未返回可用发票字段")
+		}
+		if ocrErr == nil && ocrResult.Confidence >= c.fallbackThreshold {
+			mergeVerifiedQR(&ocrResult, qrResult, qrErr)
+			return ocrResult, nil
+		}
 	}
 
-	httpResult, httpErr := c.http.Recognize(ctx, input)
-	if httpErr == nil {
-		if qrErr == nil {
-			mergeMissing(&httpResult, qrResult)
+	var multimodalResult Result
+	var multimodalErr error
+	if c.multimodal != nil {
+		multimodalResult, multimodalErr = c.multimodal.Recognize(ctx, input)
+		if multimodalErr == nil && !validConfidence(multimodalResult.Confidence) {
+			multimodalErr = errors.New("多模态模型返回的识别置信度不正确")
 		}
-		return httpResult, nil
+		if multimodalErr == nil && !hasRecognitionData(multimodalResult) {
+			multimodalErr = errors.New("多模态模型未返回可用发票字段")
+		}
+		if multimodalErr == nil {
+			if ocrErr == nil {
+				mergeMissing(&multimodalResult, ocrResult)
+			}
+			mergeVerifiedQR(&multimodalResult, qrResult, qrErr)
+			return multimodalResult, nil
+		}
 	}
-	if qrErr == nil {
-		qrResult.RawPayload = httpErr.Error()
+
+	if ocrErr == nil && hasRecognitionData(ocrResult) {
+		mergeVerifiedQR(&ocrResult, qrResult, qrErr)
+		return ocrResult, nil
+	}
+	if qrErr == nil && hasRecognitionData(qrResult) {
 		return qrResult, nil
 	}
-	return Result{}, errors.Join(qrErr, httpErr)
+	if c.ocr == nil && c.multimodal == nil {
+		return Result{}, errors.Join(qrErr, errors.New("未启用公网 OCR 或多模态识别服务"))
+	}
+	return Result{}, errors.Join(qrErr, ocrErr, multimodalErr)
 }
 
 func mergeMissing(target *Result, fallback Result) {
@@ -94,8 +148,29 @@ func mergeMissing(target *Result, fallback Result) {
 	if target.IssueDate == nil {
 		target.IssueDate = fallback.IssueDate
 	}
+	if target.BuyerName == "" {
+		target.BuyerName = fallback.BuyerName
+	}
+	if target.BuyerTaxNo == "" {
+		target.BuyerTaxNo = fallback.BuyerTaxNo
+	}
+	if target.SellerName == "" {
+		target.SellerName = fallback.SellerName
+	}
+	if target.SellerTaxNo == "" {
+		target.SellerTaxNo = fallback.SellerTaxNo
+	}
+	if target.AmountCents == 0 {
+		target.AmountCents = fallback.AmountCents
+	}
+	if target.TaxCents == 0 {
+		target.TaxCents = fallback.TaxCents
+	}
 	if target.TotalCents == 0 {
 		target.TotalCents = fallback.TotalCents
+	}
+	if len(target.Items) == 0 {
+		target.Items = fallback.Items
 	}
 	if target.RawText == "" {
 		target.RawText = fallback.RawText
@@ -110,5 +185,73 @@ func mergeMissing(target *Result, fallback Result) {
 		if _, exists := target.FieldConfidences[field]; !exists {
 			target.FieldConfidences[field] = confidence
 		}
+	}
+}
+
+func mergeVerifiedQR(target *Result, qr Result, qrErr error) {
+	if qrErr != nil {
+		return
+	}
+	mergeMissing(target, qr)
+	if qr.FieldConfidences["invoiceType"] >= 0.95 {
+		target.InvoiceType = qr.InvoiceType
+	}
+	if qr.FieldConfidences["invoiceCode"] >= 0.95 {
+		target.InvoiceCode = qr.InvoiceCode
+	}
+	if qr.FieldConfidences["invoiceNumber"] >= 0.95 {
+		target.InvoiceNumber = qr.InvoiceNumber
+	}
+	if qr.FieldConfidences["issueDate"] >= 0.95 {
+		target.IssueDate = qr.IssueDate
+	}
+	if qr.FieldConfidences["totalCents"] >= 0.95 {
+		target.TotalCents = qr.TotalCents
+	}
+}
+
+func hasRecognitionData(result Result) bool {
+	return result.InvoiceNumber != "" ||
+		(result.InvoiceCode != "" && result.IssueDate != nil) ||
+		(result.IssueDate != nil && result.TotalCents != 0 && (result.BuyerName != "" || result.SellerName != ""))
+}
+
+func validConfidence(confidence float64) bool {
+	return !math.IsNaN(confidence) && !math.IsInf(confidence, 0) && confidence >= 0 && confidence <= 1
+}
+
+func TestConnection(ctx context.Context, target string, configuration config.InvoiceRecognition) error {
+	configuration.Normalize()
+	switch target {
+	case "public-ocr":
+		configuration.Multimodal.Enabled = false
+		if err := configuration.Validate(); err != nil {
+			return err
+		}
+		if !configuration.PublicOCR.Enabled {
+			return errors.New("请先启用公网 OCR")
+		}
+		return (&HTTPRecognizer{
+			Endpoint: configuration.PublicOCR.Endpoint,
+			Token:    configuration.PublicOCR.APIKey,
+			Timeout:  time.Duration(configuration.PublicOCR.TimeoutSeconds) * time.Second,
+			Provider: configuration.PublicOCR.Provider,
+		}).Probe(ctx)
+	case "multimodal":
+		configuration.PublicOCR.Enabled = false
+		if err := configuration.Validate(); err != nil {
+			return err
+		}
+		if !configuration.Multimodal.Enabled {
+			return errors.New("请先启用多模态模型")
+		}
+		return (&MultimodalRecognizer{
+			BaseURL: configuration.Multimodal.BaseURL,
+			APIKey:  configuration.Multimodal.APIKey,
+			Model:   configuration.Multimodal.Model,
+			Timeout: time.Duration(configuration.Multimodal.TimeoutSeconds) * time.Second,
+		}).Probe(ctx)
+	default:
+		return errors.New("不支持的识别服务类型")
 	}
 }

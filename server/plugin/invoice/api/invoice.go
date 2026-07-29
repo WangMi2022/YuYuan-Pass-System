@@ -124,6 +124,23 @@ func (invoiceAPI) Retry(c *gin.Context) {
 	commonResponse.OkWithMessage("已重新加入识别队列", c)
 }
 
+func (invoiceAPI) TestProviderConnection(c *gin.Context) {
+	if utils.GetUserAuthorityId(c) != 888 {
+		commonResponse.FailWithMessage("仅超级管理员可测试识别服务连接", c)
+		return
+	}
+	var request invoiceRequest.ProviderConnectionTest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		commonResponse.FailWithMessage("连接测试参数不正确", c)
+		return
+	}
+	if err := serviceRecognition.TestProviderConnection(c.Request.Context(), request.Target, request.Config); err != nil {
+		commonResponse.FailWithMessage(err.Error(), c)
+		return
+	}
+	commonResponse.OkWithMessage("连接测试成功", c)
+}
+
 func (invoiceAPI) Dashboard(c *gin.Context) {
 	dashboard, err := serviceInvoice.Dashboard(currentScope(c))
 	if err != nil {

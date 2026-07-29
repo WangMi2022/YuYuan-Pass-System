@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -23,7 +24,10 @@ const (
 	fileBodySummary      = "[文件]"
 	truncatedBodySummary = "[超出记录长度]"
 	binaryBodySummary    = "[二进制响应]"
+	redactedValue        = "[已脱敏]"
 )
+
+var sensitiveJSONValuePattern = regexp.MustCompile(`(?i)("(?:api[-_]?key|password|secret|token|authorization|auth[-_]?header|signing[-_]?key|access[-_]?key(?:[-_](?:id|secret))?|secret[-_]?(?:id|key))"\s*:\s*)"(?:\\.|[^"\\])*(?:"|$)`)
 
 func OperationRecord() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -76,17 +80,65 @@ func OperationRecord() gin.HandlerFunc {
 		if isMultipart {
 			record.Body = fileBodySummary
 		} else {
-			record.Body = requestBody.Summary()
+			record.Body = sanitizeOperationBody(requestBody.Summary())
 		}
 		if isBinaryResponse(c.Writer.Header()) {
 			record.Resp = binaryBodySummary
 		} else {
-			record.Resp = writer.body.Summary()
+			record.Resp = sanitizeOperationBody(writer.body.Summary())
 		}
 		if err := global.GVA_DB.Create(&record).Error; err != nil {
 			global.GVA_LOG.Error("create operation record error:", zap.Error(err))
 		}
 	}
+}
+
+func sanitizeOperationBody(body string) string {
+	if body == "" {
+		return body
+	}
+	truncated := strings.HasSuffix(body, truncatedBodySummary)
+	payload := strings.TrimSuffix(body, truncatedBodySummary)
+	var decoded any
+	if !truncated && json.Unmarshal([]byte(payload), &decoded) == nil {
+		redactSensitiveJSON(decoded)
+		if sanitized, err := json.Marshal(decoded); err == nil {
+			return string(sanitized)
+		}
+	}
+	sanitized := sensitiveJSONValuePattern.ReplaceAllString(payload, `${1}"`+redactedValue+`"`)
+	if truncated {
+		sanitized += truncatedBodySummary
+	}
+	return sanitized
+}
+
+func redactSensitiveJSON(value any) {
+	switch typed := value.(type) {
+	case map[string]any:
+		for key, nested := range typed {
+			if isSensitiveOperationField(key) {
+				typed[key] = redactedValue
+				continue
+			}
+			redactSensitiveJSON(nested)
+		}
+	case []any:
+		for _, nested := range typed {
+			redactSensitiveJSON(nested)
+		}
+	}
+}
+
+func isSensitiveOperationField(key string) bool {
+	normalized := strings.NewReplacer("-", "", "_", "", " ", "").Replace(strings.ToLower(key))
+	if strings.HasSuffix(normalized, "configured") {
+		return false
+	}
+	return strings.Contains(normalized, "password") || strings.Contains(normalized, "secret") ||
+		strings.Contains(normalized, "token") || strings.Contains(normalized, "apikey") ||
+		normalized == "authorization" || normalized == "authheader" || normalized == "signingkey" ||
+		normalized == "accesskey" || normalized == "accesskeyid"
 }
 
 type responseBodyWriter struct {

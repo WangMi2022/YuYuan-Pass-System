@@ -12,6 +12,7 @@ var apiRules = []system.SysApi{
 	{Path: "/invoice/update", Description: "核对发票信息", ApiGroup: "流水管理", Method: "PUT"},
 	{Path: "/invoice/confirm", Description: "确认发票", ApiGroup: "流水管理", Method: "PUT"},
 	{Path: "/invoice/retry", Description: "重新识别发票", ApiGroup: "流水管理", Method: "PUT"},
+	{Path: "/invoice/provider/test", Description: "测试发票识别服务连接", ApiGroup: "运行配置", Method: "POST"},
 	{Path: "/invoice/delete", Description: "删除发票", ApiGroup: "流水管理", Method: "DELETE"},
 	{Path: "/invoice/list", Description: "发票台账", ApiGroup: "流水管理", Method: "GET"},
 	{Path: "/invoice/detail", Description: "发票详情", ApiGroup: "流水管理", Method: "GET"},

@@ -237,6 +237,21 @@ hua-wei-obs:
 excel:
     dir: ./resource/excel/
 
+invoice-recognition:
+    fallback-threshold: 0.82
+    public-ocr:
+        enabled: false
+        provider: http-compatible
+        endpoint: ""
+        api-key: ""
+        timeout-seconds: 30
+    multimodal:
+        enabled: false
+        base-url: ""
+        api-key: ""
+        model: ""
+        timeout-seconds: 45
+
 disk-list:
     - mount-point: "/"
 

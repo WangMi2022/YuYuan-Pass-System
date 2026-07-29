@@ -901,6 +901,188 @@
             </el-form-item>
           </template>
         </el-tab-pane>
+        <el-tab-pane label="发票智能识别" name="11" class="mt-3.5">
+          <div class="recognition-settings">
+            <div class="recognition-overview">
+              <div class="recognition-flow" aria-label="发票识别顺序">
+                <span class="flow-node is-fixed">二维码</span>
+                <span class="flow-arrow">→</span>
+                <span class="flow-node">公网 OCR</span>
+                <span class="flow-arrow">→</span>
+                <span class="flow-node">多模态模型</span>
+                <span class="flow-arrow">→</span>
+                <span class="flow-node is-fixed">人工核对</span>
+              </div>
+              <el-form-item label="大模型兜底阈值" label-width="132px" class="threshold-field">
+                <el-input-number
+                  v-model="config['invoice-recognition']['fallback-threshold']"
+                  :min="0.1"
+                  :max="1"
+                  :step="0.01"
+                  :precision="2"
+                  :disabled="!canManageInvoiceRecognition"
+                  controls-position="right"
+                />
+              </el-form-item>
+            </div>
+
+            <section class="provider-section">
+              <div class="provider-heading">
+                <div class="provider-title-line">
+                  <h3>公网 OCR</h3>
+                  <el-tag
+                    :type="publicOCRKeyReady ? 'success' : 'info'"
+                    effect="plain"
+                    size="small"
+                  >
+                    {{ publicOCRKeyReady ? '凭据已配置' : '无凭据' }}
+                  </el-tag>
+                </div>
+                <el-switch
+                  v-model="config['invoice-recognition']['public-ocr'].enabled"
+                  :disabled="!canManageInvoiceRecognition"
+                  inline-prompt
+                  active-text="启用"
+                  inactive-text="停用"
+                />
+              </div>
+              <div class="provider-grid">
+                <el-form-item label="服务标识" label-width="112px">
+                  <el-input
+                    v-model.trim="config['invoice-recognition']['public-ocr'].provider"
+                    :disabled="!canManageInvoiceRecognition"
+                    placeholder="http-compatible"
+                  />
+                </el-form-item>
+                <el-form-item label="请求超时" label-width="112px">
+                  <el-input-number
+                    v-model="config['invoice-recognition']['public-ocr']['timeout-seconds']"
+                    :min="1"
+                    :max="120"
+                    :disabled="!canManageInvoiceRecognition"
+                    controls-position="right"
+                  />
+                  <span class="input-unit">秒</span>
+                </el-form-item>
+                <el-form-item label="接口地址" label-width="112px" class="grid-full">
+                  <el-input
+                    v-model.trim="config['invoice-recognition']['public-ocr'].endpoint"
+                    :disabled="!canManageInvoiceRecognition"
+                    placeholder="https://ocr.example.com/invoice/recognize"
+                  />
+                </el-form-item>
+                <el-form-item label="API Key" label-width="112px" class="grid-full">
+                  <div class="secret-row">
+                    <el-input
+                      v-model.trim="config['invoice-recognition']['public-ocr']['api-key']"
+                      type="password"
+                      show-password
+                      autocomplete="new-password"
+                      :disabled="!canManageInvoiceRecognition || config['invoice-recognition']['public-ocr']['clear-api-key']"
+                      :placeholder="publicOCRKeyPlaceholder"
+                    />
+                    <el-checkbox
+                      v-if="config['invoice-recognition']['public-ocr']['api-key-configured']"
+                      v-model="config['invoice-recognition']['public-ocr']['clear-api-key']"
+                      :disabled="!canManageInvoiceRecognition"
+                    >
+                      清除凭据
+                    </el-checkbox>
+                  </div>
+                </el-form-item>
+              </div>
+              <div v-if="canManageInvoiceRecognition" class="provider-actions">
+                <el-button
+                  type="primary"
+                  plain
+                  :icon="Connection"
+                  :loading="testingProvider === 'public-ocr'"
+                  @click="testProvider('public-ocr')"
+                >
+                  测试连接
+                </el-button>
+              </div>
+            </section>
+
+            <section class="provider-section">
+              <div class="provider-heading">
+                <div class="provider-title-line">
+                  <h3>多模态大模型</h3>
+                  <el-tag
+                    :type="multimodalKeyReady ? 'success' : 'info'"
+                    effect="plain"
+                    size="small"
+                  >
+                    {{ multimodalKeyReady ? '凭据已配置' : '无凭据' }}
+                  </el-tag>
+                </div>
+                <el-switch
+                  v-model="config['invoice-recognition'].multimodal.enabled"
+                  :disabled="!canManageInvoiceRecognition"
+                  inline-prompt
+                  active-text="启用"
+                  inactive-text="停用"
+                />
+              </div>
+              <div class="provider-grid">
+                <el-form-item label="Base URL" label-width="112px">
+                  <el-input
+                    v-model.trim="config['invoice-recognition'].multimodal['base-url']"
+                    :disabled="!canManageInvoiceRecognition"
+                    placeholder="https://api.example.com/v1"
+                  />
+                </el-form-item>
+                <el-form-item label="模型" label-width="112px">
+                  <el-input
+                    v-model.trim="config['invoice-recognition'].multimodal.model"
+                    :disabled="!canManageInvoiceRecognition"
+                    placeholder="请输入支持图片的模型名称"
+                  />
+                </el-form-item>
+                <el-form-item label="请求超时" label-width="112px">
+                  <el-input-number
+                    v-model="config['invoice-recognition'].multimodal['timeout-seconds']"
+                    :min="1"
+                    :max="120"
+                    :disabled="!canManageInvoiceRecognition"
+                    controls-position="right"
+                  />
+                  <span class="input-unit">秒</span>
+                </el-form-item>
+                <el-form-item label="API Key" label-width="112px">
+                  <div class="secret-row">
+                    <el-input
+                      v-model.trim="config['invoice-recognition'].multimodal['api-key']"
+                      type="password"
+                      show-password
+                      autocomplete="new-password"
+                      :disabled="!canManageInvoiceRecognition || config['invoice-recognition'].multimodal['clear-api-key']"
+                      :placeholder="multimodalKeyPlaceholder"
+                    />
+                    <el-checkbox
+                      v-if="config['invoice-recognition'].multimodal['api-key-configured']"
+                      v-model="config['invoice-recognition'].multimodal['clear-api-key']"
+                      :disabled="!canManageInvoiceRecognition"
+                    >
+                      清除凭据
+                    </el-checkbox>
+                  </div>
+                </el-form-item>
+              </div>
+              <div v-if="canManageInvoiceRecognition" class="provider-actions">
+                <el-button
+                  type="primary"
+                  plain
+                  :icon="Connection"
+                  :loading="testingProvider === 'multimodal'"
+                  @click="testProvider('multimodal')"
+                >
+                  测试连接
+                </el-button>
+              </div>
+            </section>
+          </div>
+        </el-tab-pane>
         <el-tab-pane label="自动化代码配置" name="12" class="mt-3.5">
           <el-form-item label="是否自动重启(linux)">
             <el-switch v-model="config.autocode['transfer-restart']" />
@@ -985,18 +1167,52 @@
 </template>
 
 <script setup>
-  import { getSystemConfig, reloadSystem, setSystemConfig } from '@/api/system'
-  import { ref } from 'vue'
+  import {
+    getSystemConfig,
+    reloadSystem,
+    setSystemConfig,
+    testInvoiceRecognitionProvider
+  } from '@/api/system'
+  import { computed, ref } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
-  import { Minus, Plus } from '@element-plus/icons-vue'
+  import { Connection, Minus, Plus } from '@element-plus/icons-vue'
   import { emailTest } from '@/api/email'
   import { CreateUUID } from '@/utils/format'
+  import { useUserStore } from '@/pinia/modules/user'
 
   defineOptions({
     name: 'Config'
   })
 
   const activeNames = ref('1')
+  const userStore = useUserStore()
+  const canManageInvoiceRecognition = computed(
+    () => Number(userStore.userInfo.authorityId) === 888
+  )
+  const testingProvider = ref('')
+
+  const defaultInvoiceRecognition = () => ({
+    'fallback-threshold': 0.82,
+    'public-ocr': {
+      enabled: false,
+      provider: 'http-compatible',
+      endpoint: '',
+      'api-key': '',
+      'api-key-configured': false,
+      'clear-api-key': false,
+      'timeout-seconds': 30
+    },
+    multimodal: {
+      enabled: false,
+      'base-url': '',
+      'api-key': '',
+      'api-key-configured': false,
+      'clear-api-key': false,
+      model: '',
+      'timeout-seconds': 45
+    }
+  })
+
   const config = ref({
     system: {
       'iplimit-count': 0,
@@ -1041,13 +1257,47 @@
     email: {},
     timer: {
       detail: {}
-    }
+    },
+    'invoice-recognition': defaultInvoiceRecognition()
   })
+
+  const normalizeInvoiceRecognition = () => {
+    const defaults = defaultInvoiceRecognition()
+    const current = config.value['invoice-recognition'] || {}
+    config.value['invoice-recognition'] = {
+      ...defaults,
+      ...current,
+      'public-ocr': { ...defaults['public-ocr'], ...(current['public-ocr'] || {}) },
+      multimodal: { ...defaults.multimodal, ...(current.multimodal || {}) }
+    }
+  }
+
+  const publicOCRKeyReady = computed(() => {
+    const provider = config.value['invoice-recognition']['public-ocr']
+    return !provider['clear-api-key'] &&
+      (provider['api-key-configured'] || Boolean(provider['api-key']))
+  })
+  const multimodalKeyReady = computed(() => {
+    const provider = config.value['invoice-recognition'].multimodal
+    return !provider['clear-api-key'] &&
+      (provider['api-key-configured'] || Boolean(provider['api-key']))
+  })
+  const publicOCRKeyPlaceholder = computed(() =>
+    config.value['invoice-recognition']['public-ocr']['api-key-configured']
+      ? '已配置，留空保持不变'
+      : '请输入 API Key（可选）'
+  )
+  const multimodalKeyPlaceholder = computed(() =>
+    config.value['invoice-recognition'].multimodal['api-key-configured']
+      ? '已配置，留空保持不变'
+      : '请输入 API Key（可选）'
+  )
 
   const initForm = async () => {
     const res = await getSystemConfig()
     if (res.code === 0) {
       config.value = res.data.config
+      normalizeInvoiceRecognition()
     }
   }
   initForm()
@@ -1082,6 +1332,22 @@
         message: '配置文件设置成功'
       })
       await initForm()
+    }
+  }
+
+  const testProvider = async (target) => {
+    if (!canManageInvoiceRecognition.value || testingProvider.value) return
+    testingProvider.value = target
+    try {
+      const res = await testInvoiceRecognitionProvider({
+        target,
+        config: config.value['invoice-recognition']
+      })
+      if (res.code === 0) {
+        ElMessage.success(target === 'public-ocr' ? '公网 OCR 连接正常' : '多模态模型连接正常')
+      }
+    } finally {
+      testingProvider.value = ''
     }
   }
 
@@ -1122,6 +1388,144 @@
     @apply bg-white p-9 rounded dark:bg-slate-900;
     h2 {
       @apply p-2.5 my-2.5 text-lg shadow;
+    }
+  }
+
+  .recognition-settings {
+    max-width: 1120px;
+  }
+
+  .recognition-overview {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 4px 0 20px;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+  }
+
+  .recognition-flow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .flow-node {
+    padding: 5px 9px;
+    border: 1px solid var(--el-color-primary-light-5);
+    border-radius: 4px;
+    color: var(--el-color-primary);
+    background: var(--el-color-primary-light-9);
+    font-size: 12px;
+    line-height: 18px;
+    white-space: nowrap;
+  }
+
+  .flow-node.is-fixed {
+    color: var(--el-text-color-regular);
+    border-color: var(--el-border-color);
+    background: var(--el-fill-color-light);
+  }
+
+  .flow-arrow {
+    color: var(--el-text-color-placeholder);
+    font-size: 13px;
+  }
+
+  .threshold-field {
+    flex: 0 0 auto;
+    margin-bottom: 0;
+  }
+
+  .provider-section {
+    padding: 22px 0;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+  }
+
+  .provider-heading,
+  .provider-title-line,
+  .provider-actions,
+  .secret-row {
+    display: flex;
+    align-items: center;
+  }
+
+  .provider-heading {
+    justify-content: space-between;
+    margin-bottom: 18px;
+  }
+
+  .provider-title-line {
+    gap: 10px;
+  }
+
+  .provider-title-line h3 {
+    margin: 0;
+    color: var(--el-text-color-primary);
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 24px;
+  }
+
+  .provider-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 24px;
+  }
+
+  .provider-grid .grid-full {
+    grid-column: 1 / -1;
+  }
+
+  .provider-grid :deep(.el-input),
+  .provider-grid :deep(.el-input-number) {
+    width: 100%;
+  }
+
+  .secret-row {
+    gap: 14px;
+    width: 100%;
+  }
+
+  .secret-row :deep(.el-checkbox) {
+    flex: 0 0 auto;
+    margin-right: 0;
+  }
+
+  .input-unit {
+    margin-left: 8px;
+    color: var(--el-text-color-secondary);
+    font-size: 12px;
+  }
+
+  .provider-actions {
+    justify-content: flex-end;
+  }
+
+  @media (max-width: 860px) {
+    .recognition-overview {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .recognition-flow {
+      flex-wrap: wrap;
+    }
+
+    .provider-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .provider-grid .grid-full {
+      grid-column: auto;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .secret-row {
+      align-items: flex-start;
+      flex-direction: column;
     }
   }
 </style>

@@ -20,7 +20,10 @@ type SystemConfigService struct{}
 var SystemConfigServiceApp = new(SystemConfigService)
 
 func (systemConfigService *SystemConfigService) GetSystemConfig() (conf config.Server, err error) {
-	return global.GVA_CONFIG, nil
+	conf = global.GVA_CONFIG
+	conf.InvoiceRecognition.Normalize()
+	conf.InvoiceRecognition = conf.InvoiceRecognition.Redacted()
+	return conf, nil
 }
 
 // @description   set system config,
@@ -30,13 +33,26 @@ func (systemConfigService *SystemConfigService) GetSystemConfig() (conf config.S
 //@param: system model.System
 //@return: err error
 
-func (systemConfigService *SystemConfigService) SetSystemConfig(system system.System) (err error) {
+func (systemConfigService *SystemConfigService) SetSystemConfig(system system.System, allowInvoiceRecognition bool) (err error) {
+	system.Config.InvoiceRecognition = system.Config.InvoiceRecognition.MergeSecrets(
+		global.GVA_CONFIG.InvoiceRecognition,
+		allowInvoiceRecognition,
+	)
+	system.Config.InvoiceRecognition.Normalize()
+	if err = system.Config.InvoiceRecognition.Validate(); err != nil {
+		return err
+	}
 	cs := utils.StructToMap(system.Config)
 	for k, v := range cs {
 		global.GVA_VP.Set(k, v)
 	}
-	err = global.GVA_VP.WriteConfig()
-	return err
+	if err = global.GVA_VP.WriteConfig(); err != nil {
+		return err
+	}
+	// The invoice worker reads this section for every job, so provider changes
+	// take effect immediately without restarting database connections.
+	global.GVA_CONFIG.InvoiceRecognition = system.Config.InvoiceRecognition
+	return nil
 }
 
 //@author: [SliverHorn](https://github.com/SliverHorn)
