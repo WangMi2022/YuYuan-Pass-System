@@ -44,13 +44,13 @@ func (s *SystemApi) SetSystemConfig(c *gin.Context) {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
-	err = systemConfigService.SetSystemConfig(sys, utils.GetUserAuthorityId(c) == 888)
+	protocol, err := systemConfigService.SetSystemConfig(c.Request.Context(), sys, utils.GetUserAuthorityId(c) == 888)
 	if err != nil {
 		global.GVA_LOG.Error("设置失败!", zap.Error(err))
-		response.FailWithMessage("设置失败", c)
+		response.FailWithMessage(err.Error(), c)
 		return
 	}
-	response.OkWithMessage("设置成功", c)
+	response.OkWithDetailed(gin.H{"multimodalProtocol": protocol}, "设置成功", c)
 }
 
 // ReloadSystem

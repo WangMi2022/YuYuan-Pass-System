@@ -1015,6 +1015,14 @@
                   >
                     {{ multimodalKeyReady ? '凭据已配置' : '无凭据' }}
                   </el-tag>
+                  <el-tag
+                    v-if="multimodalProtocolLabel"
+                    type="info"
+                    effect="plain"
+                    size="small"
+                  >
+                    {{ multimodalProtocolLabel }}
+                  </el-tag>
                 </div>
                 <el-switch
                   v-model="config['invoice-recognition'].multimodal.enabled"
@@ -1030,6 +1038,7 @@
                     v-model.trim="config['invoice-recognition'].multimodal['base-url']"
                     :disabled="!canManageInvoiceRecognition"
                     placeholder="https://api.example.com/v1"
+                    @input="resetMultimodalProtocol"
                   />
                 </el-form-item>
                 <el-form-item label="模型" label-width="112px">
@@ -1037,6 +1046,7 @@
                     v-model.trim="config['invoice-recognition'].multimodal.model"
                     :disabled="!canManageInvoiceRecognition"
                     placeholder="请输入支持图片的模型名称"
+                    @input="resetMultimodalProtocol"
                   />
                 </el-form-item>
                 <el-form-item label="请求超时" label-width="112px">
@@ -1058,11 +1068,13 @@
                       autocomplete="new-password"
                       :disabled="!canManageInvoiceRecognition || config['invoice-recognition'].multimodal['clear-api-key']"
                       :placeholder="multimodalKeyPlaceholder"
+                      @input="resetMultimodalProtocol"
                     />
                     <el-checkbox
                       v-if="config['invoice-recognition'].multimodal['api-key-configured']"
                       v-model="config['invoice-recognition'].multimodal['clear-api-key']"
                       :disabled="!canManageInvoiceRecognition"
+                      @change="resetMultimodalProtocol"
                     >
                       清除凭据
                     </el-checkbox>
@@ -1209,6 +1221,7 @@
       'api-key-configured': false,
       'clear-api-key': false,
       model: '',
+      protocol: '',
       'timeout-seconds': 45
     }
   })
@@ -1292,6 +1305,16 @@
       ? '已配置，留空保持不变'
       : '请输入 API Key（可选）'
   )
+  const multimodalProtocolLabel = computed(() => {
+    const protocol = config.value['invoice-recognition'].multimodal.protocol
+    if (protocol === 'openai-compatible') return '协议：OpenAI Compatible（自动）'
+    if (protocol === 'anthropic') return '协议：Anthropic（自动）'
+    return ''
+  })
+
+  const resetMultimodalProtocol = () => {
+    config.value['invoice-recognition'].multimodal.protocol = ''
+  }
 
   const initForm = async () => {
     const res = await getSystemConfig()
@@ -1325,27 +1348,43 @@
   }
 
   const update = async () => {
+    const multimodal = config.value['invoice-recognition'].multimodal
     const res = await setSystemConfig({ config: config.value })
     if (res.code === 0) {
+      const protocol = res.data?.multimodalProtocol
       ElMessage({
         type: 'success',
-        message: '配置文件设置成功'
+        message: multimodal.enabled && protocol
+          ? `配置文件设置成功，多模态协议：${protocol === 'anthropic' ? 'Anthropic' : 'OpenAI Compatible'}（自动识别）`
+          : '配置文件设置成功'
       })
       await initForm()
     }
   }
 
-  const testProvider = async (target) => {
-    if (!canManageInvoiceRecognition.value || testingProvider.value) return
+  const testProvider = async (target, notify = true) => {
+    if (!canManageInvoiceRecognition.value || testingProvider.value) return false
     testingProvider.value = target
     try {
       const res = await testInvoiceRecognitionProvider({
         target,
         config: config.value['invoice-recognition']
       })
-      if (res.code === 0) {
-        ElMessage.success(target === 'public-ocr' ? '公网 OCR 连接正常' : '多模态模型连接正常')
+      if (res?.code !== 0) return false
+      if (target === 'multimodal') {
+        const protocol = res.data?.protocol
+        if (!['openai-compatible', 'anthropic'].includes(protocol)) {
+          ElMessage.error('连接成功，但未能确定接口协议')
+          return false
+        }
+        config.value['invoice-recognition'].multimodal.protocol = protocol
+        if (notify) {
+          ElMessage.success(`多模态模型连接正常，已自动识别为 ${protocol === 'anthropic' ? 'Anthropic' : 'OpenAI Compatible'} 协议`)
+        }
+      } else if (notify) {
+        ElMessage.success('公网 OCR 连接正常')
       }
+      return true
     } finally {
       testingProvider.value = ''
     }
@@ -1457,6 +1496,7 @@
   }
 
   .provider-title-line {
+    flex-wrap: wrap;
     gap: 10px;
   }
 

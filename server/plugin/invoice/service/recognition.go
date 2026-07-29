@@ -164,7 +164,7 @@ func (RecognitionService) TestProviderConnection(
 	ctx context.Context,
 	target string,
 	configuration config.InvoiceRecognition,
-) error {
+) (string, error) {
 	configuration = configuration.MergeSecrets(global.GVA_CONFIG.InvoiceRecognition, true)
 	configuration.Normalize()
 	return provider.TestConnection(ctx, target, configuration)

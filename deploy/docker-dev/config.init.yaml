@@ -250,6 +250,7 @@ invoice-recognition:
         base-url: ""
         api-key: ""
         model: ""
+        protocol: ""
         timeout-seconds: 45
 
 disk-list:

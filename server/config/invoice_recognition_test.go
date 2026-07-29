@@ -26,8 +26,11 @@ func TestInvoiceRecognitionRedactsAPIKeys(t *testing.T) {
 
 func TestInvoiceRecognitionMergeSecrets(t *testing.T) {
 	current := InvoiceRecognition{
-		PublicOCR:  InvoicePublicOCR{Endpoint: "https://old.example", APIKey: "old-ocr"},
-		Multimodal: InvoiceMultimodalProvider{BaseURL: "https://old-ai.example/v1", APIKey: "old-ai"},
+		PublicOCR: InvoicePublicOCR{Endpoint: "https://old.example", APIKey: "old-ocr"},
+		Multimodal: InvoiceMultimodalProvider{
+			BaseURL: "https://old-ai.example/v1", APIKey: "old-ai", Model: "vision-model",
+			Protocol: MultimodalProtocolOpenAICompatible,
+		},
 	}
 	request := InvoiceRecognition{
 		PublicOCR:  InvoicePublicOCR{Endpoint: "https://new.example"},
@@ -45,5 +48,46 @@ func TestInvoiceRecognitionMergeSecrets(t *testing.T) {
 	blocked := request.MergeSecrets(current, false)
 	if blocked.PublicOCR.Endpoint != current.PublicOCR.Endpoint || blocked.Multimodal.BaseURL != current.Multimodal.BaseURL {
 		t.Fatal("non-admin changed invoice recognition configuration")
+	}
+}
+
+func TestInvoiceRecognitionPreservesDetectedProtocolForOlderClients(t *testing.T) {
+	current := InvoiceRecognition{Multimodal: InvoiceMultimodalProvider{
+		BaseURL: "https://ai.example/v1", Model: "vision-model",
+		APIKey: "stored-key", Protocol: MultimodalProtocolAnthropic,
+	}}
+	request := InvoiceRecognition{Multimodal: InvoiceMultimodalProvider{
+		BaseURL: "https://ai.example/v1", Model: "vision-model",
+	}}
+
+	merged := request.MergeSecrets(current, true)
+	if merged.Multimodal.Protocol != MultimodalProtocolAnthropic {
+		t.Fatalf("detected protocol was not preserved: %#v", merged.Multimodal)
+	}
+
+	request.Multimodal.Model = "new-model"
+	merged = request.MergeSecrets(current, true)
+	if merged.Multimodal.Protocol != "" {
+		t.Fatalf("protocol should be cleared after connection identity changes: %#v", merged.Multimodal)
+	}
+
+	request.Multimodal.Model = current.Multimodal.Model
+	request.Multimodal.APIKeyInput = "new-key"
+	merged = request.MergeSecrets(current, true)
+	if merged.Multimodal.Protocol != "" {
+		t.Fatalf("protocol should be cleared after API key changes: %#v", merged.Multimodal)
+	}
+}
+
+func TestInvoiceRecognitionNormalizesAndValidatesProtocol(t *testing.T) {
+	configuration := InvoiceRecognition{Multimodal: InvoiceMultimodalProvider{Protocol: " Anthropic "}}
+	configuration.Normalize()
+	if configuration.Multimodal.Protocol != MultimodalProtocolAnthropic {
+		t.Fatalf("protocol was not normalized: %q", configuration.Multimodal.Protocol)
+	}
+
+	configuration.Multimodal.Protocol = "custom"
+	if err := configuration.Validate(); err == nil {
+		t.Fatal("invalid protocol was accepted")
 	}
 }

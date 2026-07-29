@@ -134,11 +134,12 @@ func (invoiceAPI) TestProviderConnection(c *gin.Context) {
 		commonResponse.FailWithMessage("连接测试参数不正确", c)
 		return
 	}
-	if err := serviceRecognition.TestProviderConnection(c.Request.Context(), request.Target, request.Config); err != nil {
+	protocol, err := serviceRecognition.TestProviderConnection(c.Request.Context(), request.Target, request.Config)
+	if err != nil {
 		commonResponse.FailWithMessage(err.Error(), c)
 		return
 	}
-	commonResponse.OkWithMessage("连接测试成功", c)
+	commonResponse.OkWithDetailed(gin.H{"protocol": protocol}, "连接测试成功", c)
 }
 
 func (invoiceAPI) Dashboard(c *gin.Context) {

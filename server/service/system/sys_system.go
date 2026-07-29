@@ -1,11 +1,14 @@
 package system
 
 import (
+	"context"
+	"fmt"
 	"time"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/config"
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/system"
+	invoiceProvider "github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/provider"
 	"github.com/flipped-aurora/gin-vue-admin/server/utils"
 	"go.uber.org/zap"
 )
@@ -33,26 +36,71 @@ func (systemConfigService *SystemConfigService) GetSystemConfig() (conf config.S
 //@param: system model.System
 //@return: err error
 
-func (systemConfigService *SystemConfigService) SetSystemConfig(system system.System, allowInvoiceRecognition bool) (err error) {
-	system.Config.InvoiceRecognition = system.Config.InvoiceRecognition.MergeSecrets(
+func (systemConfigService *SystemConfigService) SetSystemConfig(
+	ctx context.Context,
+	system system.System,
+	allowInvoiceRecognition bool,
+) (multimodalProtocol string, err error) {
+	system.Config.InvoiceRecognition, err = prepareInvoiceRecognitionConfig(
+		ctx,
+		system.Config.InvoiceRecognition,
 		global.GVA_CONFIG.InvoiceRecognition,
 		allowInvoiceRecognition,
 	)
-	system.Config.InvoiceRecognition.Normalize()
-	if err = system.Config.InvoiceRecognition.Validate(); err != nil {
-		return err
+	if err != nil {
+		return "", err
 	}
 	cs := utils.StructToMap(system.Config)
 	for k, v := range cs {
 		global.GVA_VP.Set(k, v)
 	}
 	if err = global.GVA_VP.WriteConfig(); err != nil {
-		return err
+		return "", err
 	}
 	// The invoice worker reads this section for every job, so provider changes
 	// take effect immediately without restarting database connections.
 	global.GVA_CONFIG.InvoiceRecognition = system.Config.InvoiceRecognition
-	return nil
+	return system.Config.InvoiceRecognition.Multimodal.Protocol, nil
+}
+
+func prepareInvoiceRecognitionConfig(
+	ctx context.Context,
+	incoming config.InvoiceRecognition,
+	current config.InvoiceRecognition,
+	allow bool,
+) (config.InvoiceRecognition, error) {
+	current.Normalize()
+	prepared := incoming.MergeSecrets(current, allow)
+	prepared.Normalize()
+	if allow && shouldDetectMultimodalProtocol(current.Multimodal, prepared.Multimodal) {
+		probeConfiguration := prepared
+		probeConfiguration.Multimodal.Protocol = ""
+		if err := probeConfiguration.Validate(); err != nil {
+			return config.InvoiceRecognition{}, err
+		}
+		protocol, err := invoiceProvider.TestConnection(ctx, "multimodal", probeConfiguration)
+		if err != nil {
+			return config.InvoiceRecognition{}, fmt.Errorf("多模态接口协议自动探测失败: %w", err)
+		}
+		prepared.Multimodal.Protocol = protocol
+	}
+	if err := prepared.Validate(); err != nil {
+		return config.InvoiceRecognition{}, err
+	}
+	return prepared, nil
+}
+
+func shouldDetectMultimodalProtocol(
+	current config.InvoiceMultimodalProvider,
+	next config.InvoiceMultimodalProvider,
+) bool {
+	if !next.Enabled {
+		return false
+	}
+	protocolSupported := next.Protocol == config.MultimodalProtocolOpenAICompatible ||
+		next.Protocol == config.MultimodalProtocolAnthropic
+	return !protocolSupported || !current.Enabled || next.Protocol != current.Protocol ||
+		next.BaseURL != current.BaseURL || next.Model != current.Model || next.APIKey != current.APIKey
 }
 
 //@author: [SliverHorn](https://github.com/SliverHorn)

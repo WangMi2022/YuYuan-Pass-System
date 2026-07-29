@@ -13,18 +13,29 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flipped-aurora/gin-vue-admin/server/config"
 	"github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/model"
 )
 
-const maxMultimodalResponseSize = 4 << 20
+const (
+	maxMultimodalResponseSize = 4 << 20
+	probeMaxTokens            = 256
+)
 
 const invoiceExtractionPrompt = `识别图片中的中国发票并只返回一个 JSON 对象，不要返回 Markdown。金额全部换算为整数分，日期格式为 YYYY-MM-DD。无法确认的文本字段返回空字符串，无法确认的金额返回 0。JSON 字段必须是：invoiceType、invoiceCode、invoiceNumber、issueDate、buyerName、buyerTaxNo、sellerName、sellerTaxNo、amountCents、taxCents、totalCents、rawText、confidence、fieldConfidences、items。confidence 和 fieldConfidences 的值范围为 0 到 1。items 每项字段必须是：name、specification、unit、quantityText、unitPriceCents、amountCents、taxRate、taxCents。`
 
 type MultimodalRecognizer struct {
-	BaseURL string
-	APIKey  string
-	Model   string
-	Timeout time.Duration
+	BaseURL  string
+	APIKey   string
+	Model    string
+	Protocol string
+	Timeout  time.Duration
+}
+
+type multimodalCompletion struct {
+	payload  []byte
+	content  string
+	protocol string
 }
 
 type multimodalInvoiceResult struct {
@@ -57,16 +68,12 @@ type multimodalInvoiceLineItem struct {
 }
 
 func (r *MultimodalRecognizer) Recognize(ctx context.Context, input Input) (Result, error) {
-	payload, err := r.chat(ctx, input, invoiceExtractionPrompt, 4000)
-	if err != nil {
-		return Result{}, err
-	}
-	content, err := multimodalResponseContent(payload)
+	completion, err := r.complete(ctx, input, invoiceExtractionPrompt, 4000)
 	if err != nil {
 		return Result{}, err
 	}
 	var extracted multimodalInvoiceResult
-	if err = json.Unmarshal(extractJSONObject(content), &extracted); err != nil {
+	if err = json.Unmarshal(extractJSONObject(completion.content), &extracted); err != nil {
 		return Result{}, fmt.Errorf("多模态识别结果解析失败: %w", err)
 	}
 	issueDate, err := parseIssueDate(extracted.IssueDate)
@@ -94,57 +101,158 @@ func (r *MultimodalRecognizer) Recognize(ctx context.Context, input Input) (Resu
 		IssueDate: issueDate, BuyerName: extracted.BuyerName, BuyerTaxNo: extracted.BuyerTaxNo,
 		SellerName: extracted.SellerName, SellerTaxNo: extracted.SellerTaxNo,
 		AmountCents: extracted.AmountCents, TaxCents: extracted.TaxCents, TotalCents: extracted.TotalCents,
-		RawText: extracted.RawText, RawPayload: string(payload), Confidence: confidence,
+		RawText: extracted.RawText, RawPayload: string(completion.payload), Confidence: confidence,
 		FieldConfidences: extracted.FieldConfidences, Items: items,
 	}, nil
 }
 
-func (r *MultimodalRecognizer) Probe(ctx context.Context) error {
-	payload, err := r.chat(ctx, Input{
+func (r *MultimodalRecognizer) Probe(ctx context.Context) (string, error) {
+	completion, err := r.complete(ctx, Input{
 		FileName: "connection-test.png", ContentType: "image/png", Data: probePNG,
-	}, "请确认你能读取这张测试图片，只回复 OK。", 16)
+	}, "请确认你能读取这张测试图片，只回复 OK。", probeMaxTokens)
 	if err != nil {
-		return err
+		return "", err
 	}
-	_, err = multimodalResponseContent(payload)
-	return err
+	return completion.protocol, nil
 }
 
-func (r *MultimodalRecognizer) chat(ctx context.Context, input Input, prompt string, maxTokens int) ([]byte, error) {
+func (r *MultimodalRecognizer) complete(
+	ctx context.Context,
+	input Input,
+	prompt string,
+	maxTokens int,
+) (multimodalCompletion, error) {
+	protocols, err := multimodalProtocolCandidates(r.Protocol)
+	if err != nil {
+		return multimodalCompletion{}, err
+	}
+	attemptErrors := make([]error, 0, len(protocols))
+	for _, protocol := range protocols {
+		payload, requestErr := r.chat(ctx, input, prompt, maxTokens, protocol)
+		if requestErr == nil {
+			var content string
+			content, requestErr = multimodalResponseContent(payload, protocol)
+			if requestErr == nil {
+				r.Protocol = protocol
+				return multimodalCompletion{payload: payload, content: content, protocol: protocol}, nil
+			}
+		}
+		attemptErrors = append(attemptErrors, fmt.Errorf("%s: %w", multimodalProtocolName(protocol), requestErr))
+	}
+	if len(protocols) == 1 {
+		return multimodalCompletion{}, attemptErrors[0]
+	}
+	return multimodalCompletion{}, fmt.Errorf(
+		"无法自动识别多模态接口协议（已尝试 OpenAI Compatible 和 Anthropic）: %w",
+		errors.Join(attemptErrors...),
+	)
+}
+
+func multimodalProtocolCandidates(protocol string) ([]string, error) {
+	switch strings.ToLower(strings.TrimSpace(protocol)) {
+	case "":
+		return []string{
+			config.MultimodalProtocolOpenAICompatible,
+			config.MultimodalProtocolAnthropic,
+		}, nil
+	case config.MultimodalProtocolOpenAICompatible:
+		return []string{config.MultimodalProtocolOpenAICompatible}, nil
+	case config.MultimodalProtocolAnthropic:
+		return []string{config.MultimodalProtocolAnthropic}, nil
+	default:
+		return nil, errors.New("多模态模型协议不正确，请重新测试连接")
+	}
+}
+
+func multimodalProtocolName(protocol string) string {
+	if protocol == config.MultimodalProtocolAnthropic {
+		return "Anthropic"
+	}
+	return "OpenAI Compatible"
+}
+
+func (r *MultimodalRecognizer) chat(
+	ctx context.Context,
+	input Input,
+	prompt string,
+	maxTokens int,
+	protocol string,
+) ([]byte, error) {
 	mimeType := strings.TrimSpace(input.ContentType)
 	if mimeType != "image/jpeg" && mimeType != "image/png" {
 		mimeType = "image/png"
 	}
-	requestBody := map[string]any{
-		"model": r.Model,
-		"messages": []map[string]any{{
-			"role": "user",
-			"content": []map[string]any{
-				{"type": "text", "text": prompt},
-				{"type": "image_url", "image_url": map[string]any{
-					"url":    "data:" + mimeType + ";base64," + base64.StdEncoding.EncodeToString(input.Data),
-					"detail": "high",
-				}},
-			},
-		}},
-		"temperature": 0,
-		"max_tokens":  maxTokens,
+	encodedImage := base64.StdEncoding.EncodeToString(input.Data)
+	var requestBody map[string]any
+	var endpoint string
+	switch protocol {
+	case config.MultimodalProtocolOpenAICompatible:
+		endpoint = chatCompletionsURL(r.BaseURL)
+		requestBody = map[string]any{
+			"model": r.Model,
+			"messages": []map[string]any{{
+				"role": "user",
+				"content": []map[string]any{
+					{"type": "text", "text": prompt},
+					{"type": "image_url", "image_url": map[string]any{
+						"url": "data:" + mimeType + ";base64," + encodedImage, "detail": "high",
+					}},
+				},
+			}},
+			"temperature": 0,
+			"max_tokens":  maxTokens,
+		}
+	case config.MultimodalProtocolAnthropic:
+		endpoint = anthropicMessagesURL(r.BaseURL)
+		requestBody = map[string]any{
+			"model": r.Model,
+			"messages": []map[string]any{{
+				"role": "user",
+				"content": []map[string]any{
+					{"type": "image", "source": map[string]any{
+						"type": "base64", "media_type": mimeType, "data": encodedImage,
+					}},
+					{"type": "text", "text": prompt},
+				},
+			}},
+			"temperature": 0,
+			"max_tokens":  maxTokens,
+		}
+	default:
+		return nil, errors.New("多模态模型协议不正确，请重新测试连接")
 	}
 	encoded, err := json.Marshal(requestBody)
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, chatCompletionsURL(r.BaseURL), bytes.NewReader(encoded))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(encoded))
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if strings.TrimSpace(r.APIKey) != "" {
+	if strings.TrimSpace(r.APIKey) != "" && protocol == config.MultimodalProtocolOpenAICompatible {
 		req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(r.APIKey))
 	}
-	client := &http.Client{Timeout: r.Timeout}
+	if strings.TrimSpace(r.APIKey) != "" && protocol == config.MultimodalProtocolAnthropic {
+		req.Header.Set("x-api-key", strings.TrimSpace(r.APIKey))
+	}
+	if protocol == config.MultimodalProtocolAnthropic {
+		req.Header.Set("anthropic-version", "2023-06-01")
+	}
+	client := &http.Client{
+		Timeout: r.Timeout,
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+			// Provider redirects are not followed because custom authentication
+			// headers such as x-api-key may otherwise be forwarded to another host.
+			return http.ErrUseLastResponse
+		},
+	}
 	resp, err := client.Do(req)
 	if err != nil {
+		var urlErr *url.Error
+		if errors.As(err, &urlErr) {
+			err = urlErr.Err
+		}
 		return nil, fmt.Errorf("多模态模型请求失败: %w", err)
 	}
 	defer resp.Body.Close()
@@ -183,11 +291,38 @@ func chatCompletionsURL(baseURL string) string {
 	return parsed.String()
 }
 
-func multimodalResponseContent(payload []byte) (string, error) {
+func anthropicMessagesURL(baseURL string) string {
+	parsed, err := url.Parse(strings.TrimSpace(baseURL))
+	if err != nil {
+		return strings.TrimSpace(baseURL)
+	}
+	path := strings.TrimRight(parsed.Path, "/")
+	if !strings.HasSuffix(path, "/messages") {
+		if strings.HasSuffix(path, "/v1") {
+			path += "/messages"
+		} else {
+			path += "/v1/messages"
+		}
+	}
+	parsed.Path = path
+	parsed.RawPath = ""
+	parsed.Fragment = ""
+	return parsed.String()
+}
+
+func multimodalResponseContent(payload []byte, protocol string) (string, error) {
+	if protocol == config.MultimodalProtocolAnthropic {
+		return anthropicResponseContent(payload)
+	}
+	return openAIResponseContent(payload)
+}
+
+func openAIResponseContent(payload []byte) (string, error) {
 	var response struct {
 		Choices []struct {
 			Message struct {
-				Content json.RawMessage `json:"content"`
+				Content          json.RawMessage `json:"content"`
+				ReasoningContent json.RawMessage `json:"reasoning_content"`
 			} `json:"message"`
 		} `json:"choices"`
 	}
@@ -200,7 +335,7 @@ func multimodalResponseContent(payload []byte) (string, error) {
 	var content string
 	if err := json.Unmarshal(response.Choices[0].Message.Content, &content); err == nil {
 		if strings.TrimSpace(content) == "" {
-			return "", errors.New("多模态模型返回内容为空")
+			return "", emptyOpenAIContentError(response.Choices[0].Message.ReasoningContent)
 		}
 		return content, nil
 	}
@@ -213,6 +348,38 @@ func multimodalResponseContent(payload []byte) (string, error) {
 	}
 	var builder strings.Builder
 	for _, part := range parts {
+		if part.Type == "text" || part.Type == "output_text" {
+			builder.WriteString(part.Text)
+		}
+	}
+	if strings.TrimSpace(builder.String()) == "" {
+		return "", emptyOpenAIContentError(response.Choices[0].Message.ReasoningContent)
+	}
+	return builder.String(), nil
+}
+
+func emptyOpenAIContentError(reasoningContent json.RawMessage) error {
+	if len(reasoningContent) > 0 && string(reasoningContent) != "null" && string(reasoningContent) != `""` {
+		return errors.New("多模态模型只返回了推理内容，未返回正文")
+	}
+	return errors.New("多模态模型返回内容为空")
+}
+
+func anthropicResponseContent(payload []byte) (string, error) {
+	var response struct {
+		Content []struct {
+			Type string `json:"type"`
+			Text string `json:"text"`
+		} `json:"content"`
+	}
+	if err := json.Unmarshal(payload, &response); err != nil {
+		return "", fmt.Errorf("多模态模型响应解析失败: %w", err)
+	}
+	if len(response.Content) == 0 {
+		return "", errors.New("多模态模型未返回结果")
+	}
+	var builder strings.Builder
+	for _, part := range response.Content {
 		if part.Type == "text" || part.Type == "output_text" {
 			builder.WriteString(part.Text)
 		}

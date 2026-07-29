@@ -75,10 +75,11 @@ func New(configuration config.InvoiceRecognition) *Chain {
 	}
 	if configuration.Multimodal.Enabled && configuration.Multimodal.BaseURL != "" {
 		chain.multimodal = &MultimodalRecognizer{
-			BaseURL: configuration.Multimodal.BaseURL,
-			APIKey:  configuration.Multimodal.APIKey,
-			Model:   configuration.Multimodal.Model,
-			Timeout: time.Duration(configuration.Multimodal.TimeoutSeconds) * time.Second,
+			BaseURL:  configuration.Multimodal.BaseURL,
+			APIKey:   configuration.Multimodal.APIKey,
+			Model:    configuration.Multimodal.Model,
+			Protocol: configuration.Multimodal.Protocol,
+			Timeout:  time.Duration(configuration.Multimodal.TimeoutSeconds) * time.Second,
 		}
 	}
 	return chain
@@ -220,38 +221,40 @@ func validConfidence(confidence float64) bool {
 	return !math.IsNaN(confidence) && !math.IsInf(confidence, 0) && confidence >= 0 && confidence <= 1
 }
 
-func TestConnection(ctx context.Context, target string, configuration config.InvoiceRecognition) error {
+func TestConnection(ctx context.Context, target string, configuration config.InvoiceRecognition) (string, error) {
 	configuration.Normalize()
 	switch target {
 	case "public-ocr":
 		configuration.Multimodal.Enabled = false
 		if err := configuration.Validate(); err != nil {
-			return err
+			return "", err
 		}
 		if !configuration.PublicOCR.Enabled {
-			return errors.New("请先启用公网 OCR")
+			return "", errors.New("请先启用公网 OCR")
 		}
-		return (&HTTPRecognizer{
+		err := (&HTTPRecognizer{
 			Endpoint: configuration.PublicOCR.Endpoint,
 			Token:    configuration.PublicOCR.APIKey,
 			Timeout:  time.Duration(configuration.PublicOCR.TimeoutSeconds) * time.Second,
 			Provider: configuration.PublicOCR.Provider,
 		}).Probe(ctx)
+		return "", err
 	case "multimodal":
 		configuration.PublicOCR.Enabled = false
 		if err := configuration.Validate(); err != nil {
-			return err
+			return "", err
 		}
 		if !configuration.Multimodal.Enabled {
-			return errors.New("请先启用多模态模型")
+			return "", errors.New("请先启用多模态模型")
 		}
 		return (&MultimodalRecognizer{
-			BaseURL: configuration.Multimodal.BaseURL,
-			APIKey:  configuration.Multimodal.APIKey,
-			Model:   configuration.Multimodal.Model,
-			Timeout: time.Duration(configuration.Multimodal.TimeoutSeconds) * time.Second,
+			BaseURL:  configuration.Multimodal.BaseURL,
+			APIKey:   configuration.Multimodal.APIKey,
+			Model:    configuration.Multimodal.Model,
+			Protocol: configuration.Multimodal.Protocol,
+			Timeout:  time.Duration(configuration.Multimodal.TimeoutSeconds) * time.Second,
 		}).Probe(ctx)
 	default:
-		return errors.New("不支持的识别服务类型")
+		return "", errors.New("不支持的识别服务类型")
 	}
 }

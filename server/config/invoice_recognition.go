@@ -10,6 +10,9 @@ const (
 	defaultOCRTimeoutSeconds        = 30
 	defaultMultimodalTimeoutSeconds = 45
 	defaultFallbackThreshold        = 0.82
+
+	MultimodalProtocolOpenAICompatible = "openai-compatible"
+	MultimodalProtocolAnthropic        = "anthropic"
 )
 
 // InvoiceRecognition contains the runtime providers used by the invoice worker.
@@ -36,6 +39,7 @@ type InvoiceMultimodalProvider struct {
 	BaseURL          string `mapstructure:"base-url" json:"base-url" yaml:"base-url"`
 	APIKey           string `mapstructure:"api-key" json:"-" yaml:"api-key"`
 	Model            string `mapstructure:"model" json:"model" yaml:"model"`
+	Protocol         string `mapstructure:"protocol" json:"protocol" yaml:"protocol"`
 	TimeoutSeconds   int    `mapstructure:"timeout-seconds" json:"timeout-seconds" yaml:"timeout-seconds"`
 	APIKeyInput      string `mapstructure:"-" json:"api-key,omitempty" yaml:"-"`
 	APIKeyConfigured bool   `mapstructure:"-" json:"api-key-configured" yaml:"-"`
@@ -47,6 +51,7 @@ func (c *InvoiceRecognition) Normalize() {
 	c.PublicOCR.Endpoint = strings.TrimSpace(c.PublicOCR.Endpoint)
 	c.Multimodal.BaseURL = strings.TrimSpace(c.Multimodal.BaseURL)
 	c.Multimodal.Model = strings.TrimSpace(c.Multimodal.Model)
+	c.Multimodal.Protocol = strings.ToLower(strings.TrimSpace(c.Multimodal.Protocol))
 	if c.PublicOCR.Provider == "" {
 		c.PublicOCR.Provider = "http-compatible"
 	}
@@ -70,6 +75,11 @@ func (c InvoiceRecognition) Validate() error {
 	}
 	if len(c.Multimodal.Model) > 200 {
 		return errors.New("多模态模型名称不能超过 200 个字符")
+	}
+	if c.Multimodal.Protocol != "" &&
+		c.Multimodal.Protocol != MultimodalProtocolOpenAICompatible &&
+		c.Multimodal.Protocol != MultimodalProtocolAnthropic {
+		return errors.New("多模态模型协议不正确，请重新测试连接")
 	}
 	if len(c.PublicOCR.APIKey) > 8192 || len(c.Multimodal.APIKey) > 8192 {
 		return errors.New("识别服务 API Key 长度超出限制")
@@ -114,6 +124,14 @@ func (c InvoiceRecognition) Redacted() InvoiceRecognition {
 func (c InvoiceRecognition) MergeSecrets(current InvoiceRecognition, allow bool) InvoiceRecognition {
 	if !allow {
 		return current
+	}
+	multimodalConnectionUnchanged := strings.TrimSpace(c.Multimodal.BaseURL) == strings.TrimSpace(current.Multimodal.BaseURL) &&
+		strings.TrimSpace(c.Multimodal.Model) == strings.TrimSpace(current.Multimodal.Model) &&
+		strings.TrimSpace(c.Multimodal.APIKeyInput) == "" && !c.Multimodal.ClearAPIKey
+	if strings.TrimSpace(c.Multimodal.Protocol) == "" && multimodalConnectionUnchanged {
+		// Older clients do not submit the hidden protocol field. Preserve a
+		// previously detected value only while the connection identity is unchanged.
+		c.Multimodal.Protocol = current.Multimodal.Protocol
 	}
 	if c.PublicOCR.ClearAPIKey {
 		c.PublicOCR.APIKey = ""
