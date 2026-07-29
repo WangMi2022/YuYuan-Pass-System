@@ -28,7 +28,7 @@ func syncBusinessNavigation(ctx context.Context) error {
 		collaboration := system.SysBaseMenu{
 			ParentId: 0,
 			Path:     "collaborationCenter", Name: collaborationMenuName, Hidden: false,
-			Component: "view/routerHolder.vue", Sort: 3,
+			Component: "view/routerHolder.vue", Sort: 4,
 			Meta: system.Meta{Title: "协同办公", Icon: "briefcase"},
 		}
 		if err := tx.Where("name = ?", collaboration.Name).FirstOrCreate(&collaboration).Error; err != nil {
@@ -36,7 +36,7 @@ func syncBusinessNavigation(ctx context.Context) error {
 		}
 		if err := tx.Model(&system.SysBaseMenu{}).Where("name = ?", collaboration.Name).Updates(map[string]any{
 			"parent_id": 0, "menu_level": 0, "path": collaboration.Path,
-			"component": collaboration.Component, "hidden": false, "sort": 3,
+			"component": collaboration.Component, "hidden": false, "sort": 4,
 			"title": "协同办公", "icon": "briefcase",
 		}).Error; err != nil {
 			return err
@@ -45,7 +45,7 @@ func syncBusinessNavigation(ctx context.Context) error {
 		monitor := system.SysBaseMenu{
 			ParentId: 0,
 			Path:     "monitorCenter", Name: monitorMenuName, Hidden: false,
-			Component: "view/routerHolder.vue", Sort: 4,
+			Component: "view/routerHolder.vue", Sort: 5,
 			Meta: system.Meta{Title: "监控状态", Icon: "monitor"},
 		}
 		if err := tx.Where("name = ?", monitor.Name).FirstOrCreate(&monitor).Error; err != nil {
@@ -62,7 +62,7 @@ func syncBusinessNavigation(ctx context.Context) error {
 		permissionParent := system.SysBaseMenu{
 			ParentId: 0,
 			Path:     "permissionManagement", Name: permissionMenuName, Hidden: false,
-			Component: "view/routerHolder.vue", Sort: 5,
+			Component: "view/routerHolder.vue", Sort: 6,
 			Meta: system.Meta{Title: "权限管理", Icon: "lock"},
 		}
 		if err := tx.Where("name = ?", permissionParent.Name).FirstOrCreate(&permissionParent).Error; err != nil {
@@ -91,7 +91,7 @@ func syncBusinessNavigation(ctx context.Context) error {
 		auditParent := system.SysBaseMenu{
 			ParentId: 0,
 			Path:     "auditPlatform", Name: auditMenuName, Hidden: false,
-			Component: "view/routerHolder.vue", Sort: 6,
+			Component: "view/routerHolder.vue", Sort: 7,
 			Meta: system.Meta{Title: "审计平台", Icon: "document-checked"},
 		}
 		if err := tx.Where("name = ?", auditParent.Name).FirstOrCreate(&auditParent).Error; err != nil {
@@ -118,7 +118,8 @@ func syncBusinessNavigation(ctx context.Context) error {
 		canonicalMenus := []navigationItem{
 			{name: "dashboard", title: "首页驾驶舱", icon: "odometer", sort: 1},
 			{name: "assetCenter", title: "资产管理", icon: "box", sort: 2},
-			{name: "superAdmin", title: "系统管理", icon: "setting", sort: 7},
+			{name: "invoiceCenter", title: "流水管理", icon: "wallet", sort: 3},
+			{name: "superAdmin", title: "系统管理", icon: "setting", sort: 8},
 		}
 		for _, item := range canonicalMenus {
 			if err := tx.Model(&system.SysBaseMenu{}).Where("name = ?", item.name).Updates(map[string]any{

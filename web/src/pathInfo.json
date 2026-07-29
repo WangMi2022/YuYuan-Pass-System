@@ -90,5 +90,11 @@
   "/src/plugin/document/components/SpreadsheetEditor.vue": "SpreadsheetEditor",
   "/src/plugin/document/view/viewer.vue": "Viewer",
   "/src/plugin/email/view/index.vue": "Email",
+  "/src/plugin/invoice/components/InvoiceReviewDrawer.vue": "InvoiceReviewDrawer",
+  "/src/plugin/invoice/components/InvoiceStatusTag.vue": "InvoiceStatusTag",
+  "/src/plugin/invoice/view/categories.vue": "InvoiceCategories",
+  "/src/plugin/invoice/view/dashboard.vue": "InvoiceDashboard",
+  "/src/plugin/invoice/view/ledger.vue": "InvoiceLedger",
+  "/src/plugin/invoice/view/recognition.vue": "InvoiceRecognition",
   "/src/plugin/site/view/bookmarks.vue": "Bookmarks"
 }

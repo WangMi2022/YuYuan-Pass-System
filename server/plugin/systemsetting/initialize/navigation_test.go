@@ -79,20 +79,20 @@ func TestSyncBusinessNavigationGroupsPermissionMenusAndMigratesAuthorities(t *te
 	if err = db.Where("name = ?", permissionMenuName).First(&permissionParent).Error; err != nil {
 		t.Fatalf("find permission parent: %v", err)
 	}
-	if permissionParent.ParentId != 0 || permissionParent.MenuLevel != 0 || permissionParent.Sort != 5 || permissionParent.Path != permissionMenuName || permissionParent.Component != "view/routerHolder.vue" || permissionParent.Meta.Title != "权限管理" {
+	if permissionParent.ParentId != 0 || permissionParent.MenuLevel != 0 || permissionParent.Sort != 6 || permissionParent.Path != permissionMenuName || permissionParent.Component != "view/routerHolder.vue" || permissionParent.Meta.Title != "权限管理" {
 		t.Fatalf("unexpected permission parent: %#v", permissionParent)
 	}
 	var auditParent system.SysBaseMenu
 	if err = db.Where("name = ?", auditMenuName).First(&auditParent).Error; err != nil {
 		t.Fatalf("find audit parent: %v", err)
 	}
-	if auditParent.ParentId != 0 || auditParent.MenuLevel != 0 || auditParent.Sort != 6 || auditParent.Path != auditMenuName || auditParent.Component != "view/routerHolder.vue" || auditParent.Meta.Title != "审计平台" {
+	if auditParent.ParentId != 0 || auditParent.MenuLevel != 0 || auditParent.Sort != 7 || auditParent.Path != auditMenuName || auditParent.Component != "view/routerHolder.vue" || auditParent.Meta.Title != "审计平台" {
 		t.Fatalf("unexpected audit parent: %#v", auditParent)
 	}
 	if err = db.Where("name = ?", "superAdmin").First(&systemParent).Error; err != nil {
 		t.Fatalf("reload system parent: %v", err)
 	}
-	if systemParent.ParentId != 0 || systemParent.MenuLevel != 0 || systemParent.Sort != 7 {
+	if systemParent.ParentId != 0 || systemParent.MenuLevel != 0 || systemParent.Sort != 8 {
 		t.Fatalf("unexpected system parent: %#v", systemParent)
 	}
 

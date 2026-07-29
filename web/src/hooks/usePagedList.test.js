@@ -80,3 +80,45 @@ test('reloadAfterRemoval steps back when the current page becomes empty', async 
   assert.equal(list.search.page, 1)
   list.dispose()
 })
+
+test('distinguishes request failure from a successful empty collection', async () => {
+  let fail = true
+  const list = createHarness({
+    defaults: { page: 1, pageSize: 10 },
+    request: async () => fail
+      ? { code: 7, msg: '服务暂不可用' }
+      : { code: 0, data: { list: [], total: 0 } }
+  })
+
+  await list.load()
+  assert.equal(list.error.value, '服务暂不可用')
+  assert.equal(list.loaded.value, false)
+
+  fail = false
+  await list.load()
+  assert.equal(list.error.value, '')
+  assert.equal(list.loaded.value, true)
+  assert.deepEqual(list.items.value, [])
+  list.dispose()
+})
+
+test('keeps the last successful collection when refresh throws', async () => {
+  let calls = 0
+  const list = createHarness({
+    defaults: { page: 1, pageSize: 10 },
+    request: async () => {
+      calls++
+      if (calls === 1) return { code: 0, data: { list: ['stable'], total: 1 } }
+      throw new Error('网络中断')
+    }
+  })
+
+  await list.load()
+  await list.load()
+  assert.deepEqual(list.items.value, ['stable'])
+  assert.equal(list.total.value, 1)
+  assert.equal(list.loaded.value, true)
+  assert.equal(list.error.value, '网络中断')
+  assert.equal(list.loading.value, false)
+  list.dispose()
+})

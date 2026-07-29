@@ -16,19 +16,32 @@ export const usePagedList = ({ defaults, request, selectResult = defaultSelectRe
   const items = ref([])
   const total = ref(0)
   const loading = ref(false)
+  const loaded = ref(false)
+  const error = ref('')
   let latestRequestId = 0
 
   const load = async () => {
     const requestId = ++latestRequestId
     loading.value = true
+    error.value = ''
     try {
       const response = await request({ ...search })
-      if (requestId !== latestRequestId || response?.code !== 0) return response
+      if (requestId !== latestRequestId) return response
+      if (response?.code !== 0) {
+        error.value = response?.msg || '数据加载失败，请稍后重试'
+        return response
+      }
 
       const result = selectResult(response)
       items.value = result.items || []
       total.value = Number(result.total || 0)
+      loaded.value = true
       return response
+    } catch (requestError) {
+      if (requestId === latestRequestId) {
+        error.value = requestError?.message || '数据加载失败，请稍后重试'
+      }
+      return undefined
     } finally {
       if (requestId === latestRequestId) loading.value = false
     }
@@ -73,6 +86,8 @@ export const usePagedList = ({ defaults, request, selectResult = defaultSelectRe
     items,
     total,
     loading,
+    loaded,
+    error,
     load,
     submit,
     reset,

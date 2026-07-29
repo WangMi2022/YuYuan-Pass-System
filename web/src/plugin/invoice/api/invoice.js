@@ -1,0 +1,31 @@
+import service from '@/utils/request'
+
+export const uploadInvoice = (file) => {
+  const data = new FormData()
+  data.append('file', file)
+  return service({
+    url: '/invoice/upload',
+    method: 'post',
+    data,
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+
+export const getInvoiceList = (params) => service({ url: '/invoice/list', method: 'get', params })
+export const getInvoiceDetail = (params) => service({ url: '/invoice/detail', method: 'get', params })
+export const updateInvoice = (data) => service({ url: '/invoice/update', method: 'put', data })
+export const confirmInvoice = (params) => service({ url: '/invoice/confirm', method: 'put', params })
+export const retryInvoice = (params) => service({ url: '/invoice/retry', method: 'put', params })
+export const deleteInvoice = (params) => service({ url: '/invoice/delete', method: 'delete', params })
+export const getInvoiceDashboard = () => service({ url: '/invoice/dashboard', method: 'get' })
+export const getInvoiceCategoryOptions = () => service({ url: '/invoice/categoryOptions', method: 'get' })
+
+export const createInvoiceCategory = (data) => service({ url: '/invoiceCategory/create', method: 'post', data })
+export const updateInvoiceCategory = (data) => service({ url: '/invoiceCategory/update', method: 'put', data })
+export const deleteInvoiceCategory = (params) => service({ url: '/invoiceCategory/delete', method: 'delete', params })
+export const getInvoiceCategoryList = (params) => service({ url: '/invoiceCategory/list', method: 'get', params })
+
+export const createInvoiceRule = (data) => service({ url: '/invoiceRule/create', method: 'post', data })
+export const updateInvoiceRule = (data) => service({ url: '/invoiceRule/update', method: 'put', data })
+export const deleteInvoiceRule = (params) => service({ url: '/invoiceRule/delete', method: 'delete', params })
+export const getInvoiceRuleList = (params) => service({ url: '/invoiceRule/list', method: 'get', params })
