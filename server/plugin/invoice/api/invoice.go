@@ -96,6 +96,7 @@ func (invoiceAPI) List(c *gin.Context) {
 		commonResponse.FailWithMessage(err.Error(), c)
 		return
 	}
+	search.Normalize()
 	list, total, err := serviceInvoice.List(search, currentScope(c))
 	if err != nil {
 		global.GVA_LOG.Error("获取发票列表失败", zap.Error(err))

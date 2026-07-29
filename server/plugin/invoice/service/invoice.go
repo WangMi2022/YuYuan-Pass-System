@@ -221,6 +221,7 @@ func (InvoiceService) Upload(file *multipart.FileHeader, userID, authorityID uin
 func (InvoiceService) List(search invoiceRequest.InvoiceSearch, scope AccessScope) ([]model.Invoice, int64, error) {
 	var list []model.Invoice
 	var total int64
+	search.Normalize()
 	db := applyInvoiceScope(global.GVA_DB.Model(&model.Invoice{}), scope)
 	if keyword := strings.TrimSpace(search.Keyword); keyword != "" {
 		like := "%" + strings.ToLower(keyword) + "%"

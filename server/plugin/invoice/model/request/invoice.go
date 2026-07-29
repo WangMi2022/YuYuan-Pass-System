@@ -16,6 +16,17 @@ type InvoiceSearch struct {
 	EndDate    *time.Time `json:"endDate" form:"endDate" time_format:"2006-01-02"`
 }
 
+// Normalize removes zero-value dates produced by Gin when optional query
+// parameters are present with an empty value (for example, startDate=).
+func (search *InvoiceSearch) Normalize() {
+	if search.StartDate != nil && search.StartDate.IsZero() {
+		search.StartDate = nil
+	}
+	if search.EndDate != nil && search.EndDate.IsZero() {
+		search.EndDate = nil
+	}
+}
+
 type InvoiceUpdate struct {
 	ID            uint                `json:"ID"`
 	Direction     string              `json:"direction"`

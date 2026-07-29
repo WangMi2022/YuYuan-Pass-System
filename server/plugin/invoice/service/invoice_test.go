@@ -105,6 +105,23 @@ func TestInvoiceScopeKeepsPersonalAndRoleWideDataSeparated(t *testing.T) {
 	}
 }
 
+func TestInvoiceListIgnoresZeroValueOptionalDates(t *testing.T) {
+	setupInvoiceServiceTestDB(t)
+	category := createInvoiceTestCategory(t)
+	createReviewableInvoice(t, 14, 100, category.ID, "EMPTY-DATE-FILTER")
+	zeroDate := time.Time{}
+	search := invoiceRequest.InvoiceSearch{
+		PageInfo: commonRequest.PageInfo{Page: 1, PageSize: 20},
+		StartDate: &zeroDate,
+		EndDate:   &zeroDate,
+	}
+
+	list, total, err := (InvoiceService{}).List(search, AccessScope{UserID: 14, AuthorityID: 100})
+	if err != nil || total != 1 || len(list) != 1 {
+		t.Fatalf("zero-value optional dates should not filter invoices: total=%d list=%#v err=%v", total, list, err)
+	}
+}
+
 func TestConfirmPersistsUniqueDuplicateKeyAndFeedsDashboard(t *testing.T) {
 	setupInvoiceServiceTestDB(t)
 	category := createInvoiceTestCategory(t)

@@ -22,7 +22,15 @@ export const uploadInvoices = (files) => {
   })
 }
 
-export const getInvoiceList = (params) => service({ url: '/invoice/list', method: 'get', params })
+const withoutEmptyParams = (params = {}) => Object.fromEntries(
+  Object.entries(params).filter(([, value]) => value !== '' && value !== undefined && value !== null)
+)
+
+export const getInvoiceList = (params) => service({
+  url: '/invoice/list',
+  method: 'get',
+  params: withoutEmptyParams(params)
+})
 export const getInvoiceDetail = (params) => service({ url: '/invoice/detail', method: 'get', params })
 export const updateInvoice = (data) => service({ url: '/invoice/update', method: 'put', data })
 export const confirmInvoice = (params) => service({ url: '/invoice/confirm', method: 'put', params })

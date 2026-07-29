@@ -10,8 +10,26 @@ import (
 	"testing"
 
 	commonResponse "github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
+	invoiceRequest "github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/model/request"
 	"github.com/gin-gonic/gin"
 )
+
+func TestInvoiceSearchBindingTreatsEmptyDatesAsUnset(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	request := httptest.NewRequest(http.MethodGet, "/invoice/list?page=1&pageSize=20&keyword=&status=&direction=&startDate=&endDate=", nil)
+	recorder := httptest.NewRecorder()
+	context, _ := gin.CreateTestContext(recorder)
+	context.Request = request
+
+	var search invoiceRequest.InvoiceSearch
+	if err := context.ShouldBindQuery(&search); err != nil {
+		t.Fatalf("empty optional dates should bind successfully: %v", err)
+	}
+	search.Normalize()
+	if search.StartDate != nil || search.EndDate != nil {
+		t.Fatalf("empty optional dates should remain unset: start=%v end=%v", search.StartDate, search.EndDate)
+	}
+}
 
 func TestUploadRejectsMoreThanFiveFilesPerBatch(t *testing.T) {
 	gin.SetMode(gin.TestMode)
