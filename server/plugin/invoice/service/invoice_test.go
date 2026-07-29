@@ -1,14 +1,18 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/flipped-aurora/gin-vue-admin/server/config"
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	commonRequest "github.com/flipped-aurora/gin-vue-admin/server/model/common/request"
 	"github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/model"
@@ -18,6 +22,12 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
+
+type recognizerFunc func(context.Context, provider.Input) (provider.Result, error)
+
+func (fn recognizerFunc) Recognize(ctx context.Context, input provider.Input) (provider.Result, error) {
+	return fn(ctx, input)
+}
 
 func setupInvoiceServiceTestDB(t *testing.T) {
 	t.Helper()
@@ -219,6 +229,263 @@ func TestRecognitionResultRequiresCurrentLease(t *testing.T) {
 	}
 	if reloaded.InvoiceNumber != "LEASE-001" || reloaded.Status != model.InvoiceStatusRecognizing {
 		t.Fatalf("stale worker changed invoice: %#v", reloaded)
+	}
+}
+
+func TestRecheckReturnsModelCandidateWithoutPersistingIt(t *testing.T) {
+	setupInvoiceServiceTestDB(t)
+	category := createInvoiceTestCategory(t)
+	invoice := createReviewableInvoice(t, 52, 500, category.ID, "RECHECK-ORIGINAL")
+	storageRoot := t.TempDir()
+	fileKey := "recheck.png"
+	if err := os.WriteFile(filepath.Join(storageRoot, fileKey), []byte("private invoice image"), 0o600); err != nil {
+		t.Fatalf("write invoice fixture: %v", err)
+	}
+	if err := global.GVA_DB.Model(&invoice).Updates(map[string]any{
+		"storage_type": "local", "storage_root": storageRoot, "file_key": fileKey,
+		"mime_type": "image/png", "file_size": 21,
+	}).Error; err != nil {
+		t.Fatalf("configure invoice storage: %v", err)
+	}
+
+	previousFactory := newRecheckRecognizer
+	newRecheckRecognizer = func(config.InvoiceRecognition) (provider.Recognizer, error) {
+		return recognizerFunc(func(_ context.Context, input provider.Input) (provider.Result, error) {
+			if string(input.Data) != "private invoice image" {
+				t.Fatalf("unexpected recheck input: %q", string(input.Data))
+			}
+			return provider.Result{
+				Provider: "multimodal-ai", InvoiceNumber: "MODEL-CANDIDATE",
+				AmountCents: 10000, TaxCents: 600, TotalCents: 10600,
+				Confidence: 0.94, RawText: "sensitive raw text", RawPayload: "large provider payload",
+				Items: []model.InvoiceItem{{InvoiceID: 999, Name: "服务费", AmountCents: 10000}},
+			}, nil
+		}), nil
+	}
+	t.Cleanup(func() { newRecheckRecognizer = previousFactory })
+
+	result, err := (RecognitionService{}).Recheck(
+		t.Context(), invoice.ID, AccessScope{UserID: 52, AuthorityID: 500},
+	)
+	if err != nil {
+		t.Fatalf("recheck invoice: %v", err)
+	}
+	if result.InvoiceNumber != "MODEL-CANDIDATE" || result.RawText != "" || result.RawPayload != "" ||
+		len(result.Items) != 1 || result.Items[0].InvoiceID != 0 {
+		t.Fatalf("unexpected recheck candidate: %#v", result)
+	}
+	var persisted model.Invoice
+	if err = global.GVA_DB.First(&persisted, invoice.ID).Error; err != nil {
+		t.Fatalf("reload invoice after recheck: %v", err)
+	}
+	if persisted.InvoiceNumber != "RECHECK-ORIGINAL" {
+		t.Fatalf("recheck persisted an unconfirmed model result: %#v", persisted)
+	}
+}
+
+func TestRecheckRejectsUnauthorizedAndConfirmedInvoicesBeforeCallingModel(t *testing.T) {
+	setupInvoiceServiceTestDB(t)
+	category := createInvoiceTestCategory(t)
+	invoice := createReviewableInvoice(t, 53, 500, category.ID, "RECHECK-GUARD")
+	previousFactory := newRecheckRecognizer
+	var factoryCalls atomic.Int32
+	newRecheckRecognizer = func(config.InvoiceRecognition) (provider.Recognizer, error) {
+		factoryCalls.Add(1)
+		return recognizerFunc(func(context.Context, provider.Input) (provider.Result, error) {
+			return provider.Result{}, nil
+		}), nil
+	}
+	t.Cleanup(func() { newRecheckRecognizer = previousFactory })
+
+	if _, err := (RecognitionService{}).Recheck(
+		t.Context(), invoice.ID, AccessScope{UserID: 999, AuthorityID: 999},
+	); err == nil {
+		t.Fatal("unauthorized recheck unexpectedly succeeded")
+	}
+	if err := global.GVA_DB.Model(&invoice).Update("status", model.InvoiceStatusConfirmed).Error; err != nil {
+		t.Fatalf("confirm invoice fixture: %v", err)
+	}
+	if _, err := (RecognitionService{}).Recheck(
+		t.Context(), invoice.ID, AccessScope{UserID: 53, AuthorityID: 500},
+	); err == nil || !strings.Contains(err.Error(), "已确认") {
+		t.Fatalf("confirmed invoice recheck error = %v", err)
+	}
+	if factoryCalls.Load() != 0 {
+		t.Fatalf("model factory called %d times for rejected requests", factoryCalls.Load())
+	}
+}
+
+func TestRecheckSingleflightSurvivesLeadingCallerCancellation(t *testing.T) {
+	setupInvoiceServiceTestDB(t)
+	category := createInvoiceTestCategory(t)
+	invoice := createReviewableInvoice(t, 54, 500, category.ID, "RECHECK-SHARED")
+	storageRoot := t.TempDir()
+	fileKey := "recheck-shared.png"
+	if err := os.WriteFile(filepath.Join(storageRoot, fileKey), []byte("shared invoice image"), 0o600); err != nil {
+		t.Fatalf("write invoice fixture: %v", err)
+	}
+	if err := global.GVA_DB.Model(&invoice).Updates(map[string]any{
+		"storage_type": "local", "storage_root": storageRoot, "file_key": fileKey,
+		"mime_type": "image/png", "file_size": 20,
+	}).Error; err != nil {
+		t.Fatalf("configure invoice storage: %v", err)
+	}
+
+	previousFactory := newRecheckRecognizer
+	started := make(chan struct{})
+	release := make(chan struct{})
+	var factoryCalls atomic.Int32
+	newRecheckRecognizer = func(config.InvoiceRecognition) (provider.Recognizer, error) {
+		factoryCalls.Add(1)
+		return recognizerFunc(func(ctx context.Context, _ provider.Input) (provider.Result, error) {
+			close(started)
+			select {
+			case <-release:
+				return provider.Result{Provider: "multimodal-ai", InvoiceNumber: "SHARED-RESULT", Confidence: 0.9}, nil
+			case <-ctx.Done():
+				return provider.Result{}, ctx.Err()
+			}
+		}), nil
+	}
+	t.Cleanup(func() { newRecheckRecognizer = previousFactory })
+
+	firstCtx, cancelFirst := context.WithCancel(t.Context())
+	firstDone := make(chan error, 1)
+	go func() {
+		_, err := (RecognitionService{}).Recheck(
+			firstCtx, invoice.ID, AccessScope{UserID: 54, AuthorityID: 500},
+		)
+		firstDone <- err
+	}()
+	select {
+	case <-started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("shared recheck did not reach the model")
+	}
+	cancelFirst()
+	select {
+	case err := <-firstDone:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("leading caller error = %v, want context canceled", err)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("canceled leading caller did not return promptly")
+	}
+
+	secondDone := make(chan struct {
+		result provider.Result
+		err    error
+	}, 1)
+	go func() {
+		result, err := (RecognitionService{}).Recheck(
+			t.Context(), invoice.ID, AccessScope{UserID: 54, AuthorityID: 500},
+		)
+		secondDone <- struct {
+			result provider.Result
+			err    error
+		}{result: result, err: err}
+	}()
+	time.Sleep(20 * time.Millisecond)
+	close(release)
+	select {
+	case response := <-secondDone:
+		if response.err != nil || response.result.InvoiceNumber != "SHARED-RESULT" {
+			t.Fatalf("joined caller result = %#v, err = %v", response.result, response.err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("joined caller did not receive the shared result")
+	}
+	if factoryCalls.Load() != 1 {
+		t.Fatalf("model factory called %d times, want 1", factoryCalls.Load())
+	}
+}
+
+func TestProcessClaimedRecognitionJobsRunsConcurrently(t *testing.T) {
+	jobs := make([]model.RecognitionJob, recognitionBatchWorkers)
+	started := make(chan struct{}, recognitionBatchWorkers)
+	release := make(chan struct{})
+	done := make(chan struct{})
+	var active atomic.Int32
+	var peak atomic.Int32
+
+	go func() {
+		processClaimedRecognitionJobs(jobs, func(model.RecognitionJob) {
+			current := active.Add(1)
+			for {
+				previous := peak.Load()
+				if current <= previous || peak.CompareAndSwap(previous, current) {
+					break
+				}
+			}
+			started <- struct{}{}
+			<-release
+			active.Add(-1)
+		})
+		close(done)
+	}()
+
+	for range recognitionBatchWorkers {
+		select {
+		case <-started:
+		case <-time.After(2 * time.Second):
+			t.Fatal("recognition batch did not start all workers concurrently")
+		}
+	}
+	if peak.Load() != recognitionBatchWorkers {
+		t.Fatalf("peak recognition concurrency = %d, want %d", peak.Load(), recognitionBatchWorkers)
+	}
+	close(release)
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("recognition batch workers did not finish")
+	}
+}
+
+func TestRecognizeWithSlotCapsTotalModelConcurrency(t *testing.T) {
+	requestCount := recognitionBatchWorkers + 2
+	started := make(chan struct{}, requestCount)
+	release := make(chan struct{})
+	var active atomic.Int32
+	var peak atomic.Int32
+	recognizer := recognizerFunc(func(context.Context, provider.Input) (provider.Result, error) {
+		current := active.Add(1)
+		for {
+			previous := peak.Load()
+			if current <= previous || peak.CompareAndSwap(previous, current) {
+				break
+			}
+		}
+		started <- struct{}{}
+		<-release
+		active.Add(-1)
+		return provider.Result{Provider: "test"}, nil
+	})
+
+	var workers sync.WaitGroup
+	workers.Add(requestCount)
+	for range requestCount {
+		go func() {
+			defer workers.Done()
+			_, _ = recognizeWithSlot(t.Context(), recognizer, provider.Input{})
+		}()
+	}
+	for range recognitionBatchWorkers {
+		select {
+		case <-started:
+		case <-time.After(2 * time.Second):
+			t.Fatal("shared recognition slots did not admit the expected workers")
+		}
+	}
+	select {
+	case <-started:
+		t.Fatal("shared recognition slots admitted more than four model calls")
+	case <-time.After(120 * time.Millisecond):
+	}
+	close(release)
+	workers.Wait()
+	if peak.Load() != recognitionBatchWorkers {
+		t.Fatalf("peak model concurrency = %d, want %d", peak.Load(), recognitionBatchWorkers)
 	}
 }
 

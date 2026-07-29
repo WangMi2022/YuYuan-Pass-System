@@ -11,11 +11,23 @@ export const uploadInvoice = (file) => {
   })
 }
 
+export const uploadInvoices = (files) => {
+  const data = new FormData()
+  files.forEach((file) => data.append('files', file))
+  return service({
+    url: '/invoice/upload',
+    method: 'post',
+    data,
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+
 export const getInvoiceList = (params) => service({ url: '/invoice/list', method: 'get', params })
 export const getInvoiceDetail = (params) => service({ url: '/invoice/detail', method: 'get', params })
 export const updateInvoice = (data) => service({ url: '/invoice/update', method: 'put', data })
 export const confirmInvoice = (params) => service({ url: '/invoice/confirm', method: 'put', params })
 export const retryInvoice = (params) => service({ url: '/invoice/retry', method: 'put', params })
+export const recheckInvoice = (params) => service({ url: '/invoice/recheck', method: 'post', params })
 export const deleteInvoice = (params) => service({ url: '/invoice/delete', method: 'delete', params })
 export const getInvoiceDashboard = () => service({ url: '/invoice/dashboard', method: 'get' })
 export const getInvoiceCategoryOptions = () => service({ url: '/invoice/categoryOptions', method: 'get' })

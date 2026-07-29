@@ -8,17 +8,21 @@
 
     <section class="upload-band">
       <el-upload
+        ref="uploadRef"
         drag
+        multiple
+        :limit="5"
+        :auto-upload="false"
         :show-file-list="false"
-        :http-request="handleUpload"
-        :before-upload="beforeUpload"
+        :on-change="handleUploadSelection"
+        :on-exceed="handleExceed"
         accept="image/jpeg,image/png"
         :disabled="uploading"
       >
         <el-icon class="upload-icon"><UploadFilled /></el-icon>
         <div class="upload-copy">
-          <strong>{{ uploading ? '正在保存发票并创建识别任务' : '拖入发票图片，或点击选择文件' }}</strong>
-          <span>JPG / PNG，单张不超过 10MB；原图保存在私有 RustFS，仅授权用户可访问。</span>
+          <strong>{{ uploadHeadline }}</strong>
+          <span>一次最多 5 张 JPG / PNG，单张不超过 10MB；原图保存在私有 RustFS，仅授权用户可访问。</span>
         </div>
       </el-upload>
       <div class="upload-process" aria-live="polite">
@@ -84,21 +88,30 @@ import { ElMessage } from 'element-plus'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
 import InvoiceReviewDrawer from '@/plugin/invoice/components/InvoiceReviewDrawer.vue'
 import InvoiceStatusTag from '@/plugin/invoice/components/InvoiceStatusTag.vue'
-import { getInvoiceList, uploadInvoice } from '@/plugin/invoice/api/invoice'
+import { getInvoiceList, uploadInvoices } from '@/plugin/invoice/api/invoice'
 import { invoiceDateText } from '@/plugin/invoice/utils/invoice'
 
 defineOptions({ name: 'InvoiceRecognition' })
 
 const loading = ref(false)
+const uploadRef = ref()
 const uploading = ref(false)
+const uploadTotal = ref(0)
 const queue = ref([])
 const queueLoaded = ref(false)
 const queueError = ref('')
 const reviewVisible = ref(false)
 const selectedId = ref(0)
 let refreshTimer
+let pendingUploadFiles = []
+let uploadScheduled = false
+let queueLoadPromise
+let queueRefreshPending = false
 
 const dateText = invoiceDateText
+const uploadHeadline = computed(() => uploading.value
+  ? `正在上传 ${uploadTotal.value} 张发票并创建识别任务`
+  : '拖入发票图片，或点击选择文件')
 const counts = computed(() => ({
   pending: queue.value.filter((item) => item.status === 'pending_review').length,
   processing: queue.value.filter((item) => ['uploaded', 'recognizing'].includes(item.status)).length,
@@ -110,26 +123,40 @@ const confidence = (item) => {
   return value > 0 ? `${Math.round(value * 100)}%` : '—'
 }
 
-const loadQueue = async () => {
-  if (loading.value) return
+const runQueueRefreshes = async () => {
   loading.value = true
-  queueError.value = ''
   try {
-    const res = await getInvoiceList({ page: 1, pageSize: 50 })
-    if (res.code === 0) {
-      queue.value = (res.data?.list || []).filter((item) => item.status !== 'confirmed')
-      queueLoaded.value = true
-    } else {
-      queueError.value = res.msg || '无法读取识别队列，请稍后重试'
-    }
-  } catch (error) {
-    queueError.value = error?.message || '无法读取识别队列，请稍后重试'
+    do {
+      queueRefreshPending = false
+      queueError.value = ''
+      try {
+        const res = await getInvoiceList({ page: 1, pageSize: 50 })
+        if (res.code === 0) {
+          queue.value = (res.data?.list || []).filter((item) => item.status !== 'confirmed')
+          queueLoaded.value = true
+        } else {
+          queueError.value = res.msg || '无法读取识别队列，请稍后重试'
+        }
+      } catch (error) {
+        queueError.value = error?.message || '无法读取识别队列，请稍后重试'
+      }
+    } while (queueRefreshPending)
   } finally {
     loading.value = false
   }
 }
 
-const beforeUpload = (file) => {
+const loadQueue = () => {
+  queueRefreshPending = true
+  if (!queueLoadPromise) {
+    queueLoadPromise = runQueueRefreshes().finally(() => {
+      queueLoadPromise = undefined
+    })
+  }
+  return queueLoadPromise
+}
+
+const validateUploadFile = (file) => {
   if (!['image/jpeg', 'image/png'].includes(file.type)) {
     ElMessage.error('仅支持 JPG、PNG 发票图片')
     return false
@@ -141,20 +168,41 @@ const beforeUpload = (file) => {
   return true
 }
 
-const handleUpload = async (options) => {
+const handleExceed = () => {
+  ElMessage.warning('一次最多选择 5 张发票图片')
+}
+
+const handleUploadSelection = (_file, fileList) => {
+  pendingUploadFiles = fileList.map((item) => item.raw).filter(Boolean)
+  if (uploadScheduled || uploading.value) return
+  uploadScheduled = true
+  queueMicrotask(() => {
+    uploadScheduled = false
+    uploadSelectedFiles()
+  })
+}
+
+const uploadSelectedFiles = async () => {
+  const files = pendingUploadFiles.slice(0, 5).filter(validateUploadFile)
+  pendingUploadFiles = []
+  uploadRef.value?.clearFiles()
+  if (!files.length || uploading.value) return
+  uploadTotal.value = files.length
   uploading.value = true
   try {
-    const res = await uploadInvoice(options.file)
-    if (res.code === 0) {
-      options.onSuccess(res.data)
-      ElMessage.success('发票已进入识别队列')
+    const res = await uploadInvoices(files)
+    const succeeded = res.data?.succeeded || []
+    const failed = res.data?.failed || []
+    if (succeeded.length) {
+      selectedId.value = Number(succeeded[succeeded.length - 1]?.ID || 0)
       await loadQueue()
-      selectedId.value = Number(res.data?.ID || 0)
-    } else {
-      options.onError(new Error(res.msg || '上传失败'))
     }
-  } catch (error) {
-    options.onError(error)
+    if (failed.length === 0 && succeeded.length) {
+      ElMessage.success(`${succeeded.length} 张发票已进入识别队列`)
+    } else if (succeeded.length) {
+      const reason = failed[0]?.message ? `；首个失败原因：${failed[0].message}` : ''
+      ElMessage.warning(`上传完成：成功 ${succeeded.length} 张，失败 ${failed.length} 张${reason}`)
+    }
   } finally {
     uploading.value = false
   }

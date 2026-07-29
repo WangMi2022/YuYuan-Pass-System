@@ -1,7 +1,9 @@
 package api
 
 import (
+	"errors"
 	"io"
+	"net/http"
 	"net/url"
 	"strconv"
 
@@ -15,6 +17,16 @@ import (
 )
 
 type invoiceAPI struct{}
+
+const (
+	maxInvoiceUploadBatch       = 5
+	maxInvoiceUploadRequestSize = maxInvoiceUploadBatch*(10<<20) + (1 << 20)
+)
+
+type invoiceUploadFailure struct {
+	FileName string `json:"fileName"`
+	Message  string `json:"message"`
+}
 
 func parseID(c *gin.Context) (uint, bool) {
 	id, err := strconv.ParseUint(c.Query("id"), 10, 64)
@@ -30,6 +42,41 @@ func currentScope(c *gin.Context) service.AccessScope {
 }
 
 func (invoiceAPI) Upload(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxInvoiceUploadRequestSize)
+	form, formErr := c.MultipartForm()
+	if formErr != nil {
+		var maxBytesError *http.MaxBytesError
+		if errors.As(formErr, &maxBytesError) {
+			commonResponse.FailWithMessage("每批发票图片总大小不能超过 51MB", c)
+			return
+		}
+		commonResponse.FailWithMessage("请选择发票图片", c)
+		return
+	}
+	if len(form.File["files"]) > 0 {
+		files := form.File["files"]
+		if len(files) > maxInvoiceUploadBatch {
+			commonResponse.FailWithMessage("每批最多上传 5 张发票图片", c)
+			return
+		}
+		succeeded := make([]any, 0, len(files))
+		failed := make([]invoiceUploadFailure, 0)
+		for _, file := range files {
+			invoice, err := serviceInvoice.Upload(file, utils.GetUserID(c), utils.GetUserAuthorityId(c))
+			if err != nil {
+				failed = append(failed, invoiceUploadFailure{FileName: file.Filename, Message: err.Error()})
+				continue
+			}
+			succeeded = append(succeeded, invoice)
+		}
+		result := gin.H{"succeeded": succeeded, "failed": failed}
+		if len(succeeded) == 0 {
+			commonResponse.FailWithDetailed(result, "本批发票均上传失败", c)
+			return
+		}
+		commonResponse.OkWithDetailed(result, "发票批量上传处理完成", c)
+		return
+	}
 	file, err := c.FormFile("file")
 	if err != nil {
 		commonResponse.FailWithMessage("请选择发票图片", c)
@@ -122,6 +169,19 @@ func (invoiceAPI) Retry(c *gin.Context) {
 		return
 	}
 	commonResponse.OkWithMessage("已重新加入识别队列", c)
+}
+
+func (invoiceAPI) Recheck(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	result, err := serviceRecognition.Recheck(c.Request.Context(), id, currentScope(c))
+	if err != nil {
+		commonResponse.FailWithMessage(err.Error(), c)
+		return
+	}
+	commonResponse.OkWithDetailed(result, "模型核对完成", c)
 }
 
 func (invoiceAPI) TestProviderConnection(c *gin.Context) {

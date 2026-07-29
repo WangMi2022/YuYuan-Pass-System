@@ -120,6 +120,7 @@ func (i *initCasbin) InitializeData(ctx context.Context) (context.Context, error
 
 		{Ptype: "p", V0: "888", V1: "/system/getSystemConfig", V2: "POST"},
 		{Ptype: "p", V0: "888", V1: "/system/setSystemConfig", V2: "POST"},
+		{Ptype: "p", V0: "888", V1: "/system/reloadSystem", V2: "POST"},
 		{Ptype: "p", V0: "888", V1: "/system/getServerInfo", V2: "POST"},
 
 		{Ptype: "p", V0: "888", V1: "/skills/getTools", V2: "GET"},

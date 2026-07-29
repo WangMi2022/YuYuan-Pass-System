@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
+
 	"github.com/flipped-aurora/gin-vue-admin/server/core"
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/initialize"
+	systemService "github.com/flipped-aurora/gin-vue-admin/server/service/system"
 	_ "go.uber.org/automaxprocs"
 	"go.uber.org/zap"
 )
@@ -47,5 +50,8 @@ func initializeSystem() {
 	initialize.SetupHandlers() // 注册全局函数
 	if global.GVA_DB != nil {
 		initialize.RegisterTables() // 初始化表
+		if err := systemService.CasbinServiceApp.EnsureCoreAdminPermissions(context.Background(), global.GVA_DB); err != nil {
+			global.GVA_LOG.Error("repair core administrator permissions failed", zap.Error(err))
+		}
 	}
 }

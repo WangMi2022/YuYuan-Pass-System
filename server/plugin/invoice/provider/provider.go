@@ -85,6 +85,26 @@ func New(configuration config.InvoiceRecognition) *Chain {
 	return chain
 }
 
+// NewMultimodal creates the model-only recognizer used for an explicit human
+// recheck. Unlike the automatic chain, it never short-circuits on QR or OCR.
+func NewMultimodal(configuration config.InvoiceRecognition) (*MultimodalRecognizer, error) {
+	configuration.Normalize()
+	configuration.PublicOCR.Enabled = false
+	if err := configuration.Validate(); err != nil {
+		return nil, err
+	}
+	if !configuration.Multimodal.Enabled {
+		return nil, errors.New("请先在运行配置中启用多模态模型")
+	}
+	return &MultimodalRecognizer{
+		BaseURL:  configuration.Multimodal.BaseURL,
+		APIKey:   configuration.Multimodal.APIKey,
+		Model:    configuration.Multimodal.Model,
+		Protocol: configuration.Multimodal.Protocol,
+		Timeout:  time.Duration(configuration.Multimodal.TimeoutSeconds) * time.Second,
+	}, nil
+}
+
 func (c *Chain) Recognize(ctx context.Context, input Input) (Result, error) {
 	qrResult, qrErr := c.qr.Recognize(ctx, input)
 

@@ -18,6 +18,7 @@ import (
 	"github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/provider"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+	"golang.org/x/sync/singleflight"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	gormLogger "gorm.io/gorm/logger"
@@ -26,15 +27,40 @@ import (
 type RecognitionService struct{}
 
 var recognitionWorkerOnce sync.Once
+var newRecheckRecognizer = func(configuration config.InvoiceRecognition) (provider.Recognizer, error) {
+	return provider.NewMultimodal(configuration)
+}
 
 var errRecognitionLeaseLost = errors.New("发票识别任务租约已失效")
 
 const (
 	recognitionLeaseTimeout = 5 * time.Minute
+	recognitionBatchWorkers = 4
 	maxRecognitionItems     = 200
 	maxRecognitionRawText   = 200 << 10
 	maxRecognitionPayload   = 1 << 20
 )
+
+var recognitionSlots = make(chan struct{}, recognitionBatchWorkers)
+var recheckRequests singleflight.Group
+
+func acquireRecognitionSlot(ctx context.Context) (func(), error) {
+	select {
+	case recognitionSlots <- struct{}{}:
+		return func() { <-recognitionSlots }, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+func recognizeWithSlot(ctx context.Context, recognizer provider.Recognizer, input provider.Input) (provider.Result, error) {
+	release, err := acquireRecognitionSlot(ctx)
+	if err != nil {
+		return provider.Result{}, err
+	}
+	defer release()
+	return recognizer.Recognize(ctx, input)
+}
 
 func (RecognitionService) StartWorker() {
 	recognitionWorkerOnce.Do(func() {
@@ -70,16 +96,31 @@ func recoverStaleRecognitionJobs() {
 }
 
 func processRecognitionBatch() {
-	for processed := 0; processed < 4; processed++ {
+	jobs := make([]model.RecognitionJob, 0, recognitionBatchWorkers)
+	for len(jobs) < recognitionBatchWorkers {
 		job, err := claimRecognitionJob()
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
 				global.GVA_LOG.Error("领取发票识别任务失败", zap.Error(err))
 			}
-			return
+			break
 		}
-		processRecognitionJob(job)
+		jobs = append(jobs, job)
 	}
+	processClaimedRecognitionJobs(jobs, processRecognitionJob)
+}
+
+func processClaimedRecognitionJobs(jobs []model.RecognitionJob, process func(model.RecognitionJob)) {
+	var workers sync.WaitGroup
+	workers.Add(len(jobs))
+	for _, claimed := range jobs {
+		job := claimed
+		go func() {
+			defer workers.Done()
+			process(job)
+		}()
+	}
+	workers.Wait()
 }
 
 func claimRecognitionJob() (model.RecognitionJob, error) {
@@ -148,7 +189,7 @@ func processRecognitionJob(job model.RecognitionJob) {
 		finishRecognitionFailure(job, readErr)
 		return
 	}
-	result, err := provider.New(global.GVA_CONFIG.InvoiceRecognition).Recognize(ctx, provider.Input{
+	result, err := recognizeWithSlot(ctx, provider.New(global.GVA_CONFIG.InvoiceRecognition), provider.Input{
 		FileName: invoice.FileName, ContentType: invoice.MimeType, Data: data,
 	})
 	if err != nil {
@@ -168,6 +209,82 @@ func (RecognitionService) TestProviderConnection(
 	configuration = configuration.MergeSecrets(global.GVA_CONFIG.InvoiceRecognition, true)
 	configuration.Normalize()
 	return provider.TestConnection(ctx, target, configuration)
+}
+
+// Recheck runs the configured multimodal model once and returns a candidate
+// result for the review form. It deliberately does not persist any field.
+func (RecognitionService) Recheck(ctx context.Context, id uint, scope AccessScope) (provider.Result, error) {
+	invoice, err := InvoiceService{}.Get(id, scope)
+	if err != nil {
+		return provider.Result{}, err
+	}
+	if invoice.Status == model.InvoiceStatusConfirmed {
+		return provider.Result{}, errors.New("已确认发票不能重新核对")
+	}
+	configuration := global.GVA_CONFIG.InvoiceRecognition
+	configuration.Normalize()
+	deadline := time.Duration(configuration.Multimodal.TimeoutSeconds+5) * time.Second
+	requestKey := fmt.Sprintf(
+		"%d:%s:%s:%s:%s",
+		invoice.ID,
+		invoice.FileHash,
+		configuration.Multimodal.Protocol,
+		configuration.Multimodal.BaseURL,
+		configuration.Multimodal.Model,
+	)
+	request := recheckRequests.DoChan(requestKey, func() (any, error) {
+		// The shared model call must not be canceled by any single HTTP waiter.
+		sharedCtx, cancel := context.WithTimeout(context.Background(), deadline)
+		defer cancel()
+		recognizer, createErr := newRecheckRecognizer(configuration)
+		if createErr != nil {
+			return provider.Result{}, createErr
+		}
+		release, slotErr := acquireRecognitionSlot(sharedCtx)
+		if slotErr != nil {
+			return provider.Result{}, slotErr
+		}
+		defer release()
+		reader, openErr := openInvoiceObject(sharedCtx, invoice)
+		if openErr != nil {
+			return provider.Result{}, fmt.Errorf("读取发票原图失败: %w", openErr)
+		}
+		data, readErr := io.ReadAll(io.LimitReader(reader, maxInvoiceFileSize+1))
+		_ = reader.Close()
+		if readErr != nil {
+			return provider.Result{}, readErr
+		}
+		if len(data) > maxInvoiceFileSize {
+			return provider.Result{}, errors.New("发票文件超过识别大小限制")
+		}
+		return recognizer.Recognize(sharedCtx, provider.Input{
+			FileName: invoice.FileName, ContentType: invoice.MimeType, Data: data,
+		})
+	})
+	var candidate any
+	select {
+	case <-ctx.Done():
+		return provider.Result{}, ctx.Err()
+	case response := <-request:
+		if response.Err != nil {
+			return provider.Result{}, response.Err
+		}
+		candidate = response.Val
+	}
+	result, ok := candidate.(provider.Result)
+	if !ok {
+		return provider.Result{}, errors.New("模型核对结果类型不正确")
+	}
+	if err = normalizeRecognitionResult(&result); err != nil {
+		return provider.Result{}, err
+	}
+	result.RawPayload = ""
+	result.RawText = ""
+	for index := range result.Items {
+		result.Items[index].GVA_MODEL = global.GVA_MODEL{}
+		result.Items[index].InvoiceID = 0
+	}
+	return result, nil
 }
 
 func saveRecognitionResult(invoice model.Invoice, job model.RecognitionJob, result provider.Result) error {

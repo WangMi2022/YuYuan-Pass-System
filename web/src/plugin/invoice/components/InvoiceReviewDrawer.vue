@@ -67,16 +67,30 @@
             <p v-else-if="lowConfidenceText" id="invoice-low-confidence">低置信度：{{ lowConfidenceText }}，建议重点核对</p>
             <p v-else>识别结果需经人工确认后才进入统计</p>
           </div>
-          <span v-if="invoice.suggestedCategory" class="category-hint">
-            建议：{{ invoice.suggestedCategory.name }}
-          </span>
+          <div class="field-heading-actions">
+            <span v-if="invoice.suggestedCategory" class="category-hint">
+              建议：{{ invoice.suggestedCategory.name }}
+            </span>
+            <el-button
+              v-if="!readonly"
+              type="primary"
+              plain
+              :icon="RefreshRight"
+              :loading="rechecking"
+              :disabled="saving || confirming || rechecking || !!loadError"
+              title="重新读取原图并用多模态模型核对，结果只回填当前表单"
+              @click="recheck"
+            >
+              重新核对
+            </el-button>
+          </div>
         </div>
         <el-form
           ref="formRef"
           :model="form"
           :rules="rules"
           label-position="top"
-          :disabled="readonly"
+          :disabled="readonly || rechecking"
           :aria-describedby="lowConfidenceText ? 'invoice-low-confidence' : undefined"
         >
           <div class="field-grid">
@@ -152,8 +166,8 @@
       <div class="drawer-actions">
         <el-button @click="$emit('update:modelValue', false)">关闭</el-button>
         <template v-if="!readonly">
-          <el-button :loading="saving" :disabled="saving || confirming || !!loadError" @click="save(false)">保存核对</el-button>
-          <el-button type="primary" :loading="confirming" :disabled="saving || confirming || !!loadError" @click="save(true)">保存并确认</el-button>
+          <el-button :loading="saving" :disabled="saving || confirming || rechecking || !!loadError" @click="save(false)">保存核对</el-button>
+          <el-button type="primary" :loading="confirming" :disabled="saving || confirming || rechecking || !!loadError" @click="save(true)">保存并确认</el-button>
         </template>
       </div>
     </template>
@@ -168,7 +182,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { Delete, Plus, RefreshRight, View } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { confirmInvoice, getInvoiceCategoryOptions, getInvoiceDetail, updateInvoice } from '@/plugin/invoice/api/invoice'
+import { confirmInvoice, getInvoiceCategoryOptions, getInvoiceDetail, recheckInvoice, updateInvoice } from '@/plugin/invoice/api/invoice'
 import { centsToYuan, invoiceFileUrl, yuanToCents } from '@/plugin/invoice/utils/invoice'
 import InvoiceStatusTag from '@/plugin/invoice/components/InvoiceStatusTag.vue'
 import { useAppStore } from '@/pinia/modules/app'
@@ -186,12 +200,14 @@ const formRef = ref()
 const loading = ref(false)
 const saving = ref(false)
 const confirming = ref(false)
+const rechecking = ref(false)
 const previewVisible = ref(false)
 const invoice = ref({})
 const categories = ref([])
 const loadError = ref('')
 let itemKey = 0
 let loadRequestId = 0
+let recheckRequestId = 0
 
 const emptyForm = () => ({
   ID: 0, direction: 'expense', invoiceType: '', invoiceCode: '', invoiceNumber: '', issueDate: null,
@@ -254,6 +270,42 @@ const fillForm = (data) => {
   })
 }
 
+const recheckedAmount = (data, field, currentValue) => {
+  const value = Number(data[field] || 0)
+  const hasModelValue = value > 0 || Object.prototype.hasOwnProperty.call(data.fieldConfidences || {}, field)
+  return hasModelValue ? centsToYuan(value) : currentValue
+}
+
+const fillRecheckResult = (data) => {
+  Object.assign(form, {
+    invoiceType: data.invoiceType || form.invoiceType,
+    invoiceCode: data.invoiceCode || form.invoiceCode,
+    invoiceNumber: data.invoiceNumber || form.invoiceNumber,
+    issueDate: data.issueDate ? new Date(data.issueDate) : form.issueDate,
+    buyerName: data.buyerName || form.buyerName,
+    buyerTaxNo: data.buyerTaxNo || form.buyerTaxNo,
+    sellerName: data.sellerName || form.sellerName,
+    sellerTaxNo: data.sellerTaxNo || form.sellerTaxNo,
+    amount: recheckedAmount(data, 'amountCents', form.amount),
+    tax: recheckedAmount(data, 'taxCents', form.tax),
+    total: recheckedAmount(data, 'totalCents', form.total),
+    items: (data.items || []).length
+      ? data.items.map((item) => ({
+        ...item,
+        key: `recheck-${itemKey++}`,
+        amount: centsToYuan(item.amountCents)
+      }))
+      : form.items
+  })
+  invoice.value = {
+    ...invoice.value,
+    recognitionProvider: data.provider || invoice.value.recognitionProvider,
+    recognitionConfidence: Number(data.confidence || 0),
+    fieldConfidences: data.fieldConfidences || {}
+  }
+  formRef.value?.clearValidate()
+}
+
 const loadCategories = async () => {
   if (categories.value.length) return
   const res = await getInvoiceCategoryOptions()
@@ -289,6 +341,23 @@ const loadInvoice = async () => {
 
 const addItem = () => form.items.push({ key: `new-${itemKey++}`, name: '', specification: '', unit: '', quantityText: '', amount: 0, taxRate: '', taxCents: 0, unitPriceCents: 0 })
 const removeItem = (index) => form.items.splice(index, 1)
+
+const recheck = async () => {
+  if (rechecking.value || !form.ID || readonly.value) return
+  const requestId = ++recheckRequestId
+  const invoiceId = Number(form.ID)
+  rechecking.value = true
+  try {
+    const res = await recheckInvoice({ id: invoiceId })
+    if (requestId !== recheckRequestId || invoiceId !== Number(props.invoiceId) || !props.modelValue) return
+    if (res.code === 0) {
+      fillRecheckResult(res.data || {})
+      ElMessage.success('模型核对完成，识别字段已回填；保存前请再次确认')
+    }
+  } finally {
+    if (requestId === recheckRequestId) rechecking.value = false
+  }
+}
 
 const buildPayload = () => ({
   ID: form.ID,
@@ -353,10 +422,14 @@ const save = async (andConfirm) => {
 
 watch(() => [props.modelValue, props.invoiceId], ([visible, id]) => {
   if (visible && id) {
+    recheckRequestId++
+    rechecking.value = false
     loadInvoice()
   } else if (!visible) {
     loadRequestId++
+    recheckRequestId++
     loading.value = false
+    rechecking.value = false
     loadError.value = ''
   }
 }, { immediate: true })
@@ -382,6 +455,7 @@ watch(() => [props.modelValue, props.invoiceId], ([visible, id]) => {
 .evidence-meta dt { color: var(--na-muted-foreground); font-size: .75rem; }
 .evidence-meta dd { margin: 0; overflow-wrap: anywhere; color: var(--na-foreground); font-size: .75rem; }
 .category-hint { padding: 5px 8px; border-radius: 7px; background: var(--na-primary-soft); color: var(--na-primary); font-size: .75rem; }
+.field-heading-actions { display: flex; flex: 0 0 auto; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
 .field-grid :deep(.el-select), .field-grid :deep(.el-date-editor), .amount-strip :deep(.el-input-number) { width: 100%; }
 .is-low-confidence :deep(.el-input__wrapper), .is-low-confidence :deep(.el-select__wrapper), .is-low-confidence :deep(.el-date-editor) { border-color: color-mix(in srgb, var(--na-warning) 58%, var(--na-border)); background: var(--na-warning-soft); }
