@@ -13,6 +13,7 @@ func (invoiceRouter) Init(private *gin.RouterGroup) {
 		write.POST("upload", apiInvoice.Upload)
 		write.PUT("update", apiInvoice.Update)
 		write.PUT("confirm", apiInvoice.Confirm)
+		write.PUT("reopen", apiInvoice.Reopen)
 		write.PUT("retry", apiInvoice.Retry)
 		write.POST("recheck", apiInvoice.Recheck)
 		write.POST("provider/test", apiInvoice.TestProviderConnection)

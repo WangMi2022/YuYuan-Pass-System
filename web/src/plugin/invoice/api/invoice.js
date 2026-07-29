@@ -34,6 +34,7 @@ export const getInvoiceList = (params) => service({
 export const getInvoiceDetail = (params) => service({ url: '/invoice/detail', method: 'get', params })
 export const updateInvoice = (data) => service({ url: '/invoice/update', method: 'put', data })
 export const confirmInvoice = (params) => service({ url: '/invoice/confirm', method: 'put', params })
+export const reopenInvoice = (params) => service({ url: '/invoice/reopen', method: 'put', params })
 export const retryInvoice = (params) => service({ url: '/invoice/retry', method: 'put', params })
 export const recheckInvoice = (params) => service({ url: '/invoice/recheck', method: 'post', params })
 export const deleteInvoice = (params) => service({ url: '/invoice/delete', method: 'delete', params })

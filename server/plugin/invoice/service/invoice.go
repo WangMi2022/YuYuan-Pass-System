@@ -316,8 +316,8 @@ func (InvoiceService) Update(req invoiceRequest.InvoiceUpdate, scope AccessScope
 		if err := applyInvoiceScope(tx.Model(&model.Invoice{}), scope).First(&current, req.ID).Error; err != nil {
 			return err
 		}
-		if current.Status == model.InvoiceStatusConfirmed && !scope.All {
-			return errors.New("已确认发票只能由管理员修订")
+		if current.Status == model.InvoiceStatusConfirmed {
+			return errors.New("发票已确认，请先重新打开后再编辑")
 		}
 		if req.CategoryID != nil {
 			var count int64
@@ -337,8 +337,12 @@ func (InvoiceService) Update(req invoiceRequest.InvoiceUpdate, scope AccessScope
 			"review_notes": req.ReviewNotes, "status": model.InvoiceStatusPendingReview,
 			"confirmed_by": 0, "confirmed_at": nil, "duplicate_key": nil,
 		}
-		if err := tx.Model(&current).Updates(updates).Error; err != nil {
-			return err
+		result := tx.Model(&current).Where("status <> ?", model.InvoiceStatusConfirmed).Updates(updates)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return errors.New("发票状态已变更，请刷新后重试")
 		}
 		if err := tx.Where("invoice_id = ?", current.ID).Delete(&model.InvoiceItem{}).Error; err != nil {
 			return err
@@ -420,6 +424,32 @@ func (InvoiceService) Confirm(id uint, scope AccessScope) (model.Invoice, error)
 			return model.Invoice{}, errors.New("系统中已存在相同号码的已确认发票")
 		}
 		return model.Invoice{}, err
+	}
+	return InvoiceService{}.Get(id, scope)
+}
+
+func (InvoiceService) Reopen(id uint, scope AccessScope) (model.Invoice, error) {
+	if id == 0 {
+		return model.Invoice{}, errors.New("缺少发票 ID")
+	}
+	if !scope.All {
+		return model.Invoice{}, errors.New("已确认发票只能由管理员重新打开")
+	}
+	result := applyInvoiceScope(global.GVA_DB.Model(&model.Invoice{}), scope).
+		Where("id = ? AND status = ?", id, model.InvoiceStatusConfirmed).
+		Updates(map[string]any{
+			"status": model.InvoiceStatusPendingReview, "confirmed_by": 0,
+			"confirmed_at": nil, "duplicate_key": nil,
+		})
+	if result.Error != nil {
+		return model.Invoice{}, result.Error
+	}
+	if result.RowsAffected == 0 {
+		var invoice model.Invoice
+		if err := applyInvoiceScope(global.GVA_DB.Model(&model.Invoice{}), scope).First(&invoice, id).Error; err != nil {
+			return model.Invoice{}, err
+		}
+		return model.Invoice{}, errors.New("该发票尚未确认，无需重新打开")
 	}
 	return InvoiceService{}.Get(id, scope)
 }

@@ -111,7 +111,7 @@ func TestInvoiceListIgnoresZeroValueOptionalDates(t *testing.T) {
 	createReviewableInvoice(t, 14, 100, category.ID, "EMPTY-DATE-FILTER")
 	zeroDate := time.Time{}
 	search := invoiceRequest.InvoiceSearch{
-		PageInfo: commonRequest.PageInfo{Page: 1, PageSize: 20},
+		PageInfo:  commonRequest.PageInfo{Page: 1, PageSize: 20},
 		StartDate: &zeroDate,
 		EndDate:   &zeroDate,
 	}
@@ -148,6 +148,82 @@ func TestConfirmPersistsUniqueDuplicateKeyAndFeedsDashboard(t *testing.T) {
 	dashboard, err := (InvoiceService{}).Dashboard(admin)
 	if err != nil || dashboard.ConfirmedCount != 1 || dashboard.TotalCents != first.TotalCents {
 		t.Fatalf("unexpected confirmed dashboard: %#v err=%v", dashboard, err)
+	}
+}
+
+func TestReopenConfirmedInvoiceReleasesConfirmation(t *testing.T) {
+	setupInvoiceServiceTestDB(t)
+	category := createInvoiceTestCategory(t)
+	first := createReviewableInvoice(t, 23, 100, category.ID, "REOPEN-001")
+	second := createReviewableInvoice(t, 24, 200, category.ID, "REOPEN-001")
+	admin := AccessScope{UserID: 1, AuthorityID: defaultAdminRoleID, All: true}
+
+	confirmed, err := (InvoiceService{}).Confirm(first.ID, admin)
+	if err != nil || confirmed.DuplicateKey == nil || confirmed.ConfirmedAt == nil {
+		t.Fatalf("confirm invoice before reopening: invoice=%#v err=%v", confirmed, err)
+	}
+	reopened, err := (InvoiceService{}).Reopen(first.ID, admin)
+	if err != nil {
+		t.Fatalf("reopen confirmed invoice: %v", err)
+	}
+	if reopened.Status != model.InvoiceStatusPendingReview || reopened.DuplicateKey != nil || reopened.ConfirmedBy != 0 || reopened.ConfirmedAt != nil {
+		t.Fatalf("reopened invoice kept confirmation state: %#v", reopened)
+	}
+	if _, err = (InvoiceService{}).Confirm(second.ID, admin); err != nil {
+		t.Fatalf("released duplicate key should allow another invoice to be confirmed: %v", err)
+	}
+	dashboard, err := (InvoiceService{}).Dashboard(admin)
+	if err != nil || dashboard.ConfirmedCount != 1 || dashboard.TotalCents != second.TotalCents {
+		t.Fatalf("dashboard should exclude reopened invoice: %#v err=%v", dashboard, err)
+	}
+}
+
+func TestReopenRequiresAdminAndConfirmedStatus(t *testing.T) {
+	setupInvoiceServiceTestDB(t)
+	category := createInvoiceTestCategory(t)
+	invoice := createReviewableInvoice(t, 25, 100, category.ID, "REOPEN-AUTH-001")
+	admin := AccessScope{UserID: 1, AuthorityID: defaultAdminRoleID, All: true}
+
+	if _, err := (InvoiceService{}).Reopen(invoice.ID, admin); err == nil || !strings.Contains(err.Error(), "尚未确认") {
+		t.Fatalf("expected pending invoice to reject reopen, got %v", err)
+	}
+	if _, err := (InvoiceService{}).Confirm(invoice.ID, admin); err != nil {
+		t.Fatalf("confirm invoice before permission check: %v", err)
+	}
+	if _, err := (InvoiceService{}).Reopen(invoice.ID, AccessScope{UserID: 25, AuthorityID: 100}); err == nil || !strings.Contains(err.Error(), "管理员") {
+		t.Fatalf("expected non-admin reopen to be rejected, got %v", err)
+	}
+	var persisted model.Invoice
+	if err := global.GVA_DB.First(&persisted, invoice.ID).Error; err != nil || persisted.Status != model.InvoiceStatusConfirmed {
+		t.Fatalf("rejected reopen changed invoice state: invoice=%#v err=%v", persisted, err)
+	}
+}
+
+func TestUpdateConfirmedInvoiceRequiresExplicitReopen(t *testing.T) {
+	setupInvoiceServiceTestDB(t)
+	category := createInvoiceTestCategory(t)
+	invoice := createReviewableInvoice(t, 26, 100, category.ID, "REOPEN-BEFORE-EDIT")
+	admin := AccessScope{UserID: 1, AuthorityID: defaultAdminRoleID, All: true}
+	confirmed, err := (InvoiceService{}).Confirm(invoice.ID, admin)
+	if err != nil {
+		t.Fatalf("confirm invoice before update guard: %v", err)
+	}
+
+	confirmed.SellerName = "不应写入的销售方"
+	_, err = (InvoiceService{}).Update(invoiceRequest.InvoiceUpdate{
+		ID: confirmed.ID, Direction: confirmed.Direction, InvoiceType: confirmed.InvoiceType,
+		InvoiceCode: confirmed.InvoiceCode, InvoiceNumber: confirmed.InvoiceNumber, IssueDate: confirmed.IssueDate,
+		BuyerName: confirmed.BuyerName, BuyerTaxNo: confirmed.BuyerTaxNo,
+		SellerName: confirmed.SellerName, SellerTaxNo: confirmed.SellerTaxNo,
+		AmountCents: confirmed.AmountCents, TaxCents: confirmed.TaxCents, TotalCents: confirmed.TotalCents,
+		CategoryID: confirmed.CategoryID, ReviewNotes: confirmed.ReviewNotes,
+	}, admin)
+	if err == nil || !strings.Contains(err.Error(), "先重新打开") {
+		t.Fatalf("expected confirmed update to require reopen, got %v", err)
+	}
+	var persisted model.Invoice
+	if err = global.GVA_DB.First(&persisted, invoice.ID).Error; err != nil || persisted.Status != model.InvoiceStatusConfirmed || persisted.SellerName == confirmed.SellerName {
+		t.Fatalf("rejected confirmed update changed invoice: invoice=%#v err=%v", persisted, err)
 	}
 }
 

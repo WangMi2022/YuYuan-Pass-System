@@ -63,7 +63,7 @@
         <div class="pane-heading">
           <div>
             <h3>结构化字段</h3>
-            <p v-if="readonly">该发票已确认并进入正式统计</p>
+            <p v-if="readonly">该发票已确认并进入正式统计{{ canReopen ? '；重新打开后可继续编辑' : '' }}</p>
             <p v-else-if="lowConfidenceText" id="invoice-low-confidence">低置信度：{{ lowConfidenceText }}，建议重点核对</p>
             <p v-else>识别结果需经人工确认后才进入统计</p>
           </div>
@@ -165,9 +165,20 @@
     <template #footer>
       <div class="drawer-actions">
         <el-button @click="$emit('update:modelValue', false)">关闭</el-button>
+        <el-button
+          v-if="readonly && canReopen"
+          type="primary"
+          plain
+          :icon="EditPen"
+          :loading="reopening"
+          :disabled="reopening || !!loadError"
+          @click="reopen"
+        >
+          重新打开
+        </el-button>
         <template v-if="!readonly">
-          <el-button :loading="saving" :disabled="saving || confirming || rechecking || !!loadError" @click="save(false)">保存核对</el-button>
-          <el-button type="primary" :loading="confirming" :disabled="saving || confirming || rechecking || !!loadError" @click="save(true)">保存并确认</el-button>
+          <el-button :loading="saving" :disabled="saving || confirming || rechecking || reopening || !!loadError" @click="save(false)">保存核对</el-button>
+          <el-button type="primary" :loading="confirming" :disabled="saving || confirming || rechecking || reopening || !!loadError" @click="save(true)">保存并确认</el-button>
         </template>
       </div>
     </template>
@@ -180,12 +191,13 @@
 
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
-import { Delete, Plus, RefreshRight, View } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
-import { confirmInvoice, getInvoiceCategoryOptions, getInvoiceDetail, recheckInvoice, updateInvoice } from '@/plugin/invoice/api/invoice'
+import { Delete, EditPen, Plus, RefreshRight, View } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { confirmInvoice, getInvoiceCategoryOptions, getInvoiceDetail, recheckInvoice, reopenInvoice, updateInvoice } from '@/plugin/invoice/api/invoice'
 import { centsToYuan, invoiceFileUrl, yuanToCents } from '@/plugin/invoice/utils/invoice'
 import InvoiceStatusTag from '@/plugin/invoice/components/InvoiceStatusTag.vue'
 import { useAppStore } from '@/pinia/modules/app'
+import { useUserStore } from '@/pinia/modules/user'
 
 defineOptions({ name: 'InvoiceReviewDrawer' })
 
@@ -194,13 +206,15 @@ const props = defineProps({
   invoiceId: { type: Number, default: 0 }
 })
 
-const emit = defineEmits(['update:modelValue', 'saved', 'confirmed'])
+const emit = defineEmits(['update:modelValue', 'saved', 'confirmed', 'reopened'])
 const appStore = useAppStore()
+const userStore = useUserStore()
 const formRef = ref()
 const loading = ref(false)
 const saving = ref(false)
 const confirming = ref(false)
 const rechecking = ref(false)
+const reopening = ref(false)
 const previewVisible = ref(false)
 const invoice = ref({})
 const categories = ref([])
@@ -227,6 +241,7 @@ const rules = {
 
 const drawerSize = computed(() => appStore.drawerSize === '100%' ? '100%' : 'min(94vw, 1040px)')
 const readonly = computed(() => invoice.value.status === 'confirmed')
+const canReopen = computed(() => Number(userStore.userInfo.authorityId) === 888)
 const fileUrl = computed(() => invoice.value.ID ? invoiceFileUrl(invoice.value.ID) : '')
 const confidenceText = computed(() => {
   const value = Number(invoice.value.recognitionConfidence || 0)
@@ -343,7 +358,7 @@ const addItem = () => form.items.push({ key: `new-${itemKey++}`, name: '', speci
 const removeItem = (index) => form.items.splice(index, 1)
 
 const recheck = async () => {
-  if (rechecking.value || !form.ID || readonly.value) return
+  if (rechecking.value || reopening.value || !form.ID || readonly.value) return
   const requestId = ++recheckRequestId
   const invoiceId = Number(form.ID)
   rechecking.value = true
@@ -356,6 +371,36 @@ const recheck = async () => {
     }
   } finally {
     if (requestId === recheckRequestId) rechecking.value = false
+  }
+}
+
+const reopen = async () => {
+  if (reopening.value || !form.ID || !readonly.value || !canReopen.value) return
+  try {
+    await ElMessageBox.confirm(
+      '重新打开后，这张发票将暂时移出正式统计。完成修改后需要再次确认，是否继续？',
+      '重新打开发票',
+      { type: 'warning', confirmButtonText: '重新打开', cancelButtonText: '取消' }
+    )
+  } catch (action) {
+    if (action !== 'cancel' && action !== 'close') ElMessage.error(action?.message || '无法重新打开发票')
+    return
+  }
+
+  const invoiceId = Number(form.ID)
+  reopening.value = true
+  try {
+    const res = await reopenInvoice({ id: invoiceId })
+    if (res.code !== 0) return
+    emit('reopened', res.data || {})
+    if (invoiceId === Number(props.invoiceId) && props.modelValue) {
+      invoice.value = res.data || invoice.value
+      fillForm(invoice.value)
+      formRef.value?.clearValidate()
+    }
+    ElMessage.success('发票已重新打开，可以继续编辑')
+  } finally {
+    reopening.value = false
   }
 }
 
@@ -388,7 +433,7 @@ const buildPayload = () => ({
 })
 
 const save = async (andConfirm) => {
-  if (saving.value || confirming.value) return
+  if (saving.value || confirming.value || reopening.value) return
   if (loadError.value || Number(form.ID) !== Number(props.invoiceId)) {
     ElMessage.error('当前发票尚未正确加载，请重新打开后再操作')
     return
@@ -424,12 +469,14 @@ watch(() => [props.modelValue, props.invoiceId], ([visible, id]) => {
   if (visible && id) {
     recheckRequestId++
     rechecking.value = false
+    reopening.value = false
     loadInvoice()
   } else if (!visible) {
     loadRequestId++
     recheckRequestId++
     loading.value = false
     rechecking.value = false
+    reopening.value = false
     loadError.value = ''
   }
 }, { immediate: true })

@@ -65,6 +65,9 @@
               <el-tooltip v-if="item.status === 'recognition_failed'" content="重新识别" placement="top">
                 <el-button :icon="RefreshRight" type="warning" text :loading="isPending(item.ID, 'retry')" :disabled="isPending(item.ID)" aria-label="重新识别发票" @click="retry(item)" />
               </el-tooltip>
+              <el-tooltip v-if="item.status === 'confirmed' && canReopen" content="重新打开并编辑" placement="top">
+                <el-button :icon="EditPen" type="primary" text :loading="isPending(item.ID, 'reopen')" :disabled="isPending(item.ID)" aria-label="重新打开发票并编辑" @click="reopen(item)" />
+              </el-tooltip>
               <el-tooltip content="删除" placement="top">
                 <el-button :icon="Delete" type="danger" text :loading="isPending(item.ID, 'delete')" :disabled="isPending(item.ID)" aria-label="删除发票" @click="remove(item)" />
               </el-tooltip>
@@ -85,30 +88,33 @@
       </template>
     </section>
 
-    <InvoiceReviewDrawer v-model="reviewVisible" :invoice-id="selectedId" @saved="load" @confirmed="load" />
+    <InvoiceReviewDrawer v-model="reviewVisible" :invoice-id="selectedId" @saved="load" @confirmed="load" @reopened="load" />
   </main>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
-import { Delete, Refresh, RefreshLeft, RefreshRight, Search, View } from '@element-plus/icons-vue'
+import { computed, onMounted, ref } from 'vue'
+import { Delete, EditPen, Refresh, RefreshLeft, RefreshRight, Search, View } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
 import InvoiceReviewDrawer from '@/plugin/invoice/components/InvoiceReviewDrawer.vue'
 import InvoiceStatusTag from '@/plugin/invoice/components/InvoiceStatusTag.vue'
-import { deleteInvoice, getInvoiceCategoryOptions, getInvoiceList, retryInvoice } from '@/plugin/invoice/api/invoice'
+import { deleteInvoice, getInvoiceCategoryOptions, getInvoiceList, reopenInvoice, retryInvoice } from '@/plugin/invoice/api/invoice'
 import { centsToCurrency, invoiceDateText, invoiceStatuses } from '@/plugin/invoice/utils/invoice'
 import { usePagedList } from '@/hooks/usePagedList'
+import { useUserStore } from '@/pinia/modules/user'
 
 defineOptions({ name: 'InvoiceLedger' })
 
 const categories = ref([])
+const userStore = useUserStore()
 const dateRange = ref([])
 const reviewVisible = ref(false)
 const selectedId = ref(0)
 const pendingActions = ref(new Set())
 const money = centsToCurrency
 const dateText = invoiceDateText
+const canReopen = computed(() => Number(userStore.userInfo.authorityId) === 888)
 
 const {
   search,
@@ -145,7 +151,7 @@ const openReview = (item) => {
 const actionKey = (id, action) => `${action}:${Number(id)}`
 const isPending = (id, action) => action
   ? pendingActions.value.has(actionKey(id, action))
-  : ['retry', 'delete'].some((name) => pendingActions.value.has(actionKey(id, name)))
+  : ['retry', 'reopen', 'delete'].some((name) => pendingActions.value.has(actionKey(id, name)))
 const setPending = (id, action, pending) => {
   const next = new Set(pendingActions.value)
   const key = actionKey(id, action)
@@ -165,6 +171,32 @@ const retry = async (item) => {
     }
   } finally {
     setPending(item.ID, 'retry', false)
+  }
+}
+
+const reopen = async (item) => {
+  if (isPending(item.ID) || !canReopen.value) return
+  try {
+    await ElMessageBox.confirm(
+      `重新打开“${item.invoiceNumber || item.fileName}”后，它会暂时移出正式统计。完成修改后需要再次确认，是否继续？`,
+      '重新打开发票',
+      { type: 'warning', confirmButtonText: '重新打开', cancelButtonText: '取消' }
+    )
+  } catch (action) {
+    if (action !== 'cancel' && action !== 'close') ElMessage.error(action?.message || '无法重新打开发票')
+    return
+  }
+
+  setPending(item.ID, 'reopen', true)
+  try {
+    const res = await reopenInvoice({ id: item.ID })
+    if (res.code === 0) {
+      ElMessage.success('发票已重新打开，可以继续编辑')
+      await load()
+      openReview(res.data || item)
+    }
+  } finally {
+    setPending(item.ID, 'reopen', false)
   }
 }
 

@@ -148,6 +148,19 @@ func (invoiceAPI) Confirm(c *gin.Context) {
 	commonResponse.OkWithDetailed(invoice, "发票已确认并纳入正式统计", c)
 }
 
+func (invoiceAPI) Reopen(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	invoice, err := serviceInvoice.Reopen(id, currentScope(c))
+	if err != nil {
+		commonResponse.FailWithMessage(err.Error(), c)
+		return
+	}
+	commonResponse.OkWithDetailed(invoice, "发票已重新打开，可继续编辑", c)
+}
+
 func (invoiceAPI) Delete(c *gin.Context) {
 	id, ok := parseID(c)
 	if !ok {
