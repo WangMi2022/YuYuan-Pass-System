@@ -56,7 +56,7 @@ type Invoice struct {
 	global.GVA_MODEL
 	Direction                string             `json:"direction" form:"direction" gorm:"size:20;not null;default:expense;index;comment:流水方向"`
 	InvoiceType              string             `json:"invoiceType" form:"invoiceType" gorm:"size:60;index;comment:发票类型"`
-	VerificationType         string             `json:"verificationType" form:"verificationType" gorm:"size:60;index;comment:百度验真标准票种"`
+	VerificationType         string             `json:"verificationType" form:"verificationType" gorm:"size:60;index;comment:验真标准票种"`
 	VerificationAmountMode   string             `json:"verificationAmountMode" form:"verificationAmountMode" gorm:"size:20;comment:验真金额口径"`
 	InvoiceCode              string             `json:"invoiceCode" form:"invoiceCode" gorm:"size:80;index;comment:发票代码"`
 	InvoiceNumber            string             `json:"invoiceNumber" form:"invoiceNumber" gorm:"size:80;index;comment:发票号码"`

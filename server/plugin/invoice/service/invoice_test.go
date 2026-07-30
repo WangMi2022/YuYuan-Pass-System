@@ -36,6 +36,10 @@ func (fn verifierFunc) Verify(ctx context.Context, request provider.Verification
 	return fn(ctx, request)
 }
 
+func testVerificationAdapter(verifier provider.Verifier) provider.VerificationAdapter {
+	return provider.VerificationAdapter{Provider: "test-verifier", Protocol: "test", Verifier: verifier}
+}
+
 func setupInvoiceServiceTestDB(t *testing.T) {
 	t.Helper()
 	previous := global.GVA_DB
@@ -202,12 +206,13 @@ func TestBaiduVerificationPersistsHistoryAndAllowsConfirmation(t *testing.T) {
 	}
 
 	previousFactory := newInvoiceVerifier
-	newInvoiceVerifier = func(config.InvoiceRecognition) (provider.Verifier, error) {
-		return verifierFunc(func(_ context.Context, request provider.VerificationRequest) (provider.VerificationResult, error) {
+	newInvoiceVerifier = func(config.InvoiceRecognition) (provider.VerificationAdapter, error) {
+		return testVerificationAdapter(verifierFunc(func(_ context.Context, request provider.VerificationRequest) (provider.VerificationResult, error) {
 			if request.InvoiceType != "special_vat_invoice" || request.TotalAmount != "100.00" {
 				t.Fatalf("unexpected verification request: %#v", request)
 			}
 			return provider.VerificationResult{
+				Outcome:      provider.VerificationOutcomeValid,
 				VerifyResult: "0001", VerifyMessage: "查验成功发票一致", InvalidSign: "N",
 				VerifyFrequency: "1", ProviderLogID: "log-1",
 				Official: map[string]string{
@@ -217,7 +222,7 @@ func TestBaiduVerificationPersistsHistoryAndAllowsConfirmation(t *testing.T) {
 					"amountCents": "10000", "taxCents": "600", "totalCents": "10600",
 				}, RawPayload: `{"words_result":{"VerifyResult":"0001"}}`,
 			}, nil
-		}), nil
+		})), nil
 	}
 	t.Cleanup(func() { newInvoiceVerifier = previousFactory })
 
@@ -252,13 +257,14 @@ func TestVerificationMismatchCannotConfirm(t *testing.T) {
 		t.Fatal(err)
 	}
 	previousFactory := newInvoiceVerifier
-	newInvoiceVerifier = func(config.InvoiceRecognition) (provider.Verifier, error) {
-		return verifierFunc(func(context.Context, provider.VerificationRequest) (provider.VerificationResult, error) {
+	newInvoiceVerifier = func(config.InvoiceRecognition) (provider.VerificationAdapter, error) {
+		return testVerificationAdapter(verifierFunc(func(context.Context, provider.VerificationRequest) (provider.VerificationResult, error) {
 			return provider.VerificationResult{
+				Outcome:      provider.VerificationOutcomeValid,
 				VerifyResult: "0001", VerifyMessage: "查验成功发票一致", InvalidSign: "N",
 				Official: map[string]string{"sellerName": "权威销售方"},
 			}, nil
-		}), nil
+		})), nil
 	}
 	t.Cleanup(func() { newInvoiceVerifier = previousFactory })
 	outcome, err := (VerificationService{}).Verify(t.Context(), invoice.ID, AccessScope{UserID: 213, AuthorityID: 100})

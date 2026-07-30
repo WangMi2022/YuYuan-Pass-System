@@ -8,9 +8,10 @@ import (
 
 func TestInvoiceRecognitionRedactsAPIKeys(t *testing.T) {
 	configuration := InvoiceRecognition{
-		Baidu:      InvoiceBaiduProvider{APIKey: "baidu-ak", SecretKey: "baidu-sk"},
-		PublicOCR:  InvoicePublicOCR{APIKey: "ocr-secret"},
-		Multimodal: InvoiceMultimodalProvider{APIKey: "ai-secret"},
+		Baidu:        InvoiceBaiduProvider{APIKey: "baidu-ak", SecretKey: "baidu-sk"},
+		PublicOCR:    InvoicePublicOCR{APIKey: "ocr-secret"},
+		Verification: InvoiceVerificationProvider{APIKey: "verify-ak", SecretKey: "verify-sk"},
+		Multimodal:   InvoiceMultimodalProvider{APIKey: "ai-secret"},
 	}.Redacted()
 	payload, err := json.Marshal(configuration)
 	if err != nil {
@@ -18,11 +19,13 @@ func TestInvoiceRecognitionRedactsAPIKeys(t *testing.T) {
 	}
 	serialized := string(payload)
 	if strings.Contains(serialized, "ocr-secret") || strings.Contains(serialized, "ai-secret") ||
-		strings.Contains(serialized, "baidu-ak") || strings.Contains(serialized, "baidu-sk") {
+		strings.Contains(serialized, "baidu-ak") || strings.Contains(serialized, "baidu-sk") ||
+		strings.Contains(serialized, "verify-ak") || strings.Contains(serialized, "verify-sk") {
 		t.Fatalf("API key leaked in JSON: %s", serialized)
 	}
 	if !configuration.Baidu.APIKeyConfigured || !configuration.Baidu.SecretKeyConfigured ||
-		!configuration.PublicOCR.APIKeyConfigured || !configuration.Multimodal.APIKeyConfigured {
+		!configuration.PublicOCR.APIKeyConfigured || !configuration.Verification.APIKeyConfigured ||
+		!configuration.Verification.SecretKeyConfigured || !configuration.Multimodal.APIKeyConfigured {
 		t.Fatal("configured flags were not set")
 	}
 }
@@ -31,19 +34,27 @@ func TestInvoiceRecognitionMergeSecrets(t *testing.T) {
 	current := InvoiceRecognition{
 		Baidu:     InvoiceBaiduProvider{APIKey: "old-baidu-ak", SecretKey: "old-baidu-sk"},
 		PublicOCR: InvoicePublicOCR{Endpoint: "https://old.example", APIKey: "old-ocr"},
+		Verification: InvoiceVerificationProvider{
+			Endpoint: "https://verify.example", APIKey: "old-verify-ak", SecretKey: "old-verify-sk",
+			Provider: VerificationProviderHTTPCompatible, Protocol: VerificationProtocolHTTPJSONV1,
+		},
 		Multimodal: InvoiceMultimodalProvider{
 			BaseURL: "https://old-ai.example/v1", APIKey: "old-ai", Model: "vision-model",
 			Protocol: MultimodalProtocolOpenAICompatible,
 		},
 	}
 	request := InvoiceRecognition{
-		Baidu:      InvoiceBaiduProvider{APIKeyInput: "new-baidu-ak"},
-		PublicOCR:  InvoicePublicOCR{Endpoint: "https://new.example"},
+		Baidu:     InvoiceBaiduProvider{APIKeyInput: "new-baidu-ak"},
+		PublicOCR: InvoicePublicOCR{Endpoint: "https://new.example"},
+		Verification: InvoiceVerificationProvider{
+			Endpoint: "https://verify.example", APIKeyInput: "new-verify-ak",
+		},
 		Multimodal: InvoiceMultimodalProvider{BaseURL: "https://new-ai.example/v1", APIKeyInput: "new-ai"},
 	}
 	merged := request.MergeSecrets(current, true)
 	if merged.Baidu.APIKey != "new-baidu-ak" || merged.Baidu.SecretKey != "old-baidu-sk" ||
-		merged.PublicOCR.APIKey != "old-ocr" || merged.Multimodal.APIKey != "new-ai" {
+		merged.PublicOCR.APIKey != "old-ocr" || merged.Verification.APIKey != "new-verify-ak" ||
+		merged.Verification.SecretKey != "old-verify-sk" || merged.Multimodal.APIKey != "new-ai" {
 		t.Fatalf("unexpected merged secrets: %#v", merged)
 	}
 	request.PublicOCR.ClearAPIKey = true
@@ -54,6 +65,59 @@ func TestInvoiceRecognitionMergeSecrets(t *testing.T) {
 	blocked := request.MergeSecrets(current, false)
 	if blocked.PublicOCR.Endpoint != current.PublicOCR.Endpoint || blocked.Multimodal.BaseURL != current.Multimodal.BaseURL {
 		t.Fatal("non-admin changed invoice recognition configuration")
+	}
+}
+
+func TestInvoiceRecognitionMigratesLegacyBaiduVerification(t *testing.T) {
+	configuration := InvoiceRecognition{Baidu: InvoiceBaiduProvider{
+		Enabled: true, VerificationEnabled: true, APIKey: "legacy-ak", SecretKey: "legacy-sk", TimeoutSeconds: 20,
+	}}
+	configuration.Normalize()
+	if !configuration.Verification.Enabled || configuration.Verification.Provider != VerificationProviderBaidu ||
+		configuration.Verification.Protocol != VerificationProtocolBaiduVATV1 ||
+		configuration.Verification.APIKey != "legacy-ak" || configuration.Verification.SecretKey != "legacy-sk" ||
+		configuration.Verification.TimeoutSeconds != 20 {
+		t.Fatalf("legacy verification was not migrated: %#v", configuration.Verification)
+	}
+	if err := configuration.Validate(); err != nil {
+		t.Fatalf("migrated legacy configuration is invalid: %v", err)
+	}
+}
+
+func TestInvoiceRecognitionPreservesDetectedOCRAndVerificationForOlderClients(t *testing.T) {
+	current := InvoiceRecognition{
+		PublicOCR: InvoicePublicOCR{
+			Endpoint: "https://ocr.example", APIKey: "ocr-key",
+			Provider: OCRProviderHTTPCompatible, Protocol: OCRProtocolMultipartJSONV1,
+		},
+		Verification: InvoiceVerificationProvider{
+			Enabled: true, Endpoint: "https://verify.example", APIKey: "verify-key", SecretKey: "verify-secret",
+			Provider: VerificationProviderHTTPCompatible, Protocol: VerificationProtocolHTTPJSONV1,
+		},
+	}
+	request := InvoiceRecognition{
+		PublicOCR:    InvoicePublicOCR{Endpoint: current.PublicOCR.Endpoint},
+		Verification: InvoiceVerificationProvider{Endpoint: current.Verification.Endpoint},
+	}
+	merged := request.MergeSecrets(current, true)
+	if merged.PublicOCR.Provider != OCRProviderHTTPCompatible || merged.PublicOCR.Protocol != OCRProtocolMultipartJSONV1 ||
+		merged.Verification.Provider != VerificationProviderHTTPCompatible || merged.Verification.Protocol != VerificationProtocolHTTPJSONV1 ||
+		!merged.Verification.Enabled {
+		t.Fatalf("detected adapter metadata was not preserved: %#v", merged)
+	}
+	disabled := request
+	disabled.Verification.Provider = current.Verification.Provider
+	disabled.Verification.Protocol = current.Verification.Protocol
+	merged = disabled.MergeSecrets(current, true)
+	if merged.Verification.Enabled {
+		t.Fatalf("explicit verification disable was ignored: %#v", merged.Verification)
+	}
+	request.PublicOCR.Endpoint = "https://new-ocr.example"
+	request.Verification.Endpoint = "https://new-verify.example"
+	merged = request.MergeSecrets(current, true)
+	if merged.PublicOCR.Provider != "" || merged.PublicOCR.Protocol != "" ||
+		merged.Verification.Provider != "" || merged.Verification.Protocol != "" {
+		t.Fatalf("stale adapter metadata survived identity change: %#v", merged)
 	}
 }
 
@@ -95,5 +159,12 @@ func TestInvoiceRecognitionNormalizesAndValidatesProtocol(t *testing.T) {
 	configuration.Multimodal.Protocol = "custom"
 	if err := configuration.Validate(); err == nil {
 		t.Fatal("invalid protocol was accepted")
+	}
+	configuration = InvoiceRecognition{Multimodal: InvoiceMultimodalProvider{
+		Enabled: true, BaseURL: "https://user:password@example.com/v1", Model: "vision",
+	}}
+	configuration.Normalize()
+	if err := configuration.Validate(); err == nil {
+		t.Fatal("provider URL userinfo was accepted")
 	}
 }

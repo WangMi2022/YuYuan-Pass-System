@@ -35,7 +35,7 @@ func (s *SystemApi) GetSystemConfig(c *gin.Context) {
 // @Security  ApiKeyAuth
 // @Produce   application/json
 // @Param     data  body      system.System                   true  "设置配置文件内容"
-// @Success   200   {object}  response.Response{data=string}  "设置配置文件内容"
+// @Success   200   {object}  response.Response{data=map[string]interface{}}  "设置配置文件内容"
 // @Router    /system/setSystemConfig [post]
 func (s *SystemApi) SetSystemConfig(c *gin.Context) {
 	var sys system.System
@@ -44,13 +44,13 @@ func (s *SystemApi) SetSystemConfig(c *gin.Context) {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
-	protocol, err := systemConfigService.SetSystemConfig(c.Request.Context(), sys, utils.GetUserAuthorityId(c) == 888)
+	detections, err := systemConfigService.SetSystemConfig(c.Request.Context(), sys, utils.GetUserAuthorityId(c) == 888)
 	if err != nil {
 		global.GVA_LOG.Error("设置失败!", zap.Error(err))
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
-	response.OkWithDetailed(gin.H{"multimodalProtocol": protocol}, "设置成功", c)
+	response.OkWithDetailed(detections, "设置成功", c)
 }
 
 // ReloadSystem

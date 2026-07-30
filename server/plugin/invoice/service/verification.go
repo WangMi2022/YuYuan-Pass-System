@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/config"
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/model"
 	"github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/provider"
@@ -28,20 +27,7 @@ const verificationLeaseTimeout = 5 * time.Minute
 
 var errVerificationLeaseLost = errors.New("发票查验任务已被新的请求接管")
 
-var newInvoiceVerifier = func(configuration config.InvoiceRecognition) (provider.Verifier, error) {
-	configuration.Normalize()
-	if !configuration.Baidu.Enabled || !configuration.Baidu.VerificationEnabled {
-		return nil, errors.New("请先在运行配置中启用百度发票 OCR 与验真")
-	}
-	if err := configuration.Validate(); err != nil {
-		return nil, err
-	}
-	return provider.NewBaiduClient(
-		configuration.Baidu.APIKey,
-		configuration.Baidu.SecretKey,
-		time.Duration(configuration.Baidu.TimeoutSeconds)*time.Second,
-	), nil
-}
+var newInvoiceVerifier = provider.NewVerificationAdapter
 
 type verificationRule struct {
 	checkCodeRequired   bool
@@ -88,10 +74,10 @@ func invoiceVerificationFingerprint(invoice model.Invoice) string {
 }
 
 func resolveVerificationType(invoice model.Invoice) string {
-	if value := provider.NormalizeBaiduInvoiceType(invoice.VerificationType); value != "" {
+	if value := provider.NormalizeInvoiceType(invoice.VerificationType); value != "" {
 		return value
 	}
-	return provider.NormalizeBaiduInvoiceType(invoice.InvoiceType)
+	return provider.NormalizeInvoiceType(invoice.InvoiceType)
 }
 
 func lastSix(value string) string {
@@ -110,7 +96,7 @@ func buildVerificationRequest(invoice model.Invoice) (provider.VerificationReque
 	verificationType := resolveVerificationType(invoice)
 	rule, ok := verificationRules[verificationType]
 	if !ok {
-		return provider.VerificationRequest{}, errors.New("请选择百度支持的发票验真类型")
+		return provider.VerificationRequest{}, errors.New("请选择系统支持的发票验真类型")
 	}
 	if strings.TrimSpace(invoice.InvoiceNumber) == "" {
 		return provider.VerificationRequest{}, errors.New("请补充发票号码")
@@ -214,7 +200,7 @@ func normalizeComparison(field, value string) string {
 	value = strings.TrimSpace(value)
 	switch field {
 	case "invoiceType":
-		if normalized := provider.NormalizeBaiduInvoiceType(value); normalized != "" {
+		if normalized := provider.NormalizeInvoiceType(value); normalized != "" {
 			return normalized
 		}
 	case "issueDate":
@@ -254,33 +240,27 @@ func verificationDifferences(invoice model.Invoice, official map[string]string) 
 }
 
 func verificationStatus(result provider.VerificationResult, differences []model.InvoiceVerificationDifference, authorityFieldsMissing bool) string {
-	if result.VerifyResult != "0001" {
-		switch result.VerifyResult {
-		case "0006":
-			return model.InvoiceVerificationInconsistent
-		case "0009":
-			return model.InvoiceVerificationNotFound
-		case "1014":
-			return model.InvoiceVerificationDeferred
-		case "1015":
-			return model.InvoiceVerificationExpired
-		default:
-			return model.InvoiceVerificationUnavailable
-		}
-	}
 	if len(differences) > 0 {
 		return model.InvoiceVerificationInconsistent
 	}
-	if authorityFieldsMissing {
+	if result.Outcome == provider.VerificationOutcomeValid && authorityFieldsMissing {
 		return model.InvoiceVerificationUnavailable
 	}
-	switch result.InvalidSign {
-	case "N":
+	switch result.Outcome {
+	case provider.VerificationOutcomeValid:
 		return model.InvoiceVerificationVerifiedValid
-	case "Y":
+	case provider.VerificationOutcomeVoided:
 		return model.InvoiceVerificationVoided
-	case "H", "BH", "QH":
+	case provider.VerificationOutcomeRedFlushed:
 		return model.InvoiceVerificationRed
+	case provider.VerificationOutcomeMismatch:
+		return model.InvoiceVerificationInconsistent
+	case provider.VerificationOutcomeNotFound:
+		return model.InvoiceVerificationNotFound
+	case provider.VerificationOutcomeDeferred:
+		return model.InvoiceVerificationDeferred
+	case provider.VerificationOutcomeExpired:
+		return model.InvoiceVerificationExpired
 	default:
 		return model.InvoiceVerificationUnavailable
 	}
@@ -357,7 +337,7 @@ func finishVerificationAttempt(
 	})
 }
 
-func startVerificationAttempt(id uint, scope AccessScope) (model.Invoice, provider.VerificationRequest, model.InvoiceVerification, error) {
+func startVerificationAttempt(id uint, scope AccessScope, providerID string) (model.Invoice, provider.VerificationRequest, model.InvoiceVerification, error) {
 	var invoice model.Invoice
 	var request provider.VerificationRequest
 	var attempt model.InvoiceVerification
@@ -399,7 +379,7 @@ func startVerificationAttempt(id uint, scope AccessScope) (model.Invoice, provid
 		}
 
 		attempt = model.InvoiceVerification{
-			InvoiceID: invoice.ID, Provider: "baidu-vat-invoice-verification",
+			InvoiceID: invoice.ID, Provider: providerID,
 			Status: model.InvoiceVerificationVerifying, LocalFingerprint: fingerprint,
 			RequestSnapshot: requestSnapshot, RequestedBy: scope.UserID,
 		}
@@ -415,7 +395,7 @@ func startVerificationAttempt(id uint, scope AccessScope) (model.Invoice, provid
 		}
 		claim = claim.Updates(map[string]any{
 			"verification_type": verificationType, "verification_status": model.InvoiceVerificationVerifying,
-			"verification_message": "正在连接税局查验", "active_verification_id": attempt.ID,
+			"verification_message": "正在连接权威查验服务", "active_verification_id": attempt.ID,
 			"verification_started_at": &now,
 		})
 		if claim.Error != nil {
@@ -430,15 +410,15 @@ func startVerificationAttempt(id uint, scope AccessScope) (model.Invoice, provid
 }
 
 func (VerificationService) Verify(ctx context.Context, id uint, scope AccessScope) (VerificationOutcome, error) {
-	verifier, err := newInvoiceVerifier(global.GVA_CONFIG.InvoiceRecognition)
+	adapter, err := newInvoiceVerifier(global.GVA_CONFIG.InvoiceRecognition)
 	if err != nil {
 		return VerificationOutcome{}, err
 	}
-	invoice, request, attempt, err := startVerificationAttempt(id, scope)
+	invoice, request, attempt, err := startVerificationAttempt(id, scope, adapter.Provider)
 	if err != nil {
 		return VerificationOutcome{}, err
 	}
-	result, verifyErr := verifier.Verify(ctx, request)
+	result, verifyErr := adapter.Verifier.Verify(ctx, request)
 	if verifyErr != nil {
 		result.VerifyMessage = verifyErr.Error()
 		if finishErr := finishVerificationAttempt(&attempt, result, model.InvoiceVerificationUnavailable, nil); finishErr != nil {
@@ -448,7 +428,7 @@ func (VerificationService) Verify(ctx context.Context, id uint, scope AccessScop
 	}
 	differences := verificationDifferences(invoice, result.Official)
 	missingFields := missingOfficialFields(request, result.Official)
-	if result.VerifyResult == "0001" && len(missingFields) > 0 {
+	if result.Outcome == provider.VerificationOutcomeValid && len(missingFields) > 0 {
 		message := strings.TrimSpace(result.VerifyMessage)
 		if message != "" {
 			message += "；"

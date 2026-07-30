@@ -257,17 +257,34 @@ excel:
 
 invoice-recognition:
     fallback-threshold: 0.82
+    allow-private-endpoints: false
+    baidu:
+        enabled: false
+        verification-enabled: false
+        api-key: ""
+        secret-key: ""
+        timeout-seconds: 30
     public-ocr:
         enabled: false
-        provider: http-compatible
+        provider: ""
+        protocol: ""
         endpoint: ""
         api-key: ""
+        timeout-seconds: 30
+    verification:
+        enabled: false
+        provider: ""
+        protocol: ""
+        endpoint: ""
+        api-key: ""
+        secret-key: ""
         timeout-seconds: 30
     multimodal:
         enabled: false
         base-url: ""
         api-key: ""
         model: ""
+        protocol: ""
         timeout-seconds: 45
 
 # disk usage configuration

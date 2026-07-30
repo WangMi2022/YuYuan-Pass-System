@@ -35,7 +35,7 @@ func TestMultimodalRecognizerUsesImageInputAndParsesResult(t *testing.T) {
 	}))
 	defer server.Close()
 
-	recognizer := MultimodalRecognizer{BaseURL: server.URL, APIKey: "test-key", Model: "vision-model", Timeout: time.Second}
+	recognizer := MultimodalRecognizer{BaseURL: server.URL, APIKey: "test-key", Model: "vision-model", Timeout: time.Second, AllowPrivateEndpoints: true}
 	result, err := recognizer.Recognize(context.Background(), Input{
 		FileName: "invoice.png", ContentType: "image/png", Data: probePNG,
 	})
@@ -103,7 +103,7 @@ func TestMultimodalRecognizerDetectsAnthropicProtocol(t *testing.T) {
 	}))
 	defer server.Close()
 
-	recognizer := MultimodalRecognizer{BaseURL: server.URL, APIKey: "test-key", Model: "vision-model", Timeout: time.Second}
+	recognizer := MultimodalRecognizer{BaseURL: server.URL, APIKey: "test-key", Model: "vision-model", Timeout: time.Second, AllowPrivateEndpoints: true}
 	protocol, err := recognizer.Probe(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -129,7 +129,7 @@ func TestMultimodalRecognizerUsesStoredAnthropicProtocol(t *testing.T) {
 
 	recognizer := MultimodalRecognizer{
 		BaseURL: server.URL, APIKey: "test-key", Model: "vision-model",
-		Protocol: config.MultimodalProtocolAnthropic, Timeout: time.Second,
+		Protocol: config.MultimodalProtocolAnthropic, Timeout: time.Second, AllowPrivateEndpoints: true,
 	}
 	result, err := recognizer.Recognize(context.Background(), Input{
 		FileName: "invoice.png", ContentType: "image/png", Data: probePNG,
@@ -178,7 +178,7 @@ func TestMultimodalRecognizerDoesNotForwardAPIKeyThroughRedirect(t *testing.T) {
 
 	recognizer := MultimodalRecognizer{
 		BaseURL: redirect.URL, APIKey: "test-key", Model: "vision-model",
-		Protocol: config.MultimodalProtocolAnthropic, Timeout: time.Second,
+		Protocol: config.MultimodalProtocolAnthropic, Timeout: time.Second, AllowPrivateEndpoints: true,
 	}
 	if _, err := recognizer.Probe(context.Background()); err == nil {
 		t.Fatal("redirect response was accepted")

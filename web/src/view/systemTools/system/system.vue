@@ -913,23 +913,34 @@
                 <span class="flow-arrow">→</span>
                 <span class="flow-node is-fixed">人工核对</span>
               </div>
-              <el-form-item label="大模型兜底阈值" label-width="132px" class="threshold-field">
-                <el-input-number
-                  v-model="config['invoice-recognition']['fallback-threshold']"
-                  :min="0.1"
-                  :max="1"
-                  :step="0.01"
-                  :precision="2"
-                  :disabled="!canManageInvoiceRecognition"
-                  controls-position="right"
-                />
-              </el-form-item>
+              <div class="recognition-controls">
+                <el-form-item label="允许内网端点" label-width="112px" class="threshold-field">
+                  <el-switch
+                    v-model="config['invoice-recognition']['allow-private-endpoints']"
+                    :disabled="!canManageInvoiceRecognition"
+                    inline-prompt
+                    active-text="允许"
+                    inactive-text="拒绝"
+                  />
+                </el-form-item>
+                <el-form-item label="大模型兜底阈值" label-width="132px" class="threshold-field">
+                  <el-input-number
+                    v-model="config['invoice-recognition']['fallback-threshold']"
+                    :min="0.1"
+                    :max="1"
+                    :step="0.01"
+                    :precision="2"
+                    :disabled="!canManageInvoiceRecognition"
+                    controls-position="right"
+                  />
+                </el-form-item>
+              </div>
             </div>
 
             <section class="provider-section">
               <div class="provider-heading">
                 <div class="provider-title-line">
-                  <h3>百度发票 OCR 与验真</h3>
+                  <h3>百度发票 OCR</h3>
                   <el-tag :type="baiduCredentialsReady ? 'success' : 'info'" effect="plain" size="small">
                     {{ baiduCredentialsReady ? '凭据已配置' : '无凭据' }}
                   </el-tag>
@@ -940,19 +951,9 @@
                   inline-prompt
                   active-text="启用"
                   inactive-text="停用"
-                  @change="toggleBaidu"
                 />
               </div>
               <div class="provider-grid">
-                <el-form-item label="权威验真" label-width="112px">
-                  <el-switch
-                    v-model="config['invoice-recognition'].baidu['verification-enabled']"
-                    :disabled="!canManageInvoiceRecognition || !config['invoice-recognition'].baidu.enabled"
-                    inline-prompt
-                    active-text="启用"
-                    inactive-text="停用"
-                  />
-                </el-form-item>
                 <el-form-item label="请求超时" label-width="112px">
                   <el-input-number
                     v-model="config['invoice-recognition'].baidu['timeout-seconds']"
@@ -1022,6 +1023,14 @@
                   >
                     {{ publicOCRKeyReady ? '凭据已配置' : '无凭据' }}
                   </el-tag>
+                  <el-tag
+                    v-if="publicOCRDetectionLabel"
+                    type="info"
+                    effect="plain"
+                    size="small"
+                  >
+                    {{ publicOCRDetectionLabel }}
+                  </el-tag>
                 </div>
                 <el-switch
                   v-model="config['invoice-recognition']['public-ocr'].enabled"
@@ -1032,13 +1041,6 @@
                 />
               </div>
               <div class="provider-grid">
-                <el-form-item label="服务标识" label-width="112px">
-                  <el-input
-                    v-model.trim="config['invoice-recognition']['public-ocr'].provider"
-                    :disabled="!canManageInvoiceRecognition"
-                    placeholder="http-compatible"
-                  />
-                </el-form-item>
                 <el-form-item label="请求超时" label-width="112px">
                   <el-input-number
                     v-model="config['invoice-recognition']['public-ocr']['timeout-seconds']"
@@ -1054,6 +1056,7 @@
                     v-model.trim="config['invoice-recognition']['public-ocr'].endpoint"
                     :disabled="!canManageInvoiceRecognition"
                     placeholder="https://ocr.example.com/invoice/recognize"
+                    @input="resetPublicOCRDetection"
                   />
                 </el-form-item>
                 <el-form-item label="API Key" label-width="112px" class="grid-full">
@@ -1065,11 +1068,13 @@
                       autocomplete="new-password"
                       :disabled="!canManageInvoiceRecognition || config['invoice-recognition']['public-ocr']['clear-api-key']"
                       :placeholder="publicOCRKeyPlaceholder"
+                      @input="resetPublicOCRDetection"
                     />
                     <el-checkbox
                       v-if="config['invoice-recognition']['public-ocr']['api-key-configured']"
                       v-model="config['invoice-recognition']['public-ocr']['clear-api-key']"
                       :disabled="!canManageInvoiceRecognition"
+                      @change="resetPublicOCRDetection"
                     >
                       清除凭据
                     </el-checkbox>
@@ -1084,7 +1089,105 @@
                   :loading="testingProvider === 'public-ocr'"
                   @click="testProvider('public-ocr')"
                 >
-                  测试连接
+                  测试并识别协议
+                </el-button>
+              </div>
+            </section>
+
+            <section class="provider-section">
+              <div class="provider-heading">
+                <div class="provider-title-line">
+                  <h3>权威发票验真</h3>
+                  <el-tag :type="verificationCredentialsReady ? 'success' : 'info'" effect="plain" size="small">
+                    {{ verificationCredentialsReady ? '凭据已配置' : '无凭据' }}
+                  </el-tag>
+                  <el-tag
+                    v-if="verificationDetectionLabel"
+                    type="info"
+                    effect="plain"
+                    size="small"
+                  >
+                    {{ verificationDetectionLabel }}
+                  </el-tag>
+                </div>
+                <el-switch
+                  v-model="config['invoice-recognition'].verification.enabled"
+                  :disabled="!canManageInvoiceRecognition"
+                  inline-prompt
+                  active-text="启用"
+                  inactive-text="停用"
+                />
+              </div>
+              <p class="provider-hint">
+                留空接口地址时自动探测百度权威验真；填写网关地址时自动探测系统统一的 HTTP 验真协议。供应商与协议由服务器保存，无需手动选择。
+              </p>
+              <div class="provider-grid">
+                <el-form-item label="请求超时" label-width="112px">
+                  <el-input-number
+                    v-model="config['invoice-recognition'].verification['timeout-seconds']"
+                    :min="1"
+                    :max="120"
+                    :disabled="!canManageInvoiceRecognition"
+                    controls-position="right"
+                  />
+                  <span class="input-unit">秒</span>
+                </el-form-item>
+                <el-form-item label="接口地址" label-width="112px" class="grid-full">
+                  <el-input
+                    v-model.trim="config['invoice-recognition'].verification.endpoint"
+                    :disabled="!canManageInvoiceRecognition"
+                    placeholder="百度请留空；其他厂商填写验真网关地址"
+                    @input="resetVerificationDetection"
+                  />
+                </el-form-item>
+                <el-form-item label="API Key" label-width="112px">
+                  <div class="secret-row">
+                    <el-input
+                      v-model.trim="config['invoice-recognition'].verification['api-key']"
+                      type="password"
+                      show-password
+                      autocomplete="new-password"
+                      :disabled="!canManageInvoiceRecognition || config['invoice-recognition'].verification['clear-api-key']"
+                      :placeholder="verificationAPIKeyPlaceholder"
+                      @input="resetVerificationDetection"
+                    />
+                    <el-checkbox
+                      v-if="config['invoice-recognition'].verification['api-key-configured']"
+                      v-model="config['invoice-recognition'].verification['clear-api-key']"
+                      :disabled="!canManageInvoiceRecognition"
+                      @change="resetVerificationDetection"
+                    >清除</el-checkbox>
+                  </div>
+                </el-form-item>
+                <el-form-item label="Secret Key" label-width="112px">
+                  <div class="secret-row">
+                    <el-input
+                      v-model.trim="config['invoice-recognition'].verification['secret-key']"
+                      type="password"
+                      show-password
+                      autocomplete="new-password"
+                      :disabled="!canManageInvoiceRecognition || config['invoice-recognition'].verification['clear-secret-key']"
+                      :placeholder="verificationSecretKeyPlaceholder"
+                      @input="resetVerificationDetection"
+                    />
+                    <el-checkbox
+                      v-if="config['invoice-recognition'].verification['secret-key-configured']"
+                      v-model="config['invoice-recognition'].verification['clear-secret-key']"
+                      :disabled="!canManageInvoiceRecognition"
+                      @change="resetVerificationDetection"
+                    >清除</el-checkbox>
+                  </div>
+                </el-form-item>
+              </div>
+              <div v-if="canManageInvoiceRecognition" class="provider-actions">
+                <el-button
+                  type="primary"
+                  plain
+                  :icon="Connection"
+                  :loading="testingProvider === 'verification'"
+                  @click="testProvider('verification')"
+                >
+                  测试并识别供应商
                 </el-button>
               </div>
             </section>
@@ -1291,6 +1394,7 @@
 
   const defaultInvoiceRecognition = () => ({
     'fallback-threshold': 0.82,
+    'allow-private-endpoints': false,
     baidu: {
       enabled: false,
       'verification-enabled': false,
@@ -1304,11 +1408,25 @@
     },
     'public-ocr': {
       enabled: false,
-      provider: 'http-compatible',
+      provider: '',
+      protocol: '',
       endpoint: '',
       'api-key': '',
       'api-key-configured': false,
       'clear-api-key': false,
+      'timeout-seconds': 30
+    },
+    verification: {
+      enabled: false,
+      provider: '',
+      protocol: '',
+      endpoint: '',
+      'api-key': '',
+      'secret-key': '',
+      'api-key-configured': false,
+      'secret-key-configured': false,
+      'clear-api-key': false,
+      'clear-secret-key': false,
       'timeout-seconds': 30
     },
     multimodal: {
@@ -1379,6 +1497,7 @@
       ...current,
       baidu: { ...defaults.baidu, ...(current.baidu || {}) },
       'public-ocr': { ...defaults['public-ocr'], ...(current['public-ocr'] || {}) },
+      verification: { ...defaults.verification, ...(current.verification || {}) },
       multimodal: { ...defaults.multimodal, ...(current.multimodal || {}) }
     }
   }
@@ -1400,6 +1519,14 @@
     return !provider['clear-api-key'] &&
       (provider['api-key-configured'] || Boolean(provider['api-key']))
   })
+  const verificationCredentialsReady = computed(() => {
+    const provider = config.value['invoice-recognition'].verification
+    const apiKeyReady = !provider['clear-api-key'] &&
+      (provider['api-key-configured'] || Boolean(provider['api-key']))
+    const secretKeyReady = !provider['clear-secret-key'] &&
+      (provider['secret-key-configured'] || Boolean(provider['secret-key']))
+    return provider.endpoint ? apiKeyReady || secretKeyReady : apiKeyReady && secretKeyReady
+  })
   const publicOCRKeyPlaceholder = computed(() =>
     config.value['invoice-recognition']['public-ocr']['api-key-configured']
       ? '已配置，留空保持不变'
@@ -1415,6 +1542,16 @@
       ? '已配置，留空保持不变'
       : '请输入百度智能云 Secret Key'
   )
+  const verificationAPIKeyPlaceholder = computed(() =>
+    config.value['invoice-recognition'].verification['api-key-configured']
+      ? '已配置，留空保持不变'
+      : '请输入验真服务 API Key'
+  )
+  const verificationSecretKeyPlaceholder = computed(() =>
+    config.value['invoice-recognition'].verification['secret-key-configured']
+      ? '已配置，留空保持不变'
+      : '请输入 Secret Key（HTTP 网关可选）'
+  )
   const multimodalKeyPlaceholder = computed(() =>
     config.value['invoice-recognition'].multimodal['api-key-configured']
       ? '已配置，留空保持不变'
@@ -1426,13 +1563,38 @@
     if (protocol === 'anthropic') return '协议：Anthropic（自动）'
     return ''
   })
+  const publicOCRDetectionLabel = computed(() => {
+    const provider = config.value['invoice-recognition']['public-ocr']
+    if (provider.provider === 'http-compatible' && provider.protocol === 'multipart-json-v1') {
+      return 'HTTP Compatible（自动）'
+    }
+    return ''
+  })
+  const verificationDetectionLabel = computed(() => {
+    const provider = config.value['invoice-recognition'].verification
+    if (provider.provider === 'baidu' && provider.protocol === 'baidu-vat-invoice-v1') {
+      return '百度权威验真（自动）'
+    }
+    if (provider.provider === 'http-compatible' && provider.protocol === 'invoice-verification-json-v1') {
+      return 'HTTP 验真网关（自动）'
+    }
+    return ''
+  })
+
+  const resetPublicOCRDetection = () => {
+    const provider = config.value['invoice-recognition']['public-ocr']
+    provider.provider = ''
+    provider.protocol = ''
+  }
+
+  const resetVerificationDetection = () => {
+    const provider = config.value['invoice-recognition'].verification
+    provider.provider = ''
+    provider.protocol = ''
+  }
 
   const resetMultimodalProtocol = () => {
     config.value['invoice-recognition'].multimodal.protocol = ''
-  }
-
-  const toggleBaidu = (enabled) => {
-    if (!enabled) config.value['invoice-recognition'].baidu['verification-enabled'] = false
   }
 
   const initForm = async () => {
@@ -1475,11 +1637,12 @@
     const multimodal = config.value['invoice-recognition'].multimodal
     const res = await setSystemConfig({ config: config.value })
     if (res.code === 0) {
-      const protocol = res.data?.multimodalProtocol
+      const protocol = res.data?.multimodal?.protocol
+      const verificationProvider = res.data?.verification?.provider
       ElMessage({
         type: 'success',
-        message: multimodal.enabled && protocol
-          ? `配置文件设置成功，多模态协议：${protocol === 'anthropic' ? 'Anthropic' : 'OpenAI Compatible'}（自动识别）`
+        message: verificationProvider || (multimodal.enabled && protocol)
+          ? `配置文件设置成功，连接协议已由服务器自动识别`
           : '配置文件设置成功'
       })
       await initForm()
@@ -1495,8 +1658,9 @@
         config: config.value['invoice-recognition']
       })
       if (res?.code !== 0) return false
+      const provider = res.data?.provider
+      const protocol = res.data?.protocol
       if (target === 'multimodal') {
-        const protocol = res.data?.protocol
         if (!['openai-compatible', 'anthropic'].includes(protocol)) {
           ElMessage.error('连接成功，但未能确定接口协议')
           return false
@@ -1505,10 +1669,32 @@
         if (notify) {
           ElMessage.success(`多模态模型连接正常，已自动识别为 ${protocol === 'anthropic' ? 'Anthropic' : 'OpenAI Compatible'} 协议`)
         }
+      } else if (target === 'public-ocr') {
+        if (provider !== 'http-compatible' || protocol !== 'multipart-json-v1') {
+          ElMessage.error('连接成功，但未能确定公网 OCR 协议')
+          return false
+        }
+        const configuration = config.value['invoice-recognition']['public-ocr']
+        configuration.provider = provider
+        configuration.protocol = protocol
+        if (notify) ElMessage.success('公网 OCR 连接正常，协议已自动识别')
+      } else if (target === 'verification') {
+        const supported = (provider === 'baidu' && protocol === 'baidu-vat-invoice-v1') ||
+          (provider === 'http-compatible' && protocol === 'invoice-verification-json-v1')
+        if (!supported) {
+          ElMessage.error('连接成功，但未能确定权威验真供应商')
+          return false
+        }
+        const configuration = config.value['invoice-recognition'].verification
+        configuration.provider = provider
+        configuration.protocol = protocol
+        if (notify) {
+          ElMessage.success(provider === 'baidu'
+            ? '权威验真连接正常，已自动识别为百度协议'
+            : '权威验真连接正常，已自动识别为 HTTP 网关协议')
+        }
       } else if (target === 'baidu' && notify) {
         ElMessage.success('百度智能云凭据认证成功')
-      } else if (notify) {
-        ElMessage.success('公网 OCR 连接正常')
       }
       return true
     } finally {
@@ -1603,6 +1789,13 @@
     margin-bottom: 0;
   }
 
+  .recognition-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 0 0 auto;
+  }
+
   .provider-section {
     padding: 22px 0;
     border-bottom: 1px solid var(--el-border-color-lighter);
@@ -1619,6 +1812,13 @@
   .provider-heading {
     justify-content: space-between;
     margin-bottom: 18px;
+  }
+
+  .provider-hint {
+    margin: -8px 0 18px 112px;
+    color: var(--el-text-color-secondary);
+    font-size: 12px;
+    line-height: 20px;
   }
 
   .provider-title-line {
@@ -1679,12 +1879,21 @@
       flex-wrap: wrap;
     }
 
+    .recognition-controls {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
     .provider-grid {
       grid-template-columns: minmax(0, 1fr);
     }
 
     .provider-grid .grid-full {
       grid-column: auto;
+    }
+
+    .provider-hint {
+      margin-left: 0;
     }
   }
 

@@ -22,14 +22,15 @@ const (
 	probeMaxTokens            = 256
 )
 
-const invoiceExtractionPrompt = `识别图片中的中国发票并只返回一个 JSON 对象，不要返回 Markdown。金额全部换算为整数分，日期格式为 YYYY-MM-DD。无法确认的文本字段返回空字符串，无法确认的金额返回 0。JSON 字段必须是：invoiceType、verificationType、verificationAmountMode、invoiceCode、invoiceNumber、checkCode、issueDate、buyerName、buyerTaxNo、sellerName、sellerTaxNo、amountCents、taxCents、totalCents、rawText、confidence、fieldConfidences、items。verificationType 使用百度发票验真的标准票种代码；机动车销售统一发票的 verificationAmountMode，纸质票返回 amount，电子票返回 total，其他票种返回空字符串。confidence 和 fieldConfidences 的值范围为 0 到 1。items 每项字段必须是：name、specification、unit、quantityText、unitPriceCents、amountCents、taxRate、taxCents。`
+const invoiceExtractionPrompt = `识别图片中的中国发票并只返回一个 JSON 对象，不要返回 Markdown。金额全部换算为整数分，日期格式为 YYYY-MM-DD。无法确认的文本字段返回空字符串，无法确认的金额返回 0。JSON 字段必须是：invoiceType、verificationType、verificationAmountMode、invoiceCode、invoiceNumber、checkCode、issueDate、buyerName、buyerTaxNo、sellerName、sellerTaxNo、amountCents、taxCents、totalCents、rawText、confidence、fieldConfidences、items。verificationType 使用系统统一票种代码；机动车销售统一发票的 verificationAmountMode，纸质票返回 amount，电子票返回 total，其他票种返回空字符串。confidence 和 fieldConfidences 的值范围为 0 到 1。items 每项字段必须是：name、specification、unit、quantityText、unitPriceCents、amountCents、taxRate、taxCents。`
 
 type MultimodalRecognizer struct {
-	BaseURL  string
-	APIKey   string
-	Model    string
-	Protocol string
-	Timeout  time.Duration
+	BaseURL               string
+	APIKey                string
+	Model                 string
+	Protocol              string
+	Timeout               time.Duration
+	AllowPrivateEndpoints bool
 }
 
 type multimodalCompletion struct {
@@ -244,14 +245,7 @@ func (r *MultimodalRecognizer) chat(
 	if protocol == config.MultimodalProtocolAnthropic {
 		req.Header.Set("anthropic-version", "2023-06-01")
 	}
-	client := &http.Client{
-		Timeout: r.Timeout,
-		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
-			// Provider redirects are not followed because custom authentication
-			// headers such as x-api-key may otherwise be forwarded to another host.
-			return http.ErrUseLastResponse
-		},
-	}
+	client := providerHTTPClient(r.Timeout, r.AllowPrivateEndpoints)
 	resp, err := client.Do(req)
 	if err != nil {
 		var urlErr *url.Error

@@ -28,38 +28,6 @@ const (
 	maxBaiduRequestSize  = 8 << 20
 )
 
-type VerificationRequest struct {
-	InvoiceCode string
-	InvoiceNum  string
-	InvoiceDate string
-	InvoiceType string
-	CheckCode   string
-	TotalAmount string
-	AmountMode  string
-}
-
-func (r VerificationRequest) Snapshot() map[string]string {
-	return map[string]string{
-		"invoiceCode": r.InvoiceCode, "invoiceNumber": r.InvoiceNum,
-		"invoiceDate": r.InvoiceDate, "verificationType": r.InvoiceType,
-		"checkCode": r.CheckCode, "totalAmount": r.TotalAmount, "amountMode": r.AmountMode,
-	}
-}
-
-type VerificationResult struct {
-	VerifyResult    string
-	VerifyMessage   string
-	VerifyFrequency string
-	InvalidSign     string
-	ProviderLogID   string
-	Official        map[string]string
-	RawPayload      string
-}
-
-type Verifier interface {
-	Verify(context.Context, VerificationRequest) (VerificationResult, error)
-}
-
 type baiduTokenState struct {
 	mu        sync.Mutex
 	token     string
@@ -253,7 +221,7 @@ func (c *BaiduClient) Recognize(ctx context.Context, input Input) (Result, error
 		FieldConfidences: map[string]float64{},
 	}
 	result.InvoiceType = firstBaiduWord(envelope.WordsResult, "InvoiceTypeOrg", "InvoiceType")
-	result.VerificationType = NormalizeBaiduInvoiceType(result.InvoiceType)
+	result.VerificationType = NormalizeInvoiceType(result.InvoiceType)
 	if result.VerificationType == "motor_vehicle_invoice" {
 		result.VerificationAmountMode = baiduMotorVehicleAmountMode(result.InvoiceType)
 	}
@@ -339,6 +307,7 @@ func (c *BaiduClient) Verify(ctx context.Context, request VerificationRequest) (
 		}
 	}
 	return VerificationResult{
+		Outcome:         baiduVerificationOutcome(firstBaiduWord(envelope.WordsResult, "VerifyResult"), firstBaiduWord(envelope.WordsResult, "InvalidSign")),
 		VerifyResult:    firstBaiduWord(envelope.WordsResult, "VerifyResult"),
 		VerifyMessage:   firstBaiduWord(envelope.WordsResult, "VerifyMessage"),
 		VerifyFrequency: firstBaiduWord(envelope.WordsResult, "VerifyFrequency"),
@@ -481,7 +450,7 @@ func baiduRawText(fields map[string]json.RawMessage) string {
 	return strings.Join(lines, "\n")
 }
 
-var baiduInvoiceTypeAliases = map[string]string{
+var canonicalInvoiceTypeAliases = map[string]string{
 	"增值税专用发票": "special_vat_invoice", "专用发票": "special_vat_invoice", "special_vat_invoice": "special_vat_invoice",
 	"增值税电子专用发票": "elec_special_vat_invoice", "电子专用发票": "elec_special_vat_invoice", "elec_special_vat_invoice": "elec_special_vat_invoice",
 	"增值税普通发票": "normal_invoice", "普通发票": "normal_invoice", "normal_invoice": "normal_invoice",
@@ -499,11 +468,15 @@ var baiduInvoiceTypeAliases = map[string]string{
 	"全电发票（含通行费标识）": "elec_toll_invoice", "elec_toll_invoice": "elec_toll_invoice",
 }
 
-func NormalizeBaiduInvoiceType(value string) string {
+func NormalizeInvoiceType(value string) string {
 	normalized := strings.TrimSpace(value)
-	if result := baiduInvoiceTypeAliases[normalized]; result != "" {
+	if result := canonicalInvoiceTypeAliases[normalized]; result != "" {
 		return result
 	}
 	normalized = strings.ReplaceAll(normalized, " ", "")
-	return baiduInvoiceTypeAliases[normalized]
+	return canonicalInvoiceTypeAliases[normalized]
 }
+
+// NormalizeBaiduInvoiceType remains for source compatibility. New callers use
+// the vendor-neutral canonical invoice type vocabulary.
+func NormalizeBaiduInvoiceType(value string) string { return NormalizeInvoiceType(value) }

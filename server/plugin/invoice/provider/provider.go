@@ -45,6 +45,13 @@ type Recognizer interface {
 	Recognize(ctx context.Context, input Input) (Result, error)
 }
 
+// ConnectionInfo is server-detected metadata. It is persisted only after a
+// successful probe and is read-only to browser clients.
+type ConnectionInfo struct {
+	Provider string `json:"provider"`
+	Protocol string `json:"protocol"`
+}
+
 type Chain struct {
 	qr                Recognizer
 	ocr               Recognizer
@@ -58,9 +65,10 @@ func NewFromEnvironment() *Chain {
 	var ocrRecognizer Recognizer
 	if endpoint != "" {
 		ocrRecognizer = &HTTPRecognizer{
-			Endpoint: endpoint,
-			Token:    strings.TrimSpace(os.Getenv("INVOICE_OCR_TOKEN")),
-			Timeout:  30 * time.Second,
+			Endpoint:              endpoint,
+			Token:                 strings.TrimSpace(os.Getenv("INVOICE_OCR_TOKEN")),
+			Timeout:               30 * time.Second,
+			AllowPrivateEndpoints: true,
 		}
 	}
 	return &Chain{qr: QRRecognizer{}, ocr: ocrRecognizer, fallbackThreshold: 0.82}
@@ -77,25 +85,28 @@ func New(configuration config.InvoiceRecognition) *Chain {
 		)
 	}
 	if configuration.PublicOCR.Enabled && configuration.PublicOCR.Endpoint != "" {
-		recognizer := &HTTPRecognizer{
-			Endpoint: configuration.PublicOCR.Endpoint,
-			Token:    configuration.PublicOCR.APIKey,
-			Timeout:  time.Duration(configuration.PublicOCR.TimeoutSeconds) * time.Second,
-			Provider: configuration.PublicOCR.Provider,
+		recognizer, err := newPublicOCRRecognizer(configuration.PublicOCR, configuration.AllowPrivateEndpoints)
+		if err != nil {
+			// Invalid runtime configuration is rejected on save. Keeping the
+			// worker chain available here still allows QR/model fallback.
+			recognizer = nil
 		}
-		if chain.ocr == nil {
-			chain.ocr = recognizer
-		} else {
-			chain.additionalOCRs = append(chain.additionalOCRs, recognizer)
+		if recognizer != nil {
+			if chain.ocr == nil {
+				chain.ocr = recognizer
+			} else {
+				chain.additionalOCRs = append(chain.additionalOCRs, recognizer)
+			}
 		}
 	}
 	if configuration.Multimodal.Enabled && configuration.Multimodal.BaseURL != "" {
 		chain.multimodal = &MultimodalRecognizer{
-			BaseURL:  configuration.Multimodal.BaseURL,
-			APIKey:   configuration.Multimodal.APIKey,
-			Model:    configuration.Multimodal.Model,
-			Protocol: configuration.Multimodal.Protocol,
-			Timeout:  time.Duration(configuration.Multimodal.TimeoutSeconds) * time.Second,
+			BaseURL:               configuration.Multimodal.BaseURL,
+			APIKey:                configuration.Multimodal.APIKey,
+			Model:                 configuration.Multimodal.Model,
+			Protocol:              configuration.Multimodal.Protocol,
+			Timeout:               time.Duration(configuration.Multimodal.TimeoutSeconds) * time.Second,
+			AllowPrivateEndpoints: configuration.AllowPrivateEndpoints,
 		}
 	}
 	return chain
@@ -113,11 +124,12 @@ func NewMultimodal(configuration config.InvoiceRecognition) (*MultimodalRecogniz
 		return nil, errors.New("请先在运行配置中启用多模态模型")
 	}
 	return &MultimodalRecognizer{
-		BaseURL:  configuration.Multimodal.BaseURL,
-		APIKey:   configuration.Multimodal.APIKey,
-		Model:    configuration.Multimodal.Model,
-		Protocol: configuration.Multimodal.Protocol,
-		Timeout:  time.Duration(configuration.Multimodal.TimeoutSeconds) * time.Second,
+		BaseURL:               configuration.Multimodal.BaseURL,
+		APIKey:                configuration.Multimodal.APIKey,
+		Model:                 configuration.Multimodal.Model,
+		Protocol:              configuration.Multimodal.Protocol,
+		Timeout:               time.Duration(configuration.Multimodal.TimeoutSeconds) * time.Second,
+		AllowPrivateEndpoints: configuration.AllowPrivateEndpoints,
 	}, nil
 }
 
@@ -279,58 +291,85 @@ func validConfidence(confidence float64) bool {
 	return !math.IsNaN(confidence) && !math.IsInf(confidence, 0) && confidence >= 0 && confidence <= 1
 }
 
-func TestConnection(ctx context.Context, target string, configuration config.InvoiceRecognition) (string, error) {
+func newPublicOCRRecognizer(configuration config.InvoicePublicOCR, allowPrivateEndpoints bool) (*HTTPRecognizer, error) {
+	if configuration.Protocol != config.OCRProtocolMultipartJSONV1 {
+		return nil, errors.New("不支持的公网 OCR 接口协议")
+	}
+	return &HTTPRecognizer{
+		Endpoint:              configuration.Endpoint,
+		Token:                 configuration.APIKey,
+		Timeout:               time.Duration(configuration.TimeoutSeconds) * time.Second,
+		Provider:              configuration.Provider,
+		AllowPrivateEndpoints: allowPrivateEndpoints,
+	}, nil
+}
+
+func TestConnection(ctx context.Context, target string, configuration config.InvoiceRecognition) (ConnectionInfo, error) {
 	configuration.Normalize()
 	switch target {
 	case "baidu":
 		configuration.PublicOCR.Enabled = false
+		configuration.Verification.Enabled = false
 		configuration.Multimodal.Enabled = false
 		if err := configuration.Validate(); err != nil {
-			return "", err
+			return ConnectionInfo{}, err
 		}
 		if !configuration.Baidu.Enabled {
-			return "", errors.New("请先启用百度发票 OCR")
+			return ConnectionInfo{}, errors.New("请先启用百度发票 OCR")
 		}
-		return "", NewBaiduClient(
+		err := NewBaiduClient(
 			configuration.Baidu.APIKey,
 			configuration.Baidu.SecretKey,
 			time.Duration(configuration.Baidu.TimeoutSeconds)*time.Second,
 		).Probe(ctx)
+		return ConnectionInfo{Provider: config.OCRProviderBaidu, Protocol: config.OCRProtocolBaiduVATV1}, err
 	case "public-ocr":
 		configuration.Baidu.Enabled = false
 		configuration.Baidu.VerificationEnabled = false
+		configuration.Verification.Enabled = false
 		configuration.Multimodal.Enabled = false
+		configuration.PublicOCR.Provider = config.OCRProviderHTTPCompatible
+		configuration.PublicOCR.Protocol = config.OCRProtocolMultipartJSONV1
 		if err := configuration.Validate(); err != nil {
-			return "", err
+			return ConnectionInfo{}, err
 		}
 		if !configuration.PublicOCR.Enabled {
-			return "", errors.New("请先启用公网 OCR")
+			return ConnectionInfo{}, errors.New("请先启用公网 OCR")
 		}
-		err := (&HTTPRecognizer{
-			Endpoint: configuration.PublicOCR.Endpoint,
-			Token:    configuration.PublicOCR.APIKey,
-			Timeout:  time.Duration(configuration.PublicOCR.TimeoutSeconds) * time.Second,
-			Provider: configuration.PublicOCR.Provider,
-		}).Probe(ctx)
-		return "", err
+		return (&HTTPRecognizer{
+			Endpoint:              configuration.PublicOCR.Endpoint,
+			Token:                 configuration.PublicOCR.APIKey,
+			Timeout:               time.Duration(configuration.PublicOCR.TimeoutSeconds) * time.Second,
+			Provider:              config.OCRProviderHTTPCompatible,
+			AllowPrivateEndpoints: configuration.AllowPrivateEndpoints,
+		}).Detect(ctx)
+	case "verification":
+		configuration.Baidu.Enabled = false
+		configuration.Baidu.VerificationEnabled = false
+		configuration.PublicOCR.Enabled = false
+		configuration.Multimodal.Enabled = false
+		return DetectVerificationAdapter(ctx, configuration)
 	case "multimodal":
 		configuration.Baidu.Enabled = false
 		configuration.Baidu.VerificationEnabled = false
 		configuration.PublicOCR.Enabled = false
+		configuration.Verification.Enabled = false
 		if err := configuration.Validate(); err != nil {
-			return "", err
+			return ConnectionInfo{}, err
 		}
 		if !configuration.Multimodal.Enabled {
-			return "", errors.New("请先启用多模态模型")
+			return ConnectionInfo{}, errors.New("请先启用多模态模型")
 		}
-		return (&MultimodalRecognizer{
-			BaseURL:  configuration.Multimodal.BaseURL,
-			APIKey:   configuration.Multimodal.APIKey,
-			Model:    configuration.Multimodal.Model,
-			Protocol: configuration.Multimodal.Protocol,
-			Timeout:  time.Duration(configuration.Multimodal.TimeoutSeconds) * time.Second,
+		protocol, err := (&MultimodalRecognizer{
+			BaseURL:               configuration.Multimodal.BaseURL,
+			APIKey:                configuration.Multimodal.APIKey,
+			Model:                 configuration.Multimodal.Model,
+			Protocol:              configuration.Multimodal.Protocol,
+			Timeout:               time.Duration(configuration.Multimodal.TimeoutSeconds) * time.Second,
+			AllowPrivateEndpoints: configuration.AllowPrivateEndpoints,
 		}).Probe(ctx)
+		return ConnectionInfo{Provider: "multimodal", Protocol: protocol}, err
 	default:
-		return "", errors.New("不支持的识别服务类型")
+		return ConnectionInfo{}, errors.New("不支持的识别服务类型")
 	}
 }

@@ -18,7 +18,7 @@ func TestHTTPRecognizerRejectsOversizedResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	recognizer := HTTPRecognizer{Endpoint: server.URL, Timeout: time.Second}
+	recognizer := HTTPRecognizer{Endpoint: server.URL, Timeout: time.Second, AllowPrivateEndpoints: true}
 	_, err := recognizer.Recognize(context.Background(), Input{FileName: "invoice.png", Data: []byte("image")})
 	if err == nil || !strings.Contains(err.Error(), "2MB") {
 		t.Fatalf("expected oversized response error, got %v", err)
@@ -35,7 +35,7 @@ func TestHTTPRecognizerProbeRequiresCompatibleSuccessEnvelope(t *testing.T) {
 	}))
 	defer server.Close()
 
-	recognizer := HTTPRecognizer{Endpoint: server.URL, Token: "test-key", Timeout: time.Second}
+	recognizer := HTTPRecognizer{Endpoint: server.URL, Token: "test-key", Timeout: time.Second, AllowPrivateEndpoints: true}
 	if err := recognizer.Probe(context.Background()); err != nil {
 		t.Fatalf("probe failed: %v", err)
 	}
@@ -48,7 +48,7 @@ func TestHTTPRecognizerProbeRejectsBusinessError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	recognizer := HTTPRecognizer{Endpoint: server.URL, Timeout: time.Second}
+	recognizer := HTTPRecognizer{Endpoint: server.URL, Timeout: time.Second, AllowPrivateEndpoints: true}
 	if err := recognizer.Probe(context.Background()); err == nil || !strings.Contains(err.Error(), "invalid token") {
 		t.Fatalf("expected business error, got %v", err)
 	}

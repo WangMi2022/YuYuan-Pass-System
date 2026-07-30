@@ -33,6 +33,7 @@ func successfulVerificationResult(request provider.VerificationRequest) provider
 		official["totalCents"] = "10600"
 	}
 	return provider.VerificationResult{
+		Outcome:      provider.VerificationOutcomeValid,
 		VerifyResult: "0001", VerifyMessage: "查验成功发票一致", InvalidSign: "N", Official: official,
 	}
 }
@@ -47,7 +48,7 @@ func resetInvoiceVerification(t *testing.T, invoice model.Invoice) {
 	}
 }
 
-func TestBuildVerificationRequestFollowsBaiduTicketRules(t *testing.T) {
+func TestBuildVerificationRequestFollowsCanonicalTicketRules(t *testing.T) {
 	issueDate := time.Date(2026, 7, 1, 0, 0, 0, 0, time.Local)
 	base := model.Invoice{
 		InvoiceCode: "044001", InvoiceNumber: "12345678", CheckCode: "123456",
@@ -104,13 +105,14 @@ func TestVerificationSuccessWithoutRequiredAuthorityFieldsIsUnavailable(t *testi
 	resetInvoiceVerification(t, invoice)
 
 	previousFactory := newInvoiceVerifier
-	newInvoiceVerifier = func(config.InvoiceRecognition) (provider.Verifier, error) {
-		return verifierFunc(func(context.Context, provider.VerificationRequest) (provider.VerificationResult, error) {
+	newInvoiceVerifier = func(config.InvoiceRecognition) (provider.VerificationAdapter, error) {
+		return testVerificationAdapter(verifierFunc(func(context.Context, provider.VerificationRequest) (provider.VerificationResult, error) {
 			return provider.VerificationResult{
+				Outcome:      provider.VerificationOutcomeValid,
 				VerifyResult: "0001", VerifyMessage: "查验成功发票一致", InvalidSign: "N",
 				Official: map[string]string{},
 			}, nil
-		}), nil
+		})), nil
 	}
 	t.Cleanup(func() { newInvoiceVerifier = previousFactory })
 
@@ -138,12 +140,12 @@ func TestEditingDuringVerificationKeepsLeaseAndMakesResultStale(t *testing.T) {
 	started := make(chan struct{})
 	release := make(chan struct{})
 	previousFactory := newInvoiceVerifier
-	newInvoiceVerifier = func(config.InvoiceRecognition) (provider.Verifier, error) {
-		return verifierFunc(func(_ context.Context, request provider.VerificationRequest) (provider.VerificationResult, error) {
+	newInvoiceVerifier = func(config.InvoiceRecognition) (provider.VerificationAdapter, error) {
+		return testVerificationAdapter(verifierFunc(func(_ context.Context, request provider.VerificationRequest) (provider.VerificationResult, error) {
 			close(started)
 			<-release
 			return successfulVerificationResult(request), nil
-		}), nil
+		})), nil
 	}
 	t.Cleanup(func() { newInvoiceVerifier = previousFactory })
 
@@ -223,10 +225,10 @@ func TestExpiredVerificationLeaseCanBeTakenOverWithoutLateOverwrite(t *testing.T
 	}
 
 	previousFactory := newInvoiceVerifier
-	newInvoiceVerifier = func(config.InvoiceRecognition) (provider.Verifier, error) {
-		return verifierFunc(func(_ context.Context, request provider.VerificationRequest) (provider.VerificationResult, error) {
+	newInvoiceVerifier = func(config.InvoiceRecognition) (provider.VerificationAdapter, error) {
+		return testVerificationAdapter(verifierFunc(func(_ context.Context, request provider.VerificationRequest) (provider.VerificationResult, error) {
 			return successfulVerificationResult(request), nil
-		}), nil
+		})), nil
 	}
 	t.Cleanup(func() { newInvoiceVerifier = previousFactory })
 

@@ -94,7 +94,8 @@ func TestBaiduClientRecognizesAndVerifiesWithCachedToken(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if verified.VerifyResult != "0001" || verified.InvalidSign != "N" || verified.ProviderLogID != "456" || verified.Official["totalCents"] != "10600" {
+	if verified.Outcome != VerificationOutcomeValid || verified.VerifyResult != "0001" || verified.InvalidSign != "N" ||
+		verified.ProviderLogID != "456" || verified.Official["totalCents"] != "10600" {
 		t.Fatalf("unexpected verification result: %#v", verified)
 	}
 	if tokenCalls.Load() != 1 {

@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/flipped-aurora/gin-vue-admin/server/config"
 )
 
 const maxOCRResponseSize = 2 << 20
@@ -18,10 +20,11 @@ const maxOCRResponseSize = 2 << 20
 // HTTPRecognizer is the stable seam for a cloud OCR gateway or local PaddleOCR service.
 // The endpoint receives multipart field "file" and returns Result-compatible JSON.
 type HTTPRecognizer struct {
-	Endpoint string
-	Token    string
-	Timeout  time.Duration
-	Provider string
+	Endpoint              string
+	Token                 string
+	Timeout               time.Duration
+	Provider              string
+	AllowPrivateEndpoints bool
 }
 
 func (r *HTTPRecognizer) Recognize(ctx context.Context, input Input) (Result, error) {
@@ -53,11 +56,16 @@ func (r *HTTPRecognizer) Recognize(ctx context.Context, input Input) (Result, er
 }
 
 func (r *HTTPRecognizer) Probe(ctx context.Context) error {
+	_, err := r.Detect(ctx)
+	return err
+}
+
+func (r *HTTPRecognizer) Detect(ctx context.Context) (ConnectionInfo, error) {
 	status, payload, err := r.request(ctx, Input{
 		FileName: "connection-test.png", ContentType: "image/png", Data: probePNG,
 	})
 	if err != nil {
-		return err
+		return ConnectionInfo{}, err
 	}
 	switch {
 	case status >= 200 && status < 300:
@@ -67,23 +75,23 @@ func (r *HTTPRecognizer) Probe(ctx context.Context) error {
 			Data Result `json:"data"`
 		}
 		if err = json.Unmarshal(payload, &envelope); err != nil {
-			return errors.New("OCR 服务可达，但响应协议不兼容")
+			return ConnectionInfo{}, errors.New("OCR 服务可达，但响应协议不兼容")
 		}
 		if envelope.Code != 0 {
 			if strings.TrimSpace(envelope.Msg) == "" {
-				return fmt.Errorf("OCR 服务可达，但业务校验失败（code=%d）", envelope.Code)
+				return ConnectionInfo{}, fmt.Errorf("OCR 服务可达，但业务校验失败（code=%d）", envelope.Code)
 			}
-			return fmt.Errorf("OCR 服务可达，但业务校验失败: %s", envelope.Msg)
+			return ConnectionInfo{}, fmt.Errorf("OCR 服务可达，但业务校验失败: %s", envelope.Msg)
 		}
-		return nil
+		return ConnectionInfo{Provider: config.OCRProviderHTTPCompatible, Protocol: config.OCRProtocolMultipartJSONV1}, nil
 	case status == http.StatusUnauthorized || status == http.StatusForbidden:
-		return fmt.Errorf("OCR 服务鉴权失败（HTTP %d）", status)
+		return ConnectionInfo{}, fmt.Errorf("OCR 服务鉴权失败（HTTP %d）", status)
 	case status == http.StatusNotFound || status == http.StatusMethodNotAllowed:
-		return fmt.Errorf("OCR 接口地址不正确（HTTP %d）", status)
+		return ConnectionInfo{}, fmt.Errorf("OCR 接口地址不正确（HTTP %d）", status)
 	case status == http.StatusBadRequest || status == http.StatusUnsupportedMediaType || status == http.StatusUnprocessableEntity:
-		return fmt.Errorf("OCR 服务可达，但测试图片或接口协议未通过验证（HTTP %d）", status)
+		return ConnectionInfo{}, fmt.Errorf("OCR 服务可达，但测试图片或接口协议未通过验证（HTTP %d）", status)
 	default:
-		return fmt.Errorf("OCR 服务连接失败（HTTP %d）", status)
+		return ConnectionInfo{}, fmt.Errorf("OCR 服务连接失败（HTTP %d）", status)
 	}
 }
 
@@ -109,7 +117,7 @@ func (r *HTTPRecognizer) request(ctx context.Context, input Input) (int, []byte,
 	if r.Token != "" {
 		req.Header.Set("Authorization", "Bearer "+r.Token)
 	}
-	client := &http.Client{Timeout: r.Timeout}
+	client := providerHTTPClient(r.Timeout, r.AllowPrivateEndpoints)
 	resp, err := client.Do(req)
 	if err != nil {
 		return 0, nil, fmt.Errorf("OCR服务请求失败: %w", err)
