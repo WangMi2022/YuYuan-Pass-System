@@ -292,8 +292,11 @@ func saveRecognitionResult(invoice model.Invoice, job model.RecognitionJob, resu
 		return err
 	}
 	invoice.InvoiceType = result.InvoiceType
+	invoice.VerificationType = result.VerificationType
+	invoice.VerificationAmountMode = result.VerificationAmountMode
 	invoice.InvoiceCode = result.InvoiceCode
 	invoice.InvoiceNumber = result.InvoiceNumber
+	invoice.CheckCode = result.CheckCode
 	invoice.IssueDate = result.IssueDate
 	invoice.BuyerName = result.BuyerName
 	invoice.BuyerTaxNo = result.BuyerTaxNo
@@ -327,6 +330,8 @@ func saveRecognitionResult(invoice model.Invoice, job model.RecognitionJob, resu
 		}
 		updates := map[string]any{
 			"invoice_type": result.InvoiceType, "invoice_code": result.InvoiceCode,
+			"verification_type": result.VerificationType, "verification_amount_mode": result.VerificationAmountMode,
+			"check_code":     result.CheckCode,
 			"invoice_number": result.InvoiceNumber, "issue_date": result.IssueDate,
 			"buyer_name": result.BuyerName, "buyer_tax_no": result.BuyerTaxNo,
 			"seller_name": result.SellerName, "seller_tax_no": result.SellerTaxNo,
@@ -337,6 +342,11 @@ func saveRecognitionResult(invoice model.Invoice, job model.RecognitionJob, resu
 			"classification_confidence": classification.Confidence,
 			"classification_reason":     classification.Reason,
 			"status":                    model.InvoiceStatusPendingReview,
+			"verification_status":       model.InvoiceVerificationUnverified,
+			"verification_fingerprint":  "",
+			"verification_message":      "",
+			"verification_invalid_sign": "",
+			"verification_checked_at":   nil,
 		}
 		if classification.CandidateID > 0 {
 			candidateID := classification.CandidateID
@@ -384,17 +394,26 @@ func saveRecognitionResult(invoice model.Invoice, job model.RecognitionJob, resu
 func normalizeRecognitionResult(result *provider.Result) error {
 	result.Provider = strings.TrimSpace(result.Provider)
 	result.InvoiceType = strings.TrimSpace(result.InvoiceType)
+	result.VerificationType = strings.TrimSpace(result.VerificationType)
+	result.VerificationAmountMode = strings.TrimSpace(result.VerificationAmountMode)
 	result.InvoiceCode = strings.TrimSpace(result.InvoiceCode)
 	result.InvoiceNumber = strings.TrimSpace(result.InvoiceNumber)
+	result.CheckCode = strings.TrimSpace(result.CheckCode)
 	result.BuyerName = strings.TrimSpace(result.BuyerName)
 	result.BuyerTaxNo = strings.TrimSpace(result.BuyerTaxNo)
 	result.SellerName = strings.TrimSpace(result.SellerName)
 	result.SellerTaxNo = strings.TrimSpace(result.SellerTaxNo)
 	if result.Provider == "" || len(result.Provider) > 50 || len(result.InvoiceType) > 60 ||
+		len(result.VerificationType) > 60 || len(result.VerificationAmountMode) > 20 || len(result.CheckCode) > 80 ||
 		len(result.InvoiceCode) > 80 || len(result.InvoiceNumber) > 80 ||
 		len(result.BuyerName) > 200 || len(result.BuyerTaxNo) > 80 ||
 		len(result.SellerName) > 200 || len(result.SellerTaxNo) > 80 {
 		return errors.New("OCR 返回的发票字段长度超出限制")
+	}
+	if result.VerificationAmountMode != "" &&
+		result.VerificationAmountMode != model.VerificationAmountModeAmount &&
+		result.VerificationAmountMode != model.VerificationAmountModeTotal {
+		return errors.New("OCR 返回的验真金额口径不正确")
 	}
 	if result.AmountCents == 0 && result.TotalCents >= result.TaxCents && result.TaxCents >= 0 {
 		result.AmountCents = result.TotalCents - result.TaxCents
@@ -536,6 +555,9 @@ func (RecognitionService) Retry(id uint, scope AccessScope) error {
 		}
 		return tx.Model(&model.Invoice{}).Where("id = ?", invoice.ID).Updates(map[string]any{
 			"status": model.InvoiceStatusUploaded, "recognition_error": "",
+			"verification_status":      model.InvoiceVerificationUnverified,
+			"verification_fingerprint": "", "verification_message": "重新识别后需要重新查验",
+			"verification_invalid_sign": "", "verification_checked_at": nil,
 		}).Error
 	})
 }

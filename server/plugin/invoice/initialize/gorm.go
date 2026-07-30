@@ -14,6 +14,7 @@ func Gorm(ctx context.Context) {
 	if err := global.GVA_DB.WithContext(ctx).AutoMigrate(
 		&model.InvoiceCategory{},
 		&model.Invoice{},
+		&model.InvoiceVerification{},
 		&model.InvoiceItem{},
 		&model.ClassificationRule{},
 		&model.RecognitionJob{},

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -29,6 +30,12 @@ func (fn recognizerFunc) Recognize(ctx context.Context, input provider.Input) (p
 	return fn(ctx, input)
 }
 
+type verifierFunc func(context.Context, provider.VerificationRequest) (provider.VerificationResult, error)
+
+func (fn verifierFunc) Verify(ctx context.Context, request provider.VerificationRequest) (provider.VerificationResult, error) {
+	return fn(ctx, request)
+}
+
 func setupInvoiceServiceTestDB(t *testing.T) {
 	t.Helper()
 	previous := global.GVA_DB
@@ -42,7 +49,7 @@ func setupInvoiceServiceTestDB(t *testing.T) {
 	}
 	if err = db.AutoMigrate(
 		&model.InvoiceCategory{}, &model.Invoice{}, &model.InvoiceItem{},
-		&model.ClassificationRule{}, &model.RecognitionJob{}, &model.InvoiceFileCleanupJob{},
+		&model.InvoiceVerification{}, &model.ClassificationRule{}, &model.RecognitionJob{}, &model.InvoiceFileCleanupJob{},
 	); err != nil {
 		t.Fatalf("migrate invoice tables: %v", err)
 	}
@@ -70,15 +77,20 @@ func createInvoiceTestCategory(t *testing.T) model.InvoiceCategory {
 func createReviewableInvoice(t *testing.T, userID, authorityID uint, categoryID uint, number string) model.Invoice {
 	t.Helper()
 	issueDate := time.Date(2026, 7, 1, 0, 0, 0, 0, time.Local)
+	verifiedAt := time.Now()
 	invoice := model.Invoice{
-		Direction: "expense", InvoiceCode: "044001", InvoiceNumber: number,
+		Direction: "expense", InvoiceType: "增值税专用发票", VerificationType: "special_vat_invoice",
+		InvoiceCode: "044001", InvoiceNumber: number,
 		IssueDate: &issueDate, SellerName: "测试销售方", SellerTaxNo: "91440000TEST",
 		AmountCents: 10000, TaxCents: 600, TotalCents: 10600, Currency: "CNY",
 		CategoryID: &categoryID, Status: model.InvoiceStatusPendingReview,
+		VerificationStatus:   model.InvoiceVerificationVerifiedValid,
+		VerificationProvider: "test-verifier", VerificationCheckedAt: &verifiedAt,
 		FileName: number + ".png", FileKey: number + ".png", FileHash: hashInvoiceKey(number),
 		MimeType: "image/png", FileSize: 128, StorageType: "local",
 		CreatedBy: userID, AuthorityID: authorityID,
 	}
+	invoice.VerificationFingerprint = invoiceVerificationFingerprint(invoice)
 	if err := global.GVA_DB.Create(&invoice).Error; err != nil {
 		t.Fatalf("create invoice: %v", err)
 	}
@@ -148,6 +160,116 @@ func TestConfirmPersistsUniqueDuplicateKeyAndFeedsDashboard(t *testing.T) {
 	dashboard, err := (InvoiceService{}).Dashboard(admin)
 	if err != nil || dashboard.ConfirmedCount != 1 || dashboard.TotalCents != first.TotalCents {
 		t.Fatalf("unexpected confirmed dashboard: %#v err=%v", dashboard, err)
+	}
+}
+
+func TestConfirmRequiresVerificationForCurrentFields(t *testing.T) {
+	setupInvoiceServiceTestDB(t)
+	category := createInvoiceTestCategory(t)
+	invoice := createReviewableInvoice(t, 211, 100, category.ID, "VERIFY-GATE-001")
+	if err := global.GVA_DB.Model(&invoice).Updates(map[string]any{
+		"verification_status":      model.InvoiceVerificationUnverified,
+		"verification_fingerprint": "", "verification_checked_at": nil,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := (InvoiceService{}).Confirm(invoice.ID, AccessScope{UserID: 211, AuthorityID: 100}); err == nil || !strings.Contains(err.Error(), "权威查验") {
+		t.Fatalf("unverified invoice was confirmed: %v", err)
+	}
+
+	verifiedAt := time.Now()
+	staleFingerprint := hashInvoiceKey("stale")
+	if err := global.GVA_DB.Model(&invoice).Updates(map[string]any{
+		"verification_status":      model.InvoiceVerificationVerifiedValid,
+		"verification_fingerprint": staleFingerprint, "verification_checked_at": &verifiedAt,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := (InvoiceService{}).Confirm(invoice.ID, AccessScope{UserID: 211, AuthorityID: 100}); err == nil || !strings.Contains(err.Error(), "字段已在查验后变更") {
+		t.Fatalf("stale verification was accepted: %v", err)
+	}
+}
+
+func TestBaiduVerificationPersistsHistoryAndAllowsConfirmation(t *testing.T) {
+	setupInvoiceServiceTestDB(t)
+	category := createInvoiceTestCategory(t)
+	invoice := createReviewableInvoice(t, 212, 100, category.ID, "VERIFY-OK-001")
+	if err := global.GVA_DB.Model(&invoice).Updates(map[string]any{
+		"verification_status":      model.InvoiceVerificationUnverified,
+		"verification_fingerprint": "", "verification_checked_at": nil,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	previousFactory := newInvoiceVerifier
+	newInvoiceVerifier = func(config.InvoiceRecognition) (provider.Verifier, error) {
+		return verifierFunc(func(_ context.Context, request provider.VerificationRequest) (provider.VerificationResult, error) {
+			if request.InvoiceType != "special_vat_invoice" || request.TotalAmount != "100.00" {
+				t.Fatalf("unexpected verification request: %#v", request)
+			}
+			return provider.VerificationResult{
+				VerifyResult: "0001", VerifyMessage: "查验成功发票一致", InvalidSign: "N",
+				VerifyFrequency: "1", ProviderLogID: "log-1",
+				Official: map[string]string{
+					"invoiceType": "增值税专用发票", "invoiceCode": invoice.InvoiceCode,
+					"invoiceNumber": invoice.InvoiceNumber, "issueDate": "20260701",
+					"sellerName": invoice.SellerName, "sellerTaxNo": invoice.SellerTaxNo,
+					"amountCents": "10000", "taxCents": "600", "totalCents": "10600",
+				}, RawPayload: `{"words_result":{"VerifyResult":"0001"}}`,
+			}, nil
+		}), nil
+	}
+	t.Cleanup(func() { newInvoiceVerifier = previousFactory })
+
+	outcome, err := (VerificationService{}).Verify(t.Context(), invoice.ID, AccessScope{UserID: 212, AuthorityID: 100})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if outcome.Invoice.VerificationStatus != model.InvoiceVerificationVerifiedValid || outcome.Attempt.ID == 0 || len(outcome.Attempt.Differences) != 0 {
+		t.Fatalf("unexpected verification outcome: %#v", outcome)
+	}
+	history, err := (VerificationService{}).History(invoice.ID, AccessScope{UserID: 212, AuthorityID: 100})
+	if err != nil || len(history) != 1 || history[0].ProviderLogID != "log-1" {
+		t.Fatalf("unexpected public history: %#v err=%v", history, err)
+	}
+	serializedHistory, err := json.Marshal(history)
+	if err != nil || strings.Contains(string(serializedHistory), "words_result") {
+		t.Fatalf("raw verification payload leaked in JSON: %s err=%v", serializedHistory, err)
+	}
+	if _, err = (InvoiceService{}).Confirm(invoice.ID, AccessScope{UserID: 212, AuthorityID: 100}); err != nil {
+		t.Fatalf("verified invoice could not be confirmed: %v", err)
+	}
+}
+
+func TestVerificationMismatchCannotConfirm(t *testing.T) {
+	setupInvoiceServiceTestDB(t)
+	category := createInvoiceTestCategory(t)
+	invoice := createReviewableInvoice(t, 213, 100, category.ID, "VERIFY-DIFF-001")
+	if err := global.GVA_DB.Model(&invoice).Updates(map[string]any{
+		"verification_status":      model.InvoiceVerificationUnverified,
+		"verification_fingerprint": "", "verification_checked_at": nil,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	previousFactory := newInvoiceVerifier
+	newInvoiceVerifier = func(config.InvoiceRecognition) (provider.Verifier, error) {
+		return verifierFunc(func(context.Context, provider.VerificationRequest) (provider.VerificationResult, error) {
+			return provider.VerificationResult{
+				VerifyResult: "0001", VerifyMessage: "查验成功发票一致", InvalidSign: "N",
+				Official: map[string]string{"sellerName": "权威销售方"},
+			}, nil
+		}), nil
+	}
+	t.Cleanup(func() { newInvoiceVerifier = previousFactory })
+	outcome, err := (VerificationService{}).Verify(t.Context(), invoice.ID, AccessScope{UserID: 213, AuthorityID: 100})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if outcome.Invoice.VerificationStatus != model.InvoiceVerificationInconsistent || len(outcome.Attempt.Differences) != 1 {
+		t.Fatalf("mismatch was not preserved: %#v", outcome)
+	}
+	if _, err = (InvoiceService{}).Confirm(invoice.ID, AccessScope{UserID: 213, AuthorityID: 100}); err == nil || !strings.Contains(err.Error(), "权威查验") {
+		t.Fatalf("mismatched invoice was confirmed: %v", err)
 	}
 }
 

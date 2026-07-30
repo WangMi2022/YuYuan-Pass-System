@@ -19,23 +19,26 @@ type Input struct {
 }
 
 type Result struct {
-	Provider         string              `json:"provider"`
-	InvoiceType      string              `json:"invoiceType"`
-	InvoiceCode      string              `json:"invoiceCode"`
-	InvoiceNumber    string              `json:"invoiceNumber"`
-	IssueDate        *time.Time          `json:"issueDate"`
-	BuyerName        string              `json:"buyerName"`
-	BuyerTaxNo       string              `json:"buyerTaxNo"`
-	SellerName       string              `json:"sellerName"`
-	SellerTaxNo      string              `json:"sellerTaxNo"`
-	AmountCents      int64               `json:"amountCents"`
-	TaxCents         int64               `json:"taxCents"`
-	TotalCents       int64               `json:"totalCents"`
-	RawText          string              `json:"rawText"`
-	RawPayload       string              `json:"rawPayload"`
-	Confidence       float64             `json:"confidence"`
-	FieldConfidences map[string]float64  `json:"fieldConfidences"`
-	Items            []model.InvoiceItem `json:"items"`
+	Provider               string              `json:"provider"`
+	InvoiceType            string              `json:"invoiceType"`
+	VerificationType       string              `json:"verificationType"`
+	VerificationAmountMode string              `json:"verificationAmountMode"`
+	InvoiceCode            string              `json:"invoiceCode"`
+	InvoiceNumber          string              `json:"invoiceNumber"`
+	CheckCode              string              `json:"checkCode"`
+	IssueDate              *time.Time          `json:"issueDate"`
+	BuyerName              string              `json:"buyerName"`
+	BuyerTaxNo             string              `json:"buyerTaxNo"`
+	SellerName             string              `json:"sellerName"`
+	SellerTaxNo            string              `json:"sellerTaxNo"`
+	AmountCents            int64               `json:"amountCents"`
+	TaxCents               int64               `json:"taxCents"`
+	TotalCents             int64               `json:"totalCents"`
+	RawText                string              `json:"rawText"`
+	RawPayload             string              `json:"rawPayload"`
+	Confidence             float64             `json:"confidence"`
+	FieldConfidences       map[string]float64  `json:"fieldConfidences"`
+	Items                  []model.InvoiceItem `json:"items"`
 }
 
 type Recognizer interface {
@@ -45,6 +48,7 @@ type Recognizer interface {
 type Chain struct {
 	qr                Recognizer
 	ocr               Recognizer
+	additionalOCRs    []Recognizer
 	multimodal        Recognizer
 	fallbackThreshold float64
 }
@@ -65,12 +69,24 @@ func NewFromEnvironment() *Chain {
 func New(configuration config.InvoiceRecognition) *Chain {
 	configuration.Normalize()
 	chain := &Chain{qr: QRRecognizer{}, fallbackThreshold: configuration.FallbackThreshold}
+	if configuration.Baidu.Enabled {
+		chain.ocr = NewBaiduClient(
+			configuration.Baidu.APIKey,
+			configuration.Baidu.SecretKey,
+			time.Duration(configuration.Baidu.TimeoutSeconds)*time.Second,
+		)
+	}
 	if configuration.PublicOCR.Enabled && configuration.PublicOCR.Endpoint != "" {
-		chain.ocr = &HTTPRecognizer{
+		recognizer := &HTTPRecognizer{
 			Endpoint: configuration.PublicOCR.Endpoint,
 			Token:    configuration.PublicOCR.APIKey,
 			Timeout:  time.Duration(configuration.PublicOCR.TimeoutSeconds) * time.Second,
 			Provider: configuration.PublicOCR.Provider,
+		}
+		if chain.ocr == nil {
+			chain.ocr = recognizer
+		} else {
+			chain.additionalOCRs = append(chain.additionalOCRs, recognizer)
 		}
 	}
 	if configuration.Multimodal.Enabled && configuration.Multimodal.BaseURL != "" {
@@ -109,20 +125,33 @@ func (c *Chain) Recognize(ctx context.Context, input Input) (Result, error) {
 	qrResult, qrErr := c.qr.Recognize(ctx, input)
 
 	var ocrResult Result
-	var ocrErr error
-	if c.ocr != nil {
-		ocrResult, ocrErr = c.ocr.Recognize(ctx, input)
-		if ocrErr == nil && !validConfidence(ocrResult.Confidence) {
-			ocrErr = errors.New("公网 OCR 返回的识别置信度不正确")
+	var ocrErrors []error
+	ocrRecognizers := append([]Recognizer{}, c.ocr)
+	ocrRecognizers = append(ocrRecognizers, c.additionalOCRs...)
+	for _, recognizer := range ocrRecognizers {
+		if recognizer == nil {
+			continue
 		}
-		if ocrErr == nil && !hasRecognitionData(ocrResult) {
-			ocrErr = errors.New("公网 OCR 未返回可用发票字段")
+		candidate, candidateErr := recognizer.Recognize(ctx, input)
+		if candidateErr == nil && !validConfidence(candidate.Confidence) {
+			candidateErr = errors.New("公网 OCR 返回的识别置信度不正确")
 		}
-		if ocrErr == nil && ocrResult.Confidence >= c.fallbackThreshold {
-			mergeVerifiedQR(&ocrResult, qrResult, qrErr)
-			return ocrResult, nil
+		if candidateErr == nil && !hasRecognitionData(candidate) {
+			candidateErr = errors.New("公网 OCR 未返回可用发票字段")
+		}
+		if candidateErr != nil {
+			ocrErrors = append(ocrErrors, candidateErr)
+			continue
+		}
+		if !hasRecognitionData(ocrResult) || candidate.Confidence > ocrResult.Confidence {
+			ocrResult = candidate
+		}
+		if candidate.Confidence >= c.fallbackThreshold {
+			mergeVerifiedQR(&candidate, qrResult, qrErr)
+			return candidate, nil
 		}
 	}
+	ocrErr := errors.Join(ocrErrors...)
 
 	var multimodalResult Result
 	var multimodalErr error
@@ -162,6 +191,15 @@ func mergeMissing(target *Result, fallback Result) {
 	}
 	if target.InvoiceCode == "" {
 		target.InvoiceCode = fallback.InvoiceCode
+	}
+	if target.VerificationType == "" {
+		target.VerificationType = fallback.VerificationType
+	}
+	if target.VerificationAmountMode == "" {
+		target.VerificationAmountMode = fallback.VerificationAmountMode
+	}
+	if target.CheckCode == "" {
+		target.CheckCode = fallback.CheckCode
 	}
 	if target.InvoiceNumber == "" {
 		target.InvoiceNumber = fallback.InvoiceNumber
@@ -244,7 +282,23 @@ func validConfidence(confidence float64) bool {
 func TestConnection(ctx context.Context, target string, configuration config.InvoiceRecognition) (string, error) {
 	configuration.Normalize()
 	switch target {
+	case "baidu":
+		configuration.PublicOCR.Enabled = false
+		configuration.Multimodal.Enabled = false
+		if err := configuration.Validate(); err != nil {
+			return "", err
+		}
+		if !configuration.Baidu.Enabled {
+			return "", errors.New("请先启用百度发票 OCR")
+		}
+		return "", NewBaiduClient(
+			configuration.Baidu.APIKey,
+			configuration.Baidu.SecretKey,
+			time.Duration(configuration.Baidu.TimeoutSeconds)*time.Second,
+		).Probe(ctx)
 	case "public-ocr":
+		configuration.Baidu.Enabled = false
+		configuration.Baidu.VerificationEnabled = false
 		configuration.Multimodal.Enabled = false
 		if err := configuration.Validate(); err != nil {
 			return "", err
@@ -260,6 +314,8 @@ func TestConnection(ctx context.Context, target string, configuration config.Inv
 		}).Probe(ctx)
 		return "", err
 	case "multimodal":
+		configuration.Baidu.Enabled = false
+		configuration.Baidu.VerificationEnabled = false
 		configuration.PublicOCR.Enabled = false
 		if err := configuration.Validate(); err != nil {
 			return "", err

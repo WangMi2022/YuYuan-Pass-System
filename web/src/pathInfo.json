@@ -92,6 +92,7 @@
   "/src/plugin/email/view/index.vue": "Email",
   "/src/plugin/invoice/components/InvoiceReviewDrawer.vue": "InvoiceReviewDrawer",
   "/src/plugin/invoice/components/InvoiceStatusTag.vue": "InvoiceStatusTag",
+  "/src/plugin/invoice/components/InvoiceVerificationTag.vue": "InvoiceVerificationTag",
   "/src/plugin/invoice/view/categories.vue": "InvoiceCategories",
   "/src/plugin/invoice/view/dashboard.vue": "InvoiceDashboard",
   "/src/plugin/invoice/view/ledger.vue": "InvoiceLedger",

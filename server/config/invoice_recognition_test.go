@@ -8,6 +8,7 @@ import (
 
 func TestInvoiceRecognitionRedactsAPIKeys(t *testing.T) {
 	configuration := InvoiceRecognition{
+		Baidu:      InvoiceBaiduProvider{APIKey: "baidu-ak", SecretKey: "baidu-sk"},
 		PublicOCR:  InvoicePublicOCR{APIKey: "ocr-secret"},
 		Multimodal: InvoiceMultimodalProvider{APIKey: "ai-secret"},
 	}.Redacted()
@@ -16,16 +17,19 @@ func TestInvoiceRecognitionRedactsAPIKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	serialized := string(payload)
-	if strings.Contains(serialized, "ocr-secret") || strings.Contains(serialized, "ai-secret") {
+	if strings.Contains(serialized, "ocr-secret") || strings.Contains(serialized, "ai-secret") ||
+		strings.Contains(serialized, "baidu-ak") || strings.Contains(serialized, "baidu-sk") {
 		t.Fatalf("API key leaked in JSON: %s", serialized)
 	}
-	if !configuration.PublicOCR.APIKeyConfigured || !configuration.Multimodal.APIKeyConfigured {
+	if !configuration.Baidu.APIKeyConfigured || !configuration.Baidu.SecretKeyConfigured ||
+		!configuration.PublicOCR.APIKeyConfigured || !configuration.Multimodal.APIKeyConfigured {
 		t.Fatal("configured flags were not set")
 	}
 }
 
 func TestInvoiceRecognitionMergeSecrets(t *testing.T) {
 	current := InvoiceRecognition{
+		Baidu:     InvoiceBaiduProvider{APIKey: "old-baidu-ak", SecretKey: "old-baidu-sk"},
 		PublicOCR: InvoicePublicOCR{Endpoint: "https://old.example", APIKey: "old-ocr"},
 		Multimodal: InvoiceMultimodalProvider{
 			BaseURL: "https://old-ai.example/v1", APIKey: "old-ai", Model: "vision-model",
@@ -33,11 +37,13 @@ func TestInvoiceRecognitionMergeSecrets(t *testing.T) {
 		},
 	}
 	request := InvoiceRecognition{
+		Baidu:      InvoiceBaiduProvider{APIKeyInput: "new-baidu-ak"},
 		PublicOCR:  InvoicePublicOCR{Endpoint: "https://new.example"},
 		Multimodal: InvoiceMultimodalProvider{BaseURL: "https://new-ai.example/v1", APIKeyInput: "new-ai"},
 	}
 	merged := request.MergeSecrets(current, true)
-	if merged.PublicOCR.APIKey != "old-ocr" || merged.Multimodal.APIKey != "new-ai" {
+	if merged.Baidu.APIKey != "new-baidu-ak" || merged.Baidu.SecretKey != "old-baidu-sk" ||
+		merged.PublicOCR.APIKey != "old-ocr" || merged.Multimodal.APIKey != "new-ai" {
 		t.Fatalf("unexpected merged secrets: %#v", merged)
 	}
 	request.PublicOCR.ClearAPIKey = true

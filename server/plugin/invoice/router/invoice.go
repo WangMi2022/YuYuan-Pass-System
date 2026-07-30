@@ -16,6 +16,7 @@ func (invoiceRouter) Init(private *gin.RouterGroup) {
 		write.PUT("reopen", apiInvoice.Reopen)
 		write.PUT("retry", apiInvoice.Retry)
 		write.POST("recheck", apiInvoice.Recheck)
+		write.POST("verify", apiInvoice.Verify)
 		write.POST("provider/test", apiInvoice.TestProviderConnection)
 		write.DELETE("delete", apiInvoice.Delete)
 	}
@@ -25,6 +26,7 @@ func (invoiceRouter) Init(private *gin.RouterGroup) {
 		read.GET("detail", apiInvoice.Detail)
 		read.GET("file", apiInvoice.File)
 		read.GET("dashboard", apiInvoice.Dashboard)
+		read.GET("verificationHistory", apiInvoice.VerificationHistory)
 		read.GET("categoryOptions", apiCategory.Options)
 	}
 	categoryWrite := private.Group("invoiceCategory").Use(middleware.OperationRecord())

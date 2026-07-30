@@ -13,6 +13,20 @@ const (
 	InvoiceStatusConfirmed         = "confirmed"
 	InvoiceStatusRecognitionFailed = "recognition_failed"
 
+	InvoiceVerificationUnverified    = "unverified"
+	InvoiceVerificationVerifying     = "verifying"
+	InvoiceVerificationVerifiedValid = "verified_valid"
+	InvoiceVerificationVoided        = "verified_voided"
+	InvoiceVerificationRed           = "verified_red"
+	InvoiceVerificationInconsistent  = "inconsistent"
+	InvoiceVerificationNotFound      = "not_found"
+	InvoiceVerificationDeferred      = "deferred"
+	InvoiceVerificationExpired       = "expired"
+	InvoiceVerificationUnavailable   = "unavailable"
+
+	VerificationAmountModeAmount = "amount"
+	VerificationAmountModeTotal  = "total"
+
 	RecognitionJobPending    = "pending"
 	RecognitionJobProcessing = "processing"
 	RecognitionJobCompleted  = "completed"
@@ -42,8 +56,11 @@ type Invoice struct {
 	global.GVA_MODEL
 	Direction                string             `json:"direction" form:"direction" gorm:"size:20;not null;default:expense;index;comment:流水方向"`
 	InvoiceType              string             `json:"invoiceType" form:"invoiceType" gorm:"size:60;index;comment:发票类型"`
+	VerificationType         string             `json:"verificationType" form:"verificationType" gorm:"size:60;index;comment:百度验真标准票种"`
+	VerificationAmountMode   string             `json:"verificationAmountMode" form:"verificationAmountMode" gorm:"size:20;comment:验真金额口径"`
 	InvoiceCode              string             `json:"invoiceCode" form:"invoiceCode" gorm:"size:80;index;comment:发票代码"`
 	InvoiceNumber            string             `json:"invoiceNumber" form:"invoiceNumber" gorm:"size:80;index;comment:发票号码"`
+	CheckCode                string             `json:"checkCode" form:"checkCode" gorm:"size:80;comment:发票校验码"`
 	DuplicateKey             *string            `json:"-" gorm:"size:64;uniqueIndex;comment:已确认发票防重键"`
 	IssueDate                *time.Time         `json:"issueDate" form:"issueDate" gorm:"type:date;index;comment:开票日期"`
 	BuyerName                string             `json:"buyerName" form:"buyerName" gorm:"size:200;comment:购买方名称"`
@@ -66,6 +83,15 @@ type Invoice struct {
 	RecognitionConfidence    float64            `json:"recognitionConfidence" gorm:"type:numeric(5,4);default:0;comment:识别置信度"`
 	FieldConfidences         map[string]float64 `json:"fieldConfidences" gorm:"serializer:json;type:text;comment:字段识别置信度"`
 	RecognitionError         string             `json:"recognitionError" gorm:"size:1000;comment:识别错误"`
+	VerificationStatus       string             `json:"verificationStatus" gorm:"size:30;not null;default:unverified;index;comment:权威查验状态"`
+	VerificationProvider     string             `json:"verificationProvider" gorm:"size:50;comment:查验提供方"`
+	VerificationMessage      string             `json:"verificationMessage" gorm:"size:1000;comment:最近查验结果"`
+	VerificationInvalidSign  string             `json:"verificationInvalidSign" gorm:"size:10;comment:发票作废红冲标识"`
+	VerificationFingerprint  string             `json:"-" gorm:"size:64;index;comment:最近查验对应字段指纹"`
+	LatestVerificationID     *uint              `json:"latestVerificationId" gorm:"index;comment:最近查验记录ID"`
+	VerificationCheckedAt    *time.Time         `json:"verificationCheckedAt" gorm:"index;comment:最近查验时间"`
+	ActiveVerificationID     *uint              `json:"activeVerificationId" gorm:"index;comment:当前查验任务ID"`
+	VerificationStartedAt    *time.Time         `json:"verificationStartedAt" gorm:"index;comment:当前查验开始时间"`
 	RawText                  string             `json:"rawText" gorm:"type:text;comment:识别原文"`
 	RawPayload               string             `json:"-" gorm:"type:text;comment:识别原始响应"`
 	FileName                 string             `json:"fileName" gorm:"size:255;not null;comment:原文件名"`
@@ -88,6 +114,36 @@ type Invoice struct {
 }
 
 func (Invoice) TableName() string { return "invoices" }
+
+type InvoiceVerificationDifference struct {
+	Field         string `json:"field"`
+	Label         string `json:"label"`
+	LocalValue    string `json:"localValue"`
+	OfficialValue string `json:"officialValue"`
+}
+
+// InvoiceVerification is append-only business history. Application services
+// create attempts but never update or delete prior attempts after completion.
+type InvoiceVerification struct {
+	global.GVA_MODEL
+	InvoiceID        uint                            `json:"invoiceId" gorm:"not null;index;comment:发票ID"`
+	Provider         string                          `json:"provider" gorm:"size:50;not null;comment:查验提供方"`
+	Status           string                          `json:"status" gorm:"size:30;not null;index;comment:查验状态"`
+	VerifyResult     string                          `json:"verifyResult" gorm:"size:20;index;comment:供应商查验结果码"`
+	VerifyMessage    string                          `json:"verifyMessage" gorm:"size:1000;comment:供应商查验消息"`
+	VerifyFrequency  string                          `json:"verifyFrequency" gorm:"size:30;comment:历史查验次数"`
+	InvalidSign      string                          `json:"invalidSign" gorm:"size:10;index;comment:作废红冲标识"`
+	ProviderLogID    string                          `json:"providerLogId" gorm:"size:100;index;comment:供应商日志ID"`
+	LocalFingerprint string                          `json:"localFingerprint" gorm:"size:64;not null;index;comment:本地字段指纹"`
+	RequestSnapshot  map[string]string               `json:"requestSnapshot" gorm:"serializer:json;type:text;comment:查验请求快照"`
+	OfficialSnapshot map[string]string               `json:"officialSnapshot" gorm:"serializer:json;type:text;comment:权威返回快照"`
+	Differences      []InvoiceVerificationDifference `json:"differences" gorm:"serializer:json;type:text;comment:字段差异"`
+	RawPayload       string                          `json:"-" gorm:"type:text;comment:供应商原始响应"`
+	RequestedBy      uint                            `json:"requestedBy" gorm:"not null;index;comment:发起人ID"`
+	CompletedAt      *time.Time                      `json:"completedAt" gorm:"index;comment:完成时间"`
+}
+
+func (InvoiceVerification) TableName() string { return "invoice_verifications" }
 
 type InvoiceItem struct {
 	global.GVA_MODEL

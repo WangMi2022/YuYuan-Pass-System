@@ -198,6 +198,32 @@ func (invoiceAPI) Recheck(c *gin.Context) {
 	commonResponse.OkWithDetailed(result, "模型核对完成", c)
 }
 
+func (invoiceAPI) Verify(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	result, err := serviceVerification.Verify(c.Request.Context(), id, currentScope(c))
+	if err != nil {
+		commonResponse.FailWithMessage(err.Error(), c)
+		return
+	}
+	commonResponse.OkWithDetailed(result, "发票权威查验完成", c)
+}
+
+func (invoiceAPI) VerificationHistory(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	history, err := serviceVerification.History(id, currentScope(c))
+	if err != nil {
+		commonResponse.FailWithMessage("发票不存在或无权访问", c)
+		return
+	}
+	commonResponse.OkWithData(history, c)
+}
+
 func (invoiceAPI) TestProviderConnection(c *gin.Context) {
 	if utils.GetUserAuthorityId(c) != 888 {
 		commonResponse.FailWithMessage("仅超级管理员可测试识别服务连接", c)

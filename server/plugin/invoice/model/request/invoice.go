@@ -28,22 +28,25 @@ func (search *InvoiceSearch) Normalize() {
 }
 
 type InvoiceUpdate struct {
-	ID            uint                `json:"ID"`
-	Direction     string              `json:"direction"`
-	InvoiceType   string              `json:"invoiceType"`
-	InvoiceCode   string              `json:"invoiceCode"`
-	InvoiceNumber string              `json:"invoiceNumber"`
-	IssueDate     *time.Time          `json:"issueDate"`
-	BuyerName     string              `json:"buyerName"`
-	BuyerTaxNo    string              `json:"buyerTaxNo"`
-	SellerName    string              `json:"sellerName"`
-	SellerTaxNo   string              `json:"sellerTaxNo"`
-	AmountCents   int64               `json:"amountCents"`
-	TaxCents      int64               `json:"taxCents"`
-	TotalCents    int64               `json:"totalCents"`
-	CategoryID    *uint               `json:"categoryId"`
-	ReviewNotes   string              `json:"reviewNotes"`
-	Items         []model.InvoiceItem `json:"items"`
+	ID                     uint                `json:"ID"`
+	Direction              string              `json:"direction"`
+	InvoiceType            string              `json:"invoiceType"`
+	VerificationType       string              `json:"verificationType"`
+	VerificationAmountMode string              `json:"verificationAmountMode"`
+	InvoiceCode            string              `json:"invoiceCode"`
+	InvoiceNumber          string              `json:"invoiceNumber"`
+	CheckCode              string              `json:"checkCode"`
+	IssueDate              *time.Time          `json:"issueDate"`
+	BuyerName              string              `json:"buyerName"`
+	BuyerTaxNo             string              `json:"buyerTaxNo"`
+	SellerName             string              `json:"sellerName"`
+	SellerTaxNo            string              `json:"sellerTaxNo"`
+	AmountCents            int64               `json:"amountCents"`
+	TaxCents               int64               `json:"taxCents"`
+	TotalCents             int64               `json:"totalCents"`
+	CategoryID             *uint               `json:"categoryId"`
+	ReviewNotes            string              `json:"reviewNotes"`
+	Items                  []model.InvoiceItem `json:"items"`
 }
 
 type CategorySearch struct {

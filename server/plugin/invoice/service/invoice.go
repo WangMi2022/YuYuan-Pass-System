@@ -40,6 +40,8 @@ type AccessScope struct {
 
 type InvoiceService struct{}
 
+var beforeInvoiceConfirmPersist = func(*gorm.DB, model.Invoice) error { return nil }
+
 func hashInvoiceKey(parts ...string) string {
 	hasher := sha256.New()
 	for _, part := range parts {
@@ -280,13 +282,21 @@ func normalizeInvoiceUpdate(req *invoiceRequest.InvoiceUpdate) error {
 		return errors.New("流水方向不正确")
 	}
 	req.InvoiceType = strings.TrimSpace(req.InvoiceType)
+	req.VerificationType = strings.TrimSpace(req.VerificationType)
+	req.VerificationAmountMode = strings.TrimSpace(req.VerificationAmountMode)
 	req.InvoiceCode = strings.TrimSpace(req.InvoiceCode)
 	req.InvoiceNumber = strings.TrimSpace(req.InvoiceNumber)
+	req.CheckCode = strings.TrimSpace(req.CheckCode)
 	req.BuyerName = strings.TrimSpace(req.BuyerName)
 	req.BuyerTaxNo = strings.TrimSpace(req.BuyerTaxNo)
 	req.SellerName = strings.TrimSpace(req.SellerName)
 	req.SellerTaxNo = strings.TrimSpace(req.SellerTaxNo)
 	req.ReviewNotes = strings.TrimSpace(req.ReviewNotes)
+	if req.VerificationAmountMode != "" &&
+		req.VerificationAmountMode != model.VerificationAmountModeAmount &&
+		req.VerificationAmountMode != model.VerificationAmountModeTotal {
+		return errors.New("验真金额口径不正确")
+	}
 	if err := validateInvoiceAmounts(req.AmountCents, req.TaxCents, req.TotalCents); err != nil {
 		return err
 	}
@@ -313,7 +323,7 @@ func (InvoiceService) Update(req invoiceRequest.InvoiceUpdate, scope AccessScope
 	}
 	err := global.GVA_DB.Transaction(func(tx *gorm.DB) error {
 		var current model.Invoice
-		if err := applyInvoiceScope(tx.Model(&model.Invoice{}), scope).First(&current, req.ID).Error; err != nil {
+		if err := applyInvoiceScope(tx.Model(&model.Invoice{}), scope).Preload("Items").First(&current, req.ID).Error; err != nil {
 			return err
 		}
 		if current.Status == model.InvoiceStatusConfirmed {
@@ -328,14 +338,47 @@ func (InvoiceService) Update(req invoiceRequest.InvoiceUpdate, scope AccessScope
 				return errors.New("所选分类不存在或已停用")
 			}
 		}
+		candidate := current
+		candidate.Direction = req.Direction
+		candidate.InvoiceType = req.InvoiceType
+		candidate.VerificationType = req.VerificationType
+		candidate.VerificationAmountMode = req.VerificationAmountMode
+		candidate.InvoiceCode = req.InvoiceCode
+		candidate.InvoiceNumber = req.InvoiceNumber
+		candidate.CheckCode = req.CheckCode
+		candidate.IssueDate = req.IssueDate
+		candidate.BuyerName = req.BuyerName
+		candidate.BuyerTaxNo = req.BuyerTaxNo
+		candidate.SellerName = req.SellerName
+		candidate.SellerTaxNo = req.SellerTaxNo
+		candidate.AmountCents = req.AmountCents
+		candidate.TaxCents = req.TaxCents
+		candidate.TotalCents = req.TotalCents
+		candidate.Items = req.Items
+		verificationChanged := invoiceVerificationFingerprint(candidate) != invoiceVerificationFingerprint(current)
+
 		updates := map[string]any{
 			"direction": req.Direction, "invoice_type": req.InvoiceType, "invoice_code": req.InvoiceCode,
+			"verification_type": req.VerificationType, "verification_amount_mode": req.VerificationAmountMode,
+			"check_code":     req.CheckCode,
 			"invoice_number": req.InvoiceNumber, "issue_date": req.IssueDate, "buyer_name": req.BuyerName,
 			"buyer_tax_no": req.BuyerTaxNo, "seller_name": req.SellerName, "seller_tax_no": req.SellerTaxNo,
 			"amount_cents": req.AmountCents, "tax_cents": req.TaxCents, "total_cents": req.TotalCents,
 			"category_id": req.CategoryID, "classification_source": model.ClassificationManual,
 			"review_notes": req.ReviewNotes, "status": model.InvoiceStatusPendingReview,
 			"confirmed_by": 0, "confirmed_at": nil, "duplicate_key": nil,
+		}
+		if verificationChanged {
+			updates["verification_fingerprint"] = ""
+			updates["verification_invalid_sign"] = ""
+			updates["verification_checked_at"] = nil
+			if current.ActiveVerificationID == nil {
+				updates["verification_status"] = model.InvoiceVerificationUnverified
+				updates["verification_message"] = "发票关键字段已修改，请重新查验"
+			} else {
+				updates["verification_status"] = model.InvoiceVerificationVerifying
+				updates["verification_message"] = "查验期间发票关键字段已修改，当前结果完成后需重新查验"
+			}
 		}
 		result := tx.Model(&current).Where("status <> ?", model.InvoiceStatusConfirmed).Updates(updates)
 		if result.Error != nil {
@@ -381,6 +424,12 @@ func validateInvoiceForConfirmation(invoice model.Invoice) error {
 		return errors.New("价税合计必须大于 0")
 	case invoice.CategoryID == nil || *invoice.CategoryID == 0:
 		return errors.New("请选择发票分类")
+	case invoice.VerificationStatus != model.InvoiceVerificationVerifiedValid:
+		return errors.New("发票尚未通过权威查验，不能确认入账")
+	case invoice.VerificationFingerprint == "" || invoice.VerificationFingerprint != invoiceVerificationFingerprint(invoice):
+		return errors.New("发票字段已在查验后变更，请重新查验")
+	case invoice.VerificationCheckedAt == nil:
+		return errors.New("发票缺少有效查验时间，请重新查验")
 	}
 	return nil
 }
@@ -414,10 +463,26 @@ func (InvoiceService) Confirm(id uint, scope AccessScope) (model.Invoice, error)
 		}
 		now := time.Now()
 		duplicateKey := invoiceDuplicateKey(confirmed)
-		return tx.Model(&confirmed).Updates(map[string]any{
-			"status": model.InvoiceStatusConfirmed, "confirmed_by": scope.UserID, "confirmed_at": &now,
-			"duplicate_key": &duplicateKey,
-		}).Error
+		if err := beforeInvoiceConfirmPersist(tx, confirmed); err != nil {
+			return err
+		}
+		result := tx.Model(&model.Invoice{}).
+			Where(
+				"id = ? AND status <> ? AND verification_status = ? AND verification_fingerprint = ? AND updated_at = ?",
+				confirmed.ID, model.InvoiceStatusConfirmed, model.InvoiceVerificationVerifiedValid,
+				confirmed.VerificationFingerprint, confirmed.UpdatedAt,
+			).
+			Updates(map[string]any{
+				"status": model.InvoiceStatusConfirmed, "confirmed_by": scope.UserID, "confirmed_at": &now,
+				"duplicate_key": &duplicateKey,
+			})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return errors.New("发票字段或查验状态已变更，请刷新后重新查验")
+		}
+		return nil
 	})
 	if err != nil {
 		if isUniqueConstraintError(err) {

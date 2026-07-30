@@ -77,7 +77,7 @@
               plain
               :icon="RefreshRight"
               :loading="rechecking"
-              :disabled="saving || confirming || rechecking || !!loadError"
+              :disabled="saving || confirming || rechecking || verifying || !!loadError"
               title="重新读取原图并用多模态模型核对，结果只回填当前表单"
               @click="recheck"
             >
@@ -85,6 +85,48 @@
             </el-button>
           </div>
         </div>
+
+        <section class="verification-band" aria-label="发票权威查验">
+          <div class="verification-summary">
+            <div>
+              <span class="verification-title">权威查验</span>
+              <InvoiceVerificationTag :status="invoice.verificationStatus" />
+            </div>
+            <el-button
+              v-if="!readonly"
+              type="success"
+              plain
+              :icon="CircleCheck"
+              :loading="verifying"
+              :disabled="saving || confirming || rechecking || verifying || reopening || !!loadError"
+              @click="verifyCurrent"
+            >
+              保存并查验
+            </el-button>
+          </div>
+          <p class="verification-message">{{ verificationMessage }}</p>
+          <ul v-if="latestVerification?.differences?.length" class="verification-differences">
+            <li v-for="difference in latestVerification.differences" :key="difference.field">
+              <strong>{{ difference.label }}</strong>
+              <span>当前：{{ difference.localValue || '空' }}</span>
+              <span>税局：{{ difference.officialValue || '空' }}</span>
+            </li>
+          </ul>
+          <details v-if="verificationHistory.length" class="verification-history">
+            <summary>查验记录 <span>{{ verificationHistory.length }}</span></summary>
+            <ol>
+              <li v-for="attempt in verificationHistory" :key="attempt.ID">
+                <div>
+                  <InvoiceVerificationTag :status="attempt.status" />
+                  <time>{{ historyTime(attempt.completedAt || attempt.createdAt) }}</time>
+                </div>
+                <p>{{ attempt.verifyMessage || '未返回查验说明' }}</p>
+                <small v-if="attempt.providerLogId">Log ID：{{ attempt.providerLogId }}</small>
+              </li>
+            </ol>
+          </details>
+        </section>
+
         <el-form
           ref="formRef"
           :model="form"
@@ -105,6 +147,19 @@
             <el-form-item label="发票类型" :class="confidenceClass('invoiceType')">
               <el-input v-model="form.invoiceType" maxlength="60" aria-label="发票类型" />
             </el-form-item>
+            <el-form-item label="验真票种" prop="verificationType" :class="confidenceClass('verificationType')">
+              <el-select v-model="form.verificationType" filterable placeholder="选择验真票种">
+                <el-option v-for="item in verificationTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item
+              v-if="form.verificationType === 'motor_vehicle_invoice'"
+              label="机动车验真口径"
+              prop="verificationAmountMode"
+              class="verification-amount-mode"
+            >
+              <el-segmented v-model="form.verificationAmountMode" :options="verificationAmountModeOptions" block />
+            </el-form-item>
             <el-form-item label="开票日期" prop="issueDate" :class="confidenceClass('issueDate')">
               <el-date-picker v-model="form.issueDate" type="date" placeholder="选择开票日期" />
             </el-form-item>
@@ -113,6 +168,9 @@
             </el-form-item>
             <el-form-item label="发票号码" prop="invoiceNumber" :class="confidenceClass('invoiceNumber')">
               <el-input v-model="form.invoiceNumber" maxlength="80" aria-label="发票号码" />
+            </el-form-item>
+            <el-form-item label="校验码" :class="confidenceClass('checkCode')">
+              <el-input v-model="form.checkCode" maxlength="80" aria-label="发票校验码" />
             </el-form-item>
             <el-form-item label="销售方名称" prop="sellerName" :class="confidenceClass('sellerName')">
               <el-input v-model="form.sellerName" maxlength="200" aria-label="销售方名称" />
@@ -177,8 +235,12 @@
           重新打开
         </el-button>
         <template v-if="!readonly">
-          <el-button :loading="saving" :disabled="saving || confirming || rechecking || reopening || !!loadError" @click="save(false)">保存核对</el-button>
-          <el-button type="primary" :loading="confirming" :disabled="saving || confirming || rechecking || reopening || !!loadError" @click="save(true)">保存并确认</el-button>
+          <el-button :loading="saving" :disabled="saving || confirming || rechecking || verifying || reopening || !!loadError" @click="save(false)">保存核对</el-button>
+          <el-tooltip :disabled="verificationReady" content="请先完成当前字段的权威查验" placement="top">
+            <span>
+              <el-button type="primary" :loading="confirming" :disabled="saving || confirming || rechecking || verifying || reopening || !verificationReady || !!loadError" @click="save(true)">保存并确认</el-button>
+            </span>
+          </el-tooltip>
         </template>
       </div>
     </template>
@@ -191,11 +253,12 @@
 
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
-import { Delete, EditPen, Plus, RefreshRight, View } from '@element-plus/icons-vue'
+import { CircleCheck, Delete, EditPen, Plus, RefreshRight, View } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { confirmInvoice, getInvoiceCategoryOptions, getInvoiceDetail, recheckInvoice, reopenInvoice, updateInvoice } from '@/plugin/invoice/api/invoice'
+import { confirmInvoice, getInvoiceCategoryOptions, getInvoiceDetail, getInvoiceVerificationHistory, recheckInvoice, reopenInvoice, updateInvoice, verifyInvoice } from '@/plugin/invoice/api/invoice'
 import { centsToYuan, invoiceFileUrl, yuanToCents } from '@/plugin/invoice/utils/invoice'
 import InvoiceStatusTag from '@/plugin/invoice/components/InvoiceStatusTag.vue'
+import InvoiceVerificationTag from '@/plugin/invoice/components/InvoiceVerificationTag.vue'
 import { useAppStore } from '@/pinia/modules/app'
 import { useUserStore } from '@/pinia/modules/user'
 
@@ -214,25 +277,66 @@ const loading = ref(false)
 const saving = ref(false)
 const confirming = ref(false)
 const rechecking = ref(false)
+const verifying = ref(false)
 const reopening = ref(false)
 const previewVisible = ref(false)
 const invoice = ref({})
 const categories = ref([])
+const verificationHistory = ref([])
+const verifiedFormSignature = ref('')
 const loadError = ref('')
 let itemKey = 0
 let loadRequestId = 0
 let recheckRequestId = 0
 
 const emptyForm = () => ({
-  ID: 0, direction: 'expense', invoiceType: '', invoiceCode: '', invoiceNumber: '', issueDate: null,
+  ID: 0, direction: 'expense', invoiceType: '', verificationType: '', verificationAmountMode: '', invoiceCode: '', invoiceNumber: '', checkCode: '', issueDate: null,
   buyerName: '', buyerTaxNo: '', sellerName: '', sellerTaxNo: '', amount: 0, tax: 0, total: 0,
   categoryId: undefined, reviewNotes: '', items: []
 })
 const form = reactive(emptyForm())
 const directionOptions = [{ label: '支出', value: 'expense' }, { label: '收入', value: 'income' }]
+const verificationTypeOptions = [
+  { value: 'special_vat_invoice', label: '增值税专用发票' },
+  { value: 'elec_special_vat_invoice', label: '增值税电子专用发票' },
+  { value: 'normal_invoice', label: '增值税普通发票' },
+  { value: 'elec_normal_invoice', label: '增值税普通发票（电子）' },
+  { value: 'roll_normal_invoice', label: '增值税普通发票（卷式）' },
+  { value: 'toll_elec_normal_invoice', label: '通行费增值税电子普通发票' },
+  { value: 'blockchain_invoice', label: '区块链电子发票' },
+  { value: 'elec_invoice_special', label: '全电发票（专用发票）' },
+  { value: 'elec_invoice_normal', label: '全电发票（普通发票）' },
+  { value: 'special_freight_transport_invoice', label: '货物运输业增值税专用发票' },
+  { value: 'motor_vehicle_invoice', label: '机动车销售统一发票' },
+  { value: 'used_vehicle_invoice', label: '二手车销售统一发票' },
+  { value: 'elec_flight_itinerary_invoice', label: '航空运输电子客票行程单' },
+  { value: 'elec_train_ticket_invoice', label: '铁路电子客票' },
+  { value: 'elec_toll_invoice', label: '全电发票（含通行费标识）' }
+]
+const verificationAmountModeOptions = [
+  { label: '纸质票 · 不含税金额', value: 'amount' },
+  { label: '电子票 · 价税合计', value: 'total' }
+]
+const verificationCheckCodeTypes = new Set([
+  'elec_special_vat_invoice', 'normal_invoice', 'elec_normal_invoice',
+  'roll_normal_invoice', 'blockchain_invoice', 'toll_elec_normal_invoice'
+])
+const verificationAmountTypes = new Set([
+  'special_vat_invoice', 'elec_special_vat_invoice', 'blockchain_invoice', 'special_freight_transport_invoice'
+])
+const verificationTotalTypes = new Set([
+  'used_vehicle_invoice', 'elec_invoice_special', 'elec_invoice_normal',
+  'elec_train_ticket_invoice', 'elec_flight_itinerary_invoice', 'elec_toll_invoice'
+])
+const verificationInvoiceCodeOptionalTypes = new Set([
+  'elec_invoice_special', 'elec_invoice_normal', 'used_vehicle_invoice',
+  'elec_train_ticket_invoice', 'elec_flight_itinerary_invoice', 'elec_toll_invoice'
+])
 const rules = {
   direction: [{ required: true, message: '请选择流水方向', trigger: 'change' }],
   categoryId: [{ required: true, message: '请选择发票分类', trigger: 'change' }],
+  verificationType: [{ required: true, message: '请选择验真票种', trigger: 'change' }],
+  verificationAmountMode: [{ required: true, message: '请选择机动车发票验真口径', trigger: 'change' }],
   issueDate: [{ required: true, message: '请选择开票日期', trigger: 'change' }],
   invoiceNumber: [{ required: true, message: '请输入发票号码', trigger: 'blur' }],
   sellerName: [{ required: true, message: '请输入销售方名称', trigger: 'blur' }],
@@ -249,7 +353,7 @@ const confidenceText = computed(() => {
 })
 
 const confidenceLabels = {
-  categoryId: '发票分类', invoiceType: '发票类型', issueDate: '开票日期',
+  categoryId: '发票分类', invoiceType: '发票类型', verificationType: '验真票种', verificationAmountMode: '机动车验真口径', checkCode: '校验码', issueDate: '开票日期',
   invoiceCode: '发票代码', invoiceNumber: '发票号码', sellerName: '销售方名称',
   sellerTaxNo: '销售方税号', buyerName: '购买方名称', buyerTaxNo: '购买方税号',
   amountCents: '不含税金额', taxCents: '税额', totalCents: '价税合计'
@@ -269,6 +373,45 @@ const lowConfidenceText = computed(() => Object.entries(confidenceLabels)
 
 const confidenceClass = (field) => isLowConfidence(field) ? 'is-low-confidence' : ''
 
+const formVerificationSignature = () => JSON.stringify({
+  invoiceType: form.invoiceType,
+  verificationType: form.verificationType,
+  verificationAmountMode: form.verificationAmountMode,
+  invoiceCode: form.invoiceCode,
+  invoiceNumber: form.invoiceNumber,
+  checkCode: form.checkCode,
+  issueDate: form.issueDate ? new Date(form.issueDate).toISOString().slice(0, 10) : '',
+  buyerName: form.buyerName,
+  buyerTaxNo: form.buyerTaxNo,
+  sellerName: form.sellerName,
+  sellerTaxNo: form.sellerTaxNo,
+  amount: Number(form.amount || 0),
+  tax: Number(form.tax || 0),
+  total: Number(form.total || 0),
+  items: form.items.map((item) => ({
+    name: item.name, specification: item.specification, unit: item.unit,
+    quantityText: item.quantityText, amount: Number(item.amount || 0),
+    unitPriceCents: Number(item.unitPriceCents || 0), taxRate: item.taxRate,
+    taxCents: Number(item.taxCents || 0)
+  }))
+})
+
+const verificationReady = computed(() =>
+  invoice.value.verificationStatus === 'verified_valid' &&
+  Boolean(verifiedFormSignature.value) &&
+  verifiedFormSignature.value === formVerificationSignature()
+)
+const latestVerification = computed(() => verificationHistory.value[0] || null)
+const verificationMessage = computed(() => {
+  if (invoice.value.verificationMessage) return invoice.value.verificationMessage
+  if (invoice.value.verificationStatus === 'verified_valid') return '税局信息与当前发票字段一致'
+  if (invoice.value.verificationStatus === 'verifying') return '正在连接税局查验'
+  return '尚未取得与当前字段一致的权威查验结果'
+})
+const historyTime = (value) => value
+  ? new Date(value).toLocaleString('zh-CN', { hour12: false })
+  : '处理中'
+
 const fillForm = (data) => {
   Object.assign(form, emptyForm(), {
     ...data,
@@ -283,6 +426,9 @@ const fillForm = (data) => {
       amount: centsToYuan(item.amountCents)
     }))
   })
+  verifiedFormSignature.value = data.verificationStatus === 'verified_valid'
+    ? formVerificationSignature()
+    : ''
 }
 
 const recheckedAmount = (data, field, currentValue) => {
@@ -294,8 +440,11 @@ const recheckedAmount = (data, field, currentValue) => {
 const fillRecheckResult = (data) => {
   Object.assign(form, {
     invoiceType: data.invoiceType || form.invoiceType,
+    verificationType: data.verificationType || form.verificationType,
+    verificationAmountMode: data.verificationAmountMode || form.verificationAmountMode,
     invoiceCode: data.invoiceCode || form.invoiceCode,
     invoiceNumber: data.invoiceNumber || form.invoiceNumber,
+    checkCode: data.checkCode || form.checkCode,
     issueDate: data.issueDate ? new Date(data.issueDate) : form.issueDate,
     buyerName: data.buyerName || form.buyerName,
     buyerTaxNo: data.buyerTaxNo || form.buyerTaxNo,
@@ -332,16 +481,23 @@ const loadInvoice = async () => {
   const requestId = ++loadRequestId
   const requestedInvoiceId = Number(props.invoiceId)
   invoice.value = {}
+  verificationHistory.value = []
+  verifiedFormSignature.value = ''
   Object.assign(form, emptyForm())
   formRef.value?.clearValidate()
   previewVisible.value = false
   loadError.value = ''
   loading.value = true
   try {
-    const [res] = await Promise.all([getInvoiceDetail({ id: requestedInvoiceId }), loadCategories()])
+    const [res, historyRes] = await Promise.all([
+      getInvoiceDetail({ id: requestedInvoiceId }),
+      getInvoiceVerificationHistory({ id: requestedInvoiceId }),
+      loadCategories()
+    ])
     if (requestId !== loadRequestId || requestedInvoiceId !== Number(props.invoiceId)) return
     if (res.code === 0) {
       invoice.value = res.data || {}
+      verificationHistory.value = historyRes?.code === 0 ? (historyRes.data || []) : []
       fillForm(invoice.value)
     } else {
       loadError.value = res.msg || '无法读取这张发票，请检查权限或稍后重试'
@@ -358,7 +514,7 @@ const addItem = () => form.items.push({ key: `new-${itemKey++}`, name: '', speci
 const removeItem = (index) => form.items.splice(index, 1)
 
 const recheck = async () => {
-  if (rechecking.value || reopening.value || !form.ID || readonly.value) return
+  if (rechecking.value || verifying.value || reopening.value || !form.ID || readonly.value) return
   const requestId = ++recheckRequestId
   const invoiceId = Number(form.ID)
   rechecking.value = true
@@ -371,6 +527,71 @@ const recheck = async () => {
     }
   } finally {
     if (requestId === recheckRequestId) rechecking.value = false
+  }
+}
+
+const validateVerificationFields = async () => {
+  try {
+    await formRef.value?.validateField(['verificationType', 'invoiceNumber', 'issueDate'])
+  } catch {
+    return false
+  }
+  const type = form.verificationType
+  let amountMode = ''
+  if (verificationAmountTypes.has(type)) amountMode = 'amount'
+  if (verificationTotalTypes.has(type)) amountMode = 'total'
+  if (type === 'motor_vehicle_invoice') {
+    amountMode = form.verificationAmountMode
+    if (!amountMode) {
+      ElMessage.warning('请选择机动车发票是纸质票还是电子票')
+      return false
+    }
+  }
+  const invoiceCodeOptional = verificationInvoiceCodeOptionalTypes.has(type) ||
+    (type === 'motor_vehicle_invoice' && amountMode === 'total')
+  if (!invoiceCodeOptional && !String(form.invoiceCode || '').trim()) {
+    ElMessage.warning('该票种验真需要填写发票代码')
+    return false
+  }
+  if (verificationCheckCodeTypes.has(type) && String(form.checkCode || '').trim().slice(-6).length !== 6) {
+    ElMessage.warning('该票种验真需要填写校验码后 6 位')
+    return false
+  }
+  if (amountMode === 'amount' && Number(form.amount || 0) <= 0) {
+    ElMessage.warning('该票种验真需要填写不含税金额')
+    return false
+  }
+  if (amountMode === 'total' && Number(form.total || 0) <= 0) {
+    ElMessage.warning('该票种验真需要填写价税合计')
+    return false
+  }
+  return true
+}
+
+const verifyCurrent = async () => {
+  if (verifying.value || saving.value || confirming.value || rechecking.value || reopening.value || !form.ID || readonly.value) return
+  const valid = await validateVerificationFields()
+  if (!valid) return
+  verifying.value = true
+  try {
+    const saved = await updateInvoice(buildPayload())
+    if (saved.code !== 0) return
+    invoice.value = saved.data || invoice.value
+    emit('saved', invoice.value)
+    const result = await verifyInvoice({ id: form.ID })
+    if (result.code !== 0) return
+    invoice.value = result.data?.invoice || invoice.value
+    fillForm(invoice.value)
+    if (result.data?.attempt) {
+      verificationHistory.value = [result.data.attempt, ...verificationHistory.value.filter((item) => item.ID !== result.data.attempt.ID)]
+    }
+    if (invoice.value.verificationStatus === 'verified_valid') {
+      ElMessage.success('发票查验一致，当前字段可以确认入账')
+    } else {
+      ElMessage.warning(invoice.value.verificationMessage || '发票未通过权威查验')
+    }
+  } finally {
+    verifying.value = false
   }
 }
 
@@ -408,8 +629,11 @@ const buildPayload = () => ({
   ID: form.ID,
   direction: form.direction,
   invoiceType: form.invoiceType,
+  verificationType: form.verificationType,
+  verificationAmountMode: form.verificationAmountMode,
   invoiceCode: form.invoiceCode,
   invoiceNumber: form.invoiceNumber,
+  checkCode: form.checkCode,
   issueDate: form.issueDate ? new Date(form.issueDate).toISOString() : null,
   buyerName: form.buyerName,
   buyerTaxNo: form.buyerTaxNo,
@@ -452,6 +676,11 @@ const save = async (andConfirm) => {
       await loadInvoice()
       return
     }
+    if (invoice.value.verificationStatus !== 'verified_valid') {
+      verifiedFormSignature.value = ''
+      ElMessage.warning('当前字段尚未通过权威查验，请先执行保存并查验')
+      return
+    }
     const confirmRes = await confirmInvoice({ id: form.ID })
     if (confirmRes.code === 0) {
       invoice.value = confirmRes.data || invoice.value
@@ -469,6 +698,7 @@ watch(() => [props.modelValue, props.invoiceId], ([visible, id]) => {
   if (visible && id) {
     recheckRequestId++
     rechecking.value = false
+    verifying.value = false
     reopening.value = false
     loadInvoice()
   } else if (!visible) {
@@ -476,10 +706,17 @@ watch(() => [props.modelValue, props.invoiceId], ([visible, id]) => {
     recheckRequestId++
     loading.value = false
     rechecking.value = false
+    verifying.value = false
     reopening.value = false
+    verificationHistory.value = []
+    verifiedFormSignature.value = ''
     loadError.value = ''
   }
 }, { immediate: true })
+
+watch(() => form.verificationType, (type) => {
+  if (type !== 'motor_vehicle_invoice') form.verificationAmountMode = ''
+})
 </script>
 
 <style scoped lang="scss">
@@ -503,8 +740,27 @@ watch(() => [props.modelValue, props.invoiceId], ([visible, id]) => {
 .evidence-meta dd { margin: 0; overflow-wrap: anywhere; color: var(--na-foreground); font-size: .75rem; }
 .category-hint { padding: 5px 8px; border-radius: 7px; background: var(--na-primary-soft); color: var(--na-primary); font-size: .75rem; }
 .field-heading-actions { display: flex; flex: 0 0 auto; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.verification-band { margin: 4px 0 18px; padding: 12px 0; border-block: 1px solid var(--na-border); }
+.verification-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.verification-summary > div { display: flex; min-width: 0; align-items: center; gap: 9px; }
+.verification-title { color: var(--na-foreground); font-size: .8125rem; font-weight: 650; }
+.verification-message { margin: 7px 0 0; color: var(--na-muted-foreground); font-size: .75rem; line-height: 1.55; }
+.verification-differences { display: grid; gap: 0; margin: 10px 0 0; padding: 0; list-style: none; border-top: 1px solid var(--na-border); }
+.verification-differences li { display: grid; grid-template-columns: 88px minmax(0, 1fr) minmax(0, 1fr); gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--na-border); font-size: .75rem; }
+.verification-differences strong { color: var(--na-danger); }
+.verification-differences span { min-width: 0; overflow-wrap: anywhere; color: var(--na-foreground); }
+.verification-history { margin-top: 10px; border-top: 1px solid var(--na-border); }
+.verification-history summary { display: flex; align-items: center; gap: 6px; padding: 9px 0 0; color: var(--na-foreground); font-size: .75rem; font-weight: 600; cursor: pointer; }
+.verification-history summary span { color: var(--na-muted-foreground); font-variant-numeric: tabular-nums; }
+.verification-history ol { display: grid; gap: 0; max-height: 240px; margin: 8px 0 0; padding: 0; overflow: auto; list-style: none; }
+.verification-history li { padding: 9px 0; border-top: 1px solid var(--na-border); }
+.verification-history li > div { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.verification-history time, .verification-history small { color: var(--na-muted-foreground); font-size: .6875rem; }
+.verification-history p { margin: 5px 0 2px; color: var(--na-foreground); font-size: .75rem; line-height: 1.5; }
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
 .field-grid :deep(.el-select), .field-grid :deep(.el-date-editor), .amount-strip :deep(.el-input-number) { width: 100%; }
+.verification-amount-mode { grid-column: 1 / -1; }
+.verification-amount-mode :deep(.el-segmented) { width: 100%; }
 .is-low-confidence :deep(.el-input__wrapper), .is-low-confidence :deep(.el-select__wrapper), .is-low-confidence :deep(.el-date-editor) { border-color: color-mix(in srgb, var(--na-warning) 58%, var(--na-border)); background: var(--na-warning-soft); }
 .is-low-confidence :deep(.el-form-item__label) { color: var(--na-warning); font-weight: 600; }
 .amount-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 4px 0 18px; padding: 14px; border: 1px solid var(--na-border); border-radius: 10px; background: var(--na-muted); }
@@ -528,6 +784,9 @@ watch(() => [props.modelValue, props.invoiceId], ([visible, id]) => {
   .item-row > :first-child { grid-column: 1 / -1; }
   .item-row > :nth-child(4) { grid-column: 1 / span 2; }
   .item-row > :last-child { grid-column: 3; grid-row: 2 / span 2; align-self: stretch; min-height: 44px; }
+  .verification-summary { align-items: flex-start; flex-direction: column; }
+  .verification-differences li { grid-template-columns: 72px minmax(0, 1fr); }
+  .verification-differences li span:last-child { grid-column: 2; }
 }
 @media (pointer: coarse) {
   .item-row > :last-child { min-width: 44px; min-height: 44px; }

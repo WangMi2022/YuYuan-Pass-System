@@ -8,6 +8,7 @@ import (
 
 const (
 	defaultOCRTimeoutSeconds        = 30
+	defaultBaiduTimeoutSeconds      = 30
 	defaultMultimodalTimeoutSeconds = 45
 	defaultFallbackThreshold        = 0.82
 
@@ -19,8 +20,23 @@ const (
 // API keys are persisted in YAML but never serialized back to the browser.
 type InvoiceRecognition struct {
 	FallbackThreshold float64                   `mapstructure:"fallback-threshold" json:"fallback-threshold" yaml:"fallback-threshold"`
+	Baidu             InvoiceBaiduProvider      `mapstructure:"baidu" json:"baidu" yaml:"baidu"`
 	PublicOCR         InvoicePublicOCR          `mapstructure:"public-ocr" json:"public-ocr" yaml:"public-ocr"`
 	Multimodal        InvoiceMultimodalProvider `mapstructure:"multimodal" json:"multimodal" yaml:"multimodal"`
+}
+
+type InvoiceBaiduProvider struct {
+	Enabled             bool   `mapstructure:"enabled" json:"enabled" yaml:"enabled"`
+	VerificationEnabled bool   `mapstructure:"verification-enabled" json:"verification-enabled" yaml:"verification-enabled"`
+	APIKey              string `mapstructure:"api-key" json:"-" yaml:"api-key"`
+	SecretKey           string `mapstructure:"secret-key" json:"-" yaml:"secret-key"`
+	TimeoutSeconds      int    `mapstructure:"timeout-seconds" json:"timeout-seconds" yaml:"timeout-seconds"`
+	APIKeyInput         string `mapstructure:"-" json:"api-key,omitempty" yaml:"-"`
+	SecretKeyInput      string `mapstructure:"-" json:"secret-key,omitempty" yaml:"-"`
+	APIKeyConfigured    bool   `mapstructure:"-" json:"api-key-configured" yaml:"-"`
+	SecretKeyConfigured bool   `mapstructure:"-" json:"secret-key-configured" yaml:"-"`
+	ClearAPIKey         bool   `mapstructure:"-" json:"clear-api-key,omitempty" yaml:"-"`
+	ClearSecretKey      bool   `mapstructure:"-" json:"clear-secret-key,omitempty" yaml:"-"`
 }
 
 type InvoicePublicOCR struct {
@@ -58,6 +74,9 @@ func (c *InvoiceRecognition) Normalize() {
 	if c.PublicOCR.TimeoutSeconds <= 0 {
 		c.PublicOCR.TimeoutSeconds = defaultOCRTimeoutSeconds
 	}
+	if c.Baidu.TimeoutSeconds <= 0 {
+		c.Baidu.TimeoutSeconds = defaultBaiduTimeoutSeconds
+	}
 	if c.Multimodal.TimeoutSeconds <= 0 {
 		c.Multimodal.TimeoutSeconds = defaultMultimodalTimeoutSeconds
 	}
@@ -84,11 +103,23 @@ func (c InvoiceRecognition) Validate() error {
 	if len(c.PublicOCR.APIKey) > 8192 || len(c.Multimodal.APIKey) > 8192 {
 		return errors.New("识别服务 API Key 长度超出限制")
 	}
+	if len(c.Baidu.APIKey) > 8192 || len(c.Baidu.SecretKey) > 8192 {
+		return errors.New("百度智能云凭据长度超出限制")
+	}
 	if c.FallbackThreshold < 0.1 || c.FallbackThreshold > 1 {
 		return errors.New("多模态兜底阈值必须在 0.1 到 1 之间")
 	}
 	if c.PublicOCR.TimeoutSeconds < 1 || c.PublicOCR.TimeoutSeconds > 120 {
 		return errors.New("公网 OCR 超时时间必须在 1 到 120 秒之间")
+	}
+	if c.Baidu.TimeoutSeconds < 1 || c.Baidu.TimeoutSeconds > 120 {
+		return errors.New("百度智能云超时时间必须在 1 到 120 秒之间")
+	}
+	if c.Baidu.VerificationEnabled && !c.Baidu.Enabled {
+		return errors.New("启用百度发票验真前请先启用百度发票 OCR")
+	}
+	if c.Baidu.Enabled && (strings.TrimSpace(c.Baidu.APIKey) == "" || strings.TrimSpace(c.Baidu.SecretKey) == "") {
+		return errors.New("请完整配置百度智能云 API Key 和 Secret Key")
 	}
 	if c.Multimodal.TimeoutSeconds < 1 || c.Multimodal.TimeoutSeconds > 120 {
 		return errors.New("多模态模型超时时间必须在 1 到 120 秒之间")
@@ -110,6 +141,12 @@ func (c InvoiceRecognition) Validate() error {
 }
 
 func (c InvoiceRecognition) Redacted() InvoiceRecognition {
+	c.Baidu.APIKeyConfigured = strings.TrimSpace(c.Baidu.APIKey) != ""
+	c.Baidu.SecretKeyConfigured = strings.TrimSpace(c.Baidu.SecretKey) != ""
+	c.Baidu.APIKeyInput = ""
+	c.Baidu.SecretKeyInput = ""
+	c.Baidu.ClearAPIKey = false
+	c.Baidu.ClearSecretKey = false
 	c.PublicOCR.APIKeyConfigured = strings.TrimSpace(c.PublicOCR.APIKey) != ""
 	c.PublicOCR.APIKeyInput = ""
 	c.PublicOCR.ClearAPIKey = false
@@ -140,6 +177,20 @@ func (c InvoiceRecognition) MergeSecrets(current InvoiceRecognition, allow bool)
 	} else {
 		c.PublicOCR.APIKey = current.PublicOCR.APIKey
 	}
+	if c.Baidu.ClearAPIKey {
+		c.Baidu.APIKey = ""
+	} else if strings.TrimSpace(c.Baidu.APIKeyInput) != "" {
+		c.Baidu.APIKey = strings.TrimSpace(c.Baidu.APIKeyInput)
+	} else {
+		c.Baidu.APIKey = current.Baidu.APIKey
+	}
+	if c.Baidu.ClearSecretKey {
+		c.Baidu.SecretKey = ""
+	} else if strings.TrimSpace(c.Baidu.SecretKeyInput) != "" {
+		c.Baidu.SecretKey = strings.TrimSpace(c.Baidu.SecretKeyInput)
+	} else {
+		c.Baidu.SecretKey = current.Baidu.SecretKey
+	}
 	if c.Multimodal.ClearAPIKey {
 		c.Multimodal.APIKey = ""
 	} else if strings.TrimSpace(c.Multimodal.APIKeyInput) != "" {
@@ -150,6 +201,12 @@ func (c InvoiceRecognition) MergeSecrets(current InvoiceRecognition, allow bool)
 	c.PublicOCR.APIKeyInput = ""
 	c.PublicOCR.APIKeyConfigured = false
 	c.PublicOCR.ClearAPIKey = false
+	c.Baidu.APIKeyInput = ""
+	c.Baidu.SecretKeyInput = ""
+	c.Baidu.APIKeyConfigured = false
+	c.Baidu.SecretKeyConfigured = false
+	c.Baidu.ClearAPIKey = false
+	c.Baidu.ClearSecretKey = false
 	c.Multimodal.APIKeyInput = ""
 	c.Multimodal.APIKeyConfigured = false
 	c.Multimodal.ClearAPIKey = false

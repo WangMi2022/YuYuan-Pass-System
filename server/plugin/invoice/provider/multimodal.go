@@ -22,7 +22,7 @@ const (
 	probeMaxTokens            = 256
 )
 
-const invoiceExtractionPrompt = `识别图片中的中国发票并只返回一个 JSON 对象，不要返回 Markdown。金额全部换算为整数分，日期格式为 YYYY-MM-DD。无法确认的文本字段返回空字符串，无法确认的金额返回 0。JSON 字段必须是：invoiceType、invoiceCode、invoiceNumber、issueDate、buyerName、buyerTaxNo、sellerName、sellerTaxNo、amountCents、taxCents、totalCents、rawText、confidence、fieldConfidences、items。confidence 和 fieldConfidences 的值范围为 0 到 1。items 每项字段必须是：name、specification、unit、quantityText、unitPriceCents、amountCents、taxRate、taxCents。`
+const invoiceExtractionPrompt = `识别图片中的中国发票并只返回一个 JSON 对象，不要返回 Markdown。金额全部换算为整数分，日期格式为 YYYY-MM-DD。无法确认的文本字段返回空字符串，无法确认的金额返回 0。JSON 字段必须是：invoiceType、verificationType、verificationAmountMode、invoiceCode、invoiceNumber、checkCode、issueDate、buyerName、buyerTaxNo、sellerName、sellerTaxNo、amountCents、taxCents、totalCents、rawText、confidence、fieldConfidences、items。verificationType 使用百度发票验真的标准票种代码；机动车销售统一发票的 verificationAmountMode，纸质票返回 amount，电子票返回 total，其他票种返回空字符串。confidence 和 fieldConfidences 的值范围为 0 到 1。items 每项字段必须是：name、specification、unit、quantityText、unitPriceCents、amountCents、taxRate、taxCents。`
 
 type MultimodalRecognizer struct {
 	BaseURL  string
@@ -39,21 +39,24 @@ type multimodalCompletion struct {
 }
 
 type multimodalInvoiceResult struct {
-	InvoiceType      string                      `json:"invoiceType"`
-	InvoiceCode      string                      `json:"invoiceCode"`
-	InvoiceNumber    string                      `json:"invoiceNumber"`
-	IssueDate        string                      `json:"issueDate"`
-	BuyerName        string                      `json:"buyerName"`
-	BuyerTaxNo       string                      `json:"buyerTaxNo"`
-	SellerName       string                      `json:"sellerName"`
-	SellerTaxNo      string                      `json:"sellerTaxNo"`
-	AmountCents      int64                       `json:"amountCents"`
-	TaxCents         int64                       `json:"taxCents"`
-	TotalCents       int64                       `json:"totalCents"`
-	RawText          string                      `json:"rawText"`
-	Confidence       float64                     `json:"confidence"`
-	FieldConfidences map[string]float64          `json:"fieldConfidences"`
-	Items            []multimodalInvoiceLineItem `json:"items"`
+	InvoiceType            string                      `json:"invoiceType"`
+	VerificationType       string                      `json:"verificationType"`
+	VerificationAmountMode string                      `json:"verificationAmountMode"`
+	InvoiceCode            string                      `json:"invoiceCode"`
+	InvoiceNumber          string                      `json:"invoiceNumber"`
+	CheckCode              string                      `json:"checkCode"`
+	IssueDate              string                      `json:"issueDate"`
+	BuyerName              string                      `json:"buyerName"`
+	BuyerTaxNo             string                      `json:"buyerTaxNo"`
+	SellerName             string                      `json:"sellerName"`
+	SellerTaxNo            string                      `json:"sellerTaxNo"`
+	AmountCents            int64                       `json:"amountCents"`
+	TaxCents               int64                       `json:"taxCents"`
+	TotalCents             int64                       `json:"totalCents"`
+	RawText                string                      `json:"rawText"`
+	Confidence             float64                     `json:"confidence"`
+	FieldConfidences       map[string]float64          `json:"fieldConfidences"`
+	Items                  []multimodalInvoiceLineItem `json:"items"`
 }
 
 type multimodalInvoiceLineItem struct {
@@ -97,7 +100,9 @@ func (r *MultimodalRecognizer) Recognize(ctx context.Context, input Input) (Resu
 	}
 	return Result{
 		Provider: "multimodal-ai", InvoiceType: extracted.InvoiceType,
+		VerificationType: extracted.VerificationType, VerificationAmountMode: extracted.VerificationAmountMode,
 		InvoiceCode: extracted.InvoiceCode, InvoiceNumber: extracted.InvoiceNumber,
+		CheckCode: extracted.CheckCode,
 		IssueDate: issueDate, BuyerName: extracted.BuyerName, BuyerTaxNo: extracted.BuyerTaxNo,
 		SellerName: extracted.SellerName, SellerTaxNo: extracted.SellerTaxNo,
 		AmountCents: extracted.AmountCents, TaxCents: extracted.TaxCents, TotalCents: extracted.TotalCents,

@@ -35,7 +35,7 @@
 
     <section class="na-panel ledger-panel">
       <div class="ledger-header ledger-grid" aria-hidden="true">
-        <span>发票信息</span><span>销售方</span><span>分类</span><span>开票日期</span><span>价税合计</span><span>状态</span><span>操作</span>
+        <span>发票信息</span><span>销售方</span><span>分类</span><span>开票日期</span><span>价税合计</span><span>处理 / 查验</span><span>操作</span>
       </div>
       <el-skeleton v-if="loading && !loaded" :rows="7" animated />
       <el-result v-else-if="error && !loaded" icon="error" title="发票台账加载失败" :sub-title="error">
@@ -57,7 +57,10 @@
             <div class="category-cell"><i :style="{ backgroundColor: item.category?.color || item.suggestedCategory?.color || 'var(--na-border-strong)' }" /><span>{{ item.category?.name || item.suggestedCategory?.name || '未分类' }}</span></div>
             <time>{{ dateText(item.issueDate) }}</time>
             <strong class="money-cell">{{ money(item.totalCents) }}</strong>
-            <InvoiceStatusTag :status="item.status" />
+            <div class="status-stack">
+              <InvoiceStatusTag :status="item.status" />
+              <InvoiceVerificationTag :status="item.verificationStatus" />
+            </div>
             <div class="row-actions">
               <el-tooltip content="查看或核对" placement="top">
                 <el-button :icon="View" text :disabled="isPending(item.ID)" aria-label="查看或核对发票" @click="openReview(item)" />
@@ -99,6 +102,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
 import InvoiceReviewDrawer from '@/plugin/invoice/components/InvoiceReviewDrawer.vue'
 import InvoiceStatusTag from '@/plugin/invoice/components/InvoiceStatusTag.vue'
+import InvoiceVerificationTag from '@/plugin/invoice/components/InvoiceVerificationTag.vue'
 import { deleteInvoice, getInvoiceCategoryOptions, getInvoiceList, reopenInvoice, retryInvoice } from '@/plugin/invoice/api/invoice'
 import { centsToCurrency, invoiceDateText, invoiceStatuses } from '@/plugin/invoice/utils/invoice'
 import { usePagedList } from '@/hooks/usePagedList'
@@ -250,6 +254,8 @@ onMounted(() => Promise.all([loadCategories(), load()]))
 .category-cell span { overflow: hidden; font-size: .75rem; text-overflow: ellipsis; white-space: nowrap; }
 .ledger-row time { color: var(--na-muted-foreground); font-size: .75rem; }
 .money-cell { overflow: hidden; font-size: .75rem; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+.status-stack { display: flex; min-width: 0; flex-direction: column; align-items: flex-start; gap: 4px; }
+.status-stack :deep(.el-tag) { max-width: 100%; }
 .row-actions { display: flex; min-width: 0; align-items: center; justify-content: flex-end; gap: 2px; white-space: nowrap; }
 .row-actions :deep(.el-button) { width: 30px; min-width: 30px; min-height: 30px; padding: 0; }
 .row-actions :deep(.el-button + .el-button) { margin-left: 0; }
@@ -272,7 +278,7 @@ onMounted(() => Promise.all([loadCategories(), load()]))
   .invoice-identity { grid-column: 1; grid-row: 1; }
   .invoice-identity .mobile-details { display: block; }
   .money-cell { grid-column: 1; grid-row: 2; color: var(--na-primary); }
-  .ledger-row :deep(.invoice-status-tag) { grid-column: 2; grid-row: 1; }
+  .status-stack { grid-column: 2; grid-row: 1; align-items: flex-end; }
   .row-actions { grid-column: 2; grid-row: 2; }
   .na-pagination { overflow: hidden; padding-inline: 8px; }
   .na-pagination :deep(.el-pagination__total) { display: none; }
