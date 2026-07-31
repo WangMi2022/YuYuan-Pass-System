@@ -49,6 +49,12 @@ type InvoiceUpdate struct {
 	Items                  []model.InvoiceItem `json:"items"`
 }
 
+type InvoiceConfirm struct {
+	ID                       uint   `json:"id"`
+	VerificationBypass       bool   `json:"verificationBypass"`
+	VerificationBypassReason string `json:"verificationBypassReason"`
+}
+
 type CategorySearch struct {
 	commonRequest.PageInfo
 	Enabled *bool `json:"enabled" form:"enabled"`

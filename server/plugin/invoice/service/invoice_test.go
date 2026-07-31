@@ -194,6 +194,102 @@ func TestConfirmRequiresVerificationForCurrentFields(t *testing.T) {
 	}
 }
 
+func TestVerificationBypassRequiresSuperAdminAndReason(t *testing.T) {
+	setupInvoiceServiceTestDB(t)
+	category := createInvoiceTestCategory(t)
+	invoice := createReviewableInvoice(t, 214, 100, category.ID, "VERIFY-BYPASS-AUTH")
+	if err := global.GVA_DB.Model(&invoice).Updates(map[string]any{
+		"verification_status":      model.InvoiceVerificationUnavailable,
+		"verification_fingerprint": "", "verification_checked_at": nil,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	request := invoiceRequest.InvoiceConfirm{
+		ID: invoice.ID, VerificationBypass: true, VerificationBypassReason: "供应商服务暂不可用，已人工复核原件",
+	}
+	if _, err := (InvoiceService{}).ConfirmWithOptions(request, AccessScope{UserID: 214, AuthorityID: 100}); err == nil || !strings.Contains(err.Error(), "超级管理员") {
+		t.Fatalf("ordinary confirmer bypassed verification: %v", err)
+	}
+	request.VerificationBypassReason = "  "
+	if _, err := (InvoiceService{}).ConfirmWithOptions(request, AccessScope{UserID: 1, AuthorityID: defaultAdminRoleID, All: true}); err == nil || !strings.Contains(err.Error(), "原因") {
+		t.Fatalf("verification bypass without reason was accepted: %v", err)
+	}
+	var persisted model.Invoice
+	if err := global.GVA_DB.First(&persisted, invoice.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if persisted.Status == model.InvoiceStatusConfirmed {
+		t.Fatalf("rejected bypass changed invoice state: %#v", persisted)
+	}
+}
+
+func TestSuperAdminCanConfirmWithVerificationBypassAndAuditIt(t *testing.T) {
+	setupInvoiceServiceTestDB(t)
+	category := createInvoiceTestCategory(t)
+	invoice := createReviewableInvoice(t, 215, 100, category.ID, "VERIFY-BYPASS-OK")
+	if err := global.GVA_DB.Model(&invoice).Updates(map[string]any{
+		"verification_status":      model.InvoiceVerificationInconsistent,
+		"verification_fingerprint": "", "verification_checked_at": nil,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	admin := AccessScope{UserID: 9, AuthorityID: defaultAdminRoleID, All: true}
+	reason := "税局字段与纸质原件不一致，财务负责人已人工复核"
+	confirmed, err := (InvoiceService{}).ConfirmWithOptions(invoiceRequest.InvoiceConfirm{
+		ID: invoice.ID, VerificationBypass: true, VerificationBypassReason: "  " + reason + "  ",
+	}, admin)
+	if err != nil {
+		t.Fatalf("super admin verification bypass: %v", err)
+	}
+	if confirmed.Status != model.InvoiceStatusConfirmed || !confirmed.VerificationBypassed ||
+		confirmed.VerificationBypassReason != reason || confirmed.VerificationBypassedBy != admin.UserID ||
+		confirmed.VerificationBypassedAt == nil ||
+		confirmed.ConfirmationVerificationStatus != model.InvoiceVerificationInconsistent {
+		t.Fatalf("verification bypass audit was not persisted: %#v", confirmed)
+	}
+}
+
+func TestVerificationBypassStillValidatesInvoiceFields(t *testing.T) {
+	setupInvoiceServiceTestDB(t)
+	category := createInvoiceTestCategory(t)
+	invoice := createReviewableInvoice(t, 216, 100, category.ID, "VERIFY-BYPASS-INVALID")
+	if err := global.GVA_DB.Model(&invoice).Updates(map[string]any{
+		"verification_status": model.InvoiceVerificationUnavailable,
+		"total_cents":         0,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	_, err := (InvoiceService{}).ConfirmWithOptions(invoiceRequest.InvoiceConfirm{
+		ID: invoice.ID, VerificationBypass: true, VerificationBypassReason: "已人工复核",
+	}, AccessScope{UserID: 1, AuthorityID: defaultAdminRoleID, All: true})
+	if err == nil || !strings.Contains(err.Error(), "金额") {
+		t.Fatalf("verification bypass skipped invoice validation: %v", err)
+	}
+}
+
+func TestVerificationBypassRejectsConcurrentInvoiceChange(t *testing.T) {
+	setupInvoiceServiceTestDB(t)
+	category := createInvoiceTestCategory(t)
+	invoice := createReviewableInvoice(t, 217, 100, category.ID, "VERIFY-BYPASS-CAS")
+	if err := global.GVA_DB.Model(&invoice).Update("verification_status", model.InvoiceVerificationUnavailable).Error; err != nil {
+		t.Fatal(err)
+	}
+	previousHook := beforeInvoiceConfirmPersist
+	beforeInvoiceConfirmPersist = func(tx *gorm.DB, current model.Invoice) error {
+		return tx.Model(&model.Invoice{}).Where("id = ?", current.ID).
+			UpdateColumn("updated_at", current.UpdatedAt.Add(time.Second)).Error
+	}
+	t.Cleanup(func() { beforeInvoiceConfirmPersist = previousHook })
+
+	_, err := (InvoiceService{}).ConfirmWithOptions(invoiceRequest.InvoiceConfirm{
+		ID: invoice.ID, VerificationBypass: true, VerificationBypassReason: "已人工复核",
+	}, AccessScope{UserID: 1, AuthorityID: defaultAdminRoleID, All: true})
+	if err == nil || !strings.Contains(err.Error(), "状态已变更") {
+		t.Fatalf("verification bypass ignored concurrent change: %v", err)
+	}
+}
+
 func TestBaiduVerificationPersistsHistoryAndAllowsConfirmation(t *testing.T) {
 	setupInvoiceServiceTestDB(t)
 	category := createInvoiceTestCategory(t)

@@ -125,6 +125,49 @@
             </el-button>
           </div>
           <p class="verification-message">{{ verificationMessage }}</p>
+          <div v-if="invoice.verificationBypassed" class="verification-bypass-record">
+            <el-icon><WarningFilled /></el-icon>
+            <div>
+              <strong>已由管理员例外确认</strong>
+              <span>{{ invoice.verificationBypassReason || '未记录例外原因' }}</span>
+              <small>{{ historyTime(invoice.verificationBypassedAt) }}</small>
+            </div>
+          </div>
+          <div
+            v-if="canBypassVerification"
+            class="verification-override"
+            :class="{ 'is-enabled': verificationBypass }"
+          >
+            <div class="verification-override-head">
+              <div class="verification-override-label">
+                <el-icon><WarningFilled /></el-icon>
+                <div>
+                  <strong>管理员例外确认</strong>
+                  <span>权威查验未通过时仍允许入账，操作将完整留痕</span>
+                </div>
+              </div>
+              <el-switch
+                v-model="verificationBypass"
+                :disabled="saving || confirming || verifying || rechecking || reopening"
+                aria-label="允许绕过权威查验确认发票"
+                @change="handleVerificationBypassChange"
+              />
+            </div>
+            <el-collapse-transition>
+              <div v-if="verificationBypass" class="verification-override-reason">
+                <el-input
+                  v-model="verificationBypassReason"
+                  type="textarea"
+                  :rows="2"
+                  maxlength="500"
+                  show-word-limit
+                  resize="none"
+                  placeholder="填写例外确认原因，例如：税局服务暂不可用，已人工核对原件"
+                  aria-label="管理员例外确认原因"
+                />
+              </div>
+            </el-collapse-transition>
+          </div>
           <ul v-if="latestVerification?.differences?.length" class="verification-differences">
             <li v-for="difference in latestVerification.differences" :key="difference.field">
               <strong>{{ difference.label }}</strong>
@@ -256,9 +299,16 @@
         </el-button>
         <template v-if="!readonly">
           <el-button :loading="saving" :disabled="saving || confirming || rechecking || verifying || reopening || !!loadError" @click="save(false)">保存核对</el-button>
-          <el-tooltip :disabled="verificationReady" content="请先完成当前字段的权威查验" placement="top">
+          <el-tooltip :disabled="confirmationReady" :content="confirmationTooltip" placement="top">
             <span>
-              <el-button type="primary" :loading="confirming" :disabled="saving || confirming || rechecking || verifying || reopening || !verificationReady || !!loadError" @click="save(true)">保存并确认</el-button>
+              <el-button
+                :type="verificationBypassReady ? 'warning' : 'primary'"
+                :loading="confirming"
+                :disabled="saving || confirming || rechecking || verifying || reopening || !confirmationReady || !!loadError"
+                @click="save(true)"
+              >
+                {{ verificationBypassReady ? '例外保存并确认' : '保存并确认' }}
+              </el-button>
             </span>
           </el-tooltip>
         </template>
@@ -285,7 +335,7 @@
 
 <script setup>
 import { computed, defineAsyncComponent, reactive, ref, watch } from 'vue'
-import { CircleCheck, Delete, EditPen, Plus, RefreshRight, View } from '@element-plus/icons-vue'
+import { CircleCheck, Delete, EditPen, Plus, RefreshRight, View, WarningFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { confirmInvoice, downloadInvoiceFile, getInvoiceCategoryOptions, getInvoiceDetail, getInvoiceVerificationHistory, recheckInvoice, reopenInvoice, updateInvoice, verifyInvoice } from '@/plugin/invoice/api/invoice'
 import { centsToYuan, invoiceFileUrl, yuanToCents } from '@/plugin/invoice/utils/invoice'
@@ -319,6 +369,8 @@ const invoice = ref({})
 const categories = ref([])
 const verificationHistory = ref([])
 const verifiedFormSignature = ref('')
+const verificationBypass = ref(false)
+const verificationBypassReason = ref('')
 const loadError = ref('')
 const pdfSource = ref(null)
 const pdfLoading = ref(false)
@@ -388,7 +440,8 @@ const rules = {
 
 const drawerSize = computed(() => appStore.drawerSize === '100%' ? '100%' : 'min(94vw, 1040px)')
 const readonly = computed(() => invoice.value.status === 'confirmed')
-const canReopen = computed(() => Number(userStore.userInfo.authorityId) === 888)
+const isSuperAdmin = computed(() => Number(userStore.userInfo.authorityId) === 888)
+const canReopen = computed(() => isSuperAdmin.value)
 const fileUrl = computed(() => invoice.value.ID ? invoiceFileUrl(invoice.value.ID) : '')
 const isPdf = computed(() => {
   const mimeType = String(invoice.value.mimeType || '').toLowerCase()
@@ -452,6 +505,17 @@ const verificationReady = computed(() =>
   Boolean(verifiedFormSignature.value) &&
   verifiedFormSignature.value === formVerificationSignature()
 )
+const canBypassVerification = computed(() => isSuperAdmin.value && !readonly.value && !verificationReady.value)
+const verificationBypassReady = computed(() =>
+  canBypassVerification.value && verificationBypass.value && Boolean(verificationBypassReason.value.trim())
+)
+const confirmationReady = computed(() => verificationReady.value || verificationBypassReady.value)
+const confirmationTooltip = computed(() => {
+  if (confirmationReady.value) return ''
+  if (!canBypassVerification.value) return '请先完成当前字段的权威查验'
+  if (verificationBypass.value) return '请填写管理员例外确认原因'
+  return '请先通过权威查验，或开启管理员例外确认'
+})
 const latestVerification = computed(() => verificationHistory.value[0] || null)
 const verificationMessage = computed(() => {
   if (invoice.value.verificationMessage) return invoice.value.verificationMessage
@@ -462,6 +526,15 @@ const verificationMessage = computed(() => {
 const historyTime = (value) => value
   ? new Date(value).toLocaleString('zh-CN', { hour12: false })
   : '处理中'
+
+const resetVerificationBypass = () => {
+  verificationBypass.value = false
+  verificationBypassReason.value = ''
+}
+
+const handleVerificationBypassChange = (enabled) => {
+  if (!enabled) verificationBypassReason.value = ''
+}
 
 const fillForm = (data) => {
   Object.assign(form, emptyForm(), {
@@ -480,6 +553,7 @@ const fillForm = (data) => {
   verifiedFormSignature.value = data.verificationStatus === 'verified_valid'
     ? formVerificationSignature()
     : ''
+  resetVerificationBypass()
 }
 
 const recheckedAmount = (data, field, currentValue) => {
@@ -764,6 +838,23 @@ const save = async (andConfirm) => {
   }
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return
+  const usingVerificationBypass = Boolean(andConfirm && !verificationReady.value && verificationBypassReady.value)
+  if (andConfirm && !verificationReady.value && !usingVerificationBypass) {
+    ElMessage.warning(confirmationTooltip.value)
+    return
+  }
+  if (usingVerificationBypass) {
+    try {
+      await ElMessageBox.confirm(
+        '当前发票尚未通过权威查验。继续后仍会进入正式统计，系统将记录操作账号、时间、验真状态和例外原因。',
+        '确认例外入账',
+        { type: 'warning', confirmButtonText: '确认例外入账', cancelButtonText: '取消' }
+      )
+    } catch (action) {
+      if (action !== 'cancel' && action !== 'close') ElMessage.error(action?.message || '无法确认例外入账')
+      return
+    }
+  }
   saving.value = !andConfirm
   confirming.value = andConfirm
   try {
@@ -776,15 +867,19 @@ const save = async (andConfirm) => {
       await loadInvoice()
       return
     }
-    if (invoice.value.verificationStatus !== 'verified_valid') {
+    if (!usingVerificationBypass && invoice.value.verificationStatus !== 'verified_valid') {
       verifiedFormSignature.value = ''
       ElMessage.warning('当前字段尚未通过权威查验，请先执行保存并查验')
       return
     }
-    const confirmRes = await confirmInvoice({ id: form.ID })
+    const confirmRes = await confirmInvoice({
+      id: form.ID,
+      verificationBypass: usingVerificationBypass,
+      verificationBypassReason: usingVerificationBypass ? verificationBypassReason.value.trim() : ''
+    })
     if (confirmRes.code === 0) {
       invoice.value = confirmRes.data || invoice.value
-      ElMessage.success('发票已确认并纳入统计')
+      ElMessage.success(usingVerificationBypass ? '发票已例外确认并纳入统计' : '发票已确认并纳入统计')
       emit('confirmed', invoice.value)
       emit('update:modelValue', false)
     }
@@ -801,6 +896,7 @@ watch(() => [props.modelValue, props.invoiceId], ([visible, id]) => {
     verifying.value = false
     reopening.value = false
     recheckMode.value = 'ocr'
+    resetVerificationBypass()
     loadInvoice()
   } else if (!visible) {
     loadRequestId++
@@ -811,6 +907,7 @@ watch(() => [props.modelValue, props.invoiceId], ([visible, id]) => {
     reopening.value = false
     verificationHistory.value = []
     verifiedFormSignature.value = ''
+    resetVerificationBypass()
     loadError.value = ''
     resetPdfPreview()
   }
@@ -852,6 +949,18 @@ watch(() => form.verificationType, (type) => {
 .verification-summary > div { display: flex; min-width: 0; align-items: center; gap: 9px; }
 .verification-title { color: var(--na-foreground); font-size: .8125rem; font-weight: 650; }
 .verification-message { margin: 7px 0 0; color: var(--na-muted-foreground); font-size: .75rem; line-height: 1.55; }
+.verification-bypass-record, .verification-override { margin-top: 10px; padding: 10px; border: 1px solid color-mix(in srgb, var(--na-warning) 42%, var(--na-border)); border-radius: 8px; background: var(--na-warning-soft); }
+.verification-bypass-record { display: flex; align-items: flex-start; gap: 8px; }
+.verification-bypass-record > .el-icon, .verification-override-label > .el-icon { flex: 0 0 auto; margin-top: 2px; color: var(--na-warning); }
+.verification-bypass-record > div, .verification-override-label > div { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.verification-bypass-record strong, .verification-override-label strong { color: var(--na-foreground); font-size: .75rem; font-weight: 650; }
+.verification-bypass-record span, .verification-override-label span { overflow-wrap: anywhere; color: var(--na-muted-foreground); font-size: .75rem; line-height: 1.5; }
+.verification-bypass-record small { color: var(--na-muted-foreground); font-size: .6875rem; }
+.verification-override.is-enabled { border-color: color-mix(in srgb, var(--na-warning) 68%, var(--na-border)); }
+.verification-override-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.verification-override-label { display: flex; min-width: 0; align-items: flex-start; gap: 8px; }
+.verification-override-reason { padding-top: 9px; }
+.verification-override-reason :deep(.el-textarea__inner) { background: var(--na-card); }
 .verification-differences { display: grid; gap: 0; margin: 10px 0 0; padding: 0; list-style: none; border-top: 1px solid var(--na-border); }
 .verification-differences li { display: grid; grid-template-columns: 88px minmax(0, 1fr) minmax(0, 1fr); gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--na-border); font-size: .75rem; }
 .verification-differences strong { color: var(--na-danger); }

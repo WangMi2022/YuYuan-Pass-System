@@ -54,63 +54,68 @@ func (InvoiceCategory) TableName() string { return "invoice_categories" }
 // Invoice keeps financial amounts in integer cents to avoid floating-point drift.
 type Invoice struct {
 	global.GVA_MODEL
-	Direction                string             `json:"direction" form:"direction" gorm:"size:20;not null;default:expense;index;comment:流水方向"`
-	InvoiceType              string             `json:"invoiceType" form:"invoiceType" gorm:"size:60;index;comment:发票类型"`
-	VerificationType         string             `json:"verificationType" form:"verificationType" gorm:"size:60;index;comment:验真标准票种"`
-	VerificationAmountMode   string             `json:"verificationAmountMode" form:"verificationAmountMode" gorm:"size:20;comment:验真金额口径"`
-	InvoiceCode              string             `json:"invoiceCode" form:"invoiceCode" gorm:"size:80;index;comment:发票代码"`
-	InvoiceNumber            string             `json:"invoiceNumber" form:"invoiceNumber" gorm:"size:80;index;comment:发票号码"`
-	CheckCode                string             `json:"checkCode" form:"checkCode" gorm:"size:80;comment:发票校验码"`
-	DuplicateKey             *string            `json:"-" gorm:"size:64;uniqueIndex;comment:已确认发票防重键"`
-	IssueDate                *time.Time         `json:"issueDate" form:"issueDate" gorm:"type:date;index;comment:开票日期"`
-	BuyerName                string             `json:"buyerName" form:"buyerName" gorm:"size:200;comment:购买方名称"`
-	BuyerTaxNo               string             `json:"buyerTaxNo" form:"buyerTaxNo" gorm:"size:80;comment:购买方税号"`
-	SellerName               string             `json:"sellerName" form:"sellerName" gorm:"size:200;index;comment:销售方名称"`
-	SellerTaxNo              string             `json:"sellerTaxNo" form:"sellerTaxNo" gorm:"size:80;index;comment:销售方税号"`
-	AmountCents              int64              `json:"amountCents" form:"amountCents" gorm:"not null;default:0;comment:不含税金额分"`
-	TaxCents                 int64              `json:"taxCents" form:"taxCents" gorm:"not null;default:0;comment:税额分"`
-	TotalCents               int64              `json:"totalCents" form:"totalCents" gorm:"not null;default:0;index;comment:价税合计分"`
-	Currency                 string             `json:"currency" form:"currency" gorm:"size:10;not null;default:CNY;comment:币种"`
-	CategoryID               *uint              `json:"categoryId" form:"categoryId" gorm:"index;comment:发票分类ID"`
-	Category                 *InvoiceCategory   `json:"category,omitempty" gorm:"foreignKey:CategoryID"`
-	ClassificationSource     string             `json:"classificationSource" gorm:"size:20;comment:分类来源"`
-	ClassificationConfidence float64            `json:"classificationConfidence" gorm:"type:numeric(5,4);default:0;comment:分类置信度"`
-	ClassificationReason     string             `json:"classificationReason" gorm:"size:1000;comment:分类依据"`
-	SuggestedCategoryID      *uint              `json:"suggestedCategoryId" gorm:"index;comment:建议分类ID"`
-	SuggestedCategory        *InvoiceCategory   `json:"suggestedCategory,omitempty" gorm:"foreignKey:SuggestedCategoryID"`
-	Status                   string             `json:"status" form:"status" gorm:"size:30;not null;default:uploaded;index;comment:处理状态"`
-	RecognitionProvider      string             `json:"recognitionProvider" gorm:"size:50;comment:识别提供方"`
-	RecognitionConfidence    float64            `json:"recognitionConfidence" gorm:"type:numeric(5,4);default:0;comment:识别置信度"`
-	FieldConfidences         map[string]float64 `json:"fieldConfidences" gorm:"serializer:json;type:text;comment:字段识别置信度"`
-	RecognitionError         string             `json:"recognitionError" gorm:"size:1000;comment:识别错误"`
-	VerificationStatus       string             `json:"verificationStatus" gorm:"size:30;not null;default:unverified;index;comment:权威查验状态"`
-	VerificationProvider     string             `json:"verificationProvider" gorm:"size:50;comment:查验提供方"`
-	VerificationMessage      string             `json:"verificationMessage" gorm:"size:1000;comment:最近查验结果"`
-	VerificationInvalidSign  string             `json:"verificationInvalidSign" gorm:"size:10;comment:发票作废红冲标识"`
-	VerificationFingerprint  string             `json:"-" gorm:"size:64;index;comment:最近查验对应字段指纹"`
-	LatestVerificationID     *uint              `json:"latestVerificationId" gorm:"index;comment:最近查验记录ID"`
-	VerificationCheckedAt    *time.Time         `json:"verificationCheckedAt" gorm:"index;comment:最近查验时间"`
-	ActiveVerificationID     *uint              `json:"activeVerificationId" gorm:"index;comment:当前查验任务ID"`
-	VerificationStartedAt    *time.Time         `json:"verificationStartedAt" gorm:"index;comment:当前查验开始时间"`
-	RawText                  string             `json:"rawText" gorm:"type:text;comment:识别原文"`
-	RawPayload               string             `json:"-" gorm:"type:text;comment:识别原始响应"`
-	FileName                 string             `json:"fileName" gorm:"size:255;not null;comment:原文件名"`
-	FileKey                  string             `json:"-" gorm:"size:500;not null;comment:私有对象键"`
-	FileHash                 string             `json:"fileHash" gorm:"size:64;not null;index;comment:文件SHA256"`
-	FileDedupKey             *string            `json:"-" gorm:"size:64;uniqueIndex;comment:上传人文件防重键"`
-	MimeType                 string             `json:"mimeType" gorm:"size:100;not null;comment:文件类型"`
-	FileSize                 int64              `json:"fileSize" gorm:"not null;comment:文件大小"`
-	StorageType              string             `json:"storageType" gorm:"size:30;not null;comment:存储类型"`
-	StorageRoot              string             `json:"-" gorm:"size:500;comment:本地存储根目录"`
-	StorageEndpoint          string             `json:"-" gorm:"size:300;comment:对象存储端点"`
-	StorageBucket            string             `json:"-" gorm:"size:200;comment:对象存储桶"`
-	StorageUseSSL            bool               `json:"-" gorm:"comment:对象存储是否启用TLS"`
-	CreatedBy                uint               `json:"createdBy" gorm:"not null;index;comment:上传人ID"`
-	AuthorityID              uint               `json:"authorityId" gorm:"not null;index;comment:上传人主角色ID"`
-	ConfirmedBy              uint               `json:"confirmedBy" gorm:"index;comment:确认人ID"`
-	ConfirmedAt              *time.Time         `json:"confirmedAt" gorm:"index;comment:确认时间"`
-	ReviewNotes              string             `json:"reviewNotes" form:"reviewNotes" gorm:"size:1000;comment:核对备注"`
-	Items                    []InvoiceItem      `json:"items,omitempty" gorm:"foreignKey:InvoiceID;constraint:OnDelete:CASCADE"`
+	Direction                      string             `json:"direction" form:"direction" gorm:"size:20;not null;default:expense;index;comment:流水方向"`
+	InvoiceType                    string             `json:"invoiceType" form:"invoiceType" gorm:"size:60;index;comment:发票类型"`
+	VerificationType               string             `json:"verificationType" form:"verificationType" gorm:"size:60;index;comment:验真标准票种"`
+	VerificationAmountMode         string             `json:"verificationAmountMode" form:"verificationAmountMode" gorm:"size:20;comment:验真金额口径"`
+	InvoiceCode                    string             `json:"invoiceCode" form:"invoiceCode" gorm:"size:80;index;comment:发票代码"`
+	InvoiceNumber                  string             `json:"invoiceNumber" form:"invoiceNumber" gorm:"size:80;index;comment:发票号码"`
+	CheckCode                      string             `json:"checkCode" form:"checkCode" gorm:"size:80;comment:发票校验码"`
+	DuplicateKey                   *string            `json:"-" gorm:"size:64;uniqueIndex;comment:已确认发票防重键"`
+	IssueDate                      *time.Time         `json:"issueDate" form:"issueDate" gorm:"type:date;index;comment:开票日期"`
+	BuyerName                      string             `json:"buyerName" form:"buyerName" gorm:"size:200;comment:购买方名称"`
+	BuyerTaxNo                     string             `json:"buyerTaxNo" form:"buyerTaxNo" gorm:"size:80;comment:购买方税号"`
+	SellerName                     string             `json:"sellerName" form:"sellerName" gorm:"size:200;index;comment:销售方名称"`
+	SellerTaxNo                    string             `json:"sellerTaxNo" form:"sellerTaxNo" gorm:"size:80;index;comment:销售方税号"`
+	AmountCents                    int64              `json:"amountCents" form:"amountCents" gorm:"not null;default:0;comment:不含税金额分"`
+	TaxCents                       int64              `json:"taxCents" form:"taxCents" gorm:"not null;default:0;comment:税额分"`
+	TotalCents                     int64              `json:"totalCents" form:"totalCents" gorm:"not null;default:0;index;comment:价税合计分"`
+	Currency                       string             `json:"currency" form:"currency" gorm:"size:10;not null;default:CNY;comment:币种"`
+	CategoryID                     *uint              `json:"categoryId" form:"categoryId" gorm:"index;comment:发票分类ID"`
+	Category                       *InvoiceCategory   `json:"category,omitempty" gorm:"foreignKey:CategoryID"`
+	ClassificationSource           string             `json:"classificationSource" gorm:"size:20;comment:分类来源"`
+	ClassificationConfidence       float64            `json:"classificationConfidence" gorm:"type:numeric(5,4);default:0;comment:分类置信度"`
+	ClassificationReason           string             `json:"classificationReason" gorm:"size:1000;comment:分类依据"`
+	SuggestedCategoryID            *uint              `json:"suggestedCategoryId" gorm:"index;comment:建议分类ID"`
+	SuggestedCategory              *InvoiceCategory   `json:"suggestedCategory,omitempty" gorm:"foreignKey:SuggestedCategoryID"`
+	Status                         string             `json:"status" form:"status" gorm:"size:30;not null;default:uploaded;index;comment:处理状态"`
+	RecognitionProvider            string             `json:"recognitionProvider" gorm:"size:50;comment:识别提供方"`
+	RecognitionConfidence          float64            `json:"recognitionConfidence" gorm:"type:numeric(5,4);default:0;comment:识别置信度"`
+	FieldConfidences               map[string]float64 `json:"fieldConfidences" gorm:"serializer:json;type:text;comment:字段识别置信度"`
+	RecognitionError               string             `json:"recognitionError" gorm:"size:1000;comment:识别错误"`
+	VerificationStatus             string             `json:"verificationStatus" gorm:"size:30;not null;default:unverified;index;comment:权威查验状态"`
+	VerificationProvider           string             `json:"verificationProvider" gorm:"size:50;comment:查验提供方"`
+	VerificationMessage            string             `json:"verificationMessage" gorm:"size:1000;comment:最近查验结果"`
+	VerificationInvalidSign        string             `json:"verificationInvalidSign" gorm:"size:10;comment:发票作废红冲标识"`
+	VerificationFingerprint        string             `json:"-" gorm:"size:64;index;comment:最近查验对应字段指纹"`
+	LatestVerificationID           *uint              `json:"latestVerificationId" gorm:"index;comment:最近查验记录ID"`
+	VerificationCheckedAt          *time.Time         `json:"verificationCheckedAt" gorm:"index;comment:最近查验时间"`
+	ActiveVerificationID           *uint              `json:"activeVerificationId" gorm:"index;comment:当前查验任务ID"`
+	VerificationStartedAt          *time.Time         `json:"verificationStartedAt" gorm:"index;comment:当前查验开始时间"`
+	RawText                        string             `json:"rawText" gorm:"type:text;comment:识别原文"`
+	RawPayload                     string             `json:"-" gorm:"type:text;comment:识别原始响应"`
+	FileName                       string             `json:"fileName" gorm:"size:255;not null;comment:原文件名"`
+	FileKey                        string             `json:"-" gorm:"size:500;not null;comment:私有对象键"`
+	FileHash                       string             `json:"fileHash" gorm:"size:64;not null;index;comment:文件SHA256"`
+	FileDedupKey                   *string            `json:"-" gorm:"size:64;uniqueIndex;comment:上传人文件防重键"`
+	MimeType                       string             `json:"mimeType" gorm:"size:100;not null;comment:文件类型"`
+	FileSize                       int64              `json:"fileSize" gorm:"not null;comment:文件大小"`
+	StorageType                    string             `json:"storageType" gorm:"size:30;not null;comment:存储类型"`
+	StorageRoot                    string             `json:"-" gorm:"size:500;comment:本地存储根目录"`
+	StorageEndpoint                string             `json:"-" gorm:"size:300;comment:对象存储端点"`
+	StorageBucket                  string             `json:"-" gorm:"size:200;comment:对象存储桶"`
+	StorageUseSSL                  bool               `json:"-" gorm:"comment:对象存储是否启用TLS"`
+	CreatedBy                      uint               `json:"createdBy" gorm:"not null;index;comment:上传人ID"`
+	AuthorityID                    uint               `json:"authorityId" gorm:"not null;index;comment:上传人主角色ID"`
+	ConfirmedBy                    uint               `json:"confirmedBy" gorm:"index;comment:确认人ID"`
+	ConfirmedAt                    *time.Time         `json:"confirmedAt" gorm:"index;comment:确认时间"`
+	VerificationBypassed           bool               `json:"verificationBypassed" gorm:"not null;default:false;index;comment:是否绕过权威查验确认"`
+	VerificationBypassReason       string             `json:"verificationBypassReason" gorm:"size:500;comment:绕过权威查验原因"`
+	VerificationBypassedBy         uint               `json:"verificationBypassedBy" gorm:"index;comment:绕过权威查验操作人ID"`
+	VerificationBypassedAt         *time.Time         `json:"verificationBypassedAt" gorm:"index;comment:绕过权威查验时间"`
+	ConfirmationVerificationStatus string             `json:"confirmationVerificationStatus" gorm:"size:30;comment:确认时权威查验状态"`
+	ReviewNotes                    string             `json:"reviewNotes" form:"reviewNotes" gorm:"size:1000;comment:核对备注"`
+	Items                          []InvoiceItem      `json:"items,omitempty" gorm:"foreignKey:InvoiceID;constraint:OnDelete:CASCADE"`
 }
 
 func (Invoice) TableName() string { return "invoices" }

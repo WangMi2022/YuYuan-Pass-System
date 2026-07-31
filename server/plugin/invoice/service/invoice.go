@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/system"
@@ -26,8 +27,9 @@ import (
 )
 
 const (
-	maxInvoiceFileSize = 10 << 20
-	defaultAdminRoleID = 888
+	maxInvoiceFileSize                = 10 << 20
+	maxVerificationBypassReasonLength = 500
+	defaultAdminRoleID                = 888
 )
 
 type AccessScope struct {
@@ -424,6 +426,12 @@ func validateInvoiceForConfirmation(invoice model.Invoice) error {
 		return errors.New("价税合计必须大于 0")
 	case invoice.CategoryID == nil || *invoice.CategoryID == 0:
 		return errors.New("请选择发票分类")
+	}
+	return nil
+}
+
+func validateInvoiceVerificationForConfirmation(invoice model.Invoice) error {
+	switch {
 	case invoice.VerificationStatus != model.InvoiceVerificationVerifiedValid:
 		return errors.New("发票尚未通过权威查验，不能确认入账")
 	case invoice.VerificationFingerprint == "" || invoice.VerificationFingerprint != invoiceVerificationFingerprint(invoice):
@@ -435,9 +443,37 @@ func validateInvoiceForConfirmation(invoice model.Invoice) error {
 }
 
 func (InvoiceService) Confirm(id uint, scope AccessScope) (model.Invoice, error) {
+	return (InvoiceService{}).ConfirmWithOptions(invoiceRequest.InvoiceConfirm{ID: id}, scope)
+}
+
+func normalizeInvoiceConfirm(request *invoiceRequest.InvoiceConfirm, scope AccessScope) error {
+	if request.ID == 0 {
+		return errors.New("缺少发票 ID")
+	}
+	request.VerificationBypassReason = strings.TrimSpace(request.VerificationBypassReason)
+	if !request.VerificationBypass {
+		request.VerificationBypassReason = ""
+		return nil
+	}
+	if !scope.All || scope.AuthorityID != defaultAdminRoleID {
+		return errors.New("仅超级管理员可以绕过权威查验确认发票")
+	}
+	if request.VerificationBypassReason == "" {
+		return errors.New("请填写绕过权威查验的原因")
+	}
+	if utf8.RuneCountInString(request.VerificationBypassReason) > maxVerificationBypassReasonLength {
+		return errors.New("绕过权威查验原因不能超过 500 个字符")
+	}
+	return nil
+}
+
+func (InvoiceService) ConfirmWithOptions(request invoiceRequest.InvoiceConfirm, scope AccessScope) (model.Invoice, error) {
+	if err := normalizeInvoiceConfirm(&request, scope); err != nil {
+		return model.Invoice{}, err
+	}
 	var confirmed model.Invoice
 	err := global.GVA_DB.Transaction(func(tx *gorm.DB) error {
-		if err := applyInvoiceScope(tx.Model(&model.Invoice{}), scope).Preload("Items").First(&confirmed, id).Error; err != nil {
+		if err := applyInvoiceScope(tx.Model(&model.Invoice{}), scope).Preload("Items").First(&confirmed, request.ID).Error; err != nil {
 			return err
 		}
 		if confirmed.Status == model.InvoiceStatusConfirmed {
@@ -445,6 +481,11 @@ func (InvoiceService) Confirm(id uint, scope AccessScope) (model.Invoice, error)
 		}
 		if err := validateInvoiceForConfirmation(confirmed); err != nil {
 			return err
+		}
+		verificationErr := validateInvoiceVerificationForConfirmation(confirmed)
+		verificationBypassed := verificationErr != nil && request.VerificationBypass
+		if verificationErr != nil && !verificationBypassed {
+			return verificationErr
 		}
 		duplicate := tx.Model(&model.Invoice{}).Where("id <> ? AND status = ? AND invoice_number = ?", confirmed.ID, model.InvoiceStatusConfirmed, confirmed.InvoiceNumber)
 		if confirmed.InvoiceCode != "" {
@@ -466,16 +507,29 @@ func (InvoiceService) Confirm(id uint, scope AccessScope) (model.Invoice, error)
 		if err := beforeInvoiceConfirmPersist(tx, confirmed); err != nil {
 			return err
 		}
-		result := tx.Model(&model.Invoice{}).
-			Where(
-				"id = ? AND status <> ? AND verification_status = ? AND verification_fingerprint = ? AND updated_at = ?",
-				confirmed.ID, model.InvoiceStatusConfirmed, model.InvoiceVerificationVerifiedValid,
-				confirmed.VerificationFingerprint, confirmed.UpdatedAt,
-			).
-			Updates(map[string]any{
-				"status": model.InvoiceStatusConfirmed, "confirmed_by": scope.UserID, "confirmed_at": &now,
-				"duplicate_key": &duplicateKey,
-			})
+		confirmQuery := tx.Model(&model.Invoice{}).Where(
+			"id = ? AND status <> ? AND updated_at = ?",
+			confirmed.ID, model.InvoiceStatusConfirmed, confirmed.UpdatedAt,
+		)
+		if !verificationBypassed {
+			confirmQuery = confirmQuery.Where(
+				"verification_status = ? AND verification_fingerprint = ?",
+				model.InvoiceVerificationVerifiedValid, confirmed.VerificationFingerprint,
+			)
+		}
+		updates := map[string]any{
+			"status": model.InvoiceStatusConfirmed, "confirmed_by": scope.UserID, "confirmed_at": &now,
+			"duplicate_key": &duplicateKey, "confirmation_verification_status": confirmed.VerificationStatus,
+			"verification_bypassed": false, "verification_bypass_reason": "",
+			"verification_bypassed_by": 0, "verification_bypassed_at": nil,
+		}
+		if verificationBypassed {
+			updates["verification_bypassed"] = true
+			updates["verification_bypass_reason"] = request.VerificationBypassReason
+			updates["verification_bypassed_by"] = scope.UserID
+			updates["verification_bypassed_at"] = &now
+		}
+		result := confirmQuery.Updates(updates)
 		if result.Error != nil {
 			return result.Error
 		}
@@ -490,7 +544,7 @@ func (InvoiceService) Confirm(id uint, scope AccessScope) (model.Invoice, error)
 		}
 		return model.Invoice{}, err
 	}
-	return InvoiceService{}.Get(id, scope)
+	return InvoiceService{}.Get(request.ID, scope)
 }
 
 func (InvoiceService) Reopen(id uint, scope AccessScope) (model.Invoice, error) {

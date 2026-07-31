@@ -137,16 +137,28 @@ func (invoiceAPI) Update(c *gin.Context) {
 }
 
 func (invoiceAPI) Confirm(c *gin.Context) {
-	id, ok := parseID(c)
-	if !ok {
-		return
+	var request invoiceRequest.InvoiceConfirm
+	if err := c.ShouldBindJSON(&request); err != nil {
+		if !errors.Is(err, io.EOF) {
+			commonResponse.FailWithMessage(err.Error(), c)
+			return
+		}
+		id, ok := parseID(c)
+		if !ok {
+			return
+		}
+		request.ID = id
 	}
-	invoice, err := serviceInvoice.Confirm(id, currentScope(c))
+	invoice, err := serviceInvoice.ConfirmWithOptions(request, currentScope(c))
 	if err != nil {
 		commonResponse.FailWithMessage(err.Error(), c)
 		return
 	}
-	commonResponse.OkWithDetailed(invoice, "发票已确认并纳入正式统计", c)
+	message := "发票已确认并纳入正式统计"
+	if invoice.VerificationBypassed {
+		message = "发票已由管理员例外确认并纳入正式统计"
+	}
+	commonResponse.OkWithDetailed(invoice, message, c)
 }
 
 func (invoiceAPI) Reopen(c *gin.Context) {
