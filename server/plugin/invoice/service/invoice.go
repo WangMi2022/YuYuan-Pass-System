@@ -19,6 +19,7 @@ import (
 	"github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/model"
 	invoiceRequest "github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/model/request"
 	invoiceResponse "github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/model/response"
+	invoiceProvider "github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/provider"
 	systemService "github.com/flipped-aurora/gin-vue-admin/server/service/system"
 	"github.com/flipped-aurora/gin-vue-admin/server/utils/upload"
 	"github.com/google/uuid"
@@ -43,6 +44,14 @@ type AccessScope struct {
 type InvoiceService struct{}
 
 var beforeInvoiceConfirmPersist = func(*gorm.DB, model.Invoice) error { return nil }
+
+func invoiceVerificationEnabled() bool {
+	return invoiceProvider.RuntimeInvoiceRecognition().Verification.Enabled
+}
+
+func (InvoiceService) Capabilities() invoiceResponse.InvoiceCapabilities {
+	return invoiceResponse.InvoiceCapabilities{VerificationEnabled: invoiceVerificationEnabled()}
+}
 
 func hashInvoiceKey(parts ...string) string {
 	hasher := sha256.New()
@@ -446,11 +455,16 @@ func (InvoiceService) Confirm(id uint, scope AccessScope) (model.Invoice, error)
 	return (InvoiceService{}).ConfirmWithOptions(invoiceRequest.InvoiceConfirm{ID: id}, scope)
 }
 
-func normalizeInvoiceConfirm(request *invoiceRequest.InvoiceConfirm, scope AccessScope) error {
+func normalizeInvoiceConfirm(request *invoiceRequest.InvoiceConfirm, scope AccessScope, verificationRequired bool) error {
 	if request.ID == 0 {
 		return errors.New("缺少发票 ID")
 	}
 	request.VerificationBypassReason = strings.TrimSpace(request.VerificationBypassReason)
+	if !verificationRequired {
+		request.VerificationBypass = false
+		request.VerificationBypassReason = ""
+		return nil
+	}
 	if !request.VerificationBypass {
 		request.VerificationBypassReason = ""
 		return nil
@@ -468,7 +482,8 @@ func normalizeInvoiceConfirm(request *invoiceRequest.InvoiceConfirm, scope Acces
 }
 
 func (InvoiceService) ConfirmWithOptions(request invoiceRequest.InvoiceConfirm, scope AccessScope) (model.Invoice, error) {
-	if err := normalizeInvoiceConfirm(&request, scope); err != nil {
+	verificationRequired := invoiceVerificationEnabled()
+	if err := normalizeInvoiceConfirm(&request, scope, verificationRequired); err != nil {
 		return model.Invoice{}, err
 	}
 	var confirmed model.Invoice
@@ -482,7 +497,10 @@ func (InvoiceService) ConfirmWithOptions(request invoiceRequest.InvoiceConfirm, 
 		if err := validateInvoiceForConfirmation(confirmed); err != nil {
 			return err
 		}
-		verificationErr := validateInvoiceVerificationForConfirmation(confirmed)
+		var verificationErr error
+		if verificationRequired {
+			verificationErr = validateInvoiceVerificationForConfirmation(confirmed)
+		}
 		verificationBypassed := verificationErr != nil && request.VerificationBypass
 		if verificationErr != nil && !verificationBypassed {
 			return verificationErr
@@ -511,7 +529,7 @@ func (InvoiceService) ConfirmWithOptions(request invoiceRequest.InvoiceConfirm, 
 			"id = ? AND status <> ? AND updated_at = ?",
 			confirmed.ID, model.InvoiceStatusConfirmed, confirmed.UpdatedAt,
 		)
-		if !verificationBypassed {
+		if verificationRequired && !verificationBypassed {
 			confirmQuery = confirmQuery.Where(
 				"verification_status = ? AND verification_fingerprint = ?",
 				model.InvoiceVerificationVerifiedValid, confirmed.VerificationFingerprint,
@@ -534,6 +552,9 @@ func (InvoiceService) ConfirmWithOptions(request invoiceRequest.InvoiceConfirm, 
 			return result.Error
 		}
 		if result.RowsAffected == 0 {
+			if !verificationRequired {
+				return errors.New("发票字段或状态已变更，请刷新后重试")
+			}
 			return errors.New("发票字段或查验状态已变更，请刷新后重新查验")
 		}
 		return nil

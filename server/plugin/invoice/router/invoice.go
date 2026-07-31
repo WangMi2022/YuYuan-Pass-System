@@ -24,6 +24,7 @@ func (invoiceRouter) Init(private *gin.RouterGroup) {
 	{
 		read.GET("list", apiInvoice.List)
 		read.GET("detail", apiInvoice.Detail)
+		read.GET("capabilities", apiInvoice.Capabilities)
 		read.GET("file", apiInvoice.File)
 		read.GET("dashboard", apiInvoice.Dashboard)
 		read.GET("verificationHistory", apiInvoice.VerificationHistory)

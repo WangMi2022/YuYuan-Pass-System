@@ -32,6 +32,7 @@ export const getInvoiceList = (params) => service({
   params: withoutEmptyParams(params)
 })
 export const getInvoiceDetail = (params) => service({ url: '/invoice/detail', method: 'get', params })
+export const getInvoiceCapabilities = () => service({ url: '/invoice/capabilities', method: 'get' })
 export const downloadInvoiceFile = (params) => service({
   url: '/invoice/file',
   method: 'get',

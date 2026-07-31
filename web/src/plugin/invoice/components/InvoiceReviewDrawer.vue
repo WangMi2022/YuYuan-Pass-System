@@ -106,14 +106,19 @@
           </div>
         </div>
 
-        <section class="verification-band" aria-label="发票权威查验">
+        <section
+          v-if="verificationEnabled || verificationHistory.length || invoice.verificationBypassed"
+          class="verification-band"
+          aria-label="发票权威查验"
+        >
           <div class="verification-summary">
             <div>
               <span class="verification-title">权威查验</span>
-              <InvoiceVerificationTag :status="invoice.verificationStatus" />
+              <InvoiceVerificationTag v-if="verificationEnabled" :status="invoice.verificationStatus" />
+              <el-tag v-else type="info" effect="plain" size="small">已停用</el-tag>
             </div>
             <el-button
-              v-if="!readonly"
+              v-if="verificationEnabled && !readonly"
               type="success"
               plain
               :icon="CircleCheck"
@@ -210,13 +215,13 @@
             <el-form-item label="发票类型" :class="confidenceClass('invoiceType')">
               <el-input v-model="form.invoiceType" maxlength="60" aria-label="发票类型" />
             </el-form-item>
-            <el-form-item label="验真票种" prop="verificationType" :class="confidenceClass('verificationType')">
+            <el-form-item v-if="verificationEnabled" label="验真票种" prop="verificationType" :class="confidenceClass('verificationType')">
               <el-select v-model="form.verificationType" filterable placeholder="选择验真票种">
                 <el-option v-for="item in verificationTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </el-form-item>
             <el-form-item
-              v-if="form.verificationType === 'motor_vehicle_invoice'"
+              v-if="verificationEnabled && form.verificationType === 'motor_vehicle_invoice'"
               label="机动车验真口径"
               prop="verificationAmountMode"
               class="verification-amount-mode"
@@ -337,7 +342,7 @@
 import { computed, defineAsyncComponent, reactive, ref, watch } from 'vue'
 import { CircleCheck, Delete, EditPen, Plus, RefreshRight, View, WarningFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { confirmInvoice, downloadInvoiceFile, getInvoiceCategoryOptions, getInvoiceDetail, getInvoiceVerificationHistory, recheckInvoice, reopenInvoice, updateInvoice, verifyInvoice } from '@/plugin/invoice/api/invoice'
+import { confirmInvoice, downloadInvoiceFile, getInvoiceCapabilities, getInvoiceCategoryOptions, getInvoiceDetail, getInvoiceVerificationHistory, recheckInvoice, reopenInvoice, updateInvoice, verifyInvoice } from '@/plugin/invoice/api/invoice'
 import { centsToYuan, invoiceFileUrl, yuanToCents } from '@/plugin/invoice/utils/invoice'
 import InvoiceStatusTag from '@/plugin/invoice/components/InvoiceStatusTag.vue'
 import InvoiceVerificationTag from '@/plugin/invoice/components/InvoiceVerificationTag.vue'
@@ -368,6 +373,7 @@ const previewVisible = ref(false)
 const invoice = ref({})
 const categories = ref([])
 const verificationHistory = ref([])
+const verificationEnabled = ref(true)
 const verifiedFormSignature = ref('')
 const verificationBypass = ref(false)
 const verificationBypassReason = ref('')
@@ -500,12 +506,12 @@ const formVerificationSignature = () => JSON.stringify({
   }))
 })
 
-const verificationReady = computed(() =>
+const verificationReady = computed(() => !verificationEnabled.value || (
   invoice.value.verificationStatus === 'verified_valid' &&
   Boolean(verifiedFormSignature.value) &&
   verifiedFormSignature.value === formVerificationSignature()
-)
-const canBypassVerification = computed(() => isSuperAdmin.value && !readonly.value && !verificationReady.value)
+))
+const canBypassVerification = computed(() => verificationEnabled.value && isSuperAdmin.value && !readonly.value && !verificationReady.value)
 const verificationBypassReady = computed(() =>
   canBypassVerification.value && verificationBypass.value && Boolean(verificationBypassReason.value.trim())
 )
@@ -518,6 +524,7 @@ const confirmationTooltip = computed(() => {
 })
 const latestVerification = computed(() => verificationHistory.value[0] || null)
 const verificationMessage = computed(() => {
+  if (!verificationEnabled.value) return '权威查验已关闭'
   if (invoice.value.verificationMessage) return invoice.value.verificationMessage
   if (invoice.value.verificationStatus === 'verified_valid') return '税局信息与当前发票字段一致'
   if (invoice.value.verificationStatus === 'verifying') return '正在连接税局查验'
@@ -653,6 +660,7 @@ const loadInvoice = async () => {
   const requestedInvoiceId = Number(props.invoiceId)
   invoice.value = {}
   verificationHistory.value = []
+  verificationEnabled.value = true
   verifiedFormSignature.value = ''
   Object.assign(form, emptyForm())
   formRef.value?.clearValidate()
@@ -661,12 +669,16 @@ const loadInvoice = async () => {
   loadError.value = ''
   loading.value = true
   try {
-    const [res, historyRes] = await Promise.all([
+    const [res, historyRes, capabilitiesRes] = await Promise.all([
       getInvoiceDetail({ id: requestedInvoiceId }),
       getInvoiceVerificationHistory({ id: requestedInvoiceId }),
+      getInvoiceCapabilities().catch(() => null),
       loadCategories()
     ])
     if (requestId !== loadRequestId || requestedInvoiceId !== Number(props.invoiceId)) return
+    if (capabilitiesRes?.code === 0) {
+      verificationEnabled.value = capabilitiesRes.data?.verificationEnabled !== false
+    }
     if (res.code === 0) {
       invoice.value = res.data || {}
       verificationHistory.value = historyRes?.code === 0 ? (historyRes.data || []) : []
@@ -743,7 +755,7 @@ const validateVerificationFields = async () => {
 }
 
 const verifyCurrent = async () => {
-  if (verifying.value || saving.value || confirming.value || rechecking.value || reopening.value || !form.ID || readonly.value) return
+  if (!verificationEnabled.value || verifying.value || saving.value || confirming.value || rechecking.value || reopening.value || !form.ID || readonly.value) return
   const valid = await validateVerificationFields()
   if (!valid) return
   verifying.value = true
@@ -867,7 +879,7 @@ const save = async (andConfirm) => {
       await loadInvoice()
       return
     }
-    if (!usingVerificationBypass && invoice.value.verificationStatus !== 'verified_valid') {
+    if (verificationEnabled.value && !usingVerificationBypass && invoice.value.verificationStatus !== 'verified_valid') {
       verifiedFormSignature.value = ''
       ElMessage.warning('当前字段尚未通过权威查验，请先执行保存并查验')
       return
@@ -906,6 +918,7 @@ watch(() => [props.modelValue, props.invoiceId], ([visible, id]) => {
     verifying.value = false
     reopening.value = false
     verificationHistory.value = []
+    verificationEnabled.value = true
     verifiedFormSignature.value = ''
     resetVerificationBypass()
     loadError.value = ''

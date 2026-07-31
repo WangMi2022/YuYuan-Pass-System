@@ -68,4 +68,13 @@ func TestMigrateVerificationPermissionsInheritsConfirmAuthorities(t *testing.T) 
 	if unrelatedCount != 0 {
 		t.Fatalf("authority without confirm permission inherited %d verification rules", unrelatedCount)
 	}
+	var capabilityCount int64
+	if err = db.Model(&gormadapter.CasbinRule{}).Where(
+		"ptype = ? AND v0 = ? AND v1 = ? AND v2 = ?", "p", "300", "/invoice/capabilities", "GET",
+	).Count(&capabilityCount).Error; err != nil {
+		t.Fatal(err)
+	}
+	if capabilityCount != 1 {
+		t.Fatalf("authority with invoice list permission inherited %d capability rules", capabilityCount)
+	}
 }

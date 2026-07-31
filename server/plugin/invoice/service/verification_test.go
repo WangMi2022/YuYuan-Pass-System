@@ -131,6 +131,77 @@ func TestVerificationSuccessWithoutRequiredAuthorityFieldsIsUnavailable(t *testi
 	}
 }
 
+func TestVerificationDisabledDoesNotCreateProviderOrHistory(t *testing.T) {
+	setupInvoiceServiceTestDB(t)
+	setInvoiceVerificationEnabledForTest(false)
+	category := createInvoiceTestCategory(t)
+	invoice := createReviewableInvoice(t, 305, 100, category.ID, "VERIFY-SWITCH-OFF")
+	resetInvoiceVerification(t, invoice)
+
+	providerCreated := false
+	previousFactory := newInvoiceVerifier
+	newInvoiceVerifier = func(config.InvoiceRecognition) (provider.VerificationAdapter, error) {
+		providerCreated = true
+		return provider.VerificationAdapter{}, errors.New("provider must not be created")
+	}
+	t.Cleanup(func() { newInvoiceVerifier = previousFactory })
+
+	_, err := (VerificationService{}).Verify(t.Context(), invoice.ID, AccessScope{UserID: 305, AuthorityID: 100})
+	if err == nil || !strings.Contains(err.Error(), "已在运行配置中关闭") {
+		t.Fatalf("unexpected disabled verification error: %v", err)
+	}
+	if providerCreated {
+		t.Fatal("disabled verification created a provider")
+	}
+	var count int64
+	if err = global.GVA_DB.Model(&model.InvoiceVerification{}).Where("invoice_id = ?", invoice.ID).Count(&count).Error; err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatalf("disabled verification created %d history records", count)
+	}
+}
+
+func TestVerificationDisabledBeforeProviderCallReleasesAttempt(t *testing.T) {
+	setupInvoiceServiceTestDB(t)
+	category := createInvoiceTestCategory(t)
+	invoice := createReviewableInvoice(t, 306, 100, category.ID, "VERIFY-SWITCH-DURING-START")
+	resetInvoiceVerification(t, invoice)
+
+	providerCalled := false
+	previousFactory := newInvoiceVerifier
+	newInvoiceVerifier = func(config.InvoiceRecognition) (provider.VerificationAdapter, error) {
+		setInvoiceVerificationEnabledForTest(false)
+		return testVerificationAdapter(verifierFunc(func(context.Context, provider.VerificationRequest) (provider.VerificationResult, error) {
+			providerCalled = true
+			return provider.VerificationResult{}, nil
+		})), nil
+	}
+	t.Cleanup(func() { newInvoiceVerifier = previousFactory })
+
+	_, err := (VerificationService{}).Verify(t.Context(), invoice.ID, AccessScope{UserID: 306, AuthorityID: 100})
+	if err == nil || !strings.Contains(err.Error(), "已在运行配置中关闭") {
+		t.Fatalf("unexpected verification error: %v", err)
+	}
+	if providerCalled {
+		t.Fatal("provider was called after verification was disabled")
+	}
+	var persisted model.Invoice
+	if err = global.GVA_DB.First(&persisted, invoice.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if persisted.ActiveVerificationID != nil || persisted.VerificationStatus != model.InvoiceVerificationUnavailable {
+		t.Fatalf("disabled attempt was not released: %#v", persisted)
+	}
+	var attempt model.InvoiceVerification
+	if err = global.GVA_DB.Where("invoice_id = ?", invoice.ID).First(&attempt).Error; err != nil {
+		t.Fatal(err)
+	}
+	if attempt.CompletedAt == nil || attempt.Status != model.InvoiceVerificationUnavailable || !strings.Contains(attempt.VerifyMessage, "已在运行配置中关闭") {
+		t.Fatalf("disabled attempt was not completed: %#v", attempt)
+	}
+}
+
 func TestEditingDuringVerificationKeepsLeaseAndMakesResultStale(t *testing.T) {
 	setupInvoiceServiceTestDB(t)
 	category := createInvoiceTestCategory(t)

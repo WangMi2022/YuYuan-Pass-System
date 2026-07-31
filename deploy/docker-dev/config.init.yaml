@@ -251,6 +251,14 @@ invoice-recognition:
         endpoint: ""
         api-key: ""
         timeout-seconds: 30
+    verification:
+        enabled: false
+        provider: ""
+        protocol: ""
+        endpoint: ""
+        api-key: ""
+        secret-key: ""
+        timeout-seconds: 30
     multimodal:
         enabled: false
         base-url: ""

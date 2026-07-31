@@ -35,7 +35,7 @@
 
     <section class="na-panel ledger-panel">
       <div class="ledger-header ledger-grid" aria-hidden="true">
-        <span>发票信息</span><span>销售方</span><span>分类</span><span>开票日期</span><span>价税合计</span><span>处理 / 查验</span><span>操作</span>
+        <span>发票信息</span><span>销售方</span><span>分类</span><span>开票日期</span><span>价税合计</span><span>{{ verificationEnabled ? '处理 / 查验' : '处理状态' }}</span><span>操作</span>
       </div>
       <el-skeleton v-if="loading && !loaded" :rows="7" animated />
       <el-result v-else-if="error && !loaded" icon="error" title="发票台账加载失败" :sub-title="error">
@@ -59,7 +59,7 @@
             <strong class="money-cell">{{ money(item.totalCents) }}</strong>
             <div class="status-stack">
               <InvoiceStatusTag :status="item.status" />
-              <InvoiceVerificationTag :status="item.verificationStatus" />
+              <InvoiceVerificationTag v-if="verificationEnabled" :status="item.verificationStatus" />
             </div>
             <div class="row-actions">
               <el-tooltip content="查看或核对" placement="top">
@@ -103,7 +103,7 @@ import AppPageHeader from '@/components/page/AppPageHeader.vue'
 import InvoiceReviewDrawer from '@/plugin/invoice/components/InvoiceReviewDrawer.vue'
 import InvoiceStatusTag from '@/plugin/invoice/components/InvoiceStatusTag.vue'
 import InvoiceVerificationTag from '@/plugin/invoice/components/InvoiceVerificationTag.vue'
-import { deleteInvoice, getInvoiceCategoryOptions, getInvoiceList, reopenInvoice, retryInvoice } from '@/plugin/invoice/api/invoice'
+import { deleteInvoice, getInvoiceCapabilities, getInvoiceCategoryOptions, getInvoiceList, reopenInvoice, retryInvoice } from '@/plugin/invoice/api/invoice'
 import { centsToCurrency, invoiceDateText, invoiceStatuses } from '@/plugin/invoice/utils/invoice'
 import { usePagedList } from '@/hooks/usePagedList'
 import { useUserStore } from '@/pinia/modules/user'
@@ -116,6 +116,7 @@ const dateRange = ref([])
 const reviewVisible = ref(false)
 const selectedId = ref(0)
 const pendingActions = ref(new Set())
+const verificationEnabled = ref(true)
 const money = centsToCurrency
 const dateText = invoiceDateText
 const canReopen = computed(() => Number(userStore.userInfo.authorityId) === 888)
@@ -228,7 +229,12 @@ const loadCategories = async () => {
   if (res.code === 0) categories.value = res.data || []
 }
 
-onMounted(() => Promise.all([loadCategories(), load()]))
+const loadCapabilities = async () => {
+  const res = await getInvoiceCapabilities().catch(() => null)
+  if (res?.code === 0) verificationEnabled.value = res.data?.verificationEnabled !== false
+}
+
+onMounted(() => Promise.all([loadCategories(), loadCapabilities(), load()]))
 </script>
 
 <style scoped lang="scss">

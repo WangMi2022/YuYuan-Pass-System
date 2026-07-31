@@ -66,6 +66,7 @@ func (systemConfigService *SystemConfigService) SetSystemConfig(
 	// The invoice worker reads this section for every job, so provider changes
 	// take effect immediately without restarting database connections.
 	global.GVA_CONFIG.InvoiceRecognition = system.Config.InvoiceRecognition
+	invoiceProvider.SetRuntimeInvoiceRecognition(system.Config.InvoiceRecognition)
 	return invoiceRecognitionDetections(system.Config.InvoiceRecognition), nil
 }
 

@@ -410,13 +410,24 @@ func startVerificationAttempt(id uint, scope AccessScope, providerID string) (mo
 }
 
 func (VerificationService) Verify(ctx context.Context, id uint, scope AccessScope) (VerificationOutcome, error) {
-	adapter, err := newInvoiceVerifier(global.GVA_CONFIG.InvoiceRecognition)
+	configuration := provider.RuntimeInvoiceRecognition()
+	if !configuration.Verification.Enabled {
+		return VerificationOutcome{}, errors.New("权威发票验真已在运行配置中关闭")
+	}
+	adapter, err := newInvoiceVerifier(configuration)
 	if err != nil {
 		return VerificationOutcome{}, err
 	}
 	invoice, request, attempt, err := startVerificationAttempt(id, scope, adapter.Provider)
 	if err != nil {
 		return VerificationOutcome{}, err
+	}
+	if !invoiceVerificationEnabled() {
+		result := provider.VerificationResult{VerifyMessage: "权威发票验真已在运行配置中关闭"}
+		if finishErr := finishVerificationAttempt(&attempt, result, model.InvoiceVerificationUnavailable, nil); finishErr != nil {
+			return VerificationOutcome{}, finishErr
+		}
+		return VerificationOutcome{}, errors.New(result.VerifyMessage)
 	}
 	result, verifyErr := adapter.Verifier.Verify(ctx, request)
 	if verifyErr != nil {

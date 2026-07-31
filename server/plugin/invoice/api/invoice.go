@@ -122,6 +122,10 @@ func (invoiceAPI) Detail(c *gin.Context) {
 	commonResponse.OkWithData(invoice, c)
 }
 
+func (invoiceAPI) Capabilities(c *gin.Context) {
+	commonResponse.OkWithData(serviceInvoice.Capabilities(), c)
+}
+
 func (invoiceAPI) Update(c *gin.Context) {
 	var request invoiceRequest.InvoiceUpdate
 	if err := c.ShouldBindJSON(&request); err != nil {

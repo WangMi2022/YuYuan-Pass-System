@@ -43,6 +43,10 @@ func testVerificationAdapter(verifier provider.Verifier) provider.VerificationAd
 func setupInvoiceServiceTestDB(t *testing.T) {
 	t.Helper()
 	previous := global.GVA_DB
+	previousInvoiceRecognition := global.GVA_CONFIG.InvoiceRecognition
+	previousRuntimeInvoiceRecognition := provider.RuntimeInvoiceRecognition()
+	global.GVA_CONFIG.InvoiceRecognition.Verification.Enabled = true
+	provider.SetRuntimeInvoiceRecognition(global.GVA_CONFIG.InvoiceRecognition)
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "_"))
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{
 		TranslateError: true,
@@ -60,10 +64,19 @@ func setupInvoiceServiceTestDB(t *testing.T) {
 	global.GVA_DB = db
 	t.Cleanup(func() {
 		global.GVA_DB = previous
+		global.GVA_CONFIG.InvoiceRecognition = previousInvoiceRecognition
+		provider.SetRuntimeInvoiceRecognition(previousRuntimeInvoiceRecognition)
 		if sqlDB, dbErr := db.DB(); dbErr == nil {
 			_ = sqlDB.Close()
 		}
 	})
+}
+
+func setInvoiceVerificationEnabledForTest(enabled bool) {
+	configuration := provider.RuntimeInvoiceRecognition()
+	configuration.Verification.Enabled = enabled
+	provider.SetRuntimeInvoiceRecognition(configuration)
+	global.GVA_CONFIG.InvoiceRecognition.Verification.Enabled = enabled
 }
 
 func createInvoiceTestCategory(t *testing.T) model.InvoiceCategory {
@@ -191,6 +204,47 @@ func TestConfirmRequiresVerificationForCurrentFields(t *testing.T) {
 	}
 	if _, err := (InvoiceService{}).Confirm(invoice.ID, AccessScope{UserID: 211, AuthorityID: 100}); err == nil || !strings.Contains(err.Error(), "字段已在查验后变更") {
 		t.Fatalf("stale verification was accepted: %v", err)
+	}
+}
+
+func TestConfirmSkipsAuthorityVerificationWhenGloballyDisabled(t *testing.T) {
+	setupInvoiceServiceTestDB(t)
+	setInvoiceVerificationEnabledForTest(false)
+	category := createInvoiceTestCategory(t)
+	invoice := createReviewableInvoice(t, 216, 100, category.ID, "VERIFY-DISABLED")
+	if err := global.GVA_DB.Model(&invoice).Updates(map[string]any{
+		"verification_status":      model.InvoiceVerificationUnavailable,
+		"verification_fingerprint": "", "verification_checked_at": nil,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	confirmed, err := (InvoiceService{}).ConfirmWithOptions(invoiceRequest.InvoiceConfirm{
+		ID: invoice.ID, VerificationBypass: true,
+	}, AccessScope{UserID: 216, AuthorityID: 100})
+	if err != nil {
+		t.Fatalf("confirm while authority verification is disabled: %v", err)
+	}
+	if confirmed.Status != model.InvoiceStatusConfirmed {
+		t.Fatalf("invoice was not confirmed: %#v", confirmed)
+	}
+	if confirmed.VerificationBypassed || confirmed.VerificationBypassReason != "" || confirmed.VerificationBypassedBy != 0 {
+		t.Fatalf("disabled verification was incorrectly recorded as a bypass: %#v", confirmed)
+	}
+	if confirmed.ConfirmationVerificationStatus != model.InvoiceVerificationUnavailable {
+		t.Fatalf("confirmation did not preserve the current verification status: %#v", confirmed)
+	}
+}
+
+func TestInvoiceCapabilitiesReflectGlobalVerificationSwitch(t *testing.T) {
+	setupInvoiceServiceTestDB(t)
+	setInvoiceVerificationEnabledForTest(false)
+	if capabilities := (InvoiceService{}).Capabilities(); capabilities.VerificationEnabled {
+		t.Fatalf("capabilities reported verification enabled: %#v", capabilities)
+	}
+	setInvoiceVerificationEnabledForTest(true)
+	if capabilities := (InvoiceService{}).Capabilities(); !capabilities.VerificationEnabled {
+		t.Fatalf("capabilities reported verification disabled: %#v", capabilities)
 	}
 }
 
