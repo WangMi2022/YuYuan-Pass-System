@@ -22,6 +22,8 @@ WORKDIR /app
 ENV TZ=Asia/Shanghai \
     GIN_MODE=release
 
+RUN apk add --no-cache poppler-utils
+
 COPY --from=builder /out/gva-server /app/server
 COPY server/go.mod /app/go.mod
 COPY server/resource /app/resource

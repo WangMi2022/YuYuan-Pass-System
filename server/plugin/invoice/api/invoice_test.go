@@ -59,7 +59,7 @@ func TestUploadRejectsMoreThanFiveFilesPerBatch(t *testing.T) {
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatalf("decode upload response: %v", err)
 	}
-	if response.Code != commonResponse.ERROR || response.Msg != "每批最多上传 5 张发票图片" {
+	if response.Code != commonResponse.ERROR || response.Msg != "每批最多上传 5 个发票文件" {
 		t.Fatalf("unexpected upload response: %#v", response)
 	}
 }

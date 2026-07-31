@@ -28,21 +28,33 @@
       <template #extra><el-button type="primary" :icon="RefreshRight" @click="loadInvoice">重新加载</el-button></template>
     </el-result>
     <div v-else class="review-workbench">
-      <section class="evidence-pane" aria-label="发票原图">
+      <section class="evidence-pane" aria-label="发票原始凭证">
         <div class="pane-heading">
           <div><h3>原始凭证</h3><p>文件仅通过当前登录权限读取</p></div>
-          <el-button :icon="View" text :disabled="!invoice.ID" @click="previewVisible = true">查看大图</el-button>
+          <el-button :icon="View" text :disabled="!invoice.ID" @click="openPreview">查看原件</el-button>
         </div>
-        <div class="invoice-image-wrap">
+        <div v-if="isPdf" v-loading="pdfLoading" class="invoice-pdf-wrap">
+          <VueOfficePdf
+            v-if="pdfSource"
+            :src="pdfSource"
+            class="invoice-pdf-viewer"
+            @rendered="handlePdfRendered"
+            @error="handlePdfError"
+          />
+          <el-empty v-else-if="pdfError" :description="pdfError" :image-size="72">
+            <el-button :icon="RefreshRight" @click="loadPdfPreview">重新加载</el-button>
+          </el-empty>
+        </div>
+        <div v-else class="invoice-image-wrap">
           <el-image
             v-if="invoice.ID"
             :src="fileUrl"
             fit="contain"
             :preview-src-list="[fileUrl]"
             preview-teleported
-            alt="待核对的发票原图"
+            alt="待核对的发票凭证"
           >
-            <template #error><el-empty description="原图加载失败" :image-size="72" /></template>
+            <template #error><el-empty description="凭证加载失败" :image-size="72" /></template>
           </el-image>
         </div>
         <dl class="evidence-meta">
@@ -246,16 +258,28 @@
     </template>
   </el-drawer>
 
-  <el-dialog v-model="previewVisible" title="发票原图" width="min(94vw, 1080px)" append-to-body>
-    <img class="preview-image" :src="fileUrl" alt="发票原图大图" />
+  <el-dialog v-model="previewVisible" title="发票原始凭证" width="min(94vw, 1080px)" append-to-body>
+    <div v-if="isPdf" v-loading="pdfLoading" class="preview-pdf-wrap">
+      <VueOfficePdf
+        v-if="pdfSource"
+        :src="pdfSource"
+        class="preview-pdf-viewer"
+        @rendered="handlePdfRendered"
+        @error="handlePdfError"
+      />
+      <el-empty v-else-if="pdfError" :description="pdfError" :image-size="72">
+        <el-button :icon="RefreshRight" @click="loadPdfPreview">重新加载</el-button>
+      </el-empty>
+    </div>
+    <img v-else class="preview-image" :src="fileUrl" alt="发票凭证大图" />
   </el-dialog>
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, reactive, ref, watch } from 'vue'
 import { CircleCheck, Delete, EditPen, Plus, RefreshRight, View } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { confirmInvoice, getInvoiceCategoryOptions, getInvoiceDetail, getInvoiceVerificationHistory, recheckInvoice, reopenInvoice, updateInvoice, verifyInvoice } from '@/plugin/invoice/api/invoice'
+import { confirmInvoice, downloadInvoiceFile, getInvoiceCategoryOptions, getInvoiceDetail, getInvoiceVerificationHistory, recheckInvoice, reopenInvoice, updateInvoice, verifyInvoice } from '@/plugin/invoice/api/invoice'
 import { centsToYuan, invoiceFileUrl, yuanToCents } from '@/plugin/invoice/utils/invoice'
 import InvoiceStatusTag from '@/plugin/invoice/components/InvoiceStatusTag.vue'
 import InvoiceVerificationTag from '@/plugin/invoice/components/InvoiceVerificationTag.vue'
@@ -263,6 +287,8 @@ import { useAppStore } from '@/pinia/modules/app'
 import { useUserStore } from '@/pinia/modules/user'
 
 defineOptions({ name: 'InvoiceReviewDrawer' })
+
+const VueOfficePdf = defineAsyncComponent(() => import('@vue-office/pdf'))
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -285,9 +311,13 @@ const categories = ref([])
 const verificationHistory = ref([])
 const verifiedFormSignature = ref('')
 const loadError = ref('')
+const pdfSource = ref(null)
+const pdfLoading = ref(false)
+const pdfError = ref('')
 let itemKey = 0
 let loadRequestId = 0
 let recheckRequestId = 0
+let pdfRequestId = 0
 
 const emptyForm = () => ({
   ID: 0, direction: 'expense', invoiceType: '', verificationType: '', verificationAmountMode: '', invoiceCode: '', invoiceNumber: '', checkCode: '', issueDate: null,
@@ -347,6 +377,11 @@ const drawerSize = computed(() => appStore.drawerSize === '100%' ? '100%' : 'min
 const readonly = computed(() => invoice.value.status === 'confirmed')
 const canReopen = computed(() => Number(userStore.userInfo.authorityId) === 888)
 const fileUrl = computed(() => invoice.value.ID ? invoiceFileUrl(invoice.value.ID) : '')
+const isPdf = computed(() => {
+  const mimeType = String(invoice.value.mimeType || '').toLowerCase()
+  const fileName = String(invoice.value.fileName || '').toLowerCase()
+  return mimeType === 'application/pdf' || fileName.endsWith('.pdf')
+})
 const confidenceText = computed(() => {
   const value = Number(invoice.value.recognitionConfidence || 0)
   return value > 0 ? `${Math.round(value * 100)}%` : '待人工核对'
@@ -476,6 +511,52 @@ const loadCategories = async () => {
   if (res.code === 0) categories.value = res.data || []
 }
 
+const resetPdfPreview = () => {
+  pdfRequestId++
+  pdfSource.value = null
+  pdfLoading.value = false
+  pdfError.value = ''
+}
+
+const handlePdfRendered = () => {
+  pdfLoading.value = false
+}
+
+const handlePdfError = () => {
+  pdfLoading.value = false
+  pdfSource.value = null
+  pdfError.value = 'PDF 预览失败，请重试或检查文件是否完整'
+}
+
+const loadPdfPreview = async () => {
+  if (!isPdf.value || !invoice.value.ID) return
+  const requestId = ++pdfRequestId
+  const invoiceId = Number(invoice.value.ID)
+  pdfSource.value = null
+  pdfError.value = ''
+  pdfLoading.value = true
+  try {
+    const res = await downloadInvoiceFile({ id: invoiceId })
+    if (requestId !== pdfRequestId || invoiceId !== Number(invoice.value.ID)) return
+    const data = res?.data
+    if (!data?.byteLength) {
+      pdfError.value = 'PDF 文件为空或无法读取'
+      return
+    }
+    pdfSource.value = data
+  } catch (error) {
+    if (requestId !== pdfRequestId) return
+    pdfError.value = error?.message || 'PDF 文件读取失败，请稍后重试'
+  } finally {
+    if (requestId === pdfRequestId && !pdfSource.value) pdfLoading.value = false
+  }
+}
+
+const openPreview = () => {
+  previewVisible.value = true
+  if (isPdf.value && !pdfSource.value && !pdfLoading.value) loadPdfPreview()
+}
+
 const loadInvoice = async () => {
   if (!props.invoiceId) return
   const requestId = ++loadRequestId
@@ -486,6 +567,7 @@ const loadInvoice = async () => {
   Object.assign(form, emptyForm())
   formRef.value?.clearValidate()
   previewVisible.value = false
+  resetPdfPreview()
   loadError.value = ''
   loading.value = true
   try {
@@ -499,6 +581,7 @@ const loadInvoice = async () => {
       invoice.value = res.data || {}
       verificationHistory.value = historyRes?.code === 0 ? (historyRes.data || []) : []
       fillForm(invoice.value)
+      if (isPdf.value) loadPdfPreview()
     } else {
       loadError.value = res.msg || '无法读取这张发票，请检查权限或稍后重试'
     }
@@ -711,6 +794,7 @@ watch(() => [props.modelValue, props.invoiceId], ([visible, id]) => {
     verificationHistory.value = []
     verifiedFormSignature.value = ''
     loadError.value = ''
+    resetPdfPreview()
   }
 }, { immediate: true })
 
@@ -734,6 +818,9 @@ watch(() => form.verificationType, (type) => {
 .pane-heading p, .items-heading span { margin: 3px 0 0; color: var(--na-muted-foreground); font-size: .75rem; }
 .invoice-image-wrap { display: grid; min-height: 460px; overflow: hidden; place-items: center; border: 1px solid var(--na-border); border-radius: 9px; background: var(--na-card); }
 .invoice-image-wrap :deep(.el-image) { width: 100%; height: 460px; }
+.invoice-pdf-wrap { min-height: 460px; max-height: 580px; overflow: auto; border: 1px solid var(--na-border); border-radius: 9px; background: var(--na-card); }
+.invoice-pdf-viewer { min-height: 460px; background: var(--na-card); }
+.invoice-pdf-wrap :deep(.vue-office-pdf-wrapper) { padding: 12px 0; background: var(--na-muted); }
 .evidence-meta { display: grid; gap: 0; margin: 12px 0; }
 .evidence-meta > div { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--na-border); }
 .evidence-meta dt { color: var(--na-muted-foreground); font-size: .75rem; }
@@ -773,10 +860,13 @@ watch(() => form.verificationType, (type) => {
 .review-notes { margin-top: 18px; }
 .drawer-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .preview-image { display: block; width: 100%; max-height: 76vh; object-fit: contain; background: var(--na-muted); }
+.preview-pdf-wrap { height: min(76vh, 820px); min-height: 520px; overflow: auto; border: 1px solid var(--na-border); border-radius: 9px; background: var(--na-muted); }
+.preview-pdf-viewer { min-height: 100%; }
+.preview-pdf-wrap :deep(.vue-office-pdf-wrapper) { padding: 16px 0; background: var(--na-muted); }
 
 @media (max-width: 900px) {
   .review-workbench { grid-template-columns: 1fr; }
-  .invoice-image-wrap, .invoice-image-wrap :deep(.el-image) { min-height: 340px; height: 340px; }
+  .invoice-image-wrap, .invoice-image-wrap :deep(.el-image), .invoice-pdf-wrap { min-height: 340px; height: 340px; }
 }
 @media (max-width: 620px) {
   .field-grid, .amount-strip { grid-template-columns: 1fr; }

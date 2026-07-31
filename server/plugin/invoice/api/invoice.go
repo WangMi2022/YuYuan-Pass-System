@@ -47,16 +47,16 @@ func (invoiceAPI) Upload(c *gin.Context) {
 	if formErr != nil {
 		var maxBytesError *http.MaxBytesError
 		if errors.As(formErr, &maxBytesError) {
-			commonResponse.FailWithMessage("每批发票图片总大小不能超过 51MB", c)
+			commonResponse.FailWithMessage("每批发票文件总大小不能超过 51MB", c)
 			return
 		}
-		commonResponse.FailWithMessage("请选择发票图片", c)
+		commonResponse.FailWithMessage("请选择发票文件", c)
 		return
 	}
 	if len(form.File["files"]) > 0 {
 		files := form.File["files"]
 		if len(files) > maxInvoiceUploadBatch {
-			commonResponse.FailWithMessage("每批最多上传 5 张发票图片", c)
+			commonResponse.FailWithMessage("每批最多上传 5 个发票文件", c)
 			return
 		}
 		succeeded := make([]any, 0, len(files))
@@ -79,7 +79,7 @@ func (invoiceAPI) Upload(c *gin.Context) {
 	}
 	file, err := c.FormFile("file")
 	if err != nil {
-		commonResponse.FailWithMessage("请选择发票图片", c)
+		commonResponse.FailWithMessage("请选择发票文件", c)
 		return
 	}
 	invoice, err := serviceInvoice.Upload(file, utils.GetUserID(c), utils.GetUserAuthorityId(c))
@@ -259,7 +259,7 @@ func (invoiceAPI) File(c *gin.Context) {
 	}
 	invoice, reader, err := serviceInvoice.OpenFile(c.Request.Context(), id, currentScope(c))
 	if err != nil {
-		commonResponse.FailWithMessage("发票原图不存在或无权访问", c)
+		commonResponse.FailWithMessage("发票原始凭证不存在或无权访问", c)
 		return
 	}
 	defer reader.Close()
@@ -277,7 +277,7 @@ func (invoiceAPI) File(c *gin.Context) {
 	c.Header("X-Content-Type-Options", "nosniff")
 	c.Stream(func(writer io.Writer) bool {
 		if _, copyErr := io.Copy(writer, reader); copyErr != nil {
-			global.GVA_LOG.Warn("输出发票原图失败", zap.Error(copyErr), zap.Uint("invoiceID", id))
+			global.GVA_LOG.Warn("输出发票原始凭证失败", zap.Error(copyErr), zap.Uint("invoiceID", id))
 		}
 		return false
 	})

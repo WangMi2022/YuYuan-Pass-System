@@ -1,6 +1,6 @@
 <template>
   <main class="na-page na-page--list invoice-recognition">
-    <AppPageHeader title-id="invoice-recognition-title" title="发票识别" description="上传 JPG 或 PNG 发票，系统自动提取字段并给出可解释的分类建议。">
+    <AppPageHeader title-id="invoice-recognition-title" title="发票识别" description="上传图片或 PDF 发票，系统自动提取字段并给出可解释的分类建议。">
       <template #actions>
         <el-button :icon="Refresh" :loading="loading" @click="loadQueue">刷新队列</el-button>
       </template>
@@ -16,13 +16,13 @@
         :show-file-list="false"
         :on-change="handleUploadSelection"
         :on-exceed="handleExceed"
-        accept="image/jpeg,image/png"
+        accept="image/jpeg,image/png,application/pdf,.pdf"
         :disabled="uploading"
       >
         <el-icon class="upload-icon"><UploadFilled /></el-icon>
         <div class="upload-copy">
           <strong>{{ uploadHeadline }}</strong>
-          <span>一次最多 5 张 JPG / PNG，单张不超过 10MB；原图保存在私有 RustFS，仅授权用户可访问。</span>
+          <span>一次最多 5 个 JPG / PNG / PDF，单个不超过 10MB，PDF 最多 10 页；原文件仅授权用户可访问。</span>
         </div>
       </el-upload>
       <div class="upload-process" aria-live="polite">
@@ -90,6 +90,7 @@ import InvoiceReviewDrawer from '@/plugin/invoice/components/InvoiceReviewDrawer
 import InvoiceStatusTag from '@/plugin/invoice/components/InvoiceStatusTag.vue'
 import { getInvoiceList, uploadInvoices } from '@/plugin/invoice/api/invoice'
 import { invoiceDateText } from '@/plugin/invoice/utils/invoice'
+import { invoiceUploadError } from '@/plugin/invoice/utils/upload'
 
 defineOptions({ name: 'InvoiceRecognition' })
 
@@ -110,8 +111,8 @@ let queueRefreshPending = false
 
 const dateText = invoiceDateText
 const uploadHeadline = computed(() => uploading.value
-  ? `正在上传 ${uploadTotal.value} 张发票并创建识别任务`
-  : '拖入发票图片，或点击选择文件')
+  ? `正在上传 ${uploadTotal.value} 份发票并创建识别任务`
+  : '拖入发票文件，或点击选择')
 const counts = computed(() => ({
   pending: queue.value.filter((item) => item.status === 'pending_review').length,
   processing: queue.value.filter((item) => ['uploaded', 'recognizing'].includes(item.status)).length,
@@ -157,19 +158,16 @@ const loadQueue = () => {
 }
 
 const validateUploadFile = (file) => {
-  if (!['image/jpeg', 'image/png'].includes(file.type)) {
-    ElMessage.error('仅支持 JPG、PNG 发票图片')
-    return false
-  }
-  if (file.size <= 0 || file.size > 10 * 1024 * 1024) {
-    ElMessage.error('发票图片大小必须在 10MB 以内')
+  const error = invoiceUploadError(file)
+  if (error) {
+    ElMessage.error(error)
     return false
   }
   return true
 }
 
 const handleExceed = () => {
-  ElMessage.warning('一次最多选择 5 张发票图片')
+  ElMessage.warning('一次最多选择 5 个发票文件')
 }
 
 const handleUploadSelection = (_file, fileList) => {
@@ -198,10 +196,10 @@ const uploadSelectedFiles = async () => {
       await loadQueue()
     }
     if (failed.length === 0 && succeeded.length) {
-      ElMessage.success(`${succeeded.length} 张发票已进入识别队列`)
+      ElMessage.success(`${succeeded.length} 份发票已进入识别队列`)
     } else if (succeeded.length) {
       const reason = failed[0]?.message ? `；首个失败原因：${failed[0].message}` : ''
-      ElMessage.warning(`上传完成：成功 ${succeeded.length} 张，失败 ${failed.length} 张${reason}`)
+      ElMessage.warning(`上传完成：成功 ${succeeded.length} 份，失败 ${failed.length} 份${reason}`)
     }
   } finally {
     uploading.value = false

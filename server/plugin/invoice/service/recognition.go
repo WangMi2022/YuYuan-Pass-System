@@ -35,6 +35,7 @@ var errRecognitionLeaseLost = errors.New("发票识别任务租约已失效")
 
 const (
 	recognitionLeaseTimeout = 5 * time.Minute
+	recognitionJobTimeout   = 4*time.Minute + 30*time.Second
 	recognitionBatchWorkers = 4
 	maxRecognitionItems     = 200
 	maxRecognitionRawText   = 200 << 10
@@ -60,6 +61,31 @@ func recognizeWithSlot(ctx context.Context, recognizer provider.Recognizer, inpu
 	}
 	defer release()
 	return recognizer.Recognize(ctx, input)
+}
+
+func recognizeInvoiceEvidence(ctx context.Context, recognizer provider.Recognizer, input provider.Input) (provider.Result, error) {
+	inputs, err := renderInvoicePDF(ctx, input)
+	if err != nil {
+		return provider.Result{}, err
+	}
+	if input.ContentType != invoicePDFContentType {
+		return recognizeWithSlot(ctx, recognizer, inputs[0])
+	}
+	pageResults := make([]pdfPageRecognition, len(inputs))
+	var wait sync.WaitGroup
+	for index, pageInput := range inputs {
+		wait.Add(1)
+		go func(index int, pageInput provider.Input) {
+			defer wait.Done()
+			result, recognizeErr := recognizeWithSlot(ctx, recognizer, pageInput)
+			pageResults[index] = pdfPageRecognition{Page: index + 1, Result: result, Err: recognizeErr}
+		}(index, pageInput)
+	}
+	wait.Wait()
+	if err = ctx.Err(); err != nil {
+		return provider.Result{}, err
+	}
+	return aggregatePDFRecognitionResults(pageResults)
 }
 
 func (RecognitionService) StartWorker() {
@@ -156,7 +182,7 @@ func claimRecognitionJob() (model.RecognitionJob, error) {
 }
 
 func processRecognitionJob(job model.RecognitionJob) {
-	ctx, cancel := context.WithTimeout(context.Background(), 75*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), recognitionJobTimeout)
 	defer cancel()
 	var invoice model.Invoice
 	if err := global.GVA_DB.First(&invoice, job.InvoiceID).Error; err != nil {
@@ -177,7 +203,7 @@ func processRecognitionJob(job model.RecognitionJob) {
 	}
 	reader, err := openInvoiceObject(ctx, invoice)
 	if err != nil {
-		finishRecognitionFailure(job, fmt.Errorf("读取发票原图失败: %w", err))
+		finishRecognitionFailure(job, fmt.Errorf("读取发票原始凭证失败: %w", err))
 		return
 	}
 	data, readErr := io.ReadAll(io.LimitReader(reader, maxInvoiceFileSize+1))
@@ -189,7 +215,7 @@ func processRecognitionJob(job model.RecognitionJob) {
 		finishRecognitionFailure(job, readErr)
 		return
 	}
-	result, err := recognizeWithSlot(ctx, provider.New(global.GVA_CONFIG.InvoiceRecognition), provider.Input{
+	result, err := recognizeInvoiceEvidence(ctx, provider.New(global.GVA_CONFIG.InvoiceRecognition), provider.Input{
 		FileName: invoice.FileName, ContentType: invoice.MimeType, Data: data,
 	})
 	if err != nil {
@@ -224,6 +250,9 @@ func (RecognitionService) Recheck(ctx context.Context, id uint, scope AccessScop
 	configuration := global.GVA_CONFIG.InvoiceRecognition
 	configuration.Normalize()
 	deadline := time.Duration(configuration.Multimodal.TimeoutSeconds+5) * time.Second
+	if invoice.MimeType == invoicePDFContentType {
+		deadline = pdfRenderTimeout + 3*time.Duration(configuration.Multimodal.TimeoutSeconds)*time.Second + 15*time.Second
+	}
 	requestKey := fmt.Sprintf(
 		"%d:%s:%s:%s:%s",
 		invoice.ID,
@@ -240,14 +269,9 @@ func (RecognitionService) Recheck(ctx context.Context, id uint, scope AccessScop
 		if createErr != nil {
 			return provider.Result{}, createErr
 		}
-		release, slotErr := acquireRecognitionSlot(sharedCtx)
-		if slotErr != nil {
-			return provider.Result{}, slotErr
-		}
-		defer release()
 		reader, openErr := openInvoiceObject(sharedCtx, invoice)
 		if openErr != nil {
-			return provider.Result{}, fmt.Errorf("读取发票原图失败: %w", openErr)
+			return provider.Result{}, fmt.Errorf("读取发票原始凭证失败: %w", openErr)
 		}
 		data, readErr := io.ReadAll(io.LimitReader(reader, maxInvoiceFileSize+1))
 		_ = reader.Close()
@@ -257,7 +281,7 @@ func (RecognitionService) Recheck(ctx context.Context, id uint, scope AccessScop
 		if len(data) > maxInvoiceFileSize {
 			return provider.Result{}, errors.New("发票文件超过识别大小限制")
 		}
-		return recognizer.Recognize(sharedCtx, provider.Input{
+		return recognizeInvoiceEvidence(sharedCtx, recognizer, provider.Input{
 			FileName: invoice.FileName, ContentType: invoice.MimeType, Data: data,
 		})
 	})

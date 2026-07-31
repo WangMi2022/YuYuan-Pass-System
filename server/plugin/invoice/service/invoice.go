@@ -117,30 +117,30 @@ func applyInvoiceScope(db *gorm.DB, scope AccessScope) *gorm.DB {
 
 func inspectInvoiceFile(file *multipart.FileHeader) (hash, mimeType, ext string, err error) {
 	if file == nil {
-		return "", "", "", errors.New("请选择发票图片")
+		return "", "", "", errors.New("请选择发票文件")
 	}
 	if file.Size <= 0 || file.Size > maxInvoiceFileSize {
-		return "", "", "", errors.New("发票图片大小必须在 10MB 以内")
+		return "", "", "", errors.New("发票文件大小必须在 10MB 以内")
 	}
 	reader, err := file.Open()
 	if err != nil {
-		return "", "", "", errors.New("读取发票图片失败")
+		return "", "", "", errors.New("读取发票文件失败")
 	}
 	defer reader.Close()
 
 	buffer := make([]byte, 512)
 	n, readErr := io.ReadFull(reader, buffer)
 	if readErr != nil && !errors.Is(readErr, io.ErrUnexpectedEOF) {
-		return "", "", "", errors.New("读取发票图片失败")
+		return "", "", "", errors.New("读取发票文件失败")
 	}
 	mimeType = http.DetectContentType(buffer[:n])
-	allowed := map[string]string{"image/jpeg": ".jpg", "image/png": ".png"}
+	allowed := map[string]string{"image/jpeg": ".jpg", "image/png": ".png", invoicePDFContentType: ".pdf"}
 	ext, ok := allowed[mimeType]
 	if !ok {
-		return "", "", "", errors.New("仅支持 JPG、PNG 发票图片")
+		return "", "", "", errors.New("仅支持 JPG、PNG 或 PDF 发票文件")
 	}
 	if _, err = reader.Seek(0, io.SeekStart); err != nil {
-		return "", "", "", errors.New("读取发票图片失败")
+		return "", "", "", errors.New("读取发票文件失败")
 	}
 	hasher := sha256.New()
 	if _, err = io.Copy(hasher, reader); err != nil {
@@ -189,7 +189,7 @@ func (InvoiceService) Upload(file *multipart.FileHeader, userID, authorityID uin
 	uploadHeader.Filename = "invoice-" + hash[:20] + "-" + uuid.NewString()[:8] + ext
 	_, key, err := upload.NewOss().UploadFile(&uploadHeader)
 	if err != nil {
-		return model.Invoice{}, fmt.Errorf("发票图片保存失败: %w", err)
+		return model.Invoice{}, fmt.Errorf("发票文件保存失败: %w", err)
 	}
 
 	invoice := model.Invoice{
