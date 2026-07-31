@@ -1,5 +1,8 @@
 <template>
-  <div class="na-app-shell">
+  <div
+    class="na-app-shell"
+    :class="{ 'has-bottom-navigation': device === 'mobile' }"
+  >
     <el-watermark
       v-if="config.show_watermark"
       :font="font"
@@ -12,10 +15,8 @@
     <div class="na-app-body">
       <gva-aside
         v-if="
-          config.side_mode === 'normal' ||
-          config.side_mode === 'sidebar' ||
-          (device === 'mobile' && config.side_mode == 'head') ||
-          (device === 'mobile' && config.side_mode == 'combination')
+          device !== 'mobile' &&
+          (config.side_mode === 'normal' || config.side_mode === 'sidebar')
         "
       />
       <gva-aside
@@ -43,16 +44,30 @@
         </div>
       </div>
     </div>
+    <bottom-navigation
+      v-if="device === 'mobile'"
+      :items="mobileMenuItems"
+      :active="mobileActiveMenu"
+      @select="selectMobileMenu"
+    />
   </div>
 </template>
 
 <script setup>
   import GvaAside from '@/view/layout/aside/index.vue'
   import GvaHeader from '@/view/layout/header/index.vue'
+  import BottomNavigation from '@/components/navigation/BottomNavigation.vue'
   import useResponsive from '@/hooks/responsive'
   import GvaTabs from './tabs/index.vue'
   import { emitter } from '@/utils/bus.js'
-  import { ref, onMounted, nextTick, reactive, watchEffect } from 'vue'
+  import {
+    computed,
+    ref,
+    onMounted,
+    nextTick,
+    reactive,
+    watchEffect
+  } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
   import { useRouterStore } from '@/pinia/modules/router'
   import { useUserStore } from '@/pinia/modules/user'
@@ -78,6 +93,29 @@
   const router = useRouter()
   const route = useRoute()
   const routerStore = useRouterStore()
+  const mobileMenuItems = computed(() =>
+    (routerStore.asyncRouters[0]?.children || []).filter((item) => !item.hidden)
+  )
+  const mobileActiveMenu = computed(
+    () => route.meta.activeName || route.name || ''
+  )
+
+  const selectMobileMenu = (item) => {
+    const index = item?.name
+    if (!index || index === route.name) return
+    if (/^https?:\/\//.test(index)) {
+      window.open(index, '_blank', 'noopener,noreferrer')
+      return
+    }
+
+    const query = {}
+    const params = {}
+    routerStore.routeMap[index]?.parameters?.forEach((parameter) => {
+      const target = parameter.type === 'query' ? query : params
+      target[parameter.key] = parameter.value
+    })
+    router.push({ name: index, query, params })
+  }
 
   onMounted(() => {
     // 挂载一些通用的事件

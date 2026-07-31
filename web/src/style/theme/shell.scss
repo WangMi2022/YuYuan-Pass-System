@@ -38,6 +38,11 @@
   overscroll-behavior: contain;
 }
 
+.has-bottom-navigation .na-page-scroll {
+  padding-bottom: calc(var(--na-bottom-navigation-height) + env(safe-area-inset-bottom));
+  scroll-padding-bottom: calc(var(--na-bottom-navigation-height) + env(safe-area-inset-bottom));
+}
+
 .na-page-host { min-height: 100%; background: transparent; }
 
 /* ---- Header ---- */
