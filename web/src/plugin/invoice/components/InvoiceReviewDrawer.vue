@@ -83,18 +83,26 @@
             <span v-if="invoice.suggestedCategory" class="category-hint">
               建议：{{ invoice.suggestedCategory.name }}
             </span>
-            <el-button
-              v-if="!readonly"
-              type="primary"
-              plain
-              :icon="RefreshRight"
-              :loading="rechecking"
-              :disabled="saving || confirming || rechecking || verifying || !!loadError"
-              title="重新读取原图并用多模态模型核对，结果只回填当前表单"
-              @click="recheck"
-            >
-              重新核对
-            </el-button>
+            <div v-if="!readonly" class="recheck-controls">
+              <el-segmented
+                v-model="recheckMode"
+                :options="recheckModeOptions"
+                size="small"
+                :disabled="rechecking"
+                aria-label="核对方式"
+              />
+              <el-button
+                type="primary"
+                plain
+                :icon="RefreshRight"
+                :loading="rechecking"
+                :disabled="saving || confirming || rechecking || verifying || !!loadError"
+                :title="recheckHint"
+                @click="recheck"
+              >
+                重新核对
+              </el-button>
+            </div>
           </div>
         </div>
 
@@ -305,6 +313,7 @@ const confirming = ref(false)
 const rechecking = ref(false)
 const verifying = ref(false)
 const reopening = ref(false)
+const recheckMode = ref('ocr')
 const previewVisible = ref(false)
 const invoice = ref({})
 const categories = ref([])
@@ -326,6 +335,10 @@ const emptyForm = () => ({
 })
 const form = reactive(emptyForm())
 const directionOptions = [{ label: '支出', value: 'expense' }, { label: '收入', value: 'income' }]
+const recheckModeOptions = [
+  { label: '专业 OCR', value: 'ocr' },
+  { label: 'AI 模型', value: 'multimodal' }
+]
 const verificationTypeOptions = [
   { value: 'special_vat_invoice', label: '增值税专用发票' },
   { value: 'elec_special_vat_invoice', label: '增值税电子专用发票' },
@@ -386,6 +399,9 @@ const confidenceText = computed(() => {
   const value = Number(invoice.value.recognitionConfidence || 0)
   return value > 0 ? `${Math.round(value * 100)}%` : '待人工核对'
 })
+const recheckHint = computed(() => recheckMode.value === 'ocr'
+  ? '重新读取原始凭证并使用专业 OCR 识别，结果只回填当前表单'
+  : '重新读取原始凭证并使用多模态模型核对，结果只回填当前表单')
 
 const confidenceLabels = {
   categoryId: '发票分类', invoiceType: '发票类型', verificationType: '验真票种', verificationAmountMode: '机动车验真口径', checkCode: '校验码', issueDate: '开票日期',
@@ -602,11 +618,12 @@ const recheck = async () => {
   const invoiceId = Number(form.ID)
   rechecking.value = true
   try {
-    const res = await recheckInvoice({ id: invoiceId })
+    const mode = recheckMode.value
+    const res = await recheckInvoice({ id: invoiceId, mode })
     if (requestId !== recheckRequestId || invoiceId !== Number(props.invoiceId) || !props.modelValue) return
     if (res.code === 0) {
       fillRecheckResult(res.data || {})
-      ElMessage.success('模型核对完成，识别字段已回填；保存前请再次确认')
+      ElMessage.success(`${mode === 'ocr' ? 'OCR' : '模型'}核对完成，识别字段已回填；保存前请再次确认`)
     }
   } finally {
     if (requestId === recheckRequestId) rechecking.value = false
@@ -783,6 +800,7 @@ watch(() => [props.modelValue, props.invoiceId], ([visible, id]) => {
     rechecking.value = false
     verifying.value = false
     reopening.value = false
+    recheckMode.value = 'ocr'
     loadInvoice()
   } else if (!visible) {
     loadRequestId++
@@ -827,6 +845,8 @@ watch(() => form.verificationType, (type) => {
 .evidence-meta dd { margin: 0; overflow-wrap: anywhere; color: var(--na-foreground); font-size: .75rem; }
 .category-hint { padding: 5px 8px; border-radius: 7px; background: var(--na-primary-soft); color: var(--na-primary); font-size: .75rem; }
 .field-heading-actions { display: flex; flex: 0 0 auto; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.recheck-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.recheck-controls :deep(.el-segmented) { min-width: 176px; }
 .verification-band { margin: 4px 0 18px; padding: 12px 0; border-block: 1px solid var(--na-border); }
 .verification-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .verification-summary > div { display: flex; min-width: 0; align-items: center; gap: 9px; }

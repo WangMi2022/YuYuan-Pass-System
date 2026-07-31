@@ -112,6 +112,22 @@ func New(configuration config.InvoiceRecognition) *Chain {
 	return chain
 }
 
+// NewOCR creates the OCR-only recognizer used for an explicit human recheck.
+// It keeps QR verification but never falls back to a multimodal model.
+func NewOCR(configuration config.InvoiceRecognition) (*Chain, error) {
+	configuration.Normalize()
+	configuration.Multimodal.Enabled = false
+	if err := configuration.Validate(); err != nil {
+		return nil, err
+	}
+	chain := New(configuration)
+	chain.multimodal = nil
+	if chain.ocr == nil && len(chain.additionalOCRs) == 0 {
+		return nil, errors.New("请先在运行配置中启用百度 OCR 或公网 OCR")
+	}
+	return chain, nil
+}
+
 // NewMultimodal creates the model-only recognizer used for an explicit human
 // recheck. Unlike the automatic chain, it never short-circuits on QR or OCR.
 func NewMultimodal(configuration config.InvoiceRecognition) (*MultimodalRecognizer, error) {
@@ -176,7 +192,7 @@ func (c *Chain) Recognize(ctx context.Context, input Input) (Result, error) {
 			multimodalErr = errors.New("多模态模型未返回可用发票字段")
 		}
 		if multimodalErr == nil {
-			if ocrErr == nil {
+			if hasRecognitionData(ocrResult) {
 				mergeMissing(&multimodalResult, ocrResult)
 			}
 			mergeVerifiedQR(&multimodalResult, qrResult, qrErr)
@@ -184,7 +200,7 @@ func (c *Chain) Recognize(ctx context.Context, input Input) (Result, error) {
 		}
 	}
 
-	if ocrErr == nil && hasRecognitionData(ocrResult) {
+	if hasRecognitionData(ocrResult) {
 		mergeVerifiedQR(&ocrResult, qrResult, qrErr)
 		return ocrResult, nil
 	}

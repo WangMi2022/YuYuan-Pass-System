@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	commonResponse "github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
@@ -190,12 +191,18 @@ func (invoiceAPI) Recheck(c *gin.Context) {
 	if !ok {
 		return
 	}
-	result, err := serviceRecognition.Recheck(c.Request.Context(), id, currentScope(c))
+	mode := c.DefaultQuery("mode", service.RecheckModeMultimodal)
+	result, err := serviceRecognition.RecheckWithMode(c.Request.Context(), id, currentScope(c), mode)
 	if err != nil {
 		commonResponse.FailWithMessage(err.Error(), c)
 		return
 	}
-	commonResponse.OkWithDetailed(result, "模型核对完成", c)
+	mode = strings.ToLower(strings.TrimSpace(mode))
+	message := "模型核对完成"
+	if mode == service.RecheckModeOCR {
+		message = "OCR 核对完成"
+	}
+	commonResponse.OkWithDetailed(result, message, c)
 }
 
 func (invoiceAPI) Verify(c *gin.Context) {

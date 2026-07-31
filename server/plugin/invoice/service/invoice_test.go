@@ -504,6 +504,57 @@ func TestRecheckReturnsModelCandidateWithoutPersistingIt(t *testing.T) {
 	}
 }
 
+func TestRecheckWithModeUsesOCRRecognizer(t *testing.T) {
+	setupInvoiceServiceTestDB(t)
+	category := createInvoiceTestCategory(t)
+	invoice := createReviewableInvoice(t, 55, 500, category.ID, "OCR-RECHECK-ORIGINAL")
+	storageRoot := t.TempDir()
+	fileKey := "ocr-recheck.png"
+	if err := os.WriteFile(filepath.Join(storageRoot, fileKey), []byte("invoice for OCR"), 0o600); err != nil {
+		t.Fatalf("write OCR fixture: %v", err)
+	}
+	if err := global.GVA_DB.Model(&invoice).Updates(map[string]any{
+		"storage_type": "local", "storage_root": storageRoot, "file_key": fileKey,
+		"mime_type": "image/png", "file_size": 15,
+	}).Error; err != nil {
+		t.Fatalf("configure OCR invoice storage: %v", err)
+	}
+
+	previousOCRFactory := newOCRRecheckRecognizer
+	previousModelFactory := newRecheckRecognizer
+	var modelCalls atomic.Int32
+	newOCRRecheckRecognizer = func(config.InvoiceRecognition) (provider.Recognizer, error) {
+		return recognizerFunc(func(_ context.Context, input provider.Input) (provider.Result, error) {
+			if string(input.Data) != "invoice for OCR" {
+				t.Fatalf("unexpected OCR input: %q", string(input.Data))
+			}
+			return provider.Result{
+				Provider: "baidu-vat-invoice", InvoiceNumber: "OCR-CANDIDATE",
+				BuyerTaxNo: "BUYER-TAX-NO", SellerTaxNo: "SELLER-TAX-NO", Confidence: 0.91,
+			}, nil
+		}), nil
+	}
+	newRecheckRecognizer = func(config.InvoiceRecognition) (provider.Recognizer, error) {
+		modelCalls.Add(1)
+		return nil, errors.New("model must not be called in OCR mode")
+	}
+	t.Cleanup(func() {
+		newOCRRecheckRecognizer = previousOCRFactory
+		newRecheckRecognizer = previousModelFactory
+	})
+
+	result, err := (RecognitionService{}).RecheckWithMode(
+		t.Context(), invoice.ID, AccessScope{UserID: 55, AuthorityID: 500}, RecheckModeOCR,
+	)
+	if err != nil {
+		t.Fatalf("OCR recheck invoice: %v", err)
+	}
+	if result.Provider != "baidu-vat-invoice" || result.BuyerTaxNo != "BUYER-TAX-NO" ||
+		result.SellerTaxNo != "SELLER-TAX-NO" || modelCalls.Load() != 0 {
+		t.Fatalf("unexpected OCR recheck candidate: %#v, modelCalls=%d", result, modelCalls.Load())
+	}
+}
+
 func TestRecheckRejectsUnauthorizedAndConfirmedInvoicesBeforeCallingModel(t *testing.T) {
 	setupInvoiceServiceTestDB(t)
 	category := createInvoiceTestCategory(t)

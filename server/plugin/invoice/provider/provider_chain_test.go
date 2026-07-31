@@ -31,6 +31,46 @@ func TestChainUsesMultimodalForLowConfidenceOCR(t *testing.T) {
 	}
 }
 
+func TestChainMergesSuccessfulOCRWhenAnotherOCRFails(t *testing.T) {
+	chain := Chain{
+		qr: &staticRecognizer{err: errors.New("no qr")},
+		ocr: &staticRecognizer{result: Result{
+			Provider: "baidu-vat-invoice", InvoiceNumber: "OCR-1",
+			BuyerTaxNo: "BUYER-TAX-NO", SellerTaxNo: "SELLER-TAX-NO", Confidence: 0.6,
+		}},
+		additionalOCRs: []Recognizer{&staticRecognizer{err: errors.New("secondary OCR unavailable")}},
+		multimodal: &staticRecognizer{result: Result{
+			Provider: "multimodal-ai", InvoiceNumber: "AI-1", Confidence: 0.95,
+		}},
+		fallbackThreshold: 0.82,
+	}
+	result, err := chain.Recognize(context.Background(), Input{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Provider != "multimodal-ai" || result.BuyerTaxNo != "BUYER-TAX-NO" || result.SellerTaxNo != "SELLER-TAX-NO" {
+		t.Fatalf("successful OCR fields were not merged: %#v", result)
+	}
+}
+
+func TestChainReturnsSuccessfulOCRWhenAnotherOCRFailsWithoutMultimodal(t *testing.T) {
+	chain := Chain{
+		qr: &staticRecognizer{err: errors.New("no qr")},
+		ocr: &staticRecognizer{result: Result{
+			Provider: "baidu-vat-invoice", InvoiceNumber: "OCR-1", Confidence: 0.6,
+		}},
+		additionalOCRs:    []Recognizer{&staticRecognizer{err: errors.New("secondary OCR unavailable")}},
+		fallbackThreshold: 0.82,
+	}
+	result, err := chain.Recognize(context.Background(), Input{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Provider != "baidu-vat-invoice" || result.InvoiceNumber != "OCR-1" {
+		t.Fatalf("successful OCR result was discarded: %#v", result)
+	}
+}
+
 func TestChainSkipsMultimodalForHighConfidenceOCR(t *testing.T) {
 	multimodal := &staticRecognizer{result: Result{Provider: "multimodal", Confidence: 0.99}}
 	chain := Chain{

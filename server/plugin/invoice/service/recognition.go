@@ -30,10 +30,16 @@ var recognitionWorkerOnce sync.Once
 var newRecheckRecognizer = func(configuration config.InvoiceRecognition) (provider.Recognizer, error) {
 	return provider.NewMultimodal(configuration)
 }
+var newOCRRecheckRecognizer = func(configuration config.InvoiceRecognition) (provider.Recognizer, error) {
+	return provider.NewOCR(configuration)
+}
 
 var errRecognitionLeaseLost = errors.New("发票识别任务租约已失效")
 
 const (
+	RecheckModeMultimodal = "multimodal"
+	RecheckModeOCR        = "ocr"
+
 	recognitionLeaseTimeout = 5 * time.Minute
 	recognitionJobTimeout   = 4*time.Minute + 30*time.Second
 	recognitionBatchWorkers = 4
@@ -237,9 +243,21 @@ func (RecognitionService) TestProviderConnection(
 	return provider.TestConnection(ctx, target, configuration)
 }
 
-// Recheck runs the configured multimodal model once and returns a candidate
-// result for the review form. It deliberately does not persist any field.
+// Recheck preserves the original model-only behavior for existing callers.
 func (RecognitionService) Recheck(ctx context.Context, id uint, scope AccessScope) (provider.Result, error) {
+	return (RecognitionService{}).RecheckWithMode(ctx, id, scope, RecheckModeMultimodal)
+}
+
+// RecheckWithMode runs the selected recognizer and returns a candidate result
+// for the review form. It deliberately does not persist any field.
+func (RecognitionService) RecheckWithMode(ctx context.Context, id uint, scope AccessScope, mode string) (provider.Result, error) {
+	mode = strings.ToLower(strings.TrimSpace(mode))
+	if mode == "" {
+		mode = RecheckModeMultimodal
+	}
+	if mode != RecheckModeMultimodal && mode != RecheckModeOCR {
+		return provider.Result{}, errors.New("发票核对模式不正确")
+	}
 	invoice, err := InvoiceService{}.Get(id, scope)
 	if err != nil {
 		return provider.Result{}, err
@@ -249,23 +267,42 @@ func (RecognitionService) Recheck(ctx context.Context, id uint, scope AccessScop
 	}
 	configuration := global.GVA_CONFIG.InvoiceRecognition
 	configuration.Normalize()
-	deadline := time.Duration(configuration.Multimodal.TimeoutSeconds+5) * time.Second
+	providerTimeoutSeconds := configuration.Multimodal.TimeoutSeconds
+	if mode == RecheckModeOCR {
+		providerTimeoutSeconds = 0
+		if configuration.Baidu.Enabled {
+			providerTimeoutSeconds += configuration.Baidu.TimeoutSeconds
+		}
+		if configuration.PublicOCR.Enabled {
+			providerTimeoutSeconds += configuration.PublicOCR.TimeoutSeconds
+		}
+	}
+	deadline := time.Duration(providerTimeoutSeconds+5) * time.Second
 	if invoice.MimeType == invoicePDFContentType {
-		deadline = pdfRenderTimeout + 3*time.Duration(configuration.Multimodal.TimeoutSeconds)*time.Second + 15*time.Second
+		deadline = pdfRenderTimeout + 3*time.Duration(providerTimeoutSeconds)*time.Second + 15*time.Second
 	}
 	requestKey := fmt.Sprintf(
-		"%d:%s:%s:%s:%s",
+		"%s:%d:%s:%t:%s:%s:%s:%s:%s:%s",
+		mode,
 		invoice.ID,
 		invoice.FileHash,
+		configuration.Baidu.Enabled,
+		configuration.PublicOCR.Provider,
+		configuration.PublicOCR.Protocol,
+		configuration.PublicOCR.Endpoint,
 		configuration.Multimodal.Protocol,
 		configuration.Multimodal.BaseURL,
 		configuration.Multimodal.Model,
 	)
 	request := recheckRequests.DoChan(requestKey, func() (any, error) {
-		// The shared model call must not be canceled by any single HTTP waiter.
+		// The shared provider call must not be canceled by any single HTTP waiter.
 		sharedCtx, cancel := context.WithTimeout(context.Background(), deadline)
 		defer cancel()
-		recognizer, createErr := newRecheckRecognizer(configuration)
+		factory := newRecheckRecognizer
+		if mode == RecheckModeOCR {
+			factory = newOCRRecheckRecognizer
+		}
+		recognizer, createErr := factory(configuration)
 		if createErr != nil {
 			return provider.Result{}, createErr
 		}
@@ -297,7 +334,7 @@ func (RecognitionService) Recheck(ctx context.Context, id uint, scope AccessScop
 	}
 	result, ok := candidate.(provider.Result)
 	if !ok {
-		return provider.Result{}, errors.New("模型核对结果类型不正确")
+		return provider.Result{}, errors.New("发票核对结果类型不正确")
 	}
 	if err = normalizeRecognitionResult(&result); err != nil {
 		return provider.Result{}, err
