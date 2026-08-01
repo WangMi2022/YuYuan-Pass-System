@@ -16,7 +16,6 @@
               :icon="Refresh"
               :loading="reloading"
               :disabled="reloading || saving || isDirty || !configReady"
-              size="large"
               @click="reload"
             >
               重载服务
@@ -28,7 +27,6 @@
           :icon="Check"
           :loading="saving"
           :disabled="reloading || saving || !isDirty || !configReady"
-          size="large"
           @click="update"
         >
           保存更改
@@ -1991,7 +1989,16 @@
 <style lang="scss" scoped>
   .system-config-page {
     min-width: 0;
+    padding: 20px 24px 28px;
     color: var(--na-foreground);
+  }
+
+  .system-config-page :deep(.na-page-header) {
+    margin-bottom: 12px;
+  }
+
+  .system-config-page :deep(.na-page-title) {
+    font-size: 22px;
   }
 
   .header-action-wrap {
@@ -2003,7 +2010,7 @@
   }
 
   .runtime-band {
-    margin: 0 0 18px;
+    margin: 0 0 12px;
     border-block: 1px solid var(--na-border);
     background: var(--na-card);
   }
@@ -2016,7 +2023,7 @@
   .runtime-telemetry {
     display: grid;
     grid-template-columns: minmax(160px, 1.2fr) repeat(4, minmax(128px, 1fr));
-    min-height: 58px;
+    min-height: 48px;
     border-bottom: 1px solid var(--na-border);
   }
 
@@ -2025,11 +2032,11 @@
     display: flex;
     align-items: center;
     min-width: 0;
-    padding: 10px 16px;
+    padding: 8px 12px;
   }
 
   .telemetry-lead {
-    gap: 10px;
+    gap: 8px;
     color: var(--na-foreground);
     font-size: 13px;
     font-weight: 600;
@@ -2074,7 +2081,7 @@
     position: relative;
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    padding: 16px 8px;
+    padding: 8px 4px;
   }
 
   .domain-topology::before {
@@ -2091,12 +2098,12 @@
     position: relative;
     z-index: 1;
     display: grid;
-    grid-template-columns: 26px 42px minmax(0, 1fr) 10px;
+    grid-template-columns: 24px 32px minmax(0, 1fr) 8px;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     min-width: 0;
-    min-height: 68px;
-    padding: 8px 12px;
+    min-height: 56px;
+    padding: 4px 8px;
     border: 0;
     border-radius: var(--na-radius-sm);
     color: var(--na-muted-foreground);
@@ -2133,14 +2140,14 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 42px;
-    height: 42px;
+    width: 32px;
+    height: 32px;
     border: 1px solid var(--na-border);
     border-radius: var(--na-radius-sm);
     color: var(--na-muted-foreground);
     background: var(--na-card);
     box-shadow: var(--na-shadow-sm);
-    font-size: 18px;
+    font-size: 16px;
   }
 
   .domain-node.active .domain-icon {
@@ -2202,8 +2209,8 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    min-height: 76px;
-    padding: 14px 22px;
+    min-height: 64px;
+    padding: 8px 16px;
     border-bottom: 1px solid var(--na-border);
   }
 
@@ -2211,14 +2218,14 @@
     display: flex;
     align-items: center;
     min-width: 0;
-    gap: 12px;
+    gap: 8px;
   }
 
   .section-code {
     align-self: stretch;
     display: inline-flex;
     align-items: center;
-    padding-right: 12px;
+    padding-right: 8px;
     border-right: 1px solid var(--na-border);
     color: var(--na-muted-foreground);
     font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
@@ -2230,13 +2237,13 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     flex: 0 0 auto;
     border-radius: var(--na-radius-sm);
     color: var(--na-primary);
     background: var(--na-primary-soft);
-    font-size: 18px;
+    font-size: 16px;
   }
 
   .config-editor-heading > div {
@@ -2255,9 +2262,9 @@
     overflow: hidden;
     margin: 0;
     color: var(--na-foreground);
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 650;
-    line-height: 26px;
+    line-height: 24px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -2266,9 +2273,9 @@
     display: inline-flex;
     align-items: center;
     flex: 0 0 auto;
-    gap: 7px;
+    gap: 8px;
     min-height: 32px;
-    padding: 5px 10px;
+    padding: 4px 8px;
     border: 1px solid var(--na-border);
     border-radius: 999px;
     color: var(--na-success);
@@ -2296,8 +2303,8 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    min-height: 54px;
-    padding: 8px 22px;
+    min-height: 44px;
+    padding: 4px 16px;
     border-bottom: 1px solid var(--na-border);
     background: var(--na-muted);
   }
@@ -2306,11 +2313,11 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 7px;
+    gap: 8px;
     min-height: 36px;
-    padding: 7px 12px;
+    padding: 4px 8px;
     border: 1px solid transparent;
-    border-radius: 7px;
+    border-radius: var(--na-radius-sm);
     color: var(--na-muted-foreground);
     background: transparent;
     cursor: pointer;
@@ -2357,17 +2364,18 @@
 
   .config-tabs :deep(.el-tab-pane) {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0 24px;
+    grid-template-columns: repeat(3, minmax(220px, 360px));
+    justify-content: start;
+    gap: 0 16px;
     width: 100%;
-    min-height: 420px;
+    min-height: 360px;
     margin-top: 0 !important;
-    padding: 24px 24px 32px;
+    padding: 16px 20px 24px;
   }
 
   .config-tabs :deep(.el-tab-pane > .el-form-item) {
     min-width: 0;
-    margin-bottom: 18px;
+    margin-bottom: 12px;
   }
 
   .config-tabs :deep(.el-tab-pane > .el-form-item:has(h3)),
@@ -2378,7 +2386,7 @@
 
   .config-tabs :deep(.el-form-item__label) {
     height: auto;
-    padding: 0 0 7px;
+    padding: 0 0 4px;
     color: var(--na-muted-foreground);
     font-size: 12px;
     font-weight: 550;
@@ -2398,8 +2406,8 @@
 
   .config-tabs h2,
   .config-tabs :deep(h3) {
-    margin: 4px 0 18px;
-    padding-bottom: 10px;
+    margin: 0 0 12px;
+    padding-bottom: 8px;
     border-bottom: 1px solid var(--na-border);
     color: var(--na-foreground);
     font-size: 14px;
@@ -2412,8 +2420,8 @@
     align-items: center;
     justify-content: center;
     flex-direction: column;
-    gap: 14px;
-    min-height: 420px;
+    gap: 12px;
+    min-height: 360px;
     padding: 32px;
     color: var(--na-danger);
     text-align: center;
@@ -2430,8 +2438,8 @@
   }
 
   .config-loading-state {
-    min-height: 420px;
-    padding: 28px 24px;
+    min-height: 360px;
+    padding: 20px;
   }
 
   .recognition-settings {
@@ -2442,8 +2450,8 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    gap: 20px;
-    padding: 14px 16px;
+    gap: 16px;
+    padding: 8px 12px;
     border: 1px solid var(--na-border);
     border-radius: var(--na-radius-sm);
     background: var(--na-muted);
@@ -2453,14 +2461,14 @@
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 8px 10px;
+    gap: 8px 12px;
     min-width: 0;
   }
 
   .flow-step {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     white-space: nowrap;
   }
 
@@ -2468,9 +2476,9 @@
     display: inline-flex;
     align-items: center;
     min-height: 28px;
-    padding: 4px 9px;
+    padding: 4px 8px;
     border: 1px solid var(--na-ring);
-    border-radius: 6px;
+    border-radius: var(--na-radius-sm);
     color: var(--na-primary);
     background: var(--na-primary-soft);
     font-size: 12px;
@@ -2510,9 +2518,9 @@
   .provider-section {
     display: grid;
     grid-template-columns: 220px minmax(0, 1fr);
-    gap: 0 28px;
+    gap: 0 24px;
     margin: 0;
-    padding: 24px 0 8px;
+    padding: 16px 0 4px;
     border-bottom: 1px solid var(--na-border);
     background: transparent;
   }
@@ -2535,7 +2543,7 @@
     align-items: flex-start;
     flex-direction: column;
     justify-content: flex-start;
-    gap: 12px;
+    gap: 8px;
     margin: 0;
     padding: 0;
   }
@@ -2543,7 +2551,7 @@
   .provider-hint {
     grid-column: 2;
     max-width: 82ch;
-    margin: 0 0 16px;
+    margin: 0 0 12px;
     color: var(--na-muted-foreground);
     font-size: 12px;
     line-height: 19px;
@@ -2572,14 +2580,15 @@
   .provider-heading-actions {
     flex: 0 0 auto;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 8px;
   }
 
   .provider-grid {
     display: grid;
     grid-column: 2;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0 20px;
+    grid-template-columns: repeat(2, minmax(240px, 420px));
+    gap: 0 16px;
+    max-width: 856px;
   }
 
   .provider-grid .grid-full {
@@ -2588,13 +2597,13 @@
 
   .provider-grid :deep(.el-form-item) {
     display: block;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
   }
 
   .provider-grid :deep(.el-form-item__label) {
     width: auto !important;
     height: auto;
-    padding: 0 0 6px;
+    padding: 0 0 4px;
     color: var(--na-muted-foreground);
     font-size: 12px;
     line-height: 20px;
@@ -2639,6 +2648,10 @@
   }
 
   @media (max-width: 1280px) {
+    .config-tabs :deep(.el-tab-pane) {
+      grid-template-columns: repeat(2, minmax(220px, 360px));
+    }
+
     .provider-section {
       grid-template-columns: minmax(0, 1fr);
       gap: 0;
@@ -2670,7 +2683,7 @@
 
     .telemetry-lead {
       grid-column: 1 / -1;
-      min-height: 42px;
+      min-height: 36px;
       border-bottom: 1px solid var(--na-border);
     }
 
@@ -2679,8 +2692,8 @@
       grid-template-columns: 88px minmax(0, 1fr);
       align-items: center;
       gap: 12px;
-      margin-bottom: 14px;
-      padding: 12px 14px;
+      margin-bottom: 8px;
+      padding: 8px 12px;
       border: 1px solid var(--na-border);
       border-radius: var(--na-radius-sm);
       background: var(--na-card);
@@ -2709,7 +2722,7 @@
     .config-tabs :deep(.el-tab-pane) {
       grid-template-columns: minmax(0, 1fr);
       min-height: 360px;
-      padding: 20px 16px 26px;
+      padding: 16px 12px 20px;
     }
 
     .config-tabs :deep(.el-tab-pane > .el-form-item:has(h3)),
@@ -2721,7 +2734,7 @@
     .config-editor-header {
       align-items: flex-start;
       flex-wrap: wrap;
-      padding: 14px 16px;
+      padding: 8px 12px;
     }
 
     .config-section-switcher {
@@ -2735,7 +2748,7 @@
 
     .recognition-overview {
       gap: 16px;
-      padding: 14px;
+      padding: 12px;
     }
 
     .recognition-controls {
@@ -2774,7 +2787,7 @@
 
   @media (max-width: 480px) {
     .system-config-page {
-      padding-inline: 14px;
+      padding-inline: 12px;
     }
 
     .system-config-page :deep(.na-page-actions) {
@@ -2791,7 +2804,7 @@
     }
 
     .telemetry-item {
-      padding: 10px 12px;
+      padding: 8px 12px;
     }
 
     .config-mobile-nav {
