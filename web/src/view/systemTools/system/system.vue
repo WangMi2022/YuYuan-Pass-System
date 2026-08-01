@@ -2353,6 +2353,10 @@
     min-width: 0;
   }
 
+  .config-tabs {
+    --config-field-max-width: 300px;
+  }
+
   .config-tabs :deep(.el-tabs__header) {
     display: none;
   }
@@ -2364,7 +2368,7 @@
 
   .config-tabs :deep(.el-tab-pane) {
     display: grid;
-    grid-template-columns: repeat(3, minmax(220px, 360px));
+    grid-template-columns: repeat(auto-fit, minmax(220px, var(--config-field-max-width)));
     justify-content: start;
     gap: 0 16px;
     width: 100%;
@@ -2374,7 +2378,9 @@
   }
 
   .config-tabs :deep(.el-tab-pane > .el-form-item) {
+    width: 100%;
     min-width: 0;
+    max-width: var(--config-field-max-width);
     margin-bottom: 12px;
   }
 
@@ -2382,6 +2388,7 @@
   .config-tabs :deep(.el-tab-pane > h2),
   .config-tabs :deep(.el-tab-pane > .recognition-settings) {
     grid-column: 1 / -1;
+    max-width: none;
   }
 
   .config-tabs :deep(.el-form-item__label) {
@@ -2648,10 +2655,6 @@
   }
 
   @media (max-width: 1280px) {
-    .config-tabs :deep(.el-tab-pane) {
-      grid-template-columns: repeat(2, minmax(220px, 360px));
-    }
-
     .provider-section {
       grid-template-columns: minmax(0, 1fr);
       gap: 0;
@@ -2723,6 +2726,10 @@
       grid-template-columns: minmax(0, 1fr);
       min-height: 360px;
       padding: 16px 12px 20px;
+    }
+
+    .config-tabs :deep(.el-tab-pane > .el-form-item) {
+      max-width: none;
     }
 
     .config-tabs :deep(.el-tab-pane > .el-form-item:has(h3)),
