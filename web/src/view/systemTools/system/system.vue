@@ -1,36 +1,156 @@
 <template>
-  <div class="system">
-    <div class="config-toolbar">
-      <div class="config-toolbar-title">
-        <span class="config-toolbar-indicator" aria-hidden="true" />
-        <h2>{{ activeSectionTitle }}</h2>
-      </div>
-      <div class="config-toolbar-actions">
-        <el-button :icon="Refresh" :loading="reloading" :disabled="reloading" @click="reload">
-          重载服务
-        </el-button>
-        <el-button type="primary" :icon="Check" :disabled="reloading" @click="update">
-          保存配置
-        </el-button>
-      </div>
-    </div>
-    <el-form
-      ref="form"
-      :model="config"
-      :label-position="isMobile ? 'top' : 'right'"
-      :label-width="isMobile ? 'auto' : '176px'"
-      class="config-form"
+  <main class="na-page na-page--list system-config-page">
+    <AppPageHeader
+      title-id="runtime-config-title"
+      title="运行配置"
+      description="运行环境 · 全局参数"
     >
+      <template #actions>
+        <el-tooltip
+          :disabled="!isDirty"
+          content="当前配置尚未保存"
+          placement="bottom"
+        >
+          <span class="header-action-wrap">
+            <el-button
+              :icon="Refresh"
+              :loading="reloading"
+              :disabled="reloading || saving || isDirty || !configReady"
+              size="large"
+              @click="reload"
+            >
+              重载服务
+            </el-button>
+          </span>
+        </el-tooltip>
+        <el-button
+          type="primary"
+          :icon="Check"
+          :loading="saving"
+          :disabled="reloading || saving || !isDirty || !configReady"
+          size="large"
+          @click="update"
+        >
+          保存更改
+        </el-button>
+      </template>
+    </AppPageHeader>
+
+    <section v-loading="configLoading" class="runtime-band" :class="{ unavailable: !configReady }" aria-label="运行配置总览">
+      <div class="runtime-telemetry">
+        <div class="telemetry-lead">
+          <span class="signal-dot" aria-hidden="true" />
+          <span>{{ configReady ? '当前运行态' : '等待配置' }}</span>
+        </div>
+        <div class="telemetry-item">
+          <span>主数据库</span>
+          <strong>{{ databaseTypeLabel }}</strong>
+        </div>
+        <div class="telemetry-item">
+          <span>文件存储</span>
+          <strong>{{ storageTypeLabel }}</strong>
+        </div>
+        <div class="telemetry-item">
+          <span>数据服务</span>
+          <strong>{{ dataServiceLabel }}</strong>
+        </div>
+        <div class="telemetry-item">
+          <span>识别通道</span>
+          <strong>{{ recognitionProviderCount }} / 4</strong>
+        </div>
+      </div>
+
+      <nav class="domain-topology" aria-label="配置域">
+        <button
+          v-for="(group, index) in visibleConfigGroups"
+          :key="group.key"
+          type="button"
+          class="domain-node"
+          :disabled="saving || !configReady"
+          :class="{ active: activeGroup.key === group.key }"
+          :aria-pressed="activeGroup.key === group.key"
+          @click="activateGroup(group)"
+        >
+          <span class="domain-index">{{ String(index + 1).padStart(2, '0') }}</span>
+          <span class="domain-icon"><el-icon><component :is="group.icon" /></el-icon></span>
+          <span class="domain-copy">
+            <strong>{{ group.label }}</strong>
+            <small>{{ group.sections.length }} 个配置域</small>
+          </span>
+          <span class="domain-state" aria-hidden="true" />
+        </button>
+      </nav>
+    </section>
+
+    <div class="config-mobile-nav">
+      <span>配置区域</span>
+      <el-select v-model="activeNames" :disabled="saving || !configReady" aria-label="选择配置区域">
+        <el-option-group
+          v-for="group in visibleConfigGroups"
+          :key="group.key"
+          :label="group.label"
+        >
+          <el-option
+            v-for="section in group.sections"
+            :key="section.name"
+            :label="section.label"
+            :value="section.name"
+          />
+        </el-option-group>
+      </el-select>
+    </div>
+
+    <section class="config-workbench na-panel" :aria-labelledby="`config-section-${activeNames}`">
+      <header class="config-editor-header">
+        <div class="config-editor-heading">
+          <span class="section-code">{{ activeGroupOrdinal }}</span>
+          <span class="config-editor-icon" aria-hidden="true">
+            <el-icon><component :is="activeSection.icon" /></el-icon>
+          </span>
+          <div>
+            <span>{{ activeSection.groupLabel }}</span>
+            <h2 :id="`config-section-${activeNames}`">{{ activeSection.label }}</h2>
+          </div>
+        </div>
+        <div class="config-sync-state" :class="{ dirty: isDirty, failed: configLoadError, waiting: !configReady && !configLoadError }" role="status">
+          <el-icon>
+            <WarningFilled v-if="isDirty || configLoadError" />
+            <CircleCheckFilled v-else-if="configReady" />
+            <Refresh v-else />
+          </el-icon>
+          <span>{{ configLoadError ? '配置读取失败' : (!configReady ? '正在读取配置' : (isDirty ? '有未保存更改' : '配置已同步')) }}</span>
+        </div>
+      </header>
+
+      <nav v-if="activeGroup.sections.length > 1" class="config-section-switcher" aria-label="当前配置域">
+        <button
+          v-for="section in activeGroup.sections"
+          :key="section.name"
+          type="button"
+          :disabled="saving || !configReady"
+          :class="{ active: activeNames === section.name }"
+          :aria-pressed="activeNames === section.name"
+          @click="activeNames = section.name"
+        >
+          <el-icon><component :is="section.icon" /></el-icon>
+          <span>{{ section.label }}</span>
+        </button>
+      </nav>
+
+      <el-form
+        v-if="configReady"
+        ref="form"
+        :model="config"
+        :disabled="saving || configLoading"
+        label-position="top"
+        class="config-form"
+      >
       <!--  System start  -->
       <el-tabs
         v-model="activeNames"
-        :tab-position="isMobile ? 'top' : 'left'"
         class="config-tabs"
       >
-        <el-tab-pane label="基础设置" name="1" class="mt-3.5">
-          <template #label>
-            <span class="config-tab-label"><el-icon><Setting /></el-icon><span>基础设置</span></span>
-          </template>
+        <el-tab-pane label="基础设置" name="1" lazy>
           <el-form-item label="端口值">
             <el-input-number
               v-model="config.system.addr"
@@ -90,10 +210,7 @@
             </el-form-item>
           </el-tooltip>
         </el-tab-pane>
-        <el-tab-pane label="JWT 签名" name="2" class="mt-3.5">
-          <template #label>
-            <span class="config-tab-label"><el-icon><Key /></el-icon><span>JWT 签名</span></span>
-          </template>
+        <el-tab-pane label="JWT 签名" name="2" lazy>
           <el-form-item label="jwt签名">
             <el-input
               v-model.trim="config.jwt['signing-key']"
@@ -123,10 +240,7 @@
             />
           </el-form-item>
         </el-tab-pane>
-        <el-tab-pane label="运行日志" name="3" class="mt-3.5">
-          <template #label>
-            <span class="config-tab-label"><el-icon><Document /></el-icon><span>运行日志</span></span>
-          </template>
+        <el-tab-pane label="运行日志" name="3" lazy>
           <el-form-item label="级别">
             <el-select v-model="config.zap.level">
               <el-option value="off" label="关闭" />
@@ -195,12 +309,9 @@
         <el-tab-pane
           label="Redis"
           name="4"
-          class="mt-3.5"
+          lazy
           v-if="config.system['use-redis']"
         >
-          <template #label>
-            <span class="config-tab-label"><el-icon><Connection /></el-icon><span>Redis</span></span>
-          </template>
           <el-form-item label="库">
             <el-input-number v-model="config.redis.db" min="0" max="16" />
           </el-form-item>
@@ -217,10 +328,7 @@
             />
           </el-form-item>
         </el-tab-pane>
-        <el-tab-pane label="邮件服务" name="5" class="mt-3.5">
-          <template #label>
-            <span class="config-tab-label"><el-icon><Message /></el-icon><span>邮件服务</span></span>
-          </template>
+        <el-tab-pane label="邮件服务" name="5" lazy>
           <el-form-item label="接收者邮箱">
             <el-input
               v-model="config.email.to"
@@ -255,18 +363,25 @@
             />
           </el-form-item>
           <el-form-item label="测试邮件">
-            <el-button @click="email">测试邮件</el-button>
+            <el-tooltip :disabled="!isDirty" content="请先保存当前配置" placement="top">
+              <span class="form-action-wrap">
+                <el-button
+                  :loading="testingEmail"
+                  :disabled="isDirty || testingEmail"
+                  @click="email"
+                >
+                  测试邮件
+                </el-button>
+              </span>
+            </el-tooltip>
           </el-form-item>
         </el-tab-pane>
         <el-tab-pane
           label="Mongo 数据库配置"
           name="14"
-          class="mt-3.5"
+          lazy
           v-if="config.system['use-mongo']"
         >
-          <template #label>
-            <span class="config-tab-label"><el-icon><DataBoard /></el-icon><span>MongoDB</span></span>
-          </template>
           <el-form-item label="collection name(表名,一般不写)">
             <el-input
               v-model.trim="config.mongo.coll"
@@ -355,10 +470,7 @@
             />
           </el-form-item>
         </el-tab-pane>
-        <el-tab-pane label="验证码" name="7" class="mt-3.5">
-          <template #label>
-            <span class="config-tab-label"><el-icon><View /></el-icon><span>验证码</span></span>
-          </template>
+        <el-tab-pane label="验证码" name="7" lazy>
           <el-form-item label="字符长度">
             <el-input-number
               v-model="config.captcha['key-long']"
@@ -373,10 +485,7 @@
             <el-input-number v-model.number="config.captcha['img-height']" />
           </el-form-item>
         </el-tab-pane>
-        <el-tab-pane label="数据库" name="9" class="mt-3.5">
-          <template #label>
-            <span class="config-tab-label"><el-icon><Coin /></el-icon><span>数据库</span></span>
-          </template>
+        <el-tab-pane label="数据库" name="9" lazy>
           <template v-if="config.system['db-type'] === 'mysql'">
             <el-form-item label="">
               <h3>MySQL</h3>
@@ -707,10 +816,7 @@
             </el-form-item>
           </template>
         </el-tab-pane>
-        <el-tab-pane label="文件存储" name="10" class="mt-3.5">
-          <template #label>
-            <span class="config-tab-label"><el-icon><UploadFilled /></el-icon><span>文件存储</span></span>
-          </template>
+        <el-tab-pane label="文件存储" name="10" lazy>
           <template v-if="config.system['oss-type'] === 'local'">
             <h2>本地配置</h2>
             <el-form-item label="本地文件访问路径">
@@ -952,10 +1058,7 @@
             </el-form-item>
           </template>
         </el-tab-pane>
-        <el-tab-pane label="发票识别" name="11" class="mt-3.5">
-          <template #label>
-            <span class="config-tab-label"><el-icon><Tickets /></el-icon><span>发票识别</span></span>
-          </template>
+        <el-tab-pane label="发票识别" name="11" lazy>
           <div class="recognition-settings">
             <div class="recognition-overview">
               <div class="recognition-flow" aria-label="发票识别顺序">
@@ -1352,8 +1455,15 @@
           </div>
         </el-tab-pane>
       </el-tabs>
-    </el-form>
-  </div>
+      </el-form>
+      <div v-else-if="configLoadError" class="config-error-state" role="alert">
+        <el-icon><WarningFilled /></el-icon>
+        <strong>运行配置读取失败</strong>
+        <el-button :icon="Refresh" @click="initForm">重新加载</el-button>
+      </div>
+      <el-skeleton v-else class="config-loading-state" :rows="8" animated />
+    </section>
+  </main>
 </template>
 
 <script setup>
@@ -1363,10 +1473,11 @@
     setSystemConfig,
     testInvoiceRecognitionProvider
   } from '@/api/system'
-  import { computed, ref } from 'vue'
+  import { computed, ref, watch } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import {
     Check,
+    CircleCheckFilled,
     Coin,
     Connection,
     DataBoard,
@@ -1379,12 +1490,11 @@
     Setting,
     Tickets,
     UploadFilled,
-    View
+    View,
+    WarningFilled
   } from '@element-plus/icons-vue'
-  import { storeToRefs } from 'pinia'
   import { emailTest } from '@/api/email'
   import { CreateUUID } from '@/utils/format'
-  import { useAppStore } from '@/pinia'
   import { useUserStore } from '@/pinia/modules/user'
 
   defineOptions({
@@ -1392,28 +1502,18 @@
   })
 
   const activeNames = ref('1')
-  const sectionTitles = {
-    1: '基础设置',
-    2: 'JWT 签名',
-    3: '运行日志',
-    4: 'Redis',
-    5: '邮件服务',
-    7: '验证码',
-    9: '数据库',
-    10: '文件存储',
-    11: '发票识别',
-    14: 'MongoDB'
-  }
-  const activeSectionTitle = computed(() => sectionTitles[activeNames.value] || '基础设置')
-  const appStore = useAppStore()
   const userStore = useUserStore()
-  const { device } = storeToRefs(appStore)
-  const isMobile = computed(() => device.value === 'mobile')
   const canManageInvoiceRecognition = computed(
     () => Number(userStore.userInfo.authorityId) === 888
   )
   const testingProvider = ref('')
+  const testingEmail = ref(false)
   const reloading = ref(false)
+  const saving = ref(false)
+  const configLoading = ref(false)
+  const configReady = ref(false)
+  const configLoadError = ref(false)
+  const savedSnapshot = ref('')
 
   const defaultInvoiceRecognition = () => ({
     'fallback-threshold': 0.82,
@@ -1510,6 +1610,117 @@
       detail: {}
     },
     'invoice-recognition': defaultInvoiceRecognition()
+  })
+
+  const configGroups = [
+    {
+      key: 'runtime',
+      label: '核心运行',
+      icon: Setting,
+      sections: [
+        { name: '1', label: '基础设置', icon: Setting },
+        { name: '3', label: '运行日志', icon: Document }
+      ]
+    },
+    {
+      key: 'security',
+      label: '安全认证',
+      icon: Key,
+      sections: [
+        { name: '2', label: 'JWT 签名', icon: Key },
+        { name: '7', label: '验证码', icon: View }
+      ]
+    },
+    {
+      key: 'data',
+      label: '数据服务',
+      icon: DataBoard,
+      sections: [
+        { name: '9', label: '主数据库', icon: Coin },
+        { name: '4', label: 'Redis', icon: Connection, enabled: () => config.value.system['use-redis'] },
+        { name: '14', label: 'MongoDB', icon: DataBoard, enabled: () => config.value.system['use-mongo'] }
+      ]
+    },
+    {
+      key: 'integration',
+      label: '外部集成',
+      icon: Connection,
+      sections: [
+        { name: '10', label: '文件存储', icon: UploadFilled },
+        { name: '5', label: '邮件服务', icon: Message }
+      ]
+    },
+    {
+      key: 'intelligence',
+      label: '智能识别',
+      icon: Tickets,
+      sections: [
+        { name: '11', label: '发票识别', icon: Tickets }
+      ]
+    }
+  ]
+
+  const visibleConfigGroups = computed(() => configGroups.map((group) => ({
+    ...group,
+    sections: group.sections.filter((section) => !section.enabled || section.enabled())
+  })).filter((group) => group.sections.length))
+  const visibleSections = computed(() => visibleConfigGroups.value.flatMap((group) =>
+    group.sections.map((section) => ({ ...section, groupLabel: group.label }))
+  ))
+  const activeSection = computed(() =>
+    visibleSections.value.find((section) => section.name === activeNames.value) || visibleSections.value[0]
+  )
+  const activeGroup = computed(() =>
+    visibleConfigGroups.value.find((group) =>
+      group.sections.some((section) => section.name === activeNames.value)
+    ) || visibleConfigGroups.value[0]
+  )
+  const activeGroupOrdinal = computed(() => {
+    const index = visibleConfigGroups.value.findIndex((group) => group.key === activeGroup.value.key)
+    return String(index + 1).padStart(2, '0')
+  })
+  const activateGroup = (group) => {
+    activeNames.value = group.sections[0].name
+  }
+  const serializeConfig = (value) => JSON.stringify(value)
+  const isDirty = computed(() => Boolean(savedSnapshot.value) &&
+    serializeConfig(config.value) !== savedSnapshot.value)
+  const databaseTypeLabel = computed(() => ({
+    mysql: 'MySQL',
+    pgsql: 'PostgreSQL',
+    mssql: 'SQL Server',
+    sqlite: 'SQLite',
+    oracle: 'Oracle'
+  })[config.value.system['db-type']] || '未设置')
+  const storageTypeLabel = computed(() => ({
+    local: '本地存储',
+    qiniu: '七牛云',
+    'tencent-cos': '腾讯云 COS',
+    'aliyun-oss': '阿里云 OSS',
+    'huawei-obs': '华为云 OBS',
+    'cloudflare-r2': 'Cloudflare R2',
+    minio: 'MinIO'
+  })[config.value.system['oss-type']] || '未设置')
+  const dataServiceLabel = computed(() => {
+    const services = []
+    if (config.value.system['use-redis']) services.push('Redis')
+    if (config.value.system['use-mongo']) services.push('MongoDB')
+    return services.length ? services.join(' + ') : '未启用'
+  })
+  const recognitionProviderCount = computed(() => {
+    const recognition = config.value['invoice-recognition']
+    return [
+      recognition.baidu.enabled,
+      recognition['public-ocr'].enabled,
+      recognition.verification.enabled,
+      recognition.multimodal.enabled
+    ].filter(Boolean).length
+  })
+
+  watch(visibleSections, (sections) => {
+    if (!sections.some((section) => section.name === activeNames.value)) {
+      activeNames.value = '1'
+    }
   })
 
   const normalizeInvoiceRecognition = () => {
@@ -1621,10 +1832,25 @@
   }
 
   const initForm = async () => {
-    const res = await getSystemConfig()
-    if (res.code === 0) {
-      config.value = res.data.config
-      normalizeInvoiceRecognition()
+    configLoading.value = true
+    const hadConfig = configReady.value
+    try {
+      const res = await getSystemConfig()
+      if (res.code === 0) {
+        config.value = res.data.config
+        normalizeInvoiceRecognition()
+        savedSnapshot.value = serializeConfig(config.value)
+        configReady.value = true
+        configLoadError.value = false
+        return true
+      }
+      if (!hadConfig) configLoadError.value = true
+      return false
+    } catch {
+      if (!hadConfig) configLoadError.value = true
+      return false
+    } finally {
+      configLoading.value = false
     }
   }
   initForm()
@@ -1657,18 +1883,25 @@
   }
 
   const update = async () => {
-    const multimodal = config.value['invoice-recognition'].multimodal
-    const res = await setSystemConfig({ config: config.value })
-    if (res.code === 0) {
-      const protocol = res.data?.multimodal?.protocol
-      const verificationProvider = res.data?.verification?.provider
-      ElMessage({
-        type: 'success',
-        message: verificationProvider || (multimodal.enabled && protocol)
-          ? `配置文件设置成功，连接协议已由服务器自动识别`
-          : '配置文件设置成功'
-      })
-      await initForm()
+    if (saving.value || !isDirty.value) return
+    saving.value = true
+    try {
+      const multimodal = config.value['invoice-recognition'].multimodal
+      const res = await setSystemConfig({ config: config.value })
+      if (res.code === 0) {
+        const protocol = res.data?.multimodal?.protocol
+        const verificationProvider = res.data?.verification?.provider
+        ElMessage({
+          type: 'success',
+          message: verificationProvider || (multimodal.enabled && protocol)
+            ? '配置文件设置成功，连接协议已由服务器自动识别'
+            : '配置文件设置成功'
+        })
+        savedSnapshot.value = serializeConfig(config.value)
+        await initForm()
+      }
+    } finally {
+      saving.value = false
     }
   }
 
@@ -1726,18 +1959,16 @@
   }
 
   const email = async () => {
-    const res = await emailTest()
-    if (res.code === 0) {
+    if (testingEmail.value || isDirty.value) return
+    testingEmail.value = true
+    try {
+      const res = await emailTest()
       ElMessage({
-        type: 'success',
-        message: '邮件发送成功'
+        type: res.code === 0 ? 'success' : 'error',
+        message: res.code === 0 ? '邮件发送成功' : '邮件发送失败'
       })
-      await initForm()
-    } else {
-      ElMessage({
-        type: 'error',
-        message: '邮件发送失败'
-      })
+    } finally {
+      testingEmail.value = false
     }
   }
 
@@ -1758,207 +1989,449 @@
 </script>
 
 <style lang="scss" scoped>
-  .system {
+  .system-config-page {
     min-width: 0;
-    padding: 0;
-    color: var(--el-text-color-primary);
-    background: transparent;
+    color: var(--na-foreground);
   }
 
-  .config-toolbar {
+  .header-action-wrap {
+    display: inline-flex;
+  }
+
+  .form-action-wrap {
+    display: inline-flex;
+  }
+
+  .runtime-band {
+    margin: 0 0 18px;
+    border-block: 1px solid var(--na-border);
+    background: var(--na-card);
+  }
+
+  .runtime-band.unavailable .telemetry-item,
+  .runtime-band.unavailable .domain-topology {
+    opacity: 0.55;
+  }
+
+  .runtime-telemetry {
+    display: grid;
+    grid-template-columns: minmax(160px, 1.2fr) repeat(4, minmax(128px, 1fr));
+    min-height: 58px;
+    border-bottom: 1px solid var(--na-border);
+  }
+
+  .telemetry-lead,
+  .telemetry-item {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    padding: 10px 16px;
+  }
+
+  .telemetry-lead {
+    gap: 10px;
+    color: var(--na-foreground);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .signal-dot {
+    width: 9px;
+    height: 9px;
+    flex: 0 0 auto;
+    border: 2px solid var(--na-card);
+    border-radius: 50%;
+    background: var(--na-success);
+    box-shadow: 0 0 0 3px var(--na-success-soft);
+  }
+
+  .telemetry-item {
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    border-left: 1px solid var(--na-border);
+  }
+
+  .telemetry-item span {
+    color: var(--na-muted-foreground);
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  .telemetry-item strong {
+    overflow: hidden;
+    width: 100%;
+    color: var(--na-foreground);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 20px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .domain-topology {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    padding: 16px 8px;
+  }
+
+  .domain-topology::before {
+    position: absolute;
+    top: 50%;
+    right: 8%;
+    left: 8%;
+    height: 1px;
+    background: var(--na-border-strong);
+    content: '';
+  }
+
+  .domain-node {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 26px 42px minmax(0, 1fr) 10px;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    min-height: 68px;
+    padding: 8px 12px;
+    border: 0;
+    border-radius: var(--na-radius-sm);
+    color: var(--na-muted-foreground);
+    background: var(--na-card);
+    cursor: pointer;
+    text-align: left;
+    transition: color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+  }
+
+  .domain-node:hover {
+    color: var(--na-foreground);
+    background: var(--na-muted);
+  }
+
+  .domain-node:focus-visible {
+    outline: 2px solid var(--na-primary);
+    outline-offset: 2px;
+  }
+
+  .domain-node.active {
+    color: var(--na-primary);
+    background: var(--na-primary-soft);
+    box-shadow: inset 0 0 0 1px var(--na-ring);
+  }
+
+  .domain-index {
+    color: var(--na-muted-foreground);
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .domain-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border: 1px solid var(--na-border);
+    border-radius: var(--na-radius-sm);
+    color: var(--na-muted-foreground);
+    background: var(--na-card);
+    box-shadow: var(--na-shadow-sm);
+    font-size: 18px;
+  }
+
+  .domain-node.active .domain-icon {
+    color: var(--na-primary);
+    border-color: var(--na-ring);
+  }
+
+  .domain-copy {
+    display: flex;
+    overflow: hidden;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .domain-copy strong {
+    overflow: hidden;
+    color: currentColor;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 20px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .domain-copy small {
+    color: var(--na-muted-foreground);
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  .domain-state {
+    width: 8px;
+    height: 8px;
+    border: 2px solid var(--na-card);
+    border-radius: 50%;
+    background: var(--na-border-strong);
+    box-shadow: 0 0 0 1px var(--na-border-strong);
+  }
+
+  .domain-node.active .domain-state {
+    background: var(--na-primary);
+    box-shadow: 0 0 0 2px var(--na-ring);
+  }
+
+  .domain-node:disabled {
+    cursor: not-allowed;
+  }
+
+  .config-mobile-nav {
+    display: none;
+  }
+
+  .config-workbench {
+    overflow: hidden;
+  }
+
+  .config-editor-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    min-height: 52px;
-    margin-left: 228px;
-    padding: 0 0 14px 28px;
-    border-bottom: 1px solid var(--el-border-color-lighter);
+    min-height: 76px;
+    padding: 14px 22px;
+    border-bottom: 1px solid var(--na-border);
   }
 
-  .config-toolbar-title,
-  .config-toolbar-actions {
+  .config-editor-heading {
     display: flex;
     align-items: center;
-  }
-
-  .config-toolbar-title {
     min-width: 0;
-    gap: 10px;
+    gap: 12px;
   }
 
-  .config-toolbar-title h2 {
-    margin: 0;
-    color: var(--el-text-color-primary);
-    font-size: 18px;
-    font-weight: 600;
-    line-height: 28px;
-  }
-
-  .config-toolbar-indicator {
-    width: 8px;
-    height: 8px;
-    flex: 0 0 auto;
-    border-radius: 2px;
-    background: var(--el-color-primary);
-  }
-
-  .config-toolbar-actions {
-    flex: 0 0 auto;
-    gap: 8px;
-  }
-
-  .config-form {
-    min-width: 0;
-  }
-
-  .config-tabs h2 {
-    margin: 24px 0 18px;
-    padding-bottom: 10px;
-    color: var(--el-text-color-primary);
-    border-bottom: 1px solid var(--el-border-color-lighter);
-    font-size: 15px;
-    font-weight: 600;
-    line-height: 24px;
-  }
-
-  .config-tabs {
-    min-height: calc(100vh - 196px);
-
-    :deep(.el-form-item__label) {
-      color: var(--el-text-color-regular);
-      font-size: 13px;
-    }
-
-    :deep(.el-form-item__content) {
-      max-width: 820px;
-    }
-
-    :deep(.el-tabs__content) {
-      flex: 1;
-      min-width: 0;
-      overflow: visible;
-    }
-
-    :deep(.el-tab-pane) {
-      width: min(100%, 1120px);
-      min-height: calc(100vh - 196px);
-      margin-top: 0 !important;
-      padding: 12px 0 40px 28px;
-      background: transparent;
-    }
-  }
-
-  .config-tabs.el-tabs--left {
-    align-items: flex-start;
-    overflow: visible;
-
-    :deep(.el-tabs__header) {
-      position: sticky;
-      top: 16px;
-      flex: 0 0 208px;
-      width: 208px;
-      margin: 0 20px 0 0;
-      padding: 4px 16px 4px 0;
-      border-right: 1px solid var(--el-border-color-lighter);
-      background: transparent;
-    }
-
-    :deep(.el-tabs__nav-wrap::after),
-    :deep(.el-tabs__active-bar) {
-      display: none;
-    }
-
-    :deep(.el-tabs__nav) {
-      float: none;
-      width: 100%;
-    }
-
-    :deep(.el-tabs__item.is-left) {
-      justify-content: flex-start;
-      height: 44px;
-      margin: 2px 0;
-      padding: 0 10px !important;
-      border-radius: 4px;
-      color: var(--el-text-color-regular);
-      font-size: 13px;
-      text-align: left;
-    }
-
-    :deep(.el-tabs__item.is-left:hover) {
-      color: var(--el-text-color-primary);
-      background: var(--el-fill-color-light);
-    }
-
-    :deep(.el-tabs__item.is-left.is-active) {
-      color: var(--el-color-primary);
-      font-weight: 600;
-      background: transparent;
-    }
-
-    :deep(.el-tabs__item.is-left.is-active::after) {
-      width: 6px;
-      height: 6px;
-      margin-left: auto;
-      border-radius: 2px;
-      background: var(--el-color-primary);
-      content: '';
-    }
-  }
-
-  .config-tab-label {
+  .section-code {
+    align-self: stretch;
     display: inline-flex;
     align-items: center;
-    gap: 10px;
+    padding-right: 12px;
+    border-right: 1px solid var(--na-border);
+    color: var(--na-muted-foreground);
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .config-editor-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 auto;
+    border-radius: var(--na-radius-sm);
+    color: var(--na-primary);
+    background: var(--na-primary-soft);
+    font-size: 18px;
+  }
+
+  .config-editor-heading > div {
     min-width: 0;
   }
 
-  .config-tab-label :deep(.el-icon) {
-    width: 28px;
-    height: 28px;
+  .config-editor-heading > div > span {
+    display: block;
+    margin-bottom: 1px;
+    color: var(--na-muted-foreground);
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  .config-editor-heading h2 {
+    overflow: hidden;
+    margin: 0;
+    color: var(--na-foreground);
+    font-size: 18px;
+    font-weight: 650;
+    line-height: 26px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .config-sync-state {
+    display: inline-flex;
+    align-items: center;
     flex: 0 0 auto;
-    border-radius: 4px;
-    color: var(--el-text-color-secondary);
-    background: var(--el-fill-color-light);
-    font-size: 15px;
+    gap: 7px;
+    min-height: 32px;
+    padding: 5px 10px;
+    border: 1px solid var(--na-border);
+    border-radius: 999px;
+    color: var(--na-success);
+    background: var(--na-success-soft);
+    font-size: 12px;
+    font-weight: 600;
   }
 
-  .config-tabs :deep(.el-tabs__item.is-active .config-tab-label .el-icon) {
-    color: var(--el-color-primary);
-    background: var(--el-color-primary-light-9);
+  .config-sync-state.dirty {
+    color: var(--na-warning);
+    background: var(--na-warning-soft);
   }
 
-  .config-tabs.el-tabs--top {
-    :deep(.el-tabs__header) {
-      min-width: 0;
-      margin: 0 0 12px;
-    }
+  .config-sync-state.failed {
+    color: var(--na-danger);
+    background: var(--na-danger-soft);
+  }
 
-    :deep(.el-tabs__nav-wrap::after) {
-      height: 1px;
-      background: var(--el-border-color-lighter);
-    }
+  .config-sync-state.waiting {
+    color: var(--na-info);
+    background: var(--na-info-soft);
+  }
 
-    :deep(.el-tabs__item) {
-      height: 40px;
-      padding: 0 12px;
-      color: var(--el-text-color-regular);
-      font-size: 13px;
-    }
+  .config-section-switcher {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 54px;
+    padding: 8px 22px;
+    border-bottom: 1px solid var(--na-border);
+    background: var(--na-muted);
+  }
 
-    :deep(.el-tabs__item:hover),
-    :deep(.el-tabs__item.is-active) {
-      color: var(--el-color-primary);
-    }
+  .config-section-switcher button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 36px;
+    padding: 7px 12px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    color: var(--na-muted-foreground);
+    background: transparent;
+    cursor: pointer;
+    font-size: 13px;
+    transition: color 180ms ease, background-color 180ms ease, border-color 180ms ease;
+  }
 
-    :deep(.el-tabs__item.is-active) {
-      font-weight: 600;
-    }
+  .config-section-switcher button:hover {
+    color: var(--na-foreground);
+    background: var(--na-card);
+  }
 
-    :deep(.el-tabs__active-bar) {
-      height: 2px;
-      border-radius: 2px 2px 0 0;
-    }
+  .config-section-switcher button:focus-visible {
+    outline: 2px solid var(--na-primary);
+    outline-offset: 2px;
+  }
+
+  .config-section-switcher button.active {
+    color: var(--na-primary);
+    border-color: var(--na-border);
+    background: var(--na-card);
+    box-shadow: var(--na-shadow-sm);
+    font-weight: 600;
+  }
+
+  .config-section-switcher button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  .config-form,
+  .config-tabs {
+    min-width: 0;
+  }
+
+  .config-tabs :deep(.el-tabs__header) {
+    display: none;
+  }
+
+  .config-tabs :deep(.el-tabs__content) {
+    min-width: 0;
+    overflow: visible;
+  }
+
+  .config-tabs :deep(.el-tab-pane) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 24px;
+    width: 100%;
+    min-height: 420px;
+    margin-top: 0 !important;
+    padding: 24px 24px 32px;
+  }
+
+  .config-tabs :deep(.el-tab-pane > .el-form-item) {
+    min-width: 0;
+    margin-bottom: 18px;
+  }
+
+  .config-tabs :deep(.el-tab-pane > .el-form-item:has(h3)),
+  .config-tabs :deep(.el-tab-pane > h2),
+  .config-tabs :deep(.el-tab-pane > .recognition-settings) {
+    grid-column: 1 / -1;
+  }
+
+  .config-tabs :deep(.el-form-item__label) {
+    height: auto;
+    padding: 0 0 7px;
+    color: var(--na-muted-foreground);
+    font-size: 12px;
+    font-weight: 550;
+    line-height: 18px;
+  }
+
+  .config-tabs :deep(.el-form-item__content) {
+    min-width: 0;
+    max-width: none;
+  }
+
+  .config-tabs :deep(.el-input),
+  .config-tabs :deep(.el-select),
+  .config-tabs :deep(.el-input-number) {
+    width: 100%;
+  }
+
+  .config-tabs h2,
+  .config-tabs :deep(h3) {
+    margin: 4px 0 18px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--na-border);
+    color: var(--na-foreground);
+    font-size: 14px;
+    font-weight: 650;
+    line-height: 22px;
+  }
+
+  .config-error-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 14px;
+    min-height: 420px;
+    padding: 32px;
+    color: var(--na-danger);
+    text-align: center;
+  }
+
+  .config-error-state > .el-icon {
+    font-size: 28px;
+  }
+
+  .config-error-state strong {
+    color: var(--na-foreground);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .config-loading-state {
+    min-height: 420px;
+    padding: 28px 24px;
   }
 
   .recognition-settings {
@@ -1971,8 +2444,9 @@
     align-items: center;
     gap: 20px;
     padding: 14px 16px;
-    border-radius: 6px;
-    background: var(--el-fill-color-extra-light);
+    border: 1px solid var(--na-border);
+    border-radius: var(--na-radius-sm);
+    background: var(--na-muted);
   }
 
   .recognition-flow {
@@ -1995,23 +2469,23 @@
     align-items: center;
     min-height: 28px;
     padding: 4px 9px;
-    border: 1px solid var(--el-color-primary-light-5);
-    border-radius: 4px;
-    color: var(--el-color-primary);
-    background: var(--el-color-primary-light-9);
+    border: 1px solid var(--na-ring);
+    border-radius: 6px;
+    color: var(--na-primary);
+    background: var(--na-primary-soft);
     font-size: 12px;
     line-height: 18px;
     white-space: nowrap;
   }
 
   .flow-node.is-fixed {
-    color: var(--el-text-color-regular);
-    border-color: var(--el-border-color);
-    background: var(--el-fill-color-light);
+    color: var(--na-muted-foreground);
+    border-color: var(--na-border);
+    background: var(--na-card);
   }
 
   .flow-arrow {
-    color: var(--el-text-color-placeholder);
+    color: var(--na-muted-foreground);
     font-size: 13px;
     line-height: 1;
   }
@@ -2022,7 +2496,7 @@
   }
 
   .threshold-field :deep(.el-form-item__label) {
-    color: var(--el-text-color-regular);
+    color: var(--na-muted-foreground);
     font-size: 12px;
   }
 
@@ -2039,7 +2513,7 @@
     gap: 0 28px;
     margin: 0;
     padding: 24px 0 8px;
-    border-bottom: 1px solid var(--el-border-color-lighter);
+    border-bottom: 1px solid var(--na-border);
     background: transparent;
   }
 
@@ -2070,7 +2544,7 @@
     grid-column: 2;
     max-width: 82ch;
     margin: 0 0 16px;
-    color: var(--el-text-color-secondary);
+    color: var(--na-muted-foreground);
     font-size: 12px;
     line-height: 19px;
   }
@@ -2083,7 +2557,9 @@
 
   .provider-title-line h3 {
     margin: 0;
-    color: var(--el-text-color-primary);
+    padding: 0;
+    border: 0;
+    color: var(--na-foreground);
     font-size: 15px;
     font-weight: 600;
     line-height: 24px;
@@ -2119,7 +2595,7 @@
     width: auto !important;
     height: auto;
     padding: 0 0 6px;
-    color: var(--el-text-color-regular);
+    color: var(--na-muted-foreground);
     font-size: 12px;
     line-height: 20px;
     justify-content: flex-start;
@@ -2158,7 +2634,7 @@
 
   .input-unit {
     margin-left: 8px;
-    color: var(--el-text-color-secondary);
+    color: var(--na-muted-foreground);
     font-size: 12px;
   }
 
@@ -2184,6 +2660,38 @@
   }
 
   @media (max-width: 1100px) {
+    .domain-topology {
+      display: none;
+    }
+
+    .runtime-telemetry {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .telemetry-lead {
+      grid-column: 1 / -1;
+      min-height: 42px;
+      border-bottom: 1px solid var(--na-border);
+    }
+
+    .config-mobile-nav {
+      display: grid;
+      grid-template-columns: 88px minmax(0, 1fr);
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+      padding: 12px 14px;
+      border: 1px solid var(--na-border);
+      border-radius: var(--na-radius-sm);
+      background: var(--na-card);
+    }
+
+    .config-mobile-nav > span {
+      color: var(--na-muted-foreground);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
     .recognition-overview {
       grid-template-columns: minmax(0, 1fr);
     }
@@ -2193,31 +2701,36 @@
     }
   }
 
-  @media (max-width: 991px) {
-    .config-toolbar {
-      margin-left: 0;
-      padding: 0 0 12px;
-    }
-
-    .config-tabs {
-      min-height: auto;
+  @media (max-width: 768px) {
+    .runtime-telemetry {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .config-tabs :deep(.el-tab-pane) {
-      min-height: auto;
-      padding: 12px 0 28px;
-    }
-  }
-
-  @media (max-width: 720px) {
-    .config-tabs :deep(.el-tabs__item) {
-      height: 38px;
-      padding: 0 10px;
-      font-size: 12px;
+      grid-template-columns: minmax(0, 1fr);
+      min-height: 360px;
+      padding: 20px 16px 26px;
     }
 
-    .config-tabs :deep(.el-tab-pane) {
-      padding: 12px 0 24px;
+    .config-tabs :deep(.el-tab-pane > .el-form-item:has(h3)),
+    .config-tabs :deep(.el-tab-pane > h2),
+    .config-tabs :deep(.el-tab-pane > .recognition-settings) {
+      grid-column: 1;
+    }
+
+    .config-editor-header {
+      align-items: flex-start;
+      flex-wrap: wrap;
+      padding: 14px 16px;
+    }
+
+    .config-section-switcher {
+      flex-wrap: wrap;
+      padding: 8px 16px;
+    }
+
+    .config-section-switcher button {
+      min-height: 44px;
     }
 
     .recognition-overview {
@@ -2257,23 +2770,46 @@
     .provider-grid .grid-full {
       grid-column: auto;
     }
-
   }
 
   @media (max-width: 480px) {
-    .config-toolbar {
-      align-items: flex-start;
-      flex-wrap: wrap;
+    .system-config-page {
+      padding-inline: 14px;
     }
 
-    .config-toolbar-title,
-    .config-toolbar-actions {
+    .system-config-page :deep(.na-page-actions) {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       width: 100%;
     }
 
-    .config-toolbar-actions :deep(.el-button) {
-      flex: 1 1 0;
+    .header-action-wrap,
+    .header-action-wrap :deep(.el-button),
+    .system-config-page :deep(.na-page-actions > .el-button) {
+      width: 100%;
       margin-left: 0;
+    }
+
+    .telemetry-item {
+      padding: 10px 12px;
+    }
+
+    .config-mobile-nav {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 7px;
+    }
+
+    .section-code {
+      display: none;
+    }
+
+    .config-sync-state {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .config-section-switcher button {
+      flex: 1 1 132px;
     }
 
     .flow-step {
@@ -2285,6 +2821,12 @@
       text-align: center;
       transform: rotate(90deg);
     }
+  }
 
+  @media (prefers-reduced-motion: reduce) {
+    .domain-node,
+    .config-section-switcher button {
+      transition: none;
+    }
   }
 </style>
