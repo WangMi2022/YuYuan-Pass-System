@@ -1,8 +1,8 @@
 <template>
   <div class="system">
-    <el-form ref="form" :model="config" label-width="240px">
+    <el-form ref="form" :model="config" label-width="240px" class="config-form">
       <!--  System start  -->
-      <el-tabs v-model="activeNames">
+      <el-tabs v-model="activeNames" class="config-tabs">
         <el-tab-pane label="系统配置" name="1" class="mt-3.5">
           <el-form-item label="端口值">
             <el-input-number
@@ -906,12 +906,18 @@
             <div class="recognition-overview">
               <div class="recognition-flow" aria-label="发票识别顺序">
                 <span class="flow-node is-fixed">二维码</span>
-                <span class="flow-arrow">→</span>
-                <span class="flow-node">百度 / 公网 OCR</span>
-                <span class="flow-arrow">→</span>
-                <span class="flow-node">多模态模型</span>
-                <span class="flow-arrow">→</span>
-                <span class="flow-node is-fixed">人工核对</span>
+                <span class="flow-step">
+                  <span class="flow-arrow">→</span>
+                  <span class="flow-node">百度 / 公网 OCR</span>
+                </span>
+                <span class="flow-step">
+                  <span class="flow-arrow">→</span>
+                  <span class="flow-node">多模态模型</span>
+                </span>
+                <span class="flow-step">
+                  <span class="flow-arrow">→</span>
+                  <span class="flow-node is-fixed">人工核对</span>
+                </span>
               </div>
               <div class="recognition-controls">
                 <el-form-item label="允许内网端点" label-width="112px" class="threshold-field">
@@ -945,13 +951,26 @@
                     {{ baiduCredentialsReady ? '凭据已配置' : '无凭据' }}
                   </el-tag>
                 </div>
-                <el-switch
-                  v-model="config['invoice-recognition'].baidu.enabled"
-                  :disabled="!canManageInvoiceRecognition"
-                  inline-prompt
-                  active-text="启用"
-                  inactive-text="停用"
-                />
+                <div class="provider-heading-actions">
+                  <el-button
+                    v-if="canManageInvoiceRecognition"
+                    type="primary"
+                    plain
+                    size="small"
+                    :icon="Connection"
+                    :loading="testingProvider === 'baidu'"
+                    @click="testProvider('baidu')"
+                  >
+                    验证凭据
+                  </el-button>
+                  <el-switch
+                    v-model="config['invoice-recognition'].baidu.enabled"
+                    :disabled="!canManageInvoiceRecognition"
+                    inline-prompt
+                    active-text="启用"
+                    inactive-text="停用"
+                  />
+                </div>
               </div>
               <div class="provider-grid">
                 <el-form-item label="请求超时" label-width="112px">
@@ -999,17 +1018,6 @@
                   </div>
                 </el-form-item>
               </div>
-              <div v-if="canManageInvoiceRecognition" class="provider-actions">
-                <el-button
-                  type="primary"
-                  plain
-                  :icon="Connection"
-                  :loading="testingProvider === 'baidu'"
-                  @click="testProvider('baidu')"
-                >
-                  验证凭据
-                </el-button>
-              </div>
             </section>
 
             <section class="provider-section">
@@ -1032,13 +1040,26 @@
                     {{ publicOCRDetectionLabel }}
                   </el-tag>
                 </div>
-                <el-switch
-                  v-model="config['invoice-recognition']['public-ocr'].enabled"
-                  :disabled="!canManageInvoiceRecognition"
-                  inline-prompt
-                  active-text="启用"
-                  inactive-text="停用"
-                />
+                <div class="provider-heading-actions">
+                  <el-button
+                    v-if="canManageInvoiceRecognition"
+                    type="primary"
+                    plain
+                    size="small"
+                    :icon="Connection"
+                    :loading="testingProvider === 'public-ocr'"
+                    @click="testProvider('public-ocr')"
+                  >
+                    测试并识别协议
+                  </el-button>
+                  <el-switch
+                    v-model="config['invoice-recognition']['public-ocr'].enabled"
+                    :disabled="!canManageInvoiceRecognition"
+                    inline-prompt
+                    active-text="启用"
+                    inactive-text="停用"
+                  />
+                </div>
               </div>
               <div class="provider-grid">
                 <el-form-item label="请求超时" label-width="112px">
@@ -1081,17 +1102,6 @@
                   </div>
                 </el-form-item>
               </div>
-              <div v-if="canManageInvoiceRecognition" class="provider-actions">
-                <el-button
-                  type="primary"
-                  plain
-                  :icon="Connection"
-                  :loading="testingProvider === 'public-ocr'"
-                  @click="testProvider('public-ocr')"
-                >
-                  测试并识别协议
-                </el-button>
-              </div>
             </section>
 
             <section class="provider-section">
@@ -1110,13 +1120,26 @@
                     {{ verificationDetectionLabel }}
                   </el-tag>
                 </div>
-                <el-switch
-                  v-model="config['invoice-recognition'].verification.enabled"
-                  :disabled="!canManageInvoiceRecognition"
-                  inline-prompt
-                  active-text="启用"
-                  inactive-text="停用"
-                />
+                <div class="provider-heading-actions">
+                  <el-button
+                    v-if="canManageInvoiceRecognition"
+                    type="primary"
+                    plain
+                    size="small"
+                    :icon="Connection"
+                    :loading="testingProvider === 'verification'"
+                    @click="testProvider('verification')"
+                  >
+                    测试并识别供应商
+                  </el-button>
+                  <el-switch
+                    v-model="config['invoice-recognition'].verification.enabled"
+                    :disabled="!canManageInvoiceRecognition"
+                    inline-prompt
+                    active-text="启用"
+                    inactive-text="停用"
+                  />
+                </div>
               </div>
               <p class="provider-hint">
                 全局停用后不调用付费验真接口，发票按人工核对结果确认；启用后必须取得权威查验结果。供应商与协议由服务器自动探测。
@@ -1179,17 +1202,6 @@
                   </div>
                 </el-form-item>
               </div>
-              <div v-if="canManageInvoiceRecognition" class="provider-actions">
-                <el-button
-                  type="primary"
-                  plain
-                  :icon="Connection"
-                  :loading="testingProvider === 'verification'"
-                  @click="testProvider('verification')"
-                >
-                  测试并识别供应商
-                </el-button>
-              </div>
             </section>
 
             <section class="provider-section">
@@ -1212,13 +1224,26 @@
                     {{ multimodalProtocolLabel }}
                   </el-tag>
                 </div>
-                <el-switch
-                  v-model="config['invoice-recognition'].multimodal.enabled"
-                  :disabled="!canManageInvoiceRecognition"
-                  inline-prompt
-                  active-text="启用"
-                  inactive-text="停用"
-                />
+                <div class="provider-heading-actions">
+                  <el-button
+                    v-if="canManageInvoiceRecognition"
+                    type="primary"
+                    plain
+                    size="small"
+                    :icon="Connection"
+                    :loading="testingProvider === 'multimodal'"
+                    @click="testProvider('multimodal')"
+                  >
+                    测试连接
+                  </el-button>
+                  <el-switch
+                    v-model="config['invoice-recognition'].multimodal.enabled"
+                    :disabled="!canManageInvoiceRecognition"
+                    inline-prompt
+                    active-text="启用"
+                    inactive-text="停用"
+                  />
+                </div>
               </div>
               <div class="provider-grid">
                 <el-form-item label="Base URL" label-width="112px">
@@ -1268,17 +1293,6 @@
                     </el-checkbox>
                   </div>
                 </el-form-item>
-              </div>
-              <div v-if="canManageInvoiceRecognition" class="provider-actions">
-                <el-button
-                  type="primary"
-                  plain
-                  :icon="Connection"
-                  :loading="testingProvider === 'multimodal'"
-                  @click="testProvider('multimodal')"
-                >
-                  测试连接
-                </el-button>
               </div>
             </section>
           </div>
@@ -1359,9 +1373,13 @@
         </el-tab-pane>
       </el-tabs>
     </el-form>
-    <div class="mt-4">
-      <el-button type="primary" :disabled="reloading" @click="update">立即更新 </el-button>
-      <el-button type="primary" :loading="reloading" :disabled="reloading" @click="reload">重载服务 </el-button>
+    <div class="config-action-bar">
+      <el-button :icon="Refresh" :loading="reloading" :disabled="reloading" @click="reload">
+        重载服务
+      </el-button>
+      <el-button type="primary" :icon="Check" :disabled="reloading" @click="update">
+        保存配置
+      </el-button>
     </div>
   </div>
 </template>
@@ -1375,7 +1393,7 @@
   } from '@/api/system'
   import { computed, ref } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
-  import { Connection, Minus, Plus } from '@element-plus/icons-vue'
+  import { Check, Connection, Minus, Plus, Refresh } from '@element-plus/icons-vue'
   import { emailTest } from '@/api/email'
   import { CreateUUID } from '@/utils/format'
   import { useUserStore } from '@/pinia/modules/user'
@@ -1736,34 +1754,102 @@
 
 <style lang="scss" scoped>
   .system {
-    @apply bg-white p-9 rounded dark:bg-slate-900;
+    min-width: 0;
+    padding: 24px 28px 0;
+    color: var(--el-text-color-primary);
+    background: var(--el-bg-color);
+    border-radius: 6px;
+
     h2 {
-      @apply p-2.5 my-2.5 text-lg shadow;
+      margin: 20px 0 16px;
+      padding-bottom: 10px;
+      color: var(--el-text-color-primary);
+      border-bottom: 1px solid var(--el-border-color-lighter);
+      font-size: 15px;
+      font-weight: 600;
+      line-height: 24px;
+    }
+  }
+
+  .config-form {
+    min-width: 0;
+  }
+
+  .config-tabs {
+    :deep(.el-tabs__header) {
+      margin-bottom: 20px;
+    }
+
+    :deep(.el-tabs__nav-wrap::after) {
+      height: 1px;
+      background-color: var(--el-border-color-lighter);
+    }
+
+    :deep(.el-tabs__item) {
+      height: 40px;
+      padding: 0 14px;
+      color: var(--el-text-color-regular);
+      font-size: 13px;
+    }
+
+    :deep(.el-tabs__item:hover),
+    :deep(.el-tabs__item.is-active) {
+      color: var(--el-color-primary);
+    }
+
+    :deep(.el-tabs__item.is-active) {
+      font-weight: 600;
+    }
+
+    :deep(.el-tabs__active-bar) {
+      height: 2px;
+      border-radius: 2px 2px 0 0;
+    }
+
+    :deep(.el-tabs__content) {
+      overflow: visible;
+    }
+
+    :deep(.el-tab-pane) {
+      width: min(100%, 1180px);
     }
   }
 
   .recognition-settings {
-    max-width: 1120px;
+    width: 100%;
   }
 
   .recognition-overview {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    justify-content: space-between;
-    gap: 24px;
-    padding: 4px 0 20px;
-    border-bottom: 1px solid var(--el-border-color-lighter);
+    gap: 20px;
+    padding: 16px 18px;
+    border: 1px solid var(--el-border-color-lighter);
+    border-radius: 6px;
+    background: var(--el-fill-color-extra-light);
   }
 
   .recognition-flow {
     display: flex;
     align-items: center;
-    gap: 8px;
+    flex-wrap: wrap;
+    gap: 8px 10px;
     min-width: 0;
   }
 
+  .flow-step {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    white-space: nowrap;
+  }
+
   .flow-node {
-    padding: 5px 9px;
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 4px 9px;
     border: 1px solid var(--el-color-primary-light-5);
     border-radius: 4px;
     color: var(--el-color-primary);
@@ -1782,6 +1868,7 @@
   .flow-arrow {
     color: var(--el-text-color-placeholder);
     font-size: 13px;
+    line-height: 1;
   }
 
   .threshold-field {
@@ -1789,21 +1876,29 @@
     margin-bottom: 0;
   }
 
+  .threshold-field :deep(.el-form-item__label) {
+    color: var(--el-text-color-regular);
+    font-size: 12px;
+  }
+
   .recognition-controls {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 20px;
     flex: 0 0 auto;
   }
 
   .provider-section {
-    padding: 22px 0;
-    border-bottom: 1px solid var(--el-border-color-lighter);
+    margin-top: 12px;
+    padding: 18px 20px 2px;
+    border: 1px solid var(--el-border-color-lighter);
+    border-radius: 6px;
+    background: var(--el-bg-color-overlay);
   }
 
   .provider-heading,
   .provider-title-line,
-  .provider-actions,
+  .provider-heading-actions,
   .secret-row {
     display: flex;
     align-items: center;
@@ -1811,19 +1906,24 @@
 
   .provider-heading {
     justify-content: space-between;
-    margin-bottom: 18px;
+    gap: 16px;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--el-border-color-extra-light);
   }
 
   .provider-hint {
-    margin: -8px 0 18px 112px;
+    max-width: 82ch;
+    margin: -4px 0 16px;
     color: var(--el-text-color-secondary);
     font-size: 12px;
-    line-height: 20px;
+    line-height: 19px;
   }
 
   .provider-title-line {
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 8px;
+    min-width: 0;
   }
 
   .provider-title-line h3 {
@@ -1834,14 +1934,44 @@
     line-height: 24px;
   }
 
+  .provider-title-line :deep(.el-tag) {
+    --el-tag-border-radius: 4px;
+  }
+
+  .provider-heading-actions {
+    flex: 0 0 auto;
+    gap: 10px;
+  }
+
   .provider-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+    gap: 0 20px;
   }
 
   .provider-grid .grid-full {
     grid-column: 1 / -1;
+  }
+
+  .provider-grid :deep(.el-form-item) {
+    display: block;
+    margin-bottom: 16px;
+  }
+
+  .provider-grid :deep(.el-form-item__label) {
+    width: auto !important;
+    height: auto;
+    padding: 0 0 6px;
+    color: var(--el-text-color-regular);
+    font-size: 12px;
+    line-height: 20px;
+    justify-content: flex-start;
+  }
+
+  .provider-grid :deep(.el-form-item__content) {
+    min-height: 32px;
+    margin-left: 0 !important;
+    line-height: 32px;
   }
 
   .provider-grid :deep(.el-input),
@@ -1850,8 +1980,14 @@
   }
 
   .secret-row {
-    gap: 14px;
+    flex-wrap: wrap;
+    gap: 8px 12px;
     width: 100%;
+  }
+
+  .secret-row :deep(.el-input) {
+    flex: 1 1 240px;
+    min-width: 0;
   }
 
   .secret-row :deep(.el-checkbox) {
@@ -1865,23 +2001,102 @@
     font-size: 12px;
   }
 
-  .provider-actions {
+  .config-action-bar {
+    position: sticky;
+    z-index: 10;
+    bottom: 0;
+    display: flex;
     justify-content: flex-end;
+    gap: 8px;
+    margin: 24px -28px 0;
+    padding: 12px 28px;
+    border-top: 1px solid var(--el-border-color-lighter);
+    background: var(--el-bg-color);
   }
 
-  @media (max-width: 860px) {
+  @media (max-width: 1100px) {
     .recognition-overview {
-      align-items: flex-start;
-      flex-direction: column;
+      grid-template-columns: minmax(0, 1fr);
     }
 
-    .recognition-flow {
-      flex-wrap: wrap;
+    .recognition-controls {
+      justify-content: flex-start;
+    }
+  }
+
+  @media (max-width: 991px) {
+    .system {
+      padding: 20px 20px 0;
+    }
+
+    .config-action-bar {
+      margin-right: -20px;
+      margin-left: -20px;
+      padding-right: 20px;
+      padding-left: 20px;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .system {
+      padding: 12px 12px 0;
+      border-radius: 4px;
+    }
+
+    .config-form :deep(.el-form-item) {
+      display: block;
+    }
+
+    .config-form :deep(.el-form-item__label) {
+      width: auto !important;
+      height: auto;
+      padding: 0 0 6px;
+      line-height: 20px;
+      justify-content: flex-start;
+    }
+
+    .config-form :deep(.el-form-item__content) {
+      margin-left: 0 !important;
+    }
+
+    .config-tabs :deep(.el-tabs__header) {
+      margin-bottom: 16px;
+    }
+
+    .config-tabs :deep(.el-tabs__item) {
+      height: 38px;
+      padding: 0 10px;
+      font-size: 12px;
+    }
+
+    .recognition-overview {
+      gap: 16px;
+      padding: 14px;
     }
 
     .recognition-controls {
       align-items: flex-start;
       flex-direction: column;
+      gap: 12px;
+    }
+
+    .threshold-field :deep(.el-form-item__label) {
+      justify-content: flex-start;
+    }
+
+    .provider-section {
+      padding: 16px 14px 0;
+    }
+
+    .provider-heading {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .provider-heading-actions {
+      justify-content: space-between;
+      width: 100%;
     }
 
     .provider-grid {
@@ -1892,15 +2107,26 @@
       grid-column: auto;
     }
 
-    .provider-hint {
-      margin-left: 0;
+    .config-action-bar {
+      margin: 20px -12px 0;
+      padding: 10px 12px;
     }
   }
 
-  @media (max-width: 560px) {
-    .secret-row {
-      align-items: flex-start;
-      flex-direction: column;
+  @media (max-width: 480px) {
+    .flow-step {
+      width: 100%;
+    }
+
+    .flow-arrow {
+      width: 18px;
+      text-align: center;
+      transform: rotate(90deg);
+    }
+
+    .config-action-bar :deep(.el-button) {
+      flex: 1 1 0;
+      margin-left: 0;
     }
   }
 </style>
