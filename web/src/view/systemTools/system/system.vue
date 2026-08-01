@@ -1,8 +1,18 @@
 <template>
   <div class="system">
-    <el-form ref="form" :model="config" label-width="240px" class="config-form">
+    <el-form
+      ref="form"
+      :model="config"
+      :label-position="isMobile ? 'top' : 'right'"
+      :label-width="isMobile ? 'auto' : '176px'"
+      class="config-form"
+    >
       <!--  System start  -->
-      <el-tabs v-model="activeNames" class="config-tabs">
+      <el-tabs
+        v-model="activeNames"
+        :tab-position="isMobile ? 'top' : 'left'"
+        class="config-tabs"
+      >
         <el-tab-pane label="系统配置" name="1" class="mt-3.5">
           <el-form-item label="端口值">
             <el-input-number
@@ -1394,8 +1404,10 @@
   import { computed, ref } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import { Check, Connection, Minus, Plus, Refresh } from '@element-plus/icons-vue'
+  import { storeToRefs } from 'pinia'
   import { emailTest } from '@/api/email'
   import { CreateUUID } from '@/utils/format'
+  import { useAppStore } from '@/pinia'
   import { useUserStore } from '@/pinia/modules/user'
 
   defineOptions({
@@ -1403,7 +1415,10 @@
   })
 
   const activeNames = ref('1')
+  const appStore = useAppStore()
   const userStore = useUserStore()
+  const { device } = storeToRefs(appStore)
+  const isMobile = computed(() => device.value === 'mobile')
   const canManageInvoiceRecognition = computed(
     () => Number(userStore.userInfo.authorityId) === 888
   )
@@ -1755,13 +1770,12 @@
 <style lang="scss" scoped>
   .system {
     min-width: 0;
-    padding: 24px 28px 0;
+    padding: 0;
     color: var(--el-text-color-primary);
-    background: var(--el-bg-color);
-    border-radius: 6px;
+    background: transparent;
 
     h2 {
-      margin: 20px 0 16px;
+      margin: 24px 0 18px;
       padding-bottom: 10px;
       color: var(--el-text-color-primary);
       border-bottom: 1px solid var(--el-border-color-lighter);
@@ -1776,18 +1790,97 @@
   }
 
   .config-tabs {
+    min-height: calc(100vh - 196px);
+
+    :deep(.el-form-item__label) {
+      color: var(--el-text-color-regular);
+      font-size: 13px;
+    }
+
+    :deep(.el-form-item__content) {
+      max-width: 820px;
+    }
+
+    :deep(.el-tabs__content) {
+      flex: 1;
+      min-width: 0;
+      overflow: visible;
+    }
+
+    :deep(.el-tab-pane) {
+      width: 100%;
+      min-height: calc(100vh - 196px);
+      margin-top: 0 !important;
+      padding: 26px 28px 28px;
+      border: 1px solid var(--el-border-color-lighter);
+      border-radius: 6px;
+      background: var(--el-bg-color);
+    }
+  }
+
+  .config-tabs.el-tabs--left {
+    align-items: flex-start;
+    overflow: visible;
+
     :deep(.el-tabs__header) {
-      margin-bottom: 20px;
+      position: sticky;
+      top: 16px;
+      flex: 0 0 208px;
+      width: 208px;
+      margin: 0 20px 0 0;
+      padding: 8px;
+      border: 1px solid var(--el-border-color-lighter);
+      border-radius: 6px;
+      background: var(--el-bg-color);
+    }
+
+    :deep(.el-tabs__nav-wrap::after),
+    :deep(.el-tabs__active-bar) {
+      display: none;
+    }
+
+    :deep(.el-tabs__nav) {
+      float: none;
+      width: 100%;
+    }
+
+    :deep(.el-tabs__item.is-left) {
+      justify-content: flex-start;
+      height: 40px;
+      margin: 2px 0;
+      padding: 0 12px !important;
+      border-radius: 4px;
+      color: var(--el-text-color-regular);
+      font-size: 13px;
+      text-align: left;
+    }
+
+    :deep(.el-tabs__item.is-left:hover) {
+      color: var(--el-text-color-primary);
+      background: var(--el-fill-color-light);
+    }
+
+    :deep(.el-tabs__item.is-left.is-active) {
+      color: var(--el-color-primary);
+      font-weight: 600;
+      background: var(--el-color-primary-light-9);
+    }
+  }
+
+  .config-tabs.el-tabs--top {
+    :deep(.el-tabs__header) {
+      min-width: 0;
+      margin: 0 0 12px;
     }
 
     :deep(.el-tabs__nav-wrap::after) {
       height: 1px;
-      background-color: var(--el-border-color-lighter);
+      background: var(--el-border-color-lighter);
     }
 
     :deep(.el-tabs__item) {
       height: 40px;
-      padding: 0 14px;
+      padding: 0 12px;
       color: var(--el-text-color-regular);
       font-size: 13px;
     }
@@ -1805,14 +1898,6 @@
       height: 2px;
       border-radius: 2px 2px 0 0;
     }
-
-    :deep(.el-tabs__content) {
-      overflow: visible;
-    }
-
-    :deep(.el-tab-pane) {
-      width: min(100%, 1180px);
-    }
   }
 
   .recognition-settings {
@@ -1824,8 +1909,7 @@
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 20px;
-    padding: 16px 18px;
-    border: 1px solid var(--el-border-color-lighter);
+    padding: 14px 16px;
     border-radius: 6px;
     background: var(--el-fill-color-extra-light);
   }
@@ -1889,11 +1973,17 @@
   }
 
   .provider-section {
-    margin-top: 12px;
-    padding: 18px 20px 2px;
-    border: 1px solid var(--el-border-color-lighter);
-    border-radius: 6px;
-    background: var(--el-bg-color-overlay);
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 0 28px;
+    margin: 0;
+    padding: 24px 0 8px;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+    background: transparent;
+  }
+
+  .provider-section:last-child {
+    border-bottom: 0;
   }
 
   .provider-heading,
@@ -1905,16 +1995,20 @@
   }
 
   .provider-heading {
-    justify-content: space-between;
-    gap: 16px;
-    margin-bottom: 16px;
-    padding-bottom: 14px;
-    border-bottom: 1px solid var(--el-border-color-extra-light);
+    grid-column: 1;
+    grid-row: span 2;
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
   }
 
   .provider-hint {
+    grid-column: 2;
     max-width: 82ch;
-    margin: -4px 0 16px;
+    margin: 0 0 16px;
     color: var(--el-text-color-secondary);
     font-size: 12px;
     line-height: 19px;
@@ -1940,12 +2034,14 @@
 
   .provider-heading-actions {
     flex: 0 0 auto;
+    flex-wrap: wrap;
     gap: 10px;
   }
 
   .provider-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+    grid-column: 2;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0 20px;
   }
 
@@ -1974,9 +2070,13 @@
     line-height: 32px;
   }
 
-  .provider-grid :deep(.el-input),
-  .provider-grid :deep(.el-input-number) {
+  .provider-grid :deep(.el-input) {
     width: 100%;
+  }
+
+  .provider-grid :deep(.el-input-number) {
+    width: 160px;
+    max-width: calc(100% - 28px);
   }
 
   .secret-row {
@@ -2008,10 +2108,30 @@
     display: flex;
     justify-content: flex-end;
     gap: 8px;
-    margin: 24px -28px 0;
-    padding: 12px 28px;
-    border-top: 1px solid var(--el-border-color-lighter);
-    background: var(--el-bg-color);
+    margin: 16px 0 0 228px;
+    padding: 12px 0;
+    background: var(--el-bg-color-page);
+  }
+
+  @media (max-width: 1280px) {
+    .provider-section {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0;
+    }
+
+    .provider-heading {
+      grid-column: 1;
+      grid-row: auto;
+      align-items: center;
+      flex-direction: row;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .provider-hint,
+    .provider-grid {
+      grid-column: 1;
+    }
   }
 
   @media (max-width: 1100px) {
@@ -2025,48 +2145,31 @@
   }
 
   @media (max-width: 991px) {
-    .system {
-      padding: 20px 20px 0;
+    .config-tabs {
+      min-height: auto;
+    }
+
+    .config-tabs :deep(.el-tab-pane) {
+      min-height: auto;
+      padding: 22px 20px 24px;
     }
 
     .config-action-bar {
-      margin-right: -20px;
-      margin-left: -20px;
-      padding-right: 20px;
-      padding-left: 20px;
+      margin: 12px 0 0;
+      padding: 10px 0;
     }
   }
 
   @media (max-width: 720px) {
-    .system {
-      padding: 12px 12px 0;
-      border-radius: 4px;
-    }
-
-    .config-form :deep(.el-form-item) {
-      display: block;
-    }
-
-    .config-form :deep(.el-form-item__label) {
-      width: auto !important;
-      height: auto;
-      padding: 0 0 6px;
-      line-height: 20px;
-      justify-content: flex-start;
-    }
-
-    .config-form :deep(.el-form-item__content) {
-      margin-left: 0 !important;
-    }
-
-    .config-tabs :deep(.el-tabs__header) {
-      margin-bottom: 16px;
-    }
-
     .config-tabs :deep(.el-tabs__item) {
       height: 38px;
       padding: 0 10px;
       font-size: 12px;
+    }
+
+    .config-tabs :deep(.el-tab-pane) {
+      padding: 18px 14px 20px;
+      border-radius: 4px;
     }
 
     .recognition-overview {
@@ -2085,7 +2188,7 @@
     }
 
     .provider-section {
-      padding: 16px 14px 0;
+      padding: 20px 0 4px;
     }
 
     .provider-heading {
@@ -2108,8 +2211,8 @@
     }
 
     .config-action-bar {
-      margin: 20px -12px 0;
-      padding: 10px 12px;
+      margin: 10px 0 0;
+      padding: 10px 0;
     }
   }
 
