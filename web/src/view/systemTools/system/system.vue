@@ -1,5 +1,19 @@
 <template>
   <div class="system">
+    <div class="config-toolbar">
+      <div class="config-toolbar-title">
+        <span class="config-toolbar-indicator" aria-hidden="true" />
+        <h2>{{ activeSectionTitle }}</h2>
+      </div>
+      <div class="config-toolbar-actions">
+        <el-button :icon="Refresh" :loading="reloading" :disabled="reloading" @click="reload">
+          重载服务
+        </el-button>
+        <el-button type="primary" :icon="Check" :disabled="reloading" @click="update">
+          保存配置
+        </el-button>
+      </div>
+    </div>
     <el-form
       ref="form"
       :model="config"
@@ -13,7 +27,10 @@
         :tab-position="isMobile ? 'top' : 'left'"
         class="config-tabs"
       >
-        <el-tab-pane label="系统配置" name="1" class="mt-3.5">
+        <el-tab-pane label="基础设置" name="1" class="mt-3.5">
+          <template #label>
+            <span class="config-tab-label"><el-icon><Setting /></el-icon><span>基础设置</span></span>
+          </template>
           <el-form-item label="端口值">
             <el-input-number
               v-model="config.system.addr"
@@ -73,7 +90,10 @@
             </el-form-item>
           </el-tooltip>
         </el-tab-pane>
-        <el-tab-pane label="jwt签名" name="2" class="mt-3.5">
+        <el-tab-pane label="JWT 签名" name="2" class="mt-3.5">
+          <template #label>
+            <span class="config-tab-label"><el-icon><Key /></el-icon><span>JWT 签名</span></span>
+          </template>
           <el-form-item label="jwt签名">
             <el-input
               v-model.trim="config.jwt['signing-key']"
@@ -103,7 +123,10 @@
             />
           </el-form-item>
         </el-tab-pane>
-        <el-tab-pane label="Zap日志配置" name="3" class="mt-3.5">
+        <el-tab-pane label="运行日志" name="3" class="mt-3.5">
+          <template #label>
+            <span class="config-tab-label"><el-icon><Document /></el-icon><span>运行日志</span></span>
+          </template>
           <el-form-item label="级别">
             <el-select v-model="config.zap.level">
               <el-option value="off" label="关闭" />
@@ -175,6 +198,9 @@
           class="mt-3.5"
           v-if="config.system['use-redis']"
         >
+          <template #label>
+            <span class="config-tab-label"><el-icon><Connection /></el-icon><span>Redis</span></span>
+          </template>
           <el-form-item label="库">
             <el-input-number v-model="config.redis.db" min="0" max="16" />
           </el-form-item>
@@ -191,7 +217,10 @@
             />
           </el-form-item>
         </el-tab-pane>
-        <el-tab-pane label="邮箱配置" name="5" class="mt-3.5">
+        <el-tab-pane label="邮件服务" name="5" class="mt-3.5">
+          <template #label>
+            <span class="config-tab-label"><el-icon><Message /></el-icon><span>邮件服务</span></span>
+          </template>
           <el-form-item label="接收者邮箱">
             <el-input
               v-model="config.email.to"
@@ -235,6 +264,9 @@
           class="mt-3.5"
           v-if="config.system['use-mongo']"
         >
+          <template #label>
+            <span class="config-tab-label"><el-icon><DataBoard /></el-icon><span>MongoDB</span></span>
+          </template>
           <el-form-item label="collection name(表名,一般不写)">
             <el-input
               v-model.trim="config.mongo.coll"
@@ -323,7 +355,10 @@
             />
           </el-form-item>
         </el-tab-pane>
-        <el-tab-pane label="验证码配置" name="7" class="mt-3.5">
+        <el-tab-pane label="验证码" name="7" class="mt-3.5">
+          <template #label>
+            <span class="config-tab-label"><el-icon><View /></el-icon><span>验证码</span></span>
+          </template>
           <el-form-item label="字符长度">
             <el-input-number
               v-model="config.captcha['key-long']"
@@ -338,7 +373,10 @@
             <el-input-number v-model.number="config.captcha['img-height']" />
           </el-form-item>
         </el-tab-pane>
-        <el-tab-pane label="数据库配置" name="9" class="mt-3.5">
+        <el-tab-pane label="数据库" name="9" class="mt-3.5">
+          <template #label>
+            <span class="config-tab-label"><el-icon><Coin /></el-icon><span>数据库</span></span>
+          </template>
           <template v-if="config.system['db-type'] === 'mysql'">
             <el-form-item label="">
               <h3>MySQL</h3>
@@ -669,7 +707,10 @@
             </el-form-item>
           </template>
         </el-tab-pane>
-        <el-tab-pane label="oss配置" name="10" class="mt-3.5">
+        <el-tab-pane label="文件存储" name="10" class="mt-3.5">
+          <template #label>
+            <span class="config-tab-label"><el-icon><UploadFilled /></el-icon><span>文件存储</span></span>
+          </template>
           <template v-if="config.system['oss-type'] === 'local'">
             <h2>本地配置</h2>
             <el-form-item label="本地文件访问路径">
@@ -911,7 +952,10 @@
             </el-form-item>
           </template>
         </el-tab-pane>
-        <el-tab-pane label="发票智能识别" name="11" class="mt-3.5">
+        <el-tab-pane label="发票识别" name="11" class="mt-3.5">
+          <template #label>
+            <span class="config-tab-label"><el-icon><Tickets /></el-icon><span>发票识别</span></span>
+          </template>
           <div class="recognition-settings">
             <div class="recognition-overview">
               <div class="recognition-flow" aria-label="发票识别顺序">
@@ -1307,90 +1351,8 @@
             </section>
           </div>
         </el-tab-pane>
-        <el-tab-pane label="自动化代码配置" name="12" class="mt-3.5">
-          <el-form-item label="是否自动重启(linux)">
-            <el-switch v-model="config.autocode['transfer-restart']" />
-          </el-form-item>
-          <el-form-item label="root(项目根路径)">
-            <el-input v-model="config.autocode.root" disabled />
-          </el-form-item>
-          <el-form-item label="Server(后端代码地址)">
-            <el-input
-              v-model.trim="config.autocode['server']"
-              placeholder="请输入后端代码地址"
-            />
-          </el-form-item>
-          <el-form-item label="SApi(后端api文件夹地址)">
-            <el-input
-              v-model.trim="config.autocode['server-api']"
-              placeholder="请输入后端api文件夹地址"
-            />
-          </el-form-item>
-          <el-form-item label="SInitialize(后端Initialize文件夹)">
-            <el-input
-              v-model.trim="config.autocode['server-initialize']"
-              placeholder="请输入后端Initialize文件夹"
-            />
-          </el-form-item>
-          <el-form-item label="SModel(后端Model文件地址)">
-            <el-input
-              v-model.trim="config.autocode['server-model']"
-              placeholder="请输入后端Model文件地址"
-            />
-          </el-form-item>
-          <el-form-item label="SRequest(后端Request文件夹地址)">
-            <el-input
-              v-model.trim="config.autocode['server-request']"
-              placeholder="请输入后端Request文件夹地址"
-            />
-          </el-form-item>
-          <el-form-item label="SRouter(后端Router文件夹地址)">
-            <el-input
-              v-model.trim="config.autocode['server-router']"
-              placeholder="请输入后端Router文件夹地址"
-            />
-          </el-form-item>
-          <el-form-item label="SService(后端Service文件夹地址)">
-            <el-input
-              v-model.trim="config.autocode['server-service']"
-              placeholder="请输入后端Service文件夹地址"
-            />
-          </el-form-item>
-          <el-form-item label="Web(前端文件夹地址)">
-            <el-input
-              v-model.trim="config.autocode.web"
-              placeholder="请输入前端文件夹地址"
-            />
-          </el-form-item>
-          <el-form-item label="WApi(后端WApi文件夹地址)">
-            <el-input
-              v-model.trim="config.autocode['web-api']"
-              placeholder="请输入后端WApi文件夹地址"
-            />
-          </el-form-item>
-          <el-form-item label="WForm(后端WForm文件夹地址)">
-            <el-input
-              v-model.trim="config.autocode['web-form']"
-              placeholder="请输入后端WForm文件夹地址"
-            />
-          </el-form-item>
-          <el-form-item label="WTable(后端WTable文件夹地址)">
-            <el-input
-              v-model.trim="config.autocode['web-table']"
-              placeholder="请输入后端WTable文件夹地址"
-            />
-          </el-form-item>
-        </el-tab-pane>
       </el-tabs>
     </el-form>
-    <div class="config-action-bar">
-      <el-button :icon="Refresh" :loading="reloading" :disabled="reloading" @click="reload">
-        重载服务
-      </el-button>
-      <el-button type="primary" :icon="Check" :disabled="reloading" @click="update">
-        保存配置
-      </el-button>
-    </div>
   </div>
 </template>
 
@@ -1403,7 +1365,22 @@
   } from '@/api/system'
   import { computed, ref } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
-  import { Check, Connection, Minus, Plus, Refresh } from '@element-plus/icons-vue'
+  import {
+    Check,
+    Coin,
+    Connection,
+    DataBoard,
+    Document,
+    Key,
+    Message,
+    Minus,
+    Plus,
+    Refresh,
+    Setting,
+    Tickets,
+    UploadFilled,
+    View
+  } from '@element-plus/icons-vue'
   import { storeToRefs } from 'pinia'
   import { emailTest } from '@/api/email'
   import { CreateUUID } from '@/utils/format'
@@ -1415,6 +1392,19 @@
   })
 
   const activeNames = ref('1')
+  const sectionTitles = {
+    1: '基础设置',
+    2: 'JWT 签名',
+    3: '运行日志',
+    4: 'Redis',
+    5: '邮件服务',
+    7: '验证码',
+    9: '数据库',
+    10: '文件存储',
+    11: '发票识别',
+    14: 'MongoDB'
+  }
+  const activeSectionTitle = computed(() => sectionTitles[activeNames.value] || '基础设置')
   const appStore = useAppStore()
   const userStore = useUserStore()
   const { device } = storeToRefs(appStore)
@@ -1773,20 +1763,63 @@
     padding: 0;
     color: var(--el-text-color-primary);
     background: transparent;
+  }
 
-    h2 {
-      margin: 24px 0 18px;
-      padding-bottom: 10px;
-      color: var(--el-text-color-primary);
-      border-bottom: 1px solid var(--el-border-color-lighter);
-      font-size: 15px;
-      font-weight: 600;
-      line-height: 24px;
-    }
+  .config-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 52px;
+    margin-left: 228px;
+    padding: 0 0 14px 28px;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+  }
+
+  .config-toolbar-title,
+  .config-toolbar-actions {
+    display: flex;
+    align-items: center;
+  }
+
+  .config-toolbar-title {
+    min-width: 0;
+    gap: 10px;
+  }
+
+  .config-toolbar-title h2 {
+    margin: 0;
+    color: var(--el-text-color-primary);
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 28px;
+  }
+
+  .config-toolbar-indicator {
+    width: 8px;
+    height: 8px;
+    flex: 0 0 auto;
+    border-radius: 2px;
+    background: var(--el-color-primary);
+  }
+
+  .config-toolbar-actions {
+    flex: 0 0 auto;
+    gap: 8px;
   }
 
   .config-form {
     min-width: 0;
+  }
+
+  .config-tabs h2 {
+    margin: 24px 0 18px;
+    padding-bottom: 10px;
+    color: var(--el-text-color-primary);
+    border-bottom: 1px solid var(--el-border-color-lighter);
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 24px;
   }
 
   .config-tabs {
@@ -1808,13 +1841,11 @@
     }
 
     :deep(.el-tab-pane) {
-      width: 100%;
+      width: min(100%, 1120px);
       min-height: calc(100vh - 196px);
       margin-top: 0 !important;
-      padding: 26px 28px 28px;
-      border: 1px solid var(--el-border-color-lighter);
-      border-radius: 6px;
-      background: var(--el-bg-color);
+      padding: 12px 0 40px 28px;
+      background: transparent;
     }
   }
 
@@ -1828,10 +1859,9 @@
       flex: 0 0 208px;
       width: 208px;
       margin: 0 20px 0 0;
-      padding: 8px;
-      border: 1px solid var(--el-border-color-lighter);
-      border-radius: 6px;
-      background: var(--el-bg-color);
+      padding: 4px 16px 4px 0;
+      border-right: 1px solid var(--el-border-color-lighter);
+      background: transparent;
     }
 
     :deep(.el-tabs__nav-wrap::after),
@@ -1846,9 +1876,9 @@
 
     :deep(.el-tabs__item.is-left) {
       justify-content: flex-start;
-      height: 40px;
+      height: 44px;
       margin: 2px 0;
-      padding: 0 12px !important;
+      padding: 0 10px !important;
       border-radius: 4px;
       color: var(--el-text-color-regular);
       font-size: 13px;
@@ -1863,8 +1893,39 @@
     :deep(.el-tabs__item.is-left.is-active) {
       color: var(--el-color-primary);
       font-weight: 600;
-      background: var(--el-color-primary-light-9);
+      background: transparent;
     }
+
+    :deep(.el-tabs__item.is-left.is-active::after) {
+      width: 6px;
+      height: 6px;
+      margin-left: auto;
+      border-radius: 2px;
+      background: var(--el-color-primary);
+      content: '';
+    }
+  }
+
+  .config-tab-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .config-tab-label :deep(.el-icon) {
+    width: 28px;
+    height: 28px;
+    flex: 0 0 auto;
+    border-radius: 4px;
+    color: var(--el-text-color-secondary);
+    background: var(--el-fill-color-light);
+    font-size: 15px;
+  }
+
+  .config-tabs :deep(.el-tabs__item.is-active .config-tab-label .el-icon) {
+    color: var(--el-color-primary);
+    background: var(--el-color-primary-light-9);
   }
 
   .config-tabs.el-tabs--top {
@@ -2101,18 +2162,6 @@
     font-size: 12px;
   }
 
-  .config-action-bar {
-    position: sticky;
-    z-index: 10;
-    bottom: 0;
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    margin: 16px 0 0 228px;
-    padding: 12px 0;
-    background: var(--el-bg-color-page);
-  }
-
   @media (max-width: 1280px) {
     .provider-section {
       grid-template-columns: minmax(0, 1fr);
@@ -2145,18 +2194,18 @@
   }
 
   @media (max-width: 991px) {
+    .config-toolbar {
+      margin-left: 0;
+      padding: 0 0 12px;
+    }
+
     .config-tabs {
       min-height: auto;
     }
 
     .config-tabs :deep(.el-tab-pane) {
       min-height: auto;
-      padding: 22px 20px 24px;
-    }
-
-    .config-action-bar {
-      margin: 12px 0 0;
-      padding: 10px 0;
+      padding: 12px 0 28px;
     }
   }
 
@@ -2168,8 +2217,7 @@
     }
 
     .config-tabs :deep(.el-tab-pane) {
-      padding: 18px 14px 20px;
-      border-radius: 4px;
+      padding: 12px 0 24px;
     }
 
     .recognition-overview {
@@ -2210,13 +2258,24 @@
       grid-column: auto;
     }
 
-    .config-action-bar {
-      margin: 10px 0 0;
-      padding: 10px 0;
-    }
   }
 
   @media (max-width: 480px) {
+    .config-toolbar {
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .config-toolbar-title,
+    .config-toolbar-actions {
+      width: 100%;
+    }
+
+    .config-toolbar-actions :deep(.el-button) {
+      flex: 1 1 0;
+      margin-left: 0;
+    }
+
     .flow-step {
       width: 100%;
     }
@@ -2227,9 +2286,5 @@
       transform: rotate(90deg);
     }
 
-    .config-action-bar :deep(.el-button) {
-      flex: 1 1 0;
-      margin-left: 0;
-    }
   }
 </style>
