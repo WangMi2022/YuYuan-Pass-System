@@ -14,10 +14,48 @@
       <aside class="na-panel calendar-sidebar">
         <div class="sidebar-section mini-calendar-section">
           <div class="section-heading">
-            <div>
-              <span>浏览月份</span>
-              <strong>{{ miniMonthLabel }}</strong>
-            </div>
+            <el-popover
+              v-model:visible="dateNavigatorVisible"
+              placement="bottom-start"
+              :width="260"
+              trigger="click"
+              popper-class="work-calendar-date-popper"
+              @show="syncDateNavigator"
+            >
+              <template #reference>
+                <button type="button" class="month-picker-trigger" aria-label="选择查看日期">
+                  <span>浏览月份</span>
+                  <strong>{{ miniMonthLabel }}</strong>
+                  <el-icon><ArrowDown /></el-icon>
+                </button>
+              </template>
+              <div class="date-navigator">
+                <div class="date-navigator-year">
+                  <el-button :icon="ArrowLeft" circle text aria-label="上一年" @click="changePickerYear(-1)" />
+                  <el-select v-model="pickerYear" filterable aria-label="选择年份">
+                    <el-option v-for="year in availableYears" :key="year" :label="`${year} 年`" :value="year" />
+                  </el-select>
+                  <el-button :icon="ArrowRight" circle text aria-label="下一年" @click="changePickerYear(1)" />
+                </div>
+                <div class="date-navigator-months" aria-label="选择月份">
+                  <button
+                    v-for="month in 12"
+                    :key="month"
+                    type="button"
+                    :class="{ 'is-active': pickerMonth === month }"
+                    @click="pickerMonth = month"
+                  >
+                    {{ month }}月
+                  </button>
+                </div>
+                <div class="date-navigator-footer">
+                  <el-select v-model="pickerDay" aria-label="选择日期">
+                    <el-option v-for="day in pickerDays" :key="day" :label="`${day} 日`" :value="day" />
+                  </el-select>
+                  <el-button type="primary" @click="applyDateNavigator">查看</el-button>
+                </div>
+              </div>
+            </el-popover>
             <div class="month-nav">
               <el-tooltip content="上个月" placement="top">
                 <el-button :icon="ArrowLeft" circle text aria-label="上个月" @click="changeMonth(-1)" />
@@ -47,7 +85,79 @@
         <div class="sidebar-section schedule-filter-section">
           <div class="section-heading section-heading--plain">
             <div><strong>日程类型</strong></div>
-            <span>{{ activeTypes.length }}/{{ scheduleTypes.length }}</span>
+            <div class="section-tools">
+              <span>{{ activeTypes.length }}/{{ scheduleTypes.length }}</span>
+              <el-popover
+                v-model:visible="typeManagerVisible"
+                placement="right-start"
+                :width="320"
+                trigger="click"
+                popper-class="work-calendar-type-popper"
+                @hide="cancelTypeEdit"
+              >
+                <template #reference>
+                  <span class="type-manager-trigger">
+                    <el-tooltip content="管理日程类型" placement="top">
+                      <el-button :icon="Setting" circle text aria-label="管理日程类型" />
+                    </el-tooltip>
+                  </span>
+                </template>
+                <div class="type-manager">
+                  <div class="type-manager-heading">
+                    <strong>日程类型</strong>
+                    <span>{{ scheduleTypes.length }} 项</span>
+                  </div>
+                  <div class="type-manager-list">
+                    <div v-for="type in scheduleTypes" :key="type.value" class="type-manager-item">
+                      <i :style="{ background: type.color }" />
+                      <span class="type-manager-label">{{ type.label }}</span>
+                      <el-tooltip content="编辑" placement="top">
+                        <el-button :icon="EditPen" circle text aria-label="编辑类型" @click="startEditType(type)" />
+                      </el-tooltip>
+                      <el-popconfirm
+                        :title="typeDeleteTitle(type.value)"
+                        :disabled="!canDeleteType(type.value)"
+                        @confirm="removeScheduleType(type.value)"
+                      >
+                        <template #reference>
+                          <span class="type-delete-trigger" :title="typeDeleteTitle(type.value)">
+                            <el-button
+                              :icon="Delete"
+                              circle
+                              text
+                              type="danger"
+                              :disabled="!canDeleteType(type.value)"
+                              aria-label="删除类型"
+                            />
+                          </span>
+                        </template>
+                      </el-popconfirm>
+                    </div>
+                  </div>
+                  <div v-if="typeDraft" class="type-editor">
+                    <el-color-picker v-model="typeDraft.color" aria-label="类型颜色" />
+                    <el-input
+                      v-model="typeDraft.label"
+                      maxlength="12"
+                      placeholder="类型名称"
+                      @keyup.enter="saveScheduleType"
+                    />
+                    <el-button @click="cancelTypeEdit">取消</el-button>
+                    <el-button type="primary" @click="saveScheduleType">保存</el-button>
+                  </div>
+                  <el-button
+                    v-else
+                    class="add-type-button"
+                    :icon="Plus"
+                    text
+                    :disabled="scheduleTypes.length >= maxScheduleTypes"
+                    @click="startAddType"
+                  >
+                    新增类型
+                  </el-button>
+                </div>
+              </el-popover>
+            </div>
           </div>
           <el-checkbox-group v-model="activeTypes" class="schedule-filters">
             <el-checkbox v-for="type in scheduleTypes" :key="type.value" :label="type.value">
@@ -207,29 +317,40 @@
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
-import { ArrowLeft, ArrowRight, Clock, Delete, Plus } from '@element-plus/icons-vue'
+import { ArrowDown, ArrowLeft, ArrowRight, Clock, Delete, EditPen, Plus, Setting } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
 
 defineOptions({ name: 'WorkCalendar' })
 
-const storageKey = 'gva-work-calendar-events'
+const eventStorageKey = 'gva-work-calendar-events'
+const typeStorageKey = 'gva-work-calendar-types'
+const maxScheduleTypes = 12
 const weekdays = ['一', '二', '三', '四', '五', '六', '日']
-const scheduleTypes = [
+const defaultScheduleTypes = [
   { value: 'task', label: '工作任务', color: '#4f7cf3' },
   { value: 'meeting', label: '会议沟通', color: '#7a61d4' },
   { value: 'asset', label: '资产盘点', color: '#18a678' },
   { value: 'reminder', label: '到期提醒', color: '#d9773c' }
 ]
+const typePalette = ['#4f7cf3', '#7a61d4', '#18a678', '#d9773c', '#d94f70', '#168aad', '#6b8e23', '#b26bce']
 
 const today = new Date()
 const viewedMonth = ref(new Date(today.getFullYear(), today.getMonth(), 1))
 const selectedDate = ref(dateKey(today))
 const schedules = ref([])
-const activeTypes = ref(scheduleTypes.map((type) => type.value))
+const scheduleTypes = ref(defaultScheduleTypes.map((type) => ({ ...type })))
+const activeTypes = ref(scheduleTypes.value.map((type) => type.value))
 const dialogVisible = ref(false)
 const editingId = ref('')
 const draft = ref(createDraft(selectedDate.value))
+const dateNavigatorVisible = ref(false)
+const pickerYear = ref(today.getFullYear())
+const pickerMonth = ref(today.getMonth() + 1)
+const pickerDay = ref(today.getDate())
+const typeManagerVisible = ref(false)
+const editingTypeValue = ref('')
+const typeDraft = ref(null)
 
 const monthFormatter = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long' })
 const dateFormatter = new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' })
@@ -237,6 +358,11 @@ const lunarFormatter = new Intl.DateTimeFormat('zh-CN-u-ca-chinese', { month: 's
 
 const monthLabel = computed(() => monthFormatter.format(viewedMonth.value))
 const miniMonthLabel = computed(() => `${viewedMonth.value.getFullYear()} 年 ${viewedMonth.value.getMonth() + 1} 月`)
+const availableYears = computed(() => Array.from({ length: 131 }, (_, index) => 1970 + index))
+const pickerDays = computed(() => Array.from(
+  { length: new Date(pickerYear.value, pickerMonth.value, 0).getDate() },
+  (_, index) => index + 1
+))
 const selectedDateLabel = computed(() => dateFormatter.format(fromDateKey(selectedDate.value)))
 const calendarDays = computed(() => buildCalendarDays(viewedMonth.value))
 const visibleSchedules = computed(() => schedules.value
@@ -258,20 +384,40 @@ const monthSchedules = computed(() => schedules.value.filter((schedule) => {
 }))
 
 watch(schedules, persistSchedules, { deep: true })
+watch(scheduleTypes, persistScheduleTypes, { deep: true })
+watch([pickerYear, pickerMonth], () => {
+  pickerDay.value = Math.min(pickerDay.value, pickerDays.value.length)
+})
 
 onMounted(() => {
   try {
-    const savedSchedules = JSON.parse(window.localStorage.getItem(storageKey) || '[]')
+    const savedTypes = JSON.parse(window.localStorage.getItem(typeStorageKey) || '[]')
+    if (Array.isArray(savedTypes)) {
+      const seenValues = new Set()
+      const validTypes = savedTypes.filter((type) => {
+        if (!isValidScheduleType(type) || seenValues.has(type.value)) return false
+        seenValues.add(type.value)
+        return true
+      })
+      if (validTypes.length) scheduleTypes.value = validTypes
+    }
+  } catch {
+    window.localStorage.removeItem(typeStorageKey)
+  }
+  activeTypes.value = scheduleTypes.value.map((type) => type.value)
+
+  try {
+    const savedSchedules = JSON.parse(window.localStorage.getItem(eventStorageKey) || '[]')
     if (Array.isArray(savedSchedules)) {
       schedules.value = savedSchedules.filter(isValidSchedule)
     }
   } catch {
-    window.localStorage.removeItem(storageKey)
+    window.localStorage.removeItem(eventStorageKey)
   }
 })
 
 function createDraft(date) {
-  return { title: '', date, time: '09:00', type: 'task', note: '' }
+  return { title: '', date, time: '09:00', type: scheduleTypes.value[0]?.value || 'task', note: '' }
 }
 
 function dateKey(date) {
@@ -321,7 +467,7 @@ function isSelected(day) {
 }
 
 function typeInfo(value) {
-  return scheduleTypes.find((type) => type.value === value) || scheduleTypes[0]
+  return scheduleTypes.value.find((type) => type.value === value) || scheduleTypes.value[0] || defaultScheduleTypes[0]
 }
 
 function visibleEventsFor(key) {
@@ -343,6 +489,26 @@ function goToToday() {
   const now = new Date()
   viewedMonth.value = new Date(now.getFullYear(), now.getMonth(), 1)
   selectedDate.value = dateKey(now)
+}
+
+function syncDateNavigator() {
+  const selected = fromDateKey(selectedDate.value)
+  pickerYear.value = viewedMonth.value.getFullYear()
+  pickerMonth.value = viewedMonth.value.getMonth() + 1
+  pickerDay.value = selected.getFullYear() === pickerYear.value && selected.getMonth() + 1 === pickerMonth.value
+    ? selected.getDate()
+    : 1
+}
+
+function changePickerYear(offset) {
+  pickerYear.value = Math.min(2100, Math.max(1970, pickerYear.value + offset))
+}
+
+function applyDateNavigator() {
+  const date = new Date(pickerYear.value, pickerMonth.value - 1, pickerDay.value)
+  viewedMonth.value = new Date(date.getFullYear(), date.getMonth(), 1)
+  selectedDate.value = dateKey(date)
+  dateNavigatorVisible.value = false
 }
 
 function openCreate(date = selectedDate.value) {
@@ -388,14 +554,98 @@ function removeSchedule(id) {
   ElMessage.success('日程已删除')
 }
 
+function startAddType() {
+  if (scheduleTypes.value.length >= maxScheduleTypes) return
+  editingTypeValue.value = ''
+  typeDraft.value = {
+    label: '',
+    color: typePalette[scheduleTypes.value.length % typePalette.length]
+  }
+}
+
+function startEditType(type) {
+  editingTypeValue.value = type.value
+  typeDraft.value = { label: type.label, color: type.color }
+}
+
+function cancelTypeEdit() {
+  editingTypeValue.value = ''
+  typeDraft.value = null
+}
+
+function saveScheduleType() {
+  const label = typeDraft.value?.label.trim()
+  if (!label) {
+    ElMessage.warning('请填写类型名称')
+    return
+  }
+  const duplicated = scheduleTypes.value.some((type) =>
+    type.label.toLocaleLowerCase() === label.toLocaleLowerCase() && type.value !== editingTypeValue.value)
+  if (duplicated) {
+    ElMessage.warning('类型名称不能重复')
+    return
+  }
+
+  if (editingTypeValue.value) {
+    const index = scheduleTypes.value.findIndex((type) => type.value === editingTypeValue.value)
+    if (index !== -1) {
+      scheduleTypes.value.splice(index, 1, {
+        ...scheduleTypes.value[index],
+        label,
+        color: typeDraft.value.color
+      })
+    }
+    ElMessage.success('日程类型已更新')
+  } else {
+    const value = `type-${Date.now()}-${Math.random().toString(16).slice(2)}`
+    scheduleTypes.value.push({ value, label, color: typeDraft.value.color })
+    activeTypes.value.push(value)
+    ElMessage.success('日程类型已新增')
+  }
+  cancelTypeEdit()
+}
+
+function scheduleTypeUsage(value) {
+  return schedules.value.filter((schedule) => schedule.type === value).length
+}
+
+function canDeleteType(value) {
+  return scheduleTypes.value.length > 1 && scheduleTypeUsage(value) === 0
+}
+
+function typeDeleteTitle(value) {
+  const usage = scheduleTypeUsage(value)
+  if (usage) return `已有 ${usage} 项日程使用该类型，不能删除`
+  if (scheduleTypes.value.length === 1) return '至少保留一个日程类型'
+  return '确认删除这个日程类型？'
+}
+
+function removeScheduleType(value) {
+  if (!canDeleteType(value)) return
+  scheduleTypes.value = scheduleTypes.value.filter((type) => type.value !== value)
+  activeTypes.value = activeTypes.value.filter((typeValue) => typeValue !== value)
+  if (draft.value.type === value) draft.value.type = scheduleTypes.value[0].value
+  if (editingTypeValue.value === value) cancelTypeEdit()
+  ElMessage.success('日程类型已删除')
+}
+
 function persistSchedules() {
-  window.localStorage.setItem(storageKey, JSON.stringify(schedules.value))
+  window.localStorage.setItem(eventStorageKey, JSON.stringify(schedules.value))
+}
+
+function persistScheduleTypes() {
+  window.localStorage.setItem(typeStorageKey, JSON.stringify(scheduleTypes.value))
 }
 
 function isValidSchedule(schedule) {
   return schedule && typeof schedule.id === 'string' && typeof schedule.title === 'string' &&
     /^\d{4}-\d{2}-\d{2}$/.test(schedule.date) && /^\d{2}:\d{2}$/.test(schedule.time) &&
-    scheduleTypes.some((type) => type.value === schedule.type)
+    scheduleTypes.value.some((type) => type.value === schedule.type)
+}
+
+function isValidScheduleType(type) {
+  return type && typeof type.value === 'string' && type.value && typeof type.label === 'string' &&
+    type.label.trim() && /^#[0-9a-f]{6}$/i.test(type.color)
 }
 </script>
 
@@ -406,11 +656,20 @@ function isValidSchedule(schedule) {
 .sidebar-section { padding: 15px 16px; }
 .sidebar-section + .sidebar-section { border-top: 1px solid var(--na-border); }
 .section-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; margin-bottom: 12px; }
-.section-heading > div { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.section-heading > div:not(.section-tools) { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
 .section-heading span { color: var(--na-muted-foreground); font-size: .6875rem; }
 .section-heading strong { overflow: hidden; color: var(--na-foreground); font-size: .8125rem; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
 .section-heading--plain { margin-bottom: 10px; }
 .section-heading--plain > span, .section-heading > .el-icon { flex: 0 0 auto; color: var(--na-muted-foreground); font-size: .75rem; }
+.month-picker-trigger { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr) 14px; gap: 2px 5px; padding: 0; border: 0; background: transparent; color: var(--na-foreground); text-align: left; }
+.month-picker-trigger > span { grid-column: 1 / -1; }
+.month-picker-trigger strong { min-width: 0; }
+.month-picker-trigger .el-icon { align-self: center; color: var(--na-muted-foreground); font-size: .6875rem; transition: transform 160ms ease; }
+.month-picker-trigger:hover strong { color: var(--na-primary); }
+.month-picker-trigger:focus-visible { border-radius: 5px; outline-offset: 4px; }
+.section-tools { display: flex; flex: 0 0 auto; align-items: center; gap: 3px; }
+.section-tools :deep(.el-button) { width: 25px; min-width: 25px; height: 25px; padding: 0; }
+.type-manager-trigger { display: inline-flex; }
 .month-nav { display: flex; flex: 0 0 auto; align-items: center; gap: 1px; }
 .month-nav :deep(.el-button) { width: 26px; min-width: 26px; height: 26px; padding: 0; }
 .mini-weekdays, .mini-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); text-align: center; }
@@ -425,6 +684,31 @@ function isValidSchedule(schedule) {
 .schedule-filters :deep(.el-checkbox) { width: 100%; height: 26px; margin-right: 0; }
 .schedule-filters :deep(.el-checkbox__label) { display: inline-flex; min-width: 0; align-items: center; gap: 7px; padding-left: 7px; color: var(--na-foreground); font-size: .75rem; }
 .schedule-filters i { width: 7px; height: 7px; border-radius: 2px; }
+.date-navigator { display: grid; gap: 11px; }
+.date-navigator-year { display: grid; grid-template-columns: 28px minmax(0, 1fr) 28px; align-items: center; gap: 6px; }
+.date-navigator-year :deep(.el-button) { width: 28px; min-width: 28px; height: 28px; padding: 0; }
+.date-navigator-year :deep(.el-select__wrapper) { min-height: 30px; box-shadow: none; }
+.date-navigator-months { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
+.date-navigator-months button { min-height: 32px; padding: 0 6px; border: 1px solid transparent; border-radius: 7px; background: var(--na-muted); color: var(--na-foreground); font-size: .75rem; font-weight: 560; }
+.date-navigator-months button:hover { border-color: var(--na-border-strong); background: var(--na-card); }
+.date-navigator-months button.is-active { border-color: var(--na-primary); background: var(--na-primary); color: var(--na-on-primary); }
+.date-navigator-footer { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding-top: 10px; border-top: 1px solid var(--na-border); }
+.date-navigator-footer :deep(.el-select__wrapper) { min-height: 32px; }
+.type-manager { display: grid; gap: 10px; }
+.type-manager-heading { display: flex; align-items: center; justify-content: space-between; }
+.type-manager-heading strong { color: var(--na-foreground); font-size: .8125rem; font-weight: 650; }
+.type-manager-heading span { color: var(--na-muted-foreground); font-size: .6875rem; }
+.type-manager-list { display: grid; max-height: 252px; overflow-y: auto; }
+.type-manager-item { display: grid; min-width: 0; grid-template-columns: 9px minmax(0, 1fr) 26px 26px; align-items: center; gap: 7px; min-height: 35px; border-bottom: 1px solid var(--na-border); }
+.type-manager-item > i { width: 8px; height: 8px; border-radius: 2px; }
+.type-manager-label { overflow: hidden; color: var(--na-foreground); font-size: .75rem; text-overflow: ellipsis; white-space: nowrap; }
+.type-delete-trigger { display: inline-flex; }
+.type-manager-item :deep(.el-button) { width: 26px; min-width: 26px; height: 26px; padding: 0; }
+.type-editor { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto auto; align-items: center; gap: 6px; padding-top: 2px; }
+.type-editor :deep(.el-color-picker__trigger) { width: 30px; height: 30px; padding: 3px; }
+.type-editor :deep(.el-input__wrapper) { min-height: 32px; }
+.type-editor :deep(.el-button) { min-height: 32px; padding: 0 10px; }
+.add-type-button { justify-self: start; }
 .selected-day-section { min-height: 144px; }
 .selected-schedule-list { display: grid; gap: 4px; }
 .selected-schedule-list button { display: grid; min-width: 0; grid-template-columns: 7px 38px minmax(0, 1fr); align-items: center; gap: 7px; min-height: 28px; padding: 0 5px; border: 0; border-radius: 6px; background: transparent; color: var(--na-foreground); text-align: left; }
