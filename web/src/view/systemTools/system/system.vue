@@ -3,7 +3,7 @@
     <AppPageHeader
       title-id="runtime-config-title"
       title="运行配置"
-      description="运行环境 · 全局参数"
+      description="服务、存储、安全与智能识别"
     >
       <template #actions>
         <el-tooltip
@@ -34,106 +34,118 @@
       </template>
     </AppPageHeader>
 
-    <section v-loading="configLoading" class="runtime-band" :class="{ unavailable: !configReady }" aria-label="运行配置总览">
-      <div class="runtime-telemetry">
-        <div class="telemetry-lead">
-          <span class="signal-dot" aria-hidden="true" />
-          <span>{{ configReady ? '当前运行态' : '等待配置' }}</span>
-        </div>
-        <div class="telemetry-item">
-          <span>主数据库</span>
-          <strong>{{ databaseTypeLabel }}</strong>
-        </div>
-        <div class="telemetry-item">
-          <span>文件存储</span>
-          <strong>{{ storageTypeLabel }}</strong>
-        </div>
-        <div class="telemetry-item">
-          <span>数据服务</span>
-          <strong>{{ dataServiceLabel }}</strong>
-        </div>
-        <div class="telemetry-item">
-          <span>识别通道</span>
-          <strong>{{ recognitionProviderCount }} / 4</strong>
+    <section
+      v-loading="configLoading"
+      class="runtime-summary"
+      :class="{ unavailable: !configReady }"
+      aria-label="运行配置总览"
+    >
+      <div class="runtime-summary-lead">
+        <span class="signal-dot" :class="{ waiting: !configReady, failed: configLoadError }" aria-hidden="true" />
+        <div>
+          <span>运行状态</span>
+          <strong>{{ configReady ? '配置中心在线' : '正在连接配置中心' }}</strong>
         </div>
       </div>
-
-      <nav class="domain-topology" aria-label="配置域">
-        <button
-          v-for="(group, index) in visibleConfigGroups"
-          :key="group.key"
-          type="button"
-          class="domain-node"
-          :disabled="saving || !configReady"
-          :class="{ active: activeGroup.key === group.key }"
-          :aria-pressed="activeGroup.key === group.key"
-          @click="activateGroup(group)"
-        >
-          <span class="domain-index">{{ String(index + 1).padStart(2, '0') }}</span>
-          <span class="domain-icon"><el-icon><component :is="group.icon" /></el-icon></span>
-          <span class="domain-copy">
-            <strong>{{ group.label }}</strong>
-            <small>{{ group.sections.length }} 个配置域</small>
-          </span>
-          <span class="domain-state" aria-hidden="true" />
-        </button>
-      </nav>
+      <dl class="runtime-summary-facts">
+        <div>
+          <dt>主数据库</dt>
+          <dd>{{ databaseTypeLabel }}</dd>
+        </div>
+        <div>
+          <dt>文件存储</dt>
+          <dd>{{ storageTypeLabel }}</dd>
+        </div>
+        <div>
+          <dt>数据服务</dt>
+          <dd>{{ dataServiceLabel }}</dd>
+        </div>
+        <div>
+          <dt>识别通道</dt>
+          <dd>{{ recognitionProviderCount }} / 4</dd>
+        </div>
+      </dl>
+      <div
+        class="config-sync-state"
+        :class="{ dirty: isDirty, failed: configLoadError, waiting: !configReady && !configLoadError }"
+        role="status"
+      >
+        <el-icon>
+          <WarningFilled v-if="isDirty || configLoadError" />
+          <CircleCheckFilled v-else-if="configReady" />
+          <Refresh v-else />
+        </el-icon>
+        <span>{{ configLoadError ? '配置读取失败' : (!configReady ? '正在读取配置' : (isDirty ? '有未保存更改' : '配置已同步')) }}</span>
+      </div>
     </section>
 
-    <div class="config-mobile-nav">
-      <span>配置区域</span>
-      <el-select v-model="activeNames" :disabled="saving || !configReady" aria-label="选择配置区域">
-        <el-option-group
-          v-for="group in visibleConfigGroups"
-          :key="group.key"
-          :label="group.label"
-        >
-          <el-option
-            v-for="section in group.sections"
-            :key="section.name"
-            :label="section.label"
-            :value="section.name"
-          />
-        </el-option-group>
-      </el-select>
-    </div>
+    <div class="config-console na-panel">
+      <aside class="config-sidebar" aria-label="配置导航">
+        <header class="config-sidebar-header">
+          <span>配置导航</span>
+          <strong>{{ visibleSections.length }} 个配置项</strong>
+        </header>
+        <nav class="config-sidebar-nav">
+          <section
+            v-for="group in visibleConfigGroups"
+            :key="group.key"
+            class="config-nav-group"
+          >
+            <div class="config-nav-group-title">
+              <el-icon><component :is="group.icon" /></el-icon>
+              <span>{{ group.label }}</span>
+              <small>{{ group.sections.length }}</small>
+            </div>
+            <div class="config-nav-items">
+              <button
+                v-for="section in group.sections"
+                :key="section.name"
+                type="button"
+                :disabled="saving || !configReady"
+                :class="{ active: activeNames === section.name }"
+                :aria-current="activeNames === section.name ? 'page' : undefined"
+                @click="activeNames = section.name"
+              >
+                <span>{{ section.label }}</span>
+                <el-icon class="config-nav-arrow" aria-hidden="true"><ArrowRight /></el-icon>
+              </button>
+            </div>
+          </section>
+        </nav>
+      </aside>
 
-    <section class="config-workbench na-panel" :aria-labelledby="`config-section-${activeNames}`">
-      <header class="config-editor-header">
-        <div class="config-editor-heading">
-          <span class="section-code">{{ activeGroupOrdinal }}</span>
-          <span class="config-editor-icon" aria-hidden="true">
-            <el-icon><component :is="activeSection.icon" /></el-icon>
-          </span>
-          <div>
-            <span>{{ activeSection.groupLabel }}</span>
-            <h2 :id="`config-section-${activeNames}`">{{ activeSection.label }}</h2>
-          </div>
+      <div class="config-main">
+        <div class="config-mobile-nav">
+          <span>配置区域</span>
+          <el-select v-model="activeNames" :disabled="saving || !configReady" aria-label="选择配置区域">
+            <el-option-group
+              v-for="group in visibleConfigGroups"
+              :key="group.key"
+              :label="group.label"
+            >
+              <el-option
+                v-for="section in group.sections"
+                :key="section.name"
+                :label="section.label"
+                :value="section.name"
+              />
+            </el-option-group>
+          </el-select>
         </div>
-        <div class="config-sync-state" :class="{ dirty: isDirty, failed: configLoadError, waiting: !configReady && !configLoadError }" role="status">
-          <el-icon>
-            <WarningFilled v-if="isDirty || configLoadError" />
-            <CircleCheckFilled v-else-if="configReady" />
-            <Refresh v-else />
-          </el-icon>
-          <span>{{ configLoadError ? '配置读取失败' : (!configReady ? '正在读取配置' : (isDirty ? '有未保存更改' : '配置已同步')) }}</span>
-        </div>
-      </header>
 
-      <nav v-if="activeGroup.sections.length > 1" class="config-section-switcher" aria-label="当前配置域">
-        <button
-          v-for="section in activeGroup.sections"
-          :key="section.name"
-          type="button"
-          :disabled="saving || !configReady"
-          :class="{ active: activeNames === section.name }"
-          :aria-pressed="activeNames === section.name"
-          @click="activeNames = section.name"
-        >
-          <el-icon><component :is="section.icon" /></el-icon>
-          <span>{{ section.label }}</span>
-        </button>
-      </nav>
+        <section class="config-workbench" :aria-labelledby="`config-section-${activeNames}`">
+          <header class="config-editor-header">
+            <div class="config-editor-heading">
+              <span class="config-editor-icon" aria-hidden="true">
+                <el-icon><component :is="activeSection.icon" /></el-icon>
+              </span>
+              <div>
+                <span>{{ activeSection.groupLabel }}</span>
+                <h2 :id="`config-section-${activeNames}`">{{ activeSection.label }}</h2>
+                <p>{{ activeSection.description }}</p>
+              </div>
+            </div>
+          </header>
 
       <el-form
         v-if="configReady"
@@ -164,7 +176,7 @@
               <el-option value="oracle" />
             </el-select>
           </el-form-item>
-          <el-form-item label="Oss类型">
+          <el-form-item label="文件存储类型">
             <el-select v-model="config.system['oss-type']" class="w-full">
               <el-option value="local" label="本地" />
               <el-option value="qiniu" label="七牛" />
@@ -178,10 +190,10 @@
           <el-form-item label="多点登录拦截">
             <el-switch v-model="config.system['use-multipoint']" />
           </el-form-item>
-          <el-form-item label="开启redis">
+          <el-form-item label="启用 Redis">
             <el-switch v-model="config.system['use-redis']" />
           </el-form-item>
-          <el-form-item label="开启Mongo">
+          <el-form-item label="启用 MongoDB">
             <el-switch v-model="config.system['use-mongo']" />
           </el-form-item>
           <el-form-item label="严格角色模式">
@@ -209,7 +221,7 @@
           </el-tooltip>
         </el-tab-pane>
         <el-tab-pane label="JWT 签名" name="2" lazy>
-          <el-form-item label="jwt签名">
+          <el-form-item label="JWT 签名密钥">
             <el-input
               v-model.trim="config.jwt['signing-key']"
               placeholder="请输入jwt签名"
@@ -1460,7 +1472,9 @@
         <el-button :icon="Refresh" @click="initForm">重新加载</el-button>
       </div>
       <el-skeleton v-else class="config-loading-state" :rows="8" animated />
-    </section>
+        </section>
+      </div>
+    </div>
   </main>
 </template>
 
@@ -1474,6 +1488,7 @@
   import { computed, ref, watch } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import {
+    ArrowRight,
     Check,
     CircleCheckFilled,
     Coin,
@@ -1616,8 +1631,8 @@
       label: '核心运行',
       icon: Setting,
       sections: [
-        { name: '1', label: '基础设置', icon: Setting },
-        { name: '3', label: '运行日志', icon: Document }
+        { name: '1', label: '基础设置', description: '服务端口、存储类型与基础开关', icon: Setting },
+        { name: '3', label: '运行日志', description: '日志级别、输出方式与保留策略', icon: Document }
       ]
     },
     {
@@ -1625,8 +1640,8 @@
       label: '安全认证',
       icon: Key,
       sections: [
-        { name: '2', label: 'JWT 签名', icon: Key },
-        { name: '7', label: '验证码', icon: View }
+        { name: '2', label: 'JWT 签名', description: '签名密钥、令牌周期与签发身份', icon: Key },
+        { name: '7', label: '验证码', description: '验证码尺寸与字符规则', icon: View }
       ]
     },
     {
@@ -1634,9 +1649,9 @@
       label: '数据服务',
       icon: DataBoard,
       sections: [
-        { name: '9', label: '主数据库', icon: Coin },
-        { name: '4', label: 'Redis', icon: Connection, enabled: () => config.value.system['use-redis'] },
-        { name: '14', label: 'MongoDB', icon: DataBoard, enabled: () => config.value.system['use-mongo'] }
+        { name: '9', label: '主数据库', description: '数据库连接、连接池与日志策略', icon: Coin },
+        { name: '4', label: 'Redis', description: '缓存连接与数据库选择', icon: Connection, enabled: () => config.value.system['use-redis'] },
+        { name: '14', label: 'MongoDB', description: '文档数据库集群与连接参数', icon: DataBoard, enabled: () => config.value.system['use-mongo'] }
       ]
     },
     {
@@ -1644,8 +1659,8 @@
       label: '外部集成',
       icon: Connection,
       sections: [
-        { name: '10', label: '文件存储', icon: UploadFilled },
-        { name: '5', label: '邮件服务', icon: Message }
+        { name: '10', label: '文件存储', description: '本地与对象存储服务连接', icon: UploadFilled },
+        { name: '5', label: '邮件服务', description: 'SMTP 连接与通知账户', icon: Message }
       ]
     },
     {
@@ -1653,7 +1668,7 @@
       label: '智能识别',
       icon: Tickets,
       sections: [
-        { name: '11', label: '发票识别', icon: Tickets }
+        { name: '11', label: '发票识别', description: 'OCR、权威查验与多模态模型', icon: Tickets }
       ]
     }
   ]
@@ -1668,18 +1683,6 @@
   const activeSection = computed(() =>
     visibleSections.value.find((section) => section.name === activeNames.value) || visibleSections.value[0]
   )
-  const activeGroup = computed(() =>
-    visibleConfigGroups.value.find((group) =>
-      group.sections.some((section) => section.name === activeNames.value)
-    ) || visibleConfigGroups.value[0]
-  )
-  const activeGroupOrdinal = computed(() => {
-    const index = visibleConfigGroups.value.findIndex((group) => group.key === activeGroup.value.key)
-    return String(index + 1).padStart(2, '0')
-  })
-  const activateGroup = (group) => {
-    activeNames.value = group.sections[0].name
-  }
   const serializeConfig = (value) => JSON.stringify(value)
   const isDirty = computed(() => Boolean(savedSnapshot.value) &&
     serializeConfig(config.value) !== savedSnapshot.value)
@@ -2009,37 +2012,50 @@
     display: inline-flex;
   }
 
-  .runtime-band {
-    margin: 0 0 12px;
+  .runtime-summary {
+    display: grid;
+    grid-template-columns: minmax(180px, 1.1fr) minmax(0, 3fr) auto;
+    align-items: stretch;
+    min-width: 0;
+    margin-bottom: 16px;
     border-block: 1px solid var(--na-border);
     background: var(--na-card);
   }
 
-  .runtime-band.unavailable .telemetry-item,
-  .runtime-band.unavailable .domain-topology {
+  .runtime-summary.unavailable .runtime-summary-lead,
+  .runtime-summary.unavailable .runtime-summary-facts {
     opacity: 0.55;
   }
 
-  .runtime-telemetry {
-    display: grid;
-    grid-template-columns: minmax(160px, 1.2fr) repeat(4, minmax(128px, 1fr));
-    min-height: 48px;
-    border-bottom: 1px solid var(--na-border);
-  }
-
-  .telemetry-lead,
-  .telemetry-item {
+  .runtime-summary-lead {
     display: flex;
     align-items: center;
+    gap: 12px;
     min-width: 0;
-    padding: 8px 12px;
+    padding: 12px 16px;
   }
 
-  .telemetry-lead {
-    gap: 8px;
+  .runtime-summary-lead > div {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .runtime-summary-lead span {
+    color: var(--na-muted-foreground);
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  .runtime-summary-lead strong {
+    overflow: hidden;
     color: var(--na-foreground);
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 650;
+    line-height: 20px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .signal-dot {
@@ -2052,23 +2068,43 @@
     box-shadow: 0 0 0 3px var(--na-success-soft);
   }
 
-  .telemetry-item {
-    align-items: flex-start;
-    flex-direction: column;
-    justify-content: center;
-    gap: 2px;
+  .signal-dot.waiting {
+    background: var(--na-info);
+    box-shadow: 0 0 0 3px var(--na-info-soft);
+  }
+
+  .signal-dot.failed {
+    background: var(--na-danger);
+    box-shadow: 0 0 0 3px var(--na-danger-soft);
+  }
+
+  .runtime-summary-facts {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(120px, 1fr));
+    min-width: 0;
+    margin: 0;
     border-left: 1px solid var(--na-border);
   }
 
-  .telemetry-item span {
+  .runtime-summary-facts > div {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    padding: 10px 14px;
+    border-right: 1px solid var(--na-border);
+  }
+
+  .runtime-summary-facts dt {
     color: var(--na-muted-foreground);
     font-size: 12px;
     line-height: 18px;
   }
 
-  .telemetry-item strong {
+  .runtime-summary-facts dd {
     overflow: hidden;
-    width: 100%;
+    margin: 0;
     color: var(--na-foreground);
     font-size: 13px;
     font-weight: 600;
@@ -2077,123 +2113,134 @@
     white-space: nowrap;
   }
 
-  .domain-topology {
-    position: relative;
+  .config-console {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    padding: 8px 4px;
+    overflow: hidden;
+    grid-template-columns: 220px minmax(0, 1fr);
+    min-width: 0;
+    min-height: 620px;
   }
 
-  .domain-topology::before {
-    position: absolute;
-    top: 50%;
-    right: 8%;
-    left: 8%;
-    height: 1px;
-    background: var(--na-border-strong);
-    content: '';
+  .config-sidebar {
+    min-width: 0;
+    border-right: 1px solid var(--na-border);
+    background: color-mix(in srgb, var(--na-muted) 70%, var(--na-card));
   }
 
-  .domain-node {
-    position: relative;
-    z-index: 1;
+  .config-sidebar-header {
+    display: flex;
+    min-height: 64px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--na-border);
+  }
+
+  .config-sidebar-header span {
+    color: var(--na-muted-foreground);
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  .config-sidebar-header strong {
+    color: var(--na-foreground);
+    font-size: 14px;
+    font-weight: 650;
+    line-height: 20px;
+  }
+
+  .config-sidebar-nav {
+    padding: 12px 8px 20px;
+  }
+
+  .config-nav-group + .config-nav-group {
+    margin-top: 12px;
+  }
+
+  .config-nav-group-title {
     display: grid;
-    grid-template-columns: 24px 32px minmax(0, 1fr) 8px;
+    grid-template-columns: 18px minmax(0, 1fr) auto;
     align-items: center;
     gap: 8px;
-    min-width: 0;
-    min-height: 56px;
+    min-height: 28px;
     padding: 4px 8px;
-    border: 0;
-    border-radius: var(--na-radius-sm);
     color: var(--na-muted-foreground);
-    background: var(--na-card);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .config-nav-group-title .el-icon {
+    font-size: 14px;
+  }
+
+  .config-nav-group-title small {
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+
+  .config-nav-items {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .config-nav-items button {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 16px;
+    align-items: center;
+    gap: 8px;
+    min-height: 36px;
+    padding: 7px 10px 7px 34px;
+    border: 0;
+    border-radius: 7px;
+    color: var(--na-muted-foreground);
+    background: transparent;
     cursor: pointer;
+    font-size: 13px;
     text-align: left;
-    transition: color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+    transition: color 180ms cubic-bezier(.22, 1, .36, 1), background-color 180ms cubic-bezier(.22, 1, .36, 1);
   }
 
-  .domain-node:hover {
+  .config-nav-items button:hover {
     color: var(--na-foreground);
-    background: var(--na-muted);
+    background: var(--na-card);
   }
 
-  .domain-node:focus-visible {
+  .config-nav-items button:focus-visible {
     outline: 2px solid var(--na-primary);
     outline-offset: 2px;
   }
 
-  .domain-node.active {
+  .config-nav-items button.active {
     color: var(--na-primary);
     background: var(--na-primary-soft);
-    box-shadow: inset 0 0 0 1px var(--na-ring);
+    font-weight: 650;
   }
 
-  .domain-index {
-    color: var(--na-muted-foreground);
-    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-    font-size: 12px;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .domain-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border: 1px solid var(--na-border);
-    border-radius: var(--na-radius-sm);
-    color: var(--na-muted-foreground);
-    background: var(--na-card);
-    box-shadow: var(--na-shadow-sm);
-    font-size: 16px;
-  }
-
-  .domain-node.active .domain-icon {
-    color: var(--na-primary);
-    border-color: var(--na-ring);
-  }
-
-  .domain-copy {
-    display: flex;
-    overflow: hidden;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .domain-copy strong {
-    overflow: hidden;
-    color: currentColor;
-    font-size: 13px;
-    font-weight: 600;
-    line-height: 20px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .domain-copy small {
-    color: var(--na-muted-foreground);
-    font-size: 12px;
-    line-height: 18px;
-  }
-
-  .domain-state {
-    width: 8px;
-    height: 8px;
-    border: 2px solid var(--na-card);
-    border-radius: 50%;
-    background: var(--na-border-strong);
-    box-shadow: 0 0 0 1px var(--na-border-strong);
-  }
-
-  .domain-node.active .domain-state {
-    background: var(--na-primary);
-    box-shadow: 0 0 0 2px var(--na-ring);
-  }
-
-  .domain-node:disabled {
+  .config-nav-items button:disabled {
     cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  .config-nav-arrow {
+    opacity: 0;
+    transition: opacity 180ms ease, transform 180ms cubic-bezier(.22, 1, .36, 1);
+  }
+
+  .config-nav-items button:hover .config-nav-arrow,
+  .config-nav-items button.active .config-nav-arrow {
+    opacity: 1;
+  }
+
+  .config-nav-items button.active .config-nav-arrow {
+    transform: translateX(2px);
+  }
+
+  .config-main {
+    min-width: 0;
+    background: var(--na-card);
   }
 
   .config-mobile-nav {
@@ -2202,15 +2249,16 @@
 
   .config-workbench {
     overflow: hidden;
+    min-width: 0;
+    min-height: 620px;
   }
 
   .config-editor-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 16px;
-    min-height: 64px;
-    padding: 8px 16px;
+    min-height: 84px;
+    padding: 14px 20px;
     border-bottom: 1px solid var(--na-border);
   }
 
@@ -2218,32 +2266,20 @@
     display: flex;
     align-items: center;
     min-width: 0;
-    gap: 8px;
-  }
-
-  .section-code {
-    align-self: stretch;
-    display: inline-flex;
-    align-items: center;
-    padding-right: 8px;
-    border-right: 1px solid var(--na-border);
-    color: var(--na-muted-foreground);
-    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-    font-size: 12px;
-    font-variant-numeric: tabular-nums;
+    gap: 12px;
   }
 
   .config-editor-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     flex: 0 0 auto;
     border-radius: var(--na-radius-sm);
     color: var(--na-primary);
     background: var(--na-primary-soft);
-    font-size: 16px;
+    font-size: 18px;
   }
 
   .config-editor-heading > div {
@@ -2262,9 +2298,19 @@
     overflow: hidden;
     margin: 0;
     color: var(--na-foreground);
-    font-size: 16px;
+    font-size: 17px;
     font-weight: 650;
     line-height: 24px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .config-editor-heading p {
+    overflow: hidden;
+    margin: 2px 0 0;
+    color: var(--na-muted-foreground);
+    font-size: 12px;
+    line-height: 18px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -2275,6 +2321,8 @@
     flex: 0 0 auto;
     gap: 8px;
     min-height: 32px;
+    align-self: center;
+    margin: 0 16px;
     padding: 4px 8px;
     border: 1px solid var(--na-border);
     border-radius: 999px;
@@ -2297,55 +2345,6 @@
   .config-sync-state.waiting {
     color: var(--na-info);
     background: var(--na-info-soft);
-  }
-
-  .config-section-switcher {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    min-height: 44px;
-    padding: 4px 16px;
-    border-bottom: 1px solid var(--na-border);
-    background: var(--na-muted);
-  }
-
-  .config-section-switcher button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    min-height: 36px;
-    padding: 4px 8px;
-    border: 1px solid transparent;
-    border-radius: var(--na-radius-sm);
-    color: var(--na-muted-foreground);
-    background: transparent;
-    cursor: pointer;
-    font-size: 13px;
-    transition: color 180ms ease, background-color 180ms ease, border-color 180ms ease;
-  }
-
-  .config-section-switcher button:hover {
-    color: var(--na-foreground);
-    background: var(--na-card);
-  }
-
-  .config-section-switcher button:focus-visible {
-    outline: 2px solid var(--na-primary);
-    outline-offset: 2px;
-  }
-
-  .config-section-switcher button.active {
-    color: var(--na-primary);
-    border-color: var(--na-border);
-    background: var(--na-card);
-    box-shadow: var(--na-shadow-sm);
-    font-weight: 600;
-  }
-
-  .config-section-switcher button:disabled {
-    cursor: not-allowed;
-    opacity: 0.55;
   }
 
   .config-form,
@@ -2676,18 +2675,23 @@
   }
 
   @media (max-width: 1100px) {
-    .domain-topology {
-      display: none;
+    .runtime-summary {
+      grid-template-columns: minmax(0, 1fr) auto;
     }
 
-    .runtime-telemetry {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-
-    .telemetry-lead {
+    .runtime-summary-facts {
       grid-column: 1 / -1;
-      min-height: 36px;
-      border-bottom: 1px solid var(--na-border);
+      grid-row: 2;
+      border-top: 1px solid var(--na-border);
+      border-left: 0;
+    }
+
+    .config-console {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .config-sidebar {
+      display: none;
     }
 
     .config-mobile-nav {
@@ -2695,11 +2699,9 @@
       grid-template-columns: 88px minmax(0, 1fr);
       align-items: center;
       gap: 12px;
-      margin-bottom: 8px;
-      padding: 8px 12px;
-      border: 1px solid var(--na-border);
-      border-radius: var(--na-radius-sm);
-      background: var(--na-card);
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--na-border);
+      background: color-mix(in srgb, var(--na-muted) 70%, var(--na-card));
     }
 
     .config-mobile-nav > span {
@@ -2718,8 +2720,12 @@
   }
 
   @media (max-width: 768px) {
-    .runtime-telemetry {
+    .runtime-summary-facts {
       grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .runtime-summary-facts > div:nth-child(2n) {
+      border-right: 0;
     }
 
     .config-tabs :deep(.el-tab-pane) {
@@ -2729,7 +2735,7 @@
     }
 
     .config-tabs :deep(.el-tab-pane > .el-form-item) {
-      max-width: none;
+      max-width: 420px;
     }
 
     .config-tabs :deep(.el-tab-pane > .el-form-item:has(h3)),
@@ -2739,18 +2745,8 @@
     }
 
     .config-editor-header {
-      align-items: flex-start;
-      flex-wrap: wrap;
-      padding: 8px 12px;
-    }
-
-    .config-section-switcher {
-      flex-wrap: wrap;
-      padding: 8px 16px;
-    }
-
-    .config-section-switcher button {
-      min-height: 44px;
+      min-height: 76px;
+      padding: 12px 16px;
     }
 
     .recognition-overview {
@@ -2810,26 +2806,27 @@
       margin-left: 0;
     }
 
-    .telemetry-item {
-      padding: 8px 12px;
+    .config-tabs :deep(.el-tab-pane > .el-form-item) {
+      max-width: none;
+    }
+
+    .runtime-summary {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .runtime-summary-facts {
+      grid-row: auto;
+    }
+
+    .config-sync-state {
+      justify-self: start;
+      width: auto;
+      margin: 0 12px 12px;
     }
 
     .config-mobile-nav {
       grid-template-columns: minmax(0, 1fr);
-      gap: 7px;
-    }
-
-    .section-code {
-      display: none;
-    }
-
-    .config-sync-state {
-      width: 100%;
-      justify-content: center;
-    }
-
-    .config-section-switcher button {
-      flex: 1 1 132px;
+      gap: 8px;
     }
 
     .flow-step {
@@ -2844,8 +2841,8 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .domain-node,
-    .config-section-switcher button {
+    .config-nav-items button,
+    .config-nav-arrow {
       transition: none;
     }
   }
