@@ -1,0 +1,98 @@
+package system
+
+import (
+	"testing"
+
+	"github.com/flipped-aurora/gin-vue-admin/server/config"
+)
+
+func TestRedactSystemConfigSecrets(t *testing.T) {
+	original := systemSecretFixture()
+	redacted, configured := redactSystemConfigSecrets(original)
+
+	if len(configured) != len(systemSecretAccessors) {
+		t.Fatalf("configured secret count = %d, want %d", len(configured), len(systemSecretAccessors))
+	}
+	for path := range systemSecretAccessors {
+		if !configured[path] {
+			t.Errorf("secret %q was not marked configured", path)
+		}
+		value, ok := revealSystemConfigSecret(redacted, path)
+		if !ok {
+			t.Errorf("redacted secret %q is not in the whitelist", path)
+		} else if value != "" {
+			t.Errorf("redacted secret %q leaked value %q", path, value)
+		}
+	}
+	if !redacted.InvoiceRecognition.Baidu.APIKeyConfigured ||
+		!redacted.InvoiceRecognition.Verification.SecretKeyConfigured ||
+		!redacted.InvoiceRecognition.Multimodal.APIKeyConfigured {
+		t.Fatal("invoice credential configured flags were not preserved")
+	}
+}
+
+func TestMergeSystemConfigSecretsPreservesBlankAndAcceptsReplacement(t *testing.T) {
+	current := systemSecretFixture()
+	incoming := config.Server{}
+	incoming.Qiniu.AccessKey = "replacement-access"
+	incoming.InvoiceRecognition = current.InvoiceRecognition.Redacted()
+
+	mergeSystemConfigSecrets(&incoming, current)
+
+	if incoming.Qiniu.AccessKey != "replacement-access" {
+		t.Fatalf("explicit replacement was lost: %q", incoming.Qiniu.AccessKey)
+	}
+	if incoming.Qiniu.SecretKey != current.Qiniu.SecretKey {
+		t.Fatalf("blank secret was not preserved: %q", incoming.Qiniu.SecretKey)
+	}
+	if incoming.JWT.SigningKey != current.JWT.SigningKey {
+		t.Fatalf("blank JWT signing key was not preserved: %q", incoming.JWT.SigningKey)
+	}
+
+	incoming.InvoiceRecognition.Baidu.APIKey = ""
+	mergeSystemConfigSecrets(&incoming, current)
+	if incoming.InvoiceRecognition.Baidu.APIKey != "" {
+		t.Fatalf("cleared invoice key was restored: %q", incoming.InvoiceRecognition.Baidu.APIKey)
+	}
+}
+
+func TestRevealSystemConfigSecretUsesWhitelist(t *testing.T) {
+	configuration := systemSecretFixture()
+
+	value, ok := revealSystemConfigSecret(configuration, "qiniu.secret-key")
+	if !ok || value != "qiniu-secret" {
+		t.Fatalf("revealed value = %q, ok = %v", value, ok)
+	}
+	if _, ok := revealSystemConfigSecret(configuration, "mysql.password"); ok {
+		t.Fatal("non-whitelisted field was revealed")
+	}
+	if _, ok := revealSystemConfigSecret(configuration, "qiniu.bucket"); ok {
+		t.Fatal("non-secret field was revealed")
+	}
+}
+
+func systemSecretFixture() config.Server {
+	return config.Server{
+		JWT:   config.JWT{SigningKey: "jwt-secret"},
+		Email: config.Email{Secret: "email-secret"},
+		Qiniu: config.Qiniu{AccessKey: "qiniu-access", SecretKey: "qiniu-secret"},
+		TencentCOS: config.TencentCOS{
+			SecretID: "tencent-id", SecretKey: "tencent-secret",
+		},
+		AliyunOSS: config.AliyunOSS{
+			AccessKeyId: "aliyun-id", AccessKeySecret: "aliyun-secret",
+		},
+		HuaWeiObs: config.HuaWeiObs{AccessKey: "huawei-access", SecretKey: "huawei-secret"},
+		AwsS3:     config.AwsS3{SecretID: "aws-id", SecretKey: "aws-secret"},
+		CloudflareR2: config.CloudflareR2{
+			AccessKeyID: "r2-id", SecretAccessKey: "r2-secret",
+		},
+		Minio: config.Minio{AccessKeyId: "minio-id", AccessKeySecret: "minio-secret"},
+		InvoiceRecognition: config.InvoiceRecognition{
+			Baidu:        config.InvoiceBaiduProvider{APIKey: "baidu-api", SecretKey: "baidu-secret"},
+			PublicOCR:    config.InvoicePublicOCR{APIKey: "public-ocr-api"},
+			Verification: config.InvoiceVerificationProvider{APIKey: "verify-api", SecretKey: "verify-secret"},
+			Multimodal:   config.InvoiceMultimodalProvider{APIKey: "multimodal-api"},
+		},
+	}
+}

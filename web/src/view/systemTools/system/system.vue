@@ -222,14 +222,17 @@
         </el-tab-pane>
         <el-tab-pane label="JWT 签名" name="2" lazy>
           <el-form-item label="JWT 签名密钥">
-            <el-input
+            <SecretInput
               v-model.trim="config.jwt['signing-key']"
-              placeholder="请输入jwt签名"
+              secret-path="jwt.signing-key"
+              :configured="isSecretConfigured('jwt.signing-key')"
+              :can-reveal="canManageSystemSecrets"
+              placeholder="请输入 JWT 签名密钥"
             >
               <template #append>
                 <el-button @click="getUUID">生成</el-button>
               </template>
-            </el-input>
+            </SecretInput>
           </el-form-item>
           <el-form-item label="有效期">
             <el-input
@@ -367,9 +370,12 @@
             <el-switch v-model="config.email['is-loginauth']" />
           </el-form-item>
           <el-form-item label="secret">
-            <el-input
+            <SecretInput
               v-model.trim="config.email.secret"
-              placeholder="请输入secret"
+              secret-path="email.secret"
+              :configured="isSecretConfigured('email.secret')"
+              :can-reveal="canManageSystemSecrets"
+              placeholder="请输入邮件服务密钥"
             />
           </el-form-item>
           <el-form-item label="测试邮件">
@@ -866,15 +872,21 @@
               <el-switch v-model="config.qiniu['use-https']">开启</el-switch>
             </el-form-item>
             <el-form-item label="accessKey">
-              <el-input
+              <SecretInput
                 v-model.trim="config.qiniu['access-key']"
-                placeholder="请输入accessKey"
+                secret-path="qiniu.access-key"
+                :configured="isSecretConfigured('qiniu.access-key')"
+                :can-reveal="canManageSystemSecrets"
+                placeholder="请输入 Access Key"
               />
             </el-form-item>
             <el-form-item label="secretKey">
-              <el-input
+              <SecretInput
                 v-model.trim="config.qiniu['secret-key']"
-                placeholder="请输入secretKey"
+                secret-path="qiniu.secret-key"
+                :configured="isSecretConfigured('qiniu.secret-key')"
+                :can-reveal="canManageSystemSecrets"
+                placeholder="请输入 Secret Key"
               />
             </el-form-item>
             <el-form-item label="上传是否使用CDN上传加速">
@@ -896,15 +908,21 @@
               />
             </el-form-item>
             <el-form-item label="secretID">
-              <el-input
+              <SecretInput
                 v-model.trim="config['tencent-cos']['secret-id']"
-                placeholder="请输入secretID"
+                secret-path="tencent-cos.secret-id"
+                :configured="isSecretConfigured('tencent-cos.secret-id')"
+                :can-reveal="canManageSystemSecrets"
+                placeholder="请输入 Secret ID"
               />
             </el-form-item>
             <el-form-item label="secretKey">
-              <el-input
+              <SecretInput
                 v-model.trim="config['tencent-cos']['secret-key']"
-                placeholder="请输入secretKey"
+                secret-path="tencent-cos.secret-key"
+                :configured="isSecretConfigured('tencent-cos.secret-key')"
+                :can-reveal="canManageSystemSecrets"
+                placeholder="请输入 Secret Key"
               />
             </el-form-item>
             <el-form-item label="路径前缀">
@@ -929,15 +947,21 @@
               />
             </el-form-item>
             <el-form-item label="accessKeyId">
-              <el-input
+              <SecretInput
                 v-model.trim="config['aliyun-oss']['access-key-id']"
-                placeholder="请输入accessKeyId"
+                secret-path="aliyun-oss.access-key-id"
+                :configured="isSecretConfigured('aliyun-oss.access-key-id')"
+                :can-reveal="canManageSystemSecrets"
+                placeholder="请输入 Access Key ID"
               />
             </el-form-item>
             <el-form-item label="accessKeySecret">
-              <el-input
+              <SecretInput
                 v-model.trim="config['aliyun-oss']['access-key-secret']"
-                placeholder="请输入accessKeySecret"
+                secret-path="aliyun-oss.access-key-secret"
+                :configured="isSecretConfigured('aliyun-oss.access-key-secret')"
+                :can-reveal="canManageSystemSecrets"
+                placeholder="请输入 Access Key Secret"
               />
             </el-form-item>
             <el-form-item label="存储桶名称">
@@ -974,15 +998,21 @@
               />
             </el-form-item>
             <el-form-item label="accessKey">
-              <el-input
+              <SecretInput
                 v-model.trim="config['hua-wei-obs']['access-key']"
-                placeholder="请输入accessKey"
+                secret-path="hua-wei-obs.access-key"
+                :configured="isSecretConfigured('hua-wei-obs.access-key')"
+                :can-reveal="canManageSystemSecrets"
+                placeholder="请输入 Access Key"
               />
             </el-form-item>
             <el-form-item label="secretKey">
-              <el-input
+              <SecretInput
                 v-model.trim="config['hua-wei-obs']['secret-key']"
-                placeholder="请输入secretKey"
+                secret-path="hua-wei-obs.secret-key"
+                :configured="isSecretConfigured('hua-wei-obs.secret-key')"
+                :can-reveal="canManageSystemSecrets"
+                placeholder="请输入 Secret Key"
               />
             </el-form-item>
           </template>
@@ -1013,15 +1043,21 @@
               />
             </el-form-item>
             <el-form-item label="Access Key ID">
-              <el-input
+              <SecretInput
                 v-model.trim="config['cloudflare-r2']['access-key-id']"
-                placeholder="请输入secretKey"
+                secret-path="cloudflare-r2.access-key-id"
+                :configured="isSecretConfigured('cloudflare-r2.access-key-id')"
+                :can-reveal="canManageSystemSecrets"
+                placeholder="请输入 Access Key ID"
               />
             </el-form-item>
             <el-form-item label="Secret Access Key">
-              <el-input
+              <SecretInput
                 v-model.trim="config['cloudflare-r2']['secret-access-key']"
-                placeholder="请输入secretKey"
+                secret-path="cloudflare-r2.secret-access-key"
+                :configured="isSecretConfigured('cloudflare-r2.secret-access-key')"
+                :can-reveal="canManageSystemSecrets"
+                placeholder="请输入 Secret Access Key"
               />
             </el-form-item>
           </template>
@@ -1034,14 +1070,20 @@
               />
             </el-form-item>
             <el-form-item label="Access Key ID">
-              <el-input
+              <SecretInput
                 v-model.trim="config.minio['access-key-id']"
+                secret-path="minio.access-key-id"
+                :configured="isSecretConfigured('minio.access-key-id')"
+                :can-reveal="canManageSystemSecrets"
                 placeholder="请输入Access Key ID"
               />
             </el-form-item>
             <el-form-item label="Access Key Secret">
-              <el-input
+              <SecretInput
                 v-model.trim="config.minio['access-key-secret']"
+                secret-path="minio.access-key-secret"
+                :configured="isSecretConfigured('minio.access-key-secret')"
+                :can-reveal="canManageSystemSecrets"
                 placeholder="请输入Access Key Secret"
               />
             </el-form-item>
@@ -1152,13 +1194,13 @@
                 </el-form-item>
                 <el-form-item label="API Key" label-width="112px">
                   <div class="secret-row">
-                    <el-input
+                    <SecretInput
                       v-model.trim="config['invoice-recognition'].baidu['api-key']"
-                      type="password"
-                      show-password
-                      autocomplete="new-password"
+                      secret-path="invoice-recognition.baidu.api-key"
+                      :configured="isSecretConfigured('invoice-recognition.baidu.api-key')"
+                      :can-reveal="canManageSystemSecrets"
                       :disabled="!canManageInvoiceRecognition || config['invoice-recognition'].baidu['clear-api-key']"
-                      :placeholder="baiduAPIKeyPlaceholder"
+                      placeholder="请输入百度智能云 API Key"
                     />
                     <el-checkbox
                       v-if="config['invoice-recognition'].baidu['api-key-configured']"
@@ -1169,13 +1211,13 @@
                 </el-form-item>
                 <el-form-item label="Secret Key" label-width="112px">
                   <div class="secret-row">
-                    <el-input
+                    <SecretInput
                       v-model.trim="config['invoice-recognition'].baidu['secret-key']"
-                      type="password"
-                      show-password
-                      autocomplete="new-password"
+                      secret-path="invoice-recognition.baidu.secret-key"
+                      :configured="isSecretConfigured('invoice-recognition.baidu.secret-key')"
+                      :can-reveal="canManageSystemSecrets"
                       :disabled="!canManageInvoiceRecognition || config['invoice-recognition'].baidu['clear-secret-key']"
-                      :placeholder="baiduSecretKeyPlaceholder"
+                      placeholder="请输入百度智能云 Secret Key"
                     />
                     <el-checkbox
                       v-if="config['invoice-recognition'].baidu['secret-key-configured']"
@@ -1249,13 +1291,13 @@
                 </el-form-item>
                 <el-form-item label="API Key" label-width="112px" class="grid-full">
                   <div class="secret-row">
-                    <el-input
+                    <SecretInput
                       v-model.trim="config['invoice-recognition']['public-ocr']['api-key']"
-                      type="password"
-                      show-password
-                      autocomplete="new-password"
+                      secret-path="invoice-recognition.public-ocr.api-key"
+                      :configured="isSecretConfigured('invoice-recognition.public-ocr.api-key')"
+                      :can-reveal="canManageSystemSecrets"
                       :disabled="!canManageInvoiceRecognition || config['invoice-recognition']['public-ocr']['clear-api-key']"
-                      :placeholder="publicOCRKeyPlaceholder"
+                      placeholder="请输入 API Key（可选）"
                       @input="resetPublicOCRDetection"
                     />
                     <el-checkbox
@@ -1332,13 +1374,13 @@
                 </el-form-item>
                 <el-form-item label="API Key" label-width="112px">
                   <div class="secret-row">
-                    <el-input
+                    <SecretInput
                       v-model.trim="config['invoice-recognition'].verification['api-key']"
-                      type="password"
-                      show-password
-                      autocomplete="new-password"
+                      secret-path="invoice-recognition.verification.api-key"
+                      :configured="isSecretConfigured('invoice-recognition.verification.api-key')"
+                      :can-reveal="canManageSystemSecrets"
                       :disabled="!canManageInvoiceRecognition || config['invoice-recognition'].verification['clear-api-key']"
-                      :placeholder="verificationAPIKeyPlaceholder"
+                      placeholder="请输入验真服务 API Key"
                       @input="resetVerificationDetection"
                     />
                     <el-checkbox
@@ -1351,13 +1393,13 @@
                 </el-form-item>
                 <el-form-item label="Secret Key" label-width="112px">
                   <div class="secret-row">
-                    <el-input
+                    <SecretInput
                       v-model.trim="config['invoice-recognition'].verification['secret-key']"
-                      type="password"
-                      show-password
-                      autocomplete="new-password"
+                      secret-path="invoice-recognition.verification.secret-key"
+                      :configured="isSecretConfigured('invoice-recognition.verification.secret-key')"
+                      :can-reveal="canManageSystemSecrets"
                       :disabled="!canManageInvoiceRecognition || config['invoice-recognition'].verification['clear-secret-key']"
-                      :placeholder="verificationSecretKeyPlaceholder"
+                      placeholder="请输入 Secret Key（HTTP 网关可选）"
                       @input="resetVerificationDetection"
                     />
                     <el-checkbox
@@ -1441,13 +1483,13 @@
                 </el-form-item>
                 <el-form-item label="API Key" label-width="112px">
                   <div class="secret-row">
-                    <el-input
+                    <SecretInput
                       v-model.trim="config['invoice-recognition'].multimodal['api-key']"
-                      type="password"
-                      show-password
-                      autocomplete="new-password"
+                      secret-path="invoice-recognition.multimodal.api-key"
+                      :configured="isSecretConfigured('invoice-recognition.multimodal.api-key')"
+                      :can-reveal="canManageSystemSecrets"
                       :disabled="!canManageInvoiceRecognition || config['invoice-recognition'].multimodal['clear-api-key']"
-                      :placeholder="multimodalKeyPlaceholder"
+                      placeholder="请输入 API Key（可选）"
                       @input="resetMultimodalProtocol"
                     />
                     <el-checkbox
@@ -1509,6 +1551,7 @@
   import { emailTest } from '@/api/email'
   import { CreateUUID } from '@/utils/format'
   import { useUserStore } from '@/pinia/modules/user'
+  import SecretInput from '@/components/secretInput/index.vue'
 
   defineOptions({
     name: 'Config'
@@ -1516,9 +1559,10 @@
 
   const activeNames = ref('1')
   const userStore = useUserStore()
-  const canManageInvoiceRecognition = computed(
+  const canManageSystemSecrets = computed(
     () => Number(userStore.userInfo.authorityId) === 888
   )
+  const canManageInvoiceRecognition = canManageSystemSecrets
   const testingProvider = ref('')
   const testingEmail = ref(false)
   const reloading = ref(false)
@@ -1527,6 +1571,7 @@
   const configReady = ref(false)
   const configLoadError = ref(false)
   const savedSnapshot = ref('')
+  const configuredSecrets = ref({})
 
   const defaultInvoiceRecognition = () => ({
     'fallback-threshold': 0.82,
@@ -1684,6 +1729,7 @@
     visibleSections.value.find((section) => section.name === activeNames.value) || visibleSections.value[0]
   )
   const serializeConfig = (value) => JSON.stringify(value)
+  const isSecretConfigured = (path) => Boolean(configuredSecrets.value[path])
   const isDirty = computed(() => Boolean(savedSnapshot.value) &&
     serializeConfig(config.value) !== savedSnapshot.value)
   const databaseTypeLabel = computed(() => ({
@@ -1762,36 +1808,6 @@
       (provider['secret-key-configured'] || Boolean(provider['secret-key']))
     return provider.endpoint ? apiKeyReady || secretKeyReady : apiKeyReady && secretKeyReady
   })
-  const publicOCRKeyPlaceholder = computed(() =>
-    config.value['invoice-recognition']['public-ocr']['api-key-configured']
-      ? '已配置，留空保持不变'
-      : '请输入 API Key（可选）'
-  )
-  const baiduAPIKeyPlaceholder = computed(() =>
-    config.value['invoice-recognition'].baidu['api-key-configured']
-      ? '已配置，留空保持不变'
-      : '请输入百度智能云 API Key'
-  )
-  const baiduSecretKeyPlaceholder = computed(() =>
-    config.value['invoice-recognition'].baidu['secret-key-configured']
-      ? '已配置，留空保持不变'
-      : '请输入百度智能云 Secret Key'
-  )
-  const verificationAPIKeyPlaceholder = computed(() =>
-    config.value['invoice-recognition'].verification['api-key-configured']
-      ? '已配置，留空保持不变'
-      : '请输入验真服务 API Key'
-  )
-  const verificationSecretKeyPlaceholder = computed(() =>
-    config.value['invoice-recognition'].verification['secret-key-configured']
-      ? '已配置，留空保持不变'
-      : '请输入 Secret Key（HTTP 网关可选）'
-  )
-  const multimodalKeyPlaceholder = computed(() =>
-    config.value['invoice-recognition'].multimodal['api-key-configured']
-      ? '已配置，留空保持不变'
-      : '请输入 API Key（可选）'
-  )
   const multimodalProtocolLabel = computed(() => {
     const protocol = config.value['invoice-recognition'].multimodal.protocol
     if (protocol === 'openai-compatible') return '协议：OpenAI Compatible（自动）'
@@ -1839,6 +1855,7 @@
       const res = await getSystemConfig()
       if (res.code === 0) {
         config.value = res.data.config
+        configuredSecrets.value = res.data.configuredSecrets || {}
         normalizeInvoiceRecognition()
         savedSnapshot.value = serializeConfig(config.value)
         configReady.value = true

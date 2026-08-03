@@ -1,6 +1,9 @@
 package system
 
 import (
+	"errors"
+	"io"
+
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/system"
@@ -20,13 +23,37 @@ type SystemApi struct{}
 // @Success   200  {object}  response.Response{data=systemRes.SysConfigResponse,msg=string}  "获取配置文件内容,返回包括系统配置"
 // @Router    /system/getSystemConfig [post]
 func (s *SystemApi) GetSystemConfig(c *gin.Context) {
-	config, err := systemConfigService.GetSystemConfig()
+	var request system.GetSystemConfigRequest
+	if err := c.ShouldBindJSON(&request); err != nil && !errors.Is(err, io.EOF) {
+		response.FailWithMessage(err.Error(), c)
+		return
+	}
+	if request.SecretPath != "" {
+		if utils.GetUserAuthorityId(c) != 888 {
+			response.FailWithMessage("仅超级管理员可查看配置密钥", c)
+			return
+		}
+		value, err := systemConfigService.GetSystemConfigSecret(request.SecretPath)
+		if err != nil {
+			response.FailWithMessage(err.Error(), c)
+			return
+		}
+		c.Header("Cache-Control", "no-store")
+		c.Header("Pragma", "no-cache")
+		response.OkWithDetailed(systemRes.SysConfigSecretResponse{
+			Path: request.SecretPath, Value: value,
+		}, "获取成功", c)
+		return
+	}
+	configuration, configuredSecrets, err := systemConfigService.GetSystemConfig()
 	if err != nil {
 		global.GVA_LOG.Error("获取失败!", zap.Error(err))
 		response.FailWithMessage("获取失败", c)
 		return
 	}
-	response.OkWithDetailed(systemRes.SysConfigResponse{Config: config}, "获取成功", c)
+	response.OkWithDetailed(systemRes.SysConfigResponse{
+		Config: configuration, ConfiguredSecrets: configuredSecrets,
+	}, "获取成功", c)
 }
 
 // SetSystemConfig

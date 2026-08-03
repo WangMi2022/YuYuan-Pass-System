@@ -28,11 +28,21 @@ type InvoiceRecognitionDetections struct {
 
 var SystemConfigServiceApp = new(SystemConfigService)
 
-func (systemConfigService *SystemConfigService) GetSystemConfig() (conf config.Server, err error) {
-	conf = global.GVA_CONFIG
-	conf.InvoiceRecognition.Normalize()
-	conf.InvoiceRecognition = conf.InvoiceRecognition.Redacted()
-	return conf, nil
+func (systemConfigService *SystemConfigService) GetSystemConfig() (
+	conf config.Server,
+	configuredSecrets map[string]bool,
+	err error,
+) {
+	conf, configuredSecrets = redactSystemConfigSecrets(global.GVA_CONFIG)
+	return conf, configuredSecrets, nil
+}
+
+func (systemConfigService *SystemConfigService) GetSystemConfigSecret(path string) (string, error) {
+	value, ok := revealSystemConfigSecret(global.GVA_CONFIG, path)
+	if !ok {
+		return "", errUnknownSystemSecret
+	}
+	return value, nil
 }
 
 // @description   set system config,
@@ -56,6 +66,7 @@ func (systemConfigService *SystemConfigService) SetSystemConfig(
 	if err != nil {
 		return InvoiceRecognitionDetections{}, err
 	}
+	mergeSystemConfigSecrets(&system.Config, global.GVA_CONFIG)
 	cs := utils.StructToMap(system.Config)
 	for k, v := range cs {
 		global.GVA_VP.Set(k, v)

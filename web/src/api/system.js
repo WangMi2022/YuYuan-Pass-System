@@ -5,10 +5,20 @@ import service from '@/utils/request'
 // @Produce  application/json
 // @Success 200 {string} string "{"success":true,"data":{},"msg":"返回成功"}"
 // @Router /system/getSystemConfig [post]
-export const getSystemConfig = () => {
+export const getSystemConfig = (data) => {
   return service({
     url: '/system/getSystemConfig',
-    method: 'post'
+    method: 'post',
+    data
+  })
+}
+
+export const revealSystemConfigSecret = (secretPath) => {
+  return service({
+    url: '/system/getSystemConfig',
+    method: 'post',
+    data: { secretPath },
+    donNotShowLoading: true
   })
 }
 
