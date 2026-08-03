@@ -1210,7 +1210,7 @@ onMounted(loadDashboard)
 .category-matrix {
   display: grid;
   height: calc(100% - 48px);
-  grid-template-columns: 1.5fr repeat(3, 1fr);
+  grid-template-columns: 1.5fr repeat(4, 1fr);
   grid-template-rows: 1fr 1fr;
   gap: 8px;
   padding-top: 8px;
