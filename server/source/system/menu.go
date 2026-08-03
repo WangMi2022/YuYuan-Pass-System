@@ -55,11 +55,12 @@ func (i *initMenu) InitializeData(ctx context.Context) (next context.Context, er
 	allMenus := []SysBaseMenu{
 		{MenuLevel: 0, Hidden: false, ParentId: 0, Path: "dashboard", Name: "dashboard", Component: "view/dashboard/index.vue", Sort: 1, Meta: Meta{Title: "首页驾驶舱", Icon: "odometer"}},
 		{MenuLevel: 0, Hidden: true, ParentId: 0, Path: "about", Name: "about", Component: "view/about/index.vue", Sort: 9, Meta: Meta{Title: "关于我们", Icon: "info-filled"}},
-		{MenuLevel: 0, Hidden: false, ParentId: 0, Path: "collaborationCenter", Name: "collaborationCenter", Component: "view/routerHolder.vue", Sort: 3, Meta: Meta{Title: "协同办公", Icon: "briefcase"}},
-		{MenuLevel: 0, Hidden: false, ParentId: 0, Path: "monitorCenter", Name: "monitorCenter", Component: "view/routerHolder.vue", Sort: 4, Meta: Meta{Title: "监控状态", Icon: "monitor"}},
-		{MenuLevel: 0, Hidden: false, ParentId: 0, Path: "permissionManagement", Name: "permissionManagement", Component: "view/routerHolder.vue", Sort: 5, Meta: Meta{Title: "权限管理", Icon: "lock"}},
-		{MenuLevel: 0, Hidden: false, ParentId: 0, Path: "auditPlatform", Name: "auditPlatform", Component: "view/routerHolder.vue", Sort: 6, Meta: Meta{Title: "审计平台", Icon: "document-checked"}},
-		{MenuLevel: 0, Hidden: false, ParentId: 0, Path: "admin", Name: "superAdmin", Component: "view/superAdmin/index.vue", Sort: 7, Meta: Meta{Title: "系统管理", Icon: "setting"}},
+		{MenuLevel: 0, Hidden: false, ParentId: 0, Path: "workCalendar", Name: "workCalendar", Component: "view/routerHolder.vue", Sort: 4, Meta: Meta{Title: "工作日历", Icon: "calendar"}},
+		{MenuLevel: 0, Hidden: false, ParentId: 0, Path: "collaborationCenter", Name: "collaborationCenter", Component: "view/routerHolder.vue", Sort: 5, Meta: Meta{Title: "协同办公", Icon: "briefcase"}},
+		{MenuLevel: 0, Hidden: false, ParentId: 0, Path: "monitorCenter", Name: "monitorCenter", Component: "view/routerHolder.vue", Sort: 6, Meta: Meta{Title: "监控状态", Icon: "monitor"}},
+		{MenuLevel: 0, Hidden: false, ParentId: 0, Path: "permissionManagement", Name: "permissionManagement", Component: "view/routerHolder.vue", Sort: 7, Meta: Meta{Title: "权限管理", Icon: "lock"}},
+		{MenuLevel: 0, Hidden: false, ParentId: 0, Path: "auditPlatform", Name: "auditPlatform", Component: "view/routerHolder.vue", Sort: 8, Meta: Meta{Title: "审计平台", Icon: "document-checked"}},
+		{MenuLevel: 0, Hidden: false, ParentId: 0, Path: "admin", Name: "superAdmin", Component: "view/superAdmin/index.vue", Sort: 9, Meta: Meta{Title: "系统管理", Icon: "setting"}},
 		{MenuLevel: 0, Hidden: true, ParentId: 0, Path: "person", Name: "person", Component: "view/person/person.vue", Sort: 4, Meta: Meta{Title: "个人信息", Icon: "message"}},
 		{MenuLevel: 0, Hidden: true, ParentId: 0, Path: "example", Name: "example", Component: "view/example/index.vue", Sort: 7, Meta: Meta{Title: "示例文件", Icon: "management"}},
 		{MenuLevel: 0, Hidden: true, ParentId: 0, Path: "systemTools", Name: "systemTools", Component: "view/systemTools/index.vue", Sort: 5, Meta: Meta{Title: "编程辅助", Icon: "tools"}},
@@ -79,6 +80,9 @@ func (i *initMenu) InitializeData(ctx context.Context) (next context.Context, er
 	}
 	// 定义子菜单，并设置正确的ParentId
 	childMenus := []SysBaseMenu{
+		// 工作日历子菜单
+		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["workCalendar"], Path: "schedule", Name: "workSchedule", Component: "view/workCalendar/index.vue", Sort: 1, Meta: Meta{Title: "日程总览", Icon: "calendar", KeepAlive: true}},
+
 		// 监控状态子菜单
 		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["monitorCenter"], Path: "state", Name: "state", Component: "view/system/state.vue", Sort: 1, Meta: Meta{Title: "服务器负载", Icon: "cpu", KeepAlive: true}},
 

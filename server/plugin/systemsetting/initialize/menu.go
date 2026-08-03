@@ -10,13 +10,23 @@ import (
 )
 
 var menuNames = []string{
-	"systemSettings", collaborationMenuName, monitorMenuName, permissionMenuName, auditMenuName, "state",
+	"systemSettings", workCalendarMenuName, "workSchedule", collaborationMenuName, monitorMenuName, permissionMenuName, auditMenuName, "state",
 	"authority", "menu", "api", "user", "dictionary", "operation", "sysParams",
 	"system", "apiToken", "loginLog", "sysVersion", "sysError",
 }
 
 func Menu(ctx context.Context) {
 	utils.RegisterMenus(
+		system.SysBaseMenu{
+			ParentId: 0, Path: "workCalendar", Name: workCalendarMenuName, Hidden: false,
+			Component: "view/routerHolder.vue", Sort: 4,
+			Meta: system.Meta{Title: "工作日历", Icon: "calendar"},
+		},
+		system.SysBaseMenu{
+			Path: "schedule", Name: "workSchedule", Hidden: false,
+			Component: "view/workCalendar/index.vue", Sort: 1,
+			Meta: system.Meta{Title: "日程总览", Icon: "calendar", KeepAlive: true},
+		},
 		system.SysBaseMenu{
 			ParentId: 0, Path: "admin", Name: "superAdmin", Hidden: false,
 			Component: "view/superAdmin/index.vue", Sort: 7,

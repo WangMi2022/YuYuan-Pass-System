@@ -80,7 +80,7 @@ func (i *initMenuAuthority) InitializeData(ctx context.Context) (next context.Co
 
 	// 添加所有父级菜单
 	for _, menu := range allMenus {
-		if menu.ParentId == 0 {
+		if menu.ParentId == 0 && menu.Name != "workCalendar" {
 			menu9528 = append(menu9528, menu)
 		}
 	}

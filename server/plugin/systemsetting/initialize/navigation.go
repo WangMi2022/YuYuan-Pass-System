@@ -13,6 +13,7 @@ const collaborationMenuName = "collaborationCenter"
 const monitorMenuName = "monitorCenter"
 const permissionMenuName = "permissionManagement"
 const auditMenuName = "auditPlatform"
+const workCalendarMenuName = "workCalendar"
 
 type navigationItem struct {
 	name  string
@@ -28,7 +29,7 @@ func syncBusinessNavigation(ctx context.Context) error {
 		collaboration := system.SysBaseMenu{
 			ParentId: 0,
 			Path:     "collaborationCenter", Name: collaborationMenuName, Hidden: false,
-			Component: "view/routerHolder.vue", Sort: 4,
+			Component: "view/routerHolder.vue", Sort: 5,
 			Meta: system.Meta{Title: "协同办公", Icon: "briefcase"},
 		}
 		if err := tx.Where("name = ?", collaboration.Name).FirstOrCreate(&collaboration).Error; err != nil {
@@ -36,7 +37,7 @@ func syncBusinessNavigation(ctx context.Context) error {
 		}
 		if err := tx.Model(&system.SysBaseMenu{}).Where("name = ?", collaboration.Name).Updates(map[string]any{
 			"parent_id": 0, "menu_level": 0, "path": collaboration.Path,
-			"component": collaboration.Component, "hidden": false, "sort": 4,
+			"component": collaboration.Component, "hidden": false, "sort": collaboration.Sort,
 			"title": "协同办公", "icon": "briefcase",
 		}).Error; err != nil {
 			return err
@@ -45,7 +46,7 @@ func syncBusinessNavigation(ctx context.Context) error {
 		monitor := system.SysBaseMenu{
 			ParentId: 0,
 			Path:     "monitorCenter", Name: monitorMenuName, Hidden: false,
-			Component: "view/routerHolder.vue", Sort: 5,
+			Component: "view/routerHolder.vue", Sort: 6,
 			Meta: system.Meta{Title: "监控状态", Icon: "monitor"},
 		}
 		if err := tx.Where("name = ?", monitor.Name).FirstOrCreate(&monitor).Error; err != nil {
@@ -62,7 +63,7 @@ func syncBusinessNavigation(ctx context.Context) error {
 		permissionParent := system.SysBaseMenu{
 			ParentId: 0,
 			Path:     "permissionManagement", Name: permissionMenuName, Hidden: false,
-			Component: "view/routerHolder.vue", Sort: 6,
+			Component: "view/routerHolder.vue", Sort: 7,
 			Meta: system.Meta{Title: "权限管理", Icon: "lock"},
 		}
 		if err := tx.Where("name = ?", permissionParent.Name).FirstOrCreate(&permissionParent).Error; err != nil {
@@ -91,7 +92,7 @@ func syncBusinessNavigation(ctx context.Context) error {
 		auditParent := system.SysBaseMenu{
 			ParentId: 0,
 			Path:     "auditPlatform", Name: auditMenuName, Hidden: false,
-			Component: "view/routerHolder.vue", Sort: 7,
+			Component: "view/routerHolder.vue", Sort: 8,
 			Meta: system.Meta{Title: "审计平台", Icon: "document-checked"},
 		}
 		if err := tx.Where("name = ?", auditParent.Name).FirstOrCreate(&auditParent).Error; err != nil {
@@ -115,11 +116,47 @@ func syncBusinessNavigation(ctx context.Context) error {
 			}
 		}
 
+		workCalendar := system.SysBaseMenu{
+			ParentId: 0,
+			Path:     workCalendarMenuName, Name: workCalendarMenuName, Hidden: false,
+			Component: "view/routerHolder.vue", Sort: 4,
+			Meta: system.Meta{Title: "工作日历", Icon: "calendar"},
+		}
+		if err := tx.Where("name = ?", workCalendar.Name).FirstOrCreate(&workCalendar).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&system.SysBaseMenu{}).Where("name = ?", workCalendar.Name).Updates(map[string]any{
+			"parent_id": 0, "menu_level": 0, "path": workCalendar.Path,
+			"component": workCalendar.Component, "hidden": false, "sort": workCalendar.Sort,
+			"title": workCalendar.Meta.Title, "icon": workCalendar.Meta.Icon,
+		}).Error; err != nil {
+			return err
+		}
+		workSchedule := system.SysBaseMenu{
+			ParentId: workCalendar.ID, MenuLevel: 1,
+			Path: "schedule", Name: "workSchedule", Hidden: false,
+			Component: "view/workCalendar/index.vue", Sort: 1,
+			Meta: system.Meta{Title: "日程总览", Icon: "calendar", KeepAlive: true},
+		}
+		if err := tx.Where("name = ?", workSchedule.Name).FirstOrCreate(&workSchedule).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&system.SysBaseMenu{}).Where("name = ?", workSchedule.Name).Updates(map[string]any{
+			"parent_id": workCalendar.ID, "menu_level": 1, "path": workSchedule.Path,
+			"component": workSchedule.Component, "hidden": false, "sort": workSchedule.Sort,
+			"title": workSchedule.Meta.Title, "icon": workSchedule.Meta.Icon, "keep_alive": true,
+		}).Error; err != nil {
+			return err
+		}
+		workCalendarMenus := []navigationItem{
+			{name: "workSchedule", title: "日程总览", icon: "calendar", sort: 1},
+		}
+
 		canonicalMenus := []navigationItem{
 			{name: "dashboard", title: "首页驾驶舱", icon: "odometer", sort: 1},
 			{name: "assetCenter", title: "资产管理", icon: "box", sort: 2},
 			{name: "invoiceCenter", title: "流水管理", icon: "wallet", sort: 3},
-			{name: "superAdmin", title: "系统管理", icon: "setting", sort: 8},
+			{name: "superAdmin", title: "系统管理", icon: "setting", sort: 9},
 		}
 		for _, item := range canonicalMenus {
 			if err := tx.Model(&system.SysBaseMenu{}).Where("name = ?", item.name).Updates(map[string]any{
@@ -202,6 +239,9 @@ func syncBusinessNavigation(ctx context.Context) error {
 			return err
 		}
 		if err := migrateAuthoritiesForParent(tx, auditParent.ID, auditMenus); err != nil {
+			return err
+		}
+		if err := migrateAuthoritiesForParent(tx, workCalendar.ID, workCalendarMenus); err != nil {
 			return err
 		}
 		if systemParent.ID != 0 {

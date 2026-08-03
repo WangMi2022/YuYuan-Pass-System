@@ -79,20 +79,20 @@ func TestSyncBusinessNavigationGroupsPermissionMenusAndMigratesAuthorities(t *te
 	if err = db.Where("name = ?", permissionMenuName).First(&permissionParent).Error; err != nil {
 		t.Fatalf("find permission parent: %v", err)
 	}
-	if permissionParent.ParentId != 0 || permissionParent.MenuLevel != 0 || permissionParent.Sort != 6 || permissionParent.Path != permissionMenuName || permissionParent.Component != "view/routerHolder.vue" || permissionParent.Meta.Title != "权限管理" {
+	if permissionParent.ParentId != 0 || permissionParent.MenuLevel != 0 || permissionParent.Sort != 7 || permissionParent.Path != permissionMenuName || permissionParent.Component != "view/routerHolder.vue" || permissionParent.Meta.Title != "权限管理" {
 		t.Fatalf("unexpected permission parent: %#v", permissionParent)
 	}
 	var auditParent system.SysBaseMenu
 	if err = db.Where("name = ?", auditMenuName).First(&auditParent).Error; err != nil {
 		t.Fatalf("find audit parent: %v", err)
 	}
-	if auditParent.ParentId != 0 || auditParent.MenuLevel != 0 || auditParent.Sort != 7 || auditParent.Path != auditMenuName || auditParent.Component != "view/routerHolder.vue" || auditParent.Meta.Title != "审计平台" {
+	if auditParent.ParentId != 0 || auditParent.MenuLevel != 0 || auditParent.Sort != 8 || auditParent.Path != auditMenuName || auditParent.Component != "view/routerHolder.vue" || auditParent.Meta.Title != "审计平台" {
 		t.Fatalf("unexpected audit parent: %#v", auditParent)
 	}
 	if err = db.Where("name = ?", "superAdmin").First(&systemParent).Error; err != nil {
 		t.Fatalf("reload system parent: %v", err)
 	}
-	if systemParent.ParentId != 0 || systemParent.MenuLevel != 0 || systemParent.Sort != 8 {
+	if systemParent.ParentId != 0 || systemParent.MenuLevel != 0 || systemParent.Sort != 9 {
 		t.Fatalf("unexpected system parent: %#v", systemParent)
 	}
 
@@ -125,6 +125,21 @@ func TestSyncBusinessNavigationGroupsPermissionMenusAndMigratesAuthorities(t *te
 		if menu.ParentId != auditParent.ID || menu.MenuLevel != 1 || menu.Sort != expected.sort {
 			t.Errorf("unexpected audit menu %q: %#v", expected.name, menu)
 		}
+	}
+
+	var workCalendarParent system.SysBaseMenu
+	if err = db.Where("name = ?", workCalendarMenuName).First(&workCalendarParent).Error; err != nil {
+		t.Fatalf("find work calendar parent: %v", err)
+	}
+	if workCalendarParent.ParentId != 0 || workCalendarParent.MenuLevel != 0 || workCalendarParent.Sort != 4 || workCalendarParent.Path != workCalendarMenuName || workCalendarParent.Component != "view/routerHolder.vue" || workCalendarParent.Meta.Title != "工作日历" {
+		t.Fatalf("unexpected work calendar parent: %#v", workCalendarParent)
+	}
+	var workSchedule system.SysBaseMenu
+	if err = db.Where("name = ?", "workSchedule").First(&workSchedule).Error; err != nil {
+		t.Fatalf("find work schedule child: %v", err)
+	}
+	if workSchedule.ParentId != workCalendarParent.ID || workSchedule.MenuLevel != 1 || workSchedule.Sort != 1 || workSchedule.Component != "view/workCalendar/index.vue" {
+		t.Fatalf("unexpected work schedule child: %#v", workSchedule)
 	}
 
 	for _, authorityID := range []string{"100", "200", "300", "400"} {
