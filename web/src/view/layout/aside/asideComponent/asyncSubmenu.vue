@@ -6,31 +6,17 @@
     class="gva-sub-menu relative"
   >
     <template #title>
-      <div
-        v-if="!isCollapse"
-        class="flex items-center"
-        :style="{
-          height: sideHeight
-        }"
-      >
-        <el-icon v-if="routerInfo.meta.icon">
-          <component :is="routerInfo.meta.icon" />
-        </el-icon>
-        <span>{{ routerInfo.meta.title }}</span>
-      </div>
-      <template v-else>
-        <el-icon v-if="routerInfo.meta.icon">
-          <component :is="routerInfo.meta.icon" />
-        </el-icon>
-        <span>{{ routerInfo.meta.title }}</span>
-      </template>
+      <el-icon v-if="routerInfo.meta.icon">
+        <component :is="routerInfo.meta.icon" />
+      </el-icon>
+      <span>{{ routerInfo.meta.title }}</span>
     </template>
     <slot />
   </el-sub-menu>
 </template>
 
 <script setup>
-  import { inject, computed } from 'vue'
+  import { computed } from 'vue'
   import { useAppStore } from '@/pinia'
   import { storeToRefs } from 'pinia'
   const appStore = useAppStore()
@@ -47,10 +33,6 @@
       },
       type: Object
     }
-  })
-
-  const isCollapse = inject('isCollapse', {
-    default: false
   })
 
   const sideHeight = computed(() => {
