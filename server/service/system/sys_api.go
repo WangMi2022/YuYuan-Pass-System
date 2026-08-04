@@ -25,6 +25,10 @@ var ApiServiceApp = new(ApiService)
 // maxBulkAPIPageSize preserves version packaging's bounded all-API selector.
 const maxBulkAPIPageSize = 10000
 
+func apiKey(path, method string) string {
+	return method + "\x00" + path
+}
+
 func (apiService *ApiService) CreateApi(api system.SysApi) (err error) {
 	if !errors.Is(global.GVA_DB.Where("path = ? AND method = ?", api.Path, api.Method).First(&system.SysApi{}).Error, gorm.ErrRecordNotFound) {
 		return errors.New("存在相同api")
@@ -38,19 +42,17 @@ func (apiService *ApiService) GetApiGroups() (groups []string, groupApiMap map[s
 	if err != nil {
 		return
 	}
-	groupApiMap = make(map[string]string, 0)
+	groupApiMap = make(map[string]string, len(apis))
+	groupSeen := make(map[string]struct{}, len(apis))
 	for i := range apis {
-		pathArr := strings.Split(apis[i].Path, "/")
-		newGroup := true
-		for i2 := range groups {
-			if groups[i2] == apis[i].ApiGroup {
-				newGroup = false
-			}
-		}
-		if newGroup {
+		if _, exists := groupSeen[apis[i].ApiGroup]; !exists {
+			groupSeen[apis[i].ApiGroup] = struct{}{}
 			groups = append(groups, apis[i].ApiGroup)
 		}
-		groupApiMap[pathArr[1]] = apis[i].ApiGroup
+		pathParts := strings.SplitN(strings.TrimPrefix(apis[i].Path, "/"), "/", 2)
+		if pathParts[0] != "" {
+			groupApiMap[pathParts[0]] = apis[i].ApiGroup
+		}
 	}
 	return
 }
@@ -79,32 +81,31 @@ func (apiService *ApiService) SyncApi() (newApis, deleteApis, ignoreApis []syste
 		})
 	}
 
-	var cacheApis []system.SysApi
-	for i := range global.GVA_ROUTERS {
-		ignoresFlag := false
-		for j := range ignores {
-			if ignores[j].Path == global.GVA_ROUTERS[i].Path && ignores[j].Method == global.GVA_ROUTERS[i].Method {
-				ignoresFlag = true
-			}
-		}
-		if !ignoresFlag {
-			cacheApis = append(cacheApis, system.SysApi{
-				Path:   global.GVA_ROUTERS[i].Path,
-				Method: global.GVA_ROUTERS[i].Method,
-			})
-		}
+	ignoreSet := make(map[string]struct{}, len(ignores))
+	for i := range ignores {
+		ignoreSet[apiKey(ignores[i].Path, ignores[i].Method)] = struct{}{}
 	}
 
-	//对比数据库中的api和内存中的api，如果数据库中的api不存在于内存中，则把api放入删除数组，如果内存中的api不存在于数据库中，则把api放入新增数组
-	for i := range cacheApis {
-		var flag bool
-		// 如果存在于内存不存在于api数组中
-		for j := range apis {
-			if cacheApis[i].Path == apis[j].Path && cacheApis[i].Method == apis[j].Method {
-				flag = true
-			}
+	var cacheApis []system.SysApi
+	cacheApiSet := make(map[string]struct{}, len(global.GVA_ROUTERS))
+	for i := range global.GVA_ROUTERS {
+		route := global.GVA_ROUTERS[i]
+		key := apiKey(route.Path, route.Method)
+		if _, ignored := ignoreSet[key]; ignored {
+			continue
 		}
-		if !flag {
+		cacheApiSet[key] = struct{}{}
+		cacheApis = append(cacheApis, system.SysApi{Path: route.Path, Method: route.Method})
+	}
+
+	databaseApiSet := make(map[string]struct{}, len(apis))
+	for i := range apis {
+		databaseApiSet[apiKey(apis[i].Path, apis[i].Method)] = struct{}{}
+	}
+
+	// 对比数据库中的 api 和内存中的 api，保持路由顺序返回新增项、数据库顺序返回删除项。
+	for i := range cacheApis {
+		if _, exists := databaseApiSet[apiKey(cacheApis[i].Path, cacheApis[i].Method)]; !exists {
 			newApis = append(newApis, system.SysApi{
 				Path:        cacheApis[i].Path,
 				Description: "",
@@ -115,14 +116,7 @@ func (apiService *ApiService) SyncApi() (newApis, deleteApis, ignoreApis []syste
 	}
 
 	for i := range apis {
-		var flag bool
-		// 如果存在于api数组不存在于内存
-		for j := range cacheApis {
-			if cacheApis[j].Path == apis[i].Path && cacheApis[j].Method == apis[i].Method {
-				flag = true
-			}
-		}
-		if !flag {
+		if _, exists := cacheApiSet[apiKey(apis[i].Path, apis[i].Method)]; !exists {
 			deleteApis = append(deleteApis, apis[i])
 		}
 	}

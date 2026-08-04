@@ -30,12 +30,8 @@ func (e *ensureTables) DataInserted(ctx context.Context) bool {
 	return true
 }
 
-func (e *ensureTables) MigrateTable(ctx context.Context) (context.Context, error) {
-	db, ok := ctx.Value("db").(*gorm.DB)
-	if !ok {
-		return ctx, system.ErrMissingDBContext
-	}
-	tables := []interface{}{
+func requiredTables() []interface{} {
+	return []interface{}{
 		sysModel.SysApi{},
 		sysModel.SysUser{},
 		sysModel.SysBaseMenu{},
@@ -68,7 +64,15 @@ func (e *ensureTables) MigrateTable(ctx context.Context) (context.Context, error
 
 		model.Info{},
 	}
-	for _, t := range tables {
+}
+
+func (e *ensureTables) MigrateTable(ctx context.Context) (context.Context, error) {
+	db, ok := ctx.Value("db").(*gorm.DB)
+	if !ok {
+		return ctx, system.ErrMissingDBContext
+	}
+	for _, table := range requiredTables() {
+		t := table
 		_ = db.AutoMigrate(&t)
 		// 视图 authority_menu 会被当成表来创建，引发冲突错误（更新版本的gorm似乎不会）
 		// 由于 AutoMigrate() 基本无需考虑错误，因此显式忽略
@@ -81,38 +85,9 @@ func (e *ensureTables) TableCreated(ctx context.Context) bool {
 	if !ok {
 		return false
 	}
-	tables := []interface{}{
-		sysModel.SysApi{},
-		sysModel.SysUser{},
-		sysModel.SysBaseMenu{},
-		sysModel.SysAuthority{},
-		sysModel.JwtBlacklist{},
-		sysModel.SysDictionary{},
-		sysModel.SysAutoCodeHistory{},
-		sysModel.SysAIWorkflowSession{},
-		sysModel.SysOperationRecord{},
-		sysModel.SysDictionaryDetail{},
-		sysModel.SysBaseMenuParameter{},
-		sysModel.SysBaseMenuBtn{},
-		sysModel.SysAuthorityBtn{},
-		sysModel.SysAutoCodePackage{},
-		sysModel.SysExportTemplate{},
-		sysModel.Condition{},
-		sysModel.JoinTemplate{},
-
-		adapter.CasbinRule{},
-
-		example.ExaFile{},
-		example.ExaCustomer{},
-		example.ExaFileChunk{},
-		example.ExaFileUploadAndDownload{},
-		example.ExaAttachmentCategory{},
-
-		model.Info{},
-	}
 	yes := true
-	for _, t := range tables {
-		yes = yes && db.Migrator().HasTable(t)
+	for _, table := range requiredTables() {
+		yes = yes && db.Migrator().HasTable(table)
 	}
 	return yes
 }

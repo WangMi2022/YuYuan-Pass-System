@@ -214,57 +214,53 @@ func (dictionaryDetailService *DictionaryDetailService) GetDictionaryList(dictio
 	return sysDictionaryDetails, err
 }
 
+func setDictionaryDetailDisabled(detail *system.SysDictionaryDetail) {
+	if detail.Status != nil {
+		detail.Disabled = !*detail.Status
+		return
+	}
+	detail.Disabled = false
+}
+
+// buildDictionaryForest turns one flat dictionary query into an ordered tree.
+// Keeping the query flat makes tree depth independent of database round trips.
+func buildDictionaryForest(details []system.SysDictionaryDetail) ([]system.SysDictionaryDetail, map[uint][]system.SysDictionaryDetail) {
+	childrenByParent := make(map[uint][]system.SysDictionaryDetail, len(details))
+	roots := make([]system.SysDictionaryDetail, 0, len(details))
+	for i := range details {
+		detail := details[i]
+		detail.Children = nil
+		setDictionaryDetailDisabled(&detail)
+		if detail.ParentID == nil {
+			roots = append(roots, detail)
+			continue
+		}
+		childrenByParent[*detail.ParentID] = append(childrenByParent[*detail.ParentID], detail)
+	}
+
+	var attachChildren func(*system.SysDictionaryDetail)
+	attachChildren = func(detail *system.SysDictionaryDetail) {
+		children := childrenByParent[detail.ID]
+		for i := range children {
+			attachChildren(&children[i])
+		}
+		detail.Children = children
+	}
+	for i := range roots {
+		attachChildren(&roots[i])
+	}
+	return roots, childrenByParent
+}
+
 // GetDictionaryTreeList 获取字典树形结构列表
 func (dictionaryDetailService *DictionaryDetailService) GetDictionaryTreeList(dictionaryID uint) (list []system.SysDictionaryDetail, err error) {
 	var sysDictionaryDetails []system.SysDictionaryDetail
-	// 只获取顶级项目（parent_id为空）
-	err = global.GVA_DB.Where("sys_dictionary_id = ? AND parent_id IS NULL", dictionaryID).Order("sort").Find(&sysDictionaryDetails).Error
+	err = global.GVA_DB.Where("sys_dictionary_id = ?", dictionaryID).Order("sort").Order("id").Find(&sysDictionaryDetails).Error
 	if err != nil {
 		return nil, err
 	}
-
-	// 递归加载子项并设置disabled属性
-	for i := range sysDictionaryDetails {
-		// 设置disabled属性：当status为false时，disabled为true
-		if sysDictionaryDetails[i].Status != nil {
-			sysDictionaryDetails[i].Disabled = !*sysDictionaryDetails[i].Status
-		} else {
-			sysDictionaryDetails[i].Disabled = false // 默认不禁用
-		}
-
-		err = dictionaryDetailService.loadChildren(&sysDictionaryDetails[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return sysDictionaryDetails, nil
-}
-
-// loadChildren 递归加载子项
-func (dictionaryDetailService *DictionaryDetailService) loadChildren(detail *system.SysDictionaryDetail) error {
-	var children []system.SysDictionaryDetail
-	err := global.GVA_DB.Where("parent_id = ?", detail.ID).Order("sort").Find(&children).Error
-	if err != nil {
-		return err
-	}
-
-	for i := range children {
-		// 设置disabled属性：当status为false时，disabled为true
-		if children[i].Status != nil {
-			children[i].Disabled = !*children[i].Status
-		} else {
-			children[i].Disabled = false // 默认不禁用
-		}
-
-		err = dictionaryDetailService.loadChildren(&children[i])
-		if err != nil {
-			return err
-		}
-	}
-
-	detail.Children = children
-	return nil
+	list, _ = buildDictionaryForest(sysDictionaryDetails)
+	return list, nil
 }
 
 // GetDictionaryDetailsByParent 根据父级ID获取字典详情
@@ -277,31 +273,24 @@ func (dictionaryDetailService *DictionaryDetailService) GetDictionaryDetailsByPa
 		db = db.Where("parent_id IS NULL")
 	}
 
-	err = db.Order("sort").Find(&list).Error
-	if err != nil {
+	if !req.IncludeChildren {
+		err = db.Order("sort").Order("id").Find(&list).Error
+		for i := range list {
+			setDictionaryDetailDisabled(&list[i])
+		}
 		return list, err
 	}
 
-	// 设置disabled属性
-	for i := range list {
-		if list[i].Status != nil {
-			list[i].Disabled = !*list[i].Status
-		} else {
-			list[i].Disabled = false // 默认不禁用
-		}
+	var details []system.SysDictionaryDetail
+	err = global.GVA_DB.Where("sys_dictionary_id = ?", req.SysDictionaryID).Order("sort").Order("id").Find(&details).Error
+	if err != nil {
+		return nil, err
 	}
-
-	// 如果需要包含子级数据，使用递归方式加载所有层级的子项
-	if req.IncludeChildren {
-		for i := range list {
-			err = dictionaryDetailService.loadChildren(&list[i])
-			if err != nil {
-				return list, err
-			}
-		}
+	roots, childrenByParent := buildDictionaryForest(details)
+	if req.ParentID == nil {
+		return roots, nil
 	}
-
-	return list, err
+	return childrenByParent[*req.ParentID], nil
 }
 
 // 按照字典type获取字典全部内容的方法
@@ -317,30 +306,16 @@ func (dictionaryDetailService *DictionaryDetailService) GetDictionaryTreeListByT
 	var sysDictionaryDetails []system.SysDictionaryDetail
 	db := global.GVA_DB.Model(&system.SysDictionaryDetail{}).
 		Joins("JOIN sys_dictionaries ON sys_dictionaries.id = sys_dictionary_details.sys_dictionary_id").
-		Where("sys_dictionaries.type = ? AND sys_dictionary_details.parent_id IS NULL", t).
-		Order("sys_dictionary_details.sort")
+		Where("sys_dictionaries.type = ?", t).
+		Order("sys_dictionary_details.sort").Order("sys_dictionary_details.id")
 
 	err = db.Find(&sysDictionaryDetails).Error
 	if err != nil {
 		return nil, err
 	}
 
-	// 递归加载子项并设置disabled属性
-	for i := range sysDictionaryDetails {
-		// 设置disabled属性：当status为false时，disabled为true
-		if sysDictionaryDetails[i].Status != nil {
-			sysDictionaryDetails[i].Disabled = !*sysDictionaryDetails[i].Status
-		} else {
-			sysDictionaryDetails[i].Disabled = false // 默认不禁用
-		}
-
-		err = dictionaryDetailService.loadChildren(&sysDictionaryDetails[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return sysDictionaryDetails, nil
+	list, _ = buildDictionaryForest(sysDictionaryDetails)
+	return list, nil
 }
 
 // 按照字典id+字典内容value获取单条字典内容

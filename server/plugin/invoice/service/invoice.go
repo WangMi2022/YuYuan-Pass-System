@@ -53,6 +53,21 @@ func (InvoiceService) Capabilities() invoiceResponse.InvoiceCapabilities {
 	return invoiceResponse.InvoiceCapabilities{VerificationEnabled: invoiceVerificationEnabled()}
 }
 
+func invoiceMonthExpression(db *gorm.DB) (string, bool) {
+	switch db.Dialector.Name() {
+	case "postgres":
+		return "TO_CHAR(issue_date, 'YYYY-MM')", true
+	case "mysql":
+		return "DATE_FORMAT(issue_date, '%Y-%m')", true
+	case "sqlite":
+		return "strftime('%Y-%m', issue_date)", true
+	case "sqlserver":
+		return "FORMAT(issue_date, 'yyyy-MM')", true
+	default:
+		return "", false
+	}
+}
+
 func hashInvoiceKey(parts ...string) string {
 	hasher := sha256.New()
 	for _, part := range parts {
@@ -673,24 +688,46 @@ func (InvoiceService) Dashboard(scope AccessScope) (invoiceResponse.Dashboard, e
 
 	now := time.Now()
 	start := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location()).AddDate(0, -11, 0)
-	var trendRows []struct {
-		IssueDate  time.Time
-		TotalCents int64
-	}
-	if err := db.Where("status = ? AND issue_date >= ?", model.InvoiceStatusConfirmed, start).
-		Select("issue_date, total_cents").Find(&trendRows).Error; err != nil {
-		return result, err
-	}
 	trendMap := map[string]*invoiceResponse.MonthlySummary{}
 	for index := 0; index < 12; index++ {
 		month := start.AddDate(0, index, 0).Format("2006-01")
 		result.MonthlyTrend = append(result.MonthlyTrend, invoiceResponse.MonthlySummary{Month: month})
 		trendMap[month] = &result.MonthlyTrend[len(result.MonthlyTrend)-1]
 	}
-	for _, row := range trendRows {
-		if item := trendMap[row.IssueDate.Format("2006-01")]; item != nil {
-			item.Count++
-			item.TotalCents += row.TotalCents
+	monthExpression, canAggregate := invoiceMonthExpression(db)
+	if canAggregate {
+		var trendRows []struct {
+			Month      string
+			Count      int64
+			TotalCents int64
+		}
+		end := start.AddDate(0, 12, 0)
+		if err := db.Where("status = ? AND issue_date >= ? AND issue_date < ?", model.InvoiceStatusConfirmed, start, end).
+			Select(fmt.Sprintf("%s AS month, COUNT(id) AS count, COALESCE(SUM(total_cents), 0) AS total_cents", monthExpression)).
+			Group(monthExpression).Scan(&trendRows).Error; err != nil {
+			return result, err
+		}
+		for _, row := range trendRows {
+			if item := trendMap[row.Month]; item != nil {
+				item.Count = row.Count
+				item.TotalCents = row.TotalCents
+			}
+		}
+	} else {
+		// Keep a portable fallback for custom GORM dialects without a month function.
+		var trendRows []struct {
+			IssueDate  time.Time
+			TotalCents int64
+		}
+		if err := db.Where("status = ? AND issue_date >= ? AND issue_date < ?", model.InvoiceStatusConfirmed, start, start.AddDate(0, 12, 0)).
+			Select("issue_date, total_cents").Find(&trendRows).Error; err != nil {
+			return result, err
+		}
+		for _, row := range trendRows {
+			if item := trendMap[row.IssueDate.Format("2006-01")]; item != nil {
+				item.Count++
+				item.TotalCents += row.TotalCents
+			}
 		}
 	}
 
