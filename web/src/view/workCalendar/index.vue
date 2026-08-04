@@ -294,13 +294,17 @@
               <strong id="schedule-repeat-title">重复日程</strong>
               <small>{{ repeatSummary }}</small>
             </div>
-            <el-switch
-              v-model="draft.recurrence.enabled"
-              inline-prompt
-              active-text="开"
-              inactive-text="关"
-              aria-label="启用重复日程"
-            />
+            <el-button
+              class="repeat-toggle-button"
+              :type="draft.recurrence.enabled ? 'primary' : 'default'"
+              :plain="!draft.recurrence.enabled"
+              size="small"
+              :aria-pressed="draft.recurrence.enabled"
+              :aria-label="draft.recurrence.enabled ? '关闭重复日程' : '启用重复日程'"
+              @click="toggleRecurrence"
+            >
+              {{ draft.recurrence.enabled ? '重复已启用' : '启用重复' }}
+            </el-button>
           </div>
           <div v-if="draft.recurrence.enabled" class="schedule-repeat-editor">
             <el-radio-group v-model="draft.recurrence.mode" class="repeat-mode-toggle" aria-label="重复周期">
@@ -616,6 +620,10 @@ function openCreate(date = selectedDate.value) {
   dialogVisible.value = true
 }
 
+function toggleRecurrence() {
+  draft.value.recurrence.enabled = !draft.value.recurrence.enabled
+}
+
 function editSchedule(schedule) {
   editingId.value = schedule.id
   const source = { ...schedule }
@@ -859,6 +867,7 @@ function isValidScheduleType(type) {
 .schedule-repeat-header > div { display: grid; min-width: 0; gap: 3px; }
 .schedule-repeat-header strong { color: var(--na-foreground); font-size: .8125rem; font-weight: 650; }
 .schedule-repeat-header small { overflow: hidden; color: var(--na-muted-foreground); font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
+.repeat-toggle-button { flex: 0 0 auto; min-width: 88px; }
 .schedule-repeat-editor { display: grid; gap: 11px; padding-top: 11px; border-top: 1px solid var(--na-border); }
 .repeat-mode-toggle { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .repeat-mode-toggle :deep(.el-radio-button__inner) { width: 100%; padding: 7px 10px; }
