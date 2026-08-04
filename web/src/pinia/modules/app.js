@@ -13,7 +13,7 @@ export const useAppStore = defineStore('app', () => {
     primaryColor: '#6D5DFB',
     showTabs: false,
     darkMode: 'auto',
-    visualStyle: 'default',
+    visualStyle: 'bento',
     layout_side_width: 220,
     layout_side_collapsed_width: 64,
     layout_side_item_height: 40,
@@ -115,7 +115,7 @@ export const useAppStore = defineStore('app', () => {
     primaryColor: '#6D5DFB',
     showTabs: false,
     darkMode: 'auto',
-    visualStyle: 'default',
+    visualStyle: 'bento',
     layout_side_width: 220,
     layout_side_collapsed_width: 64,
     layout_side_item_height: 40,
@@ -136,7 +136,9 @@ export const useAppStore = defineStore('app', () => {
   watchEffect(() => {
     document.documentElement.classList.toggle('html-weakenss', config.weakness)
     document.documentElement.classList.toggle('html-grey', config.grey)
-    document.documentElement.classList.toggle('neumorphism', config.visualStyle === 'neumorphism')
+    if (config.visualStyle === 'neumorphism') config.visualStyle = 'bento'
+    document.documentElement.classList.remove('neumorphism')
+    document.documentElement.classList.toggle('bento', config.visualStyle === 'bento')
   })
 
   // 监听主题色

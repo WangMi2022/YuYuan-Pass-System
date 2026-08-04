@@ -110,7 +110,7 @@ const modeLabels = {
 
 const currentModeLabel = computed(() => {
   const mode = modeLabels[config.value.darkMode] || '自定义主题'
-  return config.value.visualStyle === 'neumorphism' ? `新拟态 · ${mode}` : mode
+  return config.value.visualStyle === 'bento' ? `Bento Grid · ${mode}` : mode
 })
 const saveStateText = computed(() => ({
   saved: '已保存',

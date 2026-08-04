@@ -17,7 +17,7 @@
     <section class="settings-section" aria-labelledby="visual-style-title">
       <div class="settings-section__header">
         <h4 id="visual-style-title">界面质感</h4>
-        <p>在清晰的标准界面和柔和立体的新拟态界面之间切换。</p>
+        <p>在清晰的标准界面和模块化的 Bento Grid 苹果风之间切换。</p>
       </div>
       <VisualStyleSelector v-model="config.visualStyle" @update:modelValue="appStore.toggleVisualStyle" />
     </section>

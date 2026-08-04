@@ -32,6 +32,7 @@ export const useUserStore = defineStore('user', () => {
           appStore.config[key] = val.originSetting[key]
         }
       })
+      if (appStore.config.visualStyle === 'neumorphism') appStore.config.visualStyle = 'bento'
     }
   }
 
