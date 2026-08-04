@@ -1,0 +1,115 @@
+/* Shared audit workspace for operation, login, and error logs. */
+.audit-page { --audit-accent: var(--na-primary); }
+
+.audit-overview {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.7fr) repeat(2, minmax(170px, .8fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.audit-overview > div {
+  display: grid;
+  min-height: 104px;
+  align-content: center;
+  gap: 4px;
+  padding: 16px 18px;
+  border: 1px solid var(--na-border);
+  border-radius: 12px;
+  background: var(--na-card);
+  box-shadow: var(--na-shadow-sm);
+}
+
+.audit-overview__primary {
+  background: color-mix(in srgb, var(--audit-accent) 8%, var(--na-card)) !important;
+}
+
+.audit-overview span,
+.audit-overview small {
+  color: var(--na-muted-foreground);
+  font-size: 12px;
+}
+
+.audit-overview strong {
+  color: var(--na-foreground);
+  font-size: 22px;
+  font-weight: 680;
+  line-height: 1.15;
+}
+
+.audit-filter {
+  margin-bottom: 14px;
+  padding: 14px 16px 0;
+}
+
+.audit-filter__grid {
+  display: grid;
+  grid-template-columns: var(--audit-filter-columns, minmax(150px, .7fr) minmax(260px, 1.5fr) minmax(150px, .7fr) auto);
+  align-items: end;
+  gap: 12px;
+}
+
+.audit-filter__grid .el-select,
+.audit-filter__grid .el-date-editor { width: 100%; }
+
+.audit-filter__actions {
+  display: flex;
+  gap: 8px;
+  padding-bottom: 18px;
+}
+
+.audit-table-panel {
+  min-height: 480px;
+  overflow: hidden;
+}
+
+.audit-table-toolbar > div {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+}
+
+.audit-table-toolbar strong {
+  color: var(--na-foreground);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.audit-table-toolbar span {
+  color: var(--na-muted-foreground);
+  font-size: 12px;
+}
+
+.audit-table-panel .el-table .el-button {
+  min-width: 30px;
+  min-height: 30px;
+  padding: 0;
+}
+
+.audit-table-panel .payload-preview__trigger {
+  min-width: 0;
+  padding-inline: 2px;
+}
+
+.audit-detail .el-descriptions__label {
+  color: var(--na-muted-foreground);
+  font-size: 12px;
+}
+
+.audit-detail pre {
+  max-height: 46vh;
+  overflow: auto;
+  color: var(--na-foreground);
+  font: 12px/1.65 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+@media (max-width: 980px) {
+  .audit-filter__grid { grid-template-columns: repeat(2, minmax(180px, 1fr)); }
+}
+
+@media (max-width: 720px) {
+  .audit-overview { grid-template-columns: 1fr; }
+  .audit-overview > div { min-height: 86px; }
+  .audit-filter__grid { grid-template-columns: 1fr; }
+  .audit-filter__actions { justify-content: flex-end; }
+}

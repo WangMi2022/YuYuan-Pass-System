@@ -1,40 +1,77 @@
 <template>
-  <div>
-    <div class="gva-search-box">
-      <el-form :inline="true" :model="searchInfo">
-        <el-form-item label="请求方法">
-          <el-input v-model="searchInfo.method" placeholder="搜索条件" />
-        </el-form-item>
-        <el-form-item label="请求路径">
-          <el-input v-model="searchInfo.path" placeholder="搜索条件" />
-        </el-form-item>
-        <el-form-item label="结果状态码">
-          <el-input v-model="searchInfo.status" placeholder="搜索条件" />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" icon="search" @click="onSubmit"
-            >查询</el-button
-          >
-          <el-button icon="refresh" @click="onReset">重置</el-button>
-        </el-form-item>
-      </el-form>
-    </div>
-    <div class="gva-table-box">
-      <div class="gva-btn-list">
-        <el-button
-          icon="delete"
-          :disabled="!multipleSelection.length"
-          @click="onDelete"
-        >
-          删除选中
-        </el-button>
+  <main class="na-page na-page--list audit-page">
+    <AppPageHeader
+      title-id="operation-history-title"
+      title="操作历史"
+      description="追踪系统接口调用、请求数据和响应结果，定位异常操作。"
+    >
+      <template #actions>
+        <el-button :icon="Refresh" :loading="loading" @click="getTableData">刷新</el-button>
         <LogClearButton
           log-name="操作历史"
           :count-request="getSysOperationRecordList"
           :clear-request="clearSysOperationRecords"
           @cleared="handleLogsCleared"
         />
+      </template>
+    </AppPageHeader>
+
+    <section class="audit-overview" aria-label="操作历史概览">
+      <div class="audit-overview__primary">
+        <span>当前记录</span>
+        <strong>{{ total }}</strong>
+        <small>按当前筛选条件统计</small>
       </div>
+      <div>
+        <span>已选择</span>
+        <strong>{{ multipleSelection.length }}</strong>
+        <small>可批量删除</small>
+      </div>
+      <div>
+        <span>筛选状态</span>
+        <strong>{{ activeFilterCount ? `${activeFilterCount} 项` : '全部' }}</strong>
+        <small>{{ activeFilterCount ? '已应用查询条件' : '未限制查询范围' }}</small>
+      </div>
+    </section>
+
+    <section class="na-panel audit-filter" aria-label="操作历史筛选">
+      <el-form :model="searchInfo" label-position="top" @submit.prevent="onSubmit">
+        <div class="audit-filter__grid">
+        <el-form-item label="请求方法">
+          <el-select v-model="searchInfo.method" clearable placeholder="全部方法">
+            <el-option v-for="method in httpMethods" :key="method" :label="method" :value="method" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="请求路径">
+          <el-input v-model="searchInfo.path" clearable placeholder="输入接口路径" />
+        </el-form-item>
+        <el-form-item label="结果状态码">
+          <el-input v-model="searchInfo.status" clearable placeholder="例如 200、404" />
+        </el-form-item>
+          <div class="audit-filter__actions">
+            <el-button :icon="RefreshLeft" @click="onReset">重置</el-button>
+            <el-button native-type="submit" type="primary" :icon="Search">查询</el-button>
+          </div>
+        </div>
+      </el-form>
+    </section>
+
+    <section class="na-panel audit-table-panel">
+      <header class="na-panel-header audit-table-toolbar">
+        <div>
+          <strong>调用记录</strong>
+          <span>共 {{ total }} 条</span>
+        </div>
+        <el-button
+          type="danger"
+          plain
+          :icon="Delete"
+          :disabled="!multipleSelection.length"
+          @click="onDelete"
+        >
+          删除选中<span v-if="multipleSelection.length">（{{ multipleSelection.length }}）</span>
+        </el-button>
+      </header>
       <el-table
         ref="multipleTable"
         v-loading="loading"
@@ -44,74 +81,78 @@
         row-key="ID"
         @selection-change="handleSelectionChange"
       >
-        <el-table-column align="left" type="selection" width="55" />
-        <el-table-column align="left" label="操作人" width="140">
+        <el-table-column align="center" type="selection" width="48" />
+        <el-table-column align="left" label="操作人" min-width="150">
           <template #default="scope">
             <div>
               {{ scope.row.user.userName }}({{ scope.row.user.nickName }})
             </div>
           </template>
         </el-table-column>
-        <el-table-column align="left" label="日期" width="180">
+        <el-table-column align="left" label="时间" width="168">
           <template #default="scope">{{
             formatDate(scope.row.CreatedAt)
           }}</template>
         </el-table-column>
-        <el-table-column align="left" label="状态码" prop="status" width="120">
+        <el-table-column align="center" label="状态" prop="status" width="88">
           <template #default="scope">
-            <div>
-              <el-tag type="success">{{ scope.row.status }}</el-tag>
-            </div>
+            <el-tag :type="statusTagType(scope.row.status)" effect="light">
+              {{ scope.row.status }}
+            </el-tag>
           </template>
         </el-table-column>
-        <el-table-column align="left" label="请求IP" prop="ip" width="120" />
+        <el-table-column align="left" label="请求 IP" prop="ip" width="128" />
         <el-table-column
           align="left"
           label="请求方法"
           prop="method"
-          width="120"
+          width="88"
         />
         <el-table-column
           align="left"
           label="请求路径"
           prop="path"
-          width="240"
+          min-width="220"
+          show-overflow-tooltip
         />
-        <el-table-column align="left" label="请求" prop="path" width="80">
+        <el-table-column align="center" label="请求" width="74">
           <template #default="scope">
             <PayloadPreviewPopover title="请求数据" :value="scope.row.body" />
           </template>
         </el-table-column>
-        <el-table-column align="left" label="响应" prop="path" width="80">
+        <el-table-column align="center" label="响应" width="74">
           <template #default="scope">
             <PayloadPreviewPopover title="响应数据" :value="scope.row.resp" />
           </template>
         </el-table-column>
-        <el-table-column align="left" label="操作">
+        <el-table-column align="center" label="操作" width="72">
           <template #default="scope">
-            <el-button
-              icon="delete"
-              type="primary"
-              link
-              @click="deleteSysOperationRecordFunc(scope.row)"
-              >删除</el-button
-            >
+            <el-tooltip content="删除记录" placement="top">
+              <el-button
+                :icon="Delete"
+                type="danger"
+                text
+                aria-label="删除操作记录"
+                @click="deleteSysOperationRecordFunc(scope.row)"
+              />
+            </el-tooltip>
           </template>
         </el-table-column>
       </el-table>
-      <div class="gva-pagination">
+      <div v-if="total > 0" class="na-pagination">
         <el-pagination
           :current-page="searchInfo.page"
           :page-size="searchInfo.pageSize"
           :page-sizes="[10, 30, 50, 100]"
           :total="total"
-          layout="total, sizes, prev, pager, next, jumper"
+          :pager-count="5"
+          layout="total, sizes, prev, pager, next"
           @current-change="changePage"
           @size-change="changePageSize"
         />
       </div>
-    </div>
-  </div>
+    </section>
+  </main>
 </template>
 
 <script setup>
@@ -122,15 +163,19 @@
     deleteSysOperationRecordByIds
   } from '@/api/sysOperationRecord' // 此处请自行替换地址
   import { formatDate } from '@/utils/format'
-  import { ref } from 'vue'
+  import { computed, ref } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
+  import { Delete, Refresh, RefreshLeft, Search } from '@element-plus/icons-vue'
   import { usePagedList } from '@/hooks/usePagedList'
+  import AppPageHeader from '@/components/page/AppPageHeader.vue'
   import LogClearButton from '@/components/logClearButton/index.vue'
   import PayloadPreviewPopover from '@/components/payloadPreviewPopover/index.vue'
 
   defineOptions({
     name: 'SysOperationRecord'
   })
+
+  const httpMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
 
   const {
     search: searchInfo,
@@ -154,6 +199,18 @@
   getTableData()
 
   const multipleSelection = ref([])
+  const activeFilterCount = computed(() => [
+    searchInfo.value.method,
+    searchInfo.value.path,
+    searchInfo.value.status
+  ].filter((value) => value !== '' && value !== null && value !== undefined).length)
+  const statusTagType = (status) => {
+    const code = Number(status)
+    if (code >= 500) return 'danger'
+    if (code >= 400) return 'warning'
+    if (code >= 300) return 'info'
+    return code >= 200 ? 'success' : 'info'
+  }
   const handleSelectionChange = (val) => {
     multipleSelection.value = val
   }

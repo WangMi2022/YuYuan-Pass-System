@@ -1,14 +1,48 @@
 <template>
-  <div>
-    <div class="gva-search-box">
+  <main class="na-page na-page--list audit-page audit-page--error">
+    <AppPageHeader
+      title-id="error-log-title"
+      title="错误日志"
+      description="集中查看系统异常、处理进度和 AI 分析结果，便于快速恢复服务。"
+    >
+      <template #actions>
+        <el-button :icon="Refresh" @click="getTableData">刷新</el-button>
+        <LogClearButton
+          log-name="错误日志"
+          :count-request="getSysErrorList"
+          :clear-request="clearSysError"
+          @cleared="handleLogsCleared"
+        />
+      </template>
+    </AppPageHeader>
+
+    <section class="audit-overview" aria-label="错误日志概览">
+      <div class="audit-overview__primary">
+        <span>当前记录</span>
+        <strong>{{ total }}</strong>
+        <small>按当前筛选条件统计</small>
+      </div>
+      <div>
+        <span>待处理</span>
+        <strong>{{ pendingCount }}</strong>
+        <small>当前页未完成记录</small>
+      </div>
+      <div>
+        <span>已选择</span>
+        <strong>{{ multipleSelection.length }}</strong>
+        <small>可批量删除</small>
+      </div>
+    </section>
+
+    <section class="na-panel audit-filter" aria-label="错误日志筛选">
       <el-form
         ref="elSearchFormRef"
-        :inline="true"
         :model="searchInfo"
-        class="demo-form-inline"
-        @keyup.enter="onSubmit"
+        label-position="top"
+        @submit.prevent="onSubmit"
       >
-        <el-form-item label="创建日期" prop="createdAtRange">
+        <div class="audit-filter__grid" style="--audit-filter-columns: minmax(250px, 1.2fr) minmax(170px, .7fr) minmax(230px, 1fr) auto">
+        <el-form-item prop="createdAtRange">
           <template #label>
             <span>
               创建日期
@@ -22,7 +56,6 @@
 
           <el-date-picker
             v-model="searchInfo.createdAtRange"
-            class="!w-380px"
             type="datetimerange"
             range-separator="至"
             start-placeholder="开始时间"
@@ -31,57 +64,36 @@
         </el-form-item>
 
         <el-form-item label="错误来源" prop="form">
-          <el-input v-model="searchInfo.form" placeholder="搜索条件" />
+          <el-input v-model="searchInfo.form" clearable placeholder="输入模块或接口" />
         </el-form-item>
 
         <el-form-item label="错误内容" prop="info">
-          <el-input v-model="searchInfo.info" placeholder="搜索条件" />
+          <el-input v-model="searchInfo.info" clearable placeholder="输入错误关键词" />
         </el-form-item>
-
-        <template v-if="showAllQuery">
-          <!-- 将需要控制显示状态的查询条件添加到此范围内 -->
-        </template>
-
-        <el-form-item>
-          <el-button type="primary" icon="search" @click="onSubmit"
-            >查询</el-button
-          >
-          <el-button icon="refresh" @click="onReset">重置</el-button>
-          <el-button
-            link
-            type="primary"
-            icon="arrow-down"
-            @click="showAllQuery = true"
-            v-if="!showAllQuery"
-            >展开</el-button
-          >
-          <el-button
-            link
-            type="primary"
-            icon="arrow-up"
-            @click="showAllQuery = false"
-            v-else
-            >收起</el-button
-          >
-        </el-form-item>
+          <div class="audit-filter__actions">
+            <el-button :icon="RefreshLeft" @click="onReset">重置</el-button>
+            <el-button native-type="submit" type="primary" :icon="Search">查询</el-button>
+          </div>
+        </div>
       </el-form>
-    </div>
-    <div class="gva-table-box">
-      <div class="gva-btn-list">
+    </section>
+
+    <section class="na-panel audit-table-panel">
+      <header class="na-panel-header audit-table-toolbar">
+        <div>
+          <strong>异常记录</strong>
+          <span>共 {{ total }} 条</span>
+        </div>
         <el-button
-          icon="delete"
+          type="danger"
+          plain
+          :icon="Delete"
           :disabled="!multipleSelection.length"
           @click="onDelete"
         >
-          删除选中
+          删除选中<span v-if="multipleSelection.length">（{{ multipleSelection.length }}）</span>
         </el-button>
-        <LogClearButton
-          log-name="错误日志"
-          :count-request="getSysErrorList"
-          :clear-request="clearSysError"
-          @cleared="handleLogsCleared"
-        />
-      </div>
+      </header>
       <el-table
         ref="multipleTable"
         style="width: 100%"
@@ -90,14 +102,14 @@
         row-key="ID"
         @selection-change="handleSelectionChange"
       >
-        <el-table-column type="selection" width="55" />
+        <el-table-column type="selection" align="center" width="48" />
 
         <el-table-column
           sortable
           align="left"
           label="日期"
           prop="CreatedAt"
-          width="180"
+          width="168"
         >
           <template #default="scope">{{
             formatDate(scope.row.CreatedAt)
@@ -108,18 +120,18 @@
           align="left"
           label="错误来源"
           prop="form"
-          width="120"
+          min-width="150"
         />
 
         <el-table-column
-          align="left"
+          align="center"
           label="错误等级"
           prop="level"
-          width="120"
+          width="104"
         >
           <template #default="scope">
             <el-tag
-              effect="dark"
+              effect="light"
               :type="levelTagMap[scope.row.level] || 'info'"
             >
               {{ levelLabelMap[scope.row.level] || defaultLevelLabel }}
@@ -128,10 +140,10 @@
         </el-table-column>
 
         <el-table-column
-          align="left"
+          align="center"
           label="处理状态"
           prop="status"
-          width="140"
+          width="120"
         >
           <template #default="scope">
             <el-tag
@@ -148,7 +160,7 @@
           label="错误内容"
           prop="info"
           show-overflow-tooltip
-          width="240"
+          min-width="250"
         />
 
         <el-table-column
@@ -156,46 +168,53 @@
           label="解决方案"
           show-overflow-tooltip
           prop="solution"
-          width="120"
+          min-width="160"
         />
 
         <el-table-column
-          align="left"
+          align="center"
           label="操作"
           fixed="right"
-          :min-width="appStore.operateMinWith"
+          width="118"
         >
           <template #default="scope">
+            <el-tooltip v-if="scope.row.status !== '处理中'" content="使用 AI 分析解决方案" placement="top">
             <el-button
               v-if="scope.row.status !== '处理中'"
-              type="primary"
-              link
+              type="warning"
+              text
               class="table-button"
               @click="getSolution(scope.row.ID)"
             >
-              <el-icon><ai-gva /></el-icon>方案
+              <el-icon><ai-gva /></el-icon>
             </el-button>
+            </el-tooltip>
+            <el-tooltip content="查看详情" placement="top">
             <el-button
+              :icon="InfoFilled"
               type="primary"
-              link
+              text
               class="table-button"
               @click="getDetails(scope.row)"
-              ><el-icon style="margin-right: 5px"><InfoFilled /></el-icon
-              >查看</el-button
-            >
+              aria-label="查看错误详情"
+            />
+            </el-tooltip>
+            <el-tooltip content="删除记录" placement="top">
             <el-button
-              type="primary"
-              link
-              icon="delete"
+              :icon="Delete"
+              type="danger"
+              text
               @click="deleteRow(scope.row)"
-              >删除</el-button
-            >
+              aria-label="删除错误日志"
+            />
+            </el-tooltip>
           </template>
         </el-table-column>
       </el-table>
-      <div class="gva-pagination">
+      <div v-if="total > 0" class="na-pagination">
         <el-pagination
-          layout="total, sizes, prev, pager, next, jumper"
+          :pager-count="5"
+          layout="total, sizes, prev, pager, next"
           :current-page="page"
           :page-size="pageSize"
           :page-sizes="[10, 30, 50, 100]"
@@ -204,7 +223,7 @@
           @size-change="handleSizeChange"
         />
       </div>
-    </div>
+    </section>
 
     <el-drawer
       destroy-on-close
@@ -214,7 +233,7 @@
       :before-close="closeDetailShow"
       title="查看"
     >
-      <el-descriptions :column="2" border direction="vertical">
+      <el-descriptions class="audit-detail" :column="2" border direction="vertical">
         <el-descriptions-item label="错误来源">
           {{ detailForm.form }}
         </el-descriptions-item>
@@ -242,7 +261,7 @@
         </el-descriptions-item>
       </el-descriptions>
     </el-drawer>
-  </div>
+  </main>
 </template>
 
 <script setup>
@@ -257,8 +276,10 @@
 
   import { formatDate } from '@/utils/format'
   import { ElMessage, ElMessageBox } from 'element-plus'
-  import { ref } from 'vue'
+  import { computed, ref } from 'vue'
+  import { Delete, Refresh, RefreshLeft, Search } from '@element-plus/icons-vue'
   import { useAppStore } from '@/pinia'
+  import AppPageHeader from '@/components/page/AppPageHeader.vue'
   import LogClearButton from '@/components/logClearButton/index.vue'
 
   defineOptions({
@@ -266,9 +287,6 @@
   })
 
   const appStore = useAppStore()
-
-  // 控制更多查询条件显示/隐藏状态
-  const showAllQuery = ref(false)
 
   const elSearchFormRef = ref()
 
@@ -278,6 +296,7 @@
   const pageSize = ref(10)
   const tableData = ref([])
   const searchInfo = ref({})
+  const pendingCount = computed(() => tableData.value.filter((item) => !['处理完成', '处理失败'].includes(item.status)).length)
   // 重置
   const onReset = () => {
     searchInfo.value = {}
