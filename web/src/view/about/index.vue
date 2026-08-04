@@ -1,6 +1,6 @@
 <template>
-  <main class="about-page">
-    <section class="about-hero">
+  <main class="na-page about-page">
+    <section class="na-page-header about-hero">
       <div>
         <p class="eyebrow">ABOUT SYSTEM</p>
         <h1>资产管理中心</h1>
@@ -43,8 +43,7 @@ defineOptions({ name: 'About' })
 .about-page {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 18px;
+  gap: 0;
 }
 
 .about-hero {
@@ -52,10 +51,6 @@ defineOptions({ name: 'About' })
   align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
-  padding: 26px;
-  border: 1px solid var(--el-border-color-light);
-  border-radius: 18px;
-  background: var(--el-bg-color);
 }
 
 .eyebrow {
@@ -84,10 +79,6 @@ defineOptions({ name: 'About' })
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
-}
-
-.about-card {
-  border-radius: 16px;
 }
 
 .feature-list {
@@ -126,10 +117,6 @@ defineOptions({ name: 'About' })
 }
 
 @media (max-width: 768px) {
-  .about-page {
-    padding: 12px;
-  }
-
   .about-hero,
   .about-grid {
     grid-template-columns: 1fr;
@@ -137,7 +124,6 @@ defineOptions({ name: 'About' })
 
   .about-hero {
     flex-direction: column;
-    padding: 20px;
   }
 }
 </style>

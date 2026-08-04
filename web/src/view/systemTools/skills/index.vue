@@ -1,11 +1,11 @@
 <template>
-  <div class="h-full">
+  <div class="na-workspace skills-page h-full">
     <warning-bar
         title="此功能仅在开发阶段使用，用于维护本项目内的 Skills 技能库。"
     />
     <el-row :gutter="12" class="h-full">
       <el-col :xs="24" :sm="8" :md="6" :lg="5" class="flex flex-col gap-4 h-full">
-        <el-card shadow="never" class="!border-none shrink-0">
+        <el-card shadow="never" class="skills-panel shrink-0">
           <div class="font-bold mb-2">AI 工具</div>
           <div class="flex flex-wrap gap-2">
             <div
@@ -22,7 +22,7 @@
           </div>
         </el-card>
 
-        <el-card shadow="never" class="!border-none shrink-0">
+        <el-card shadow="never" class="skills-panel shrink-0">
           <div class="flex justify-between items-center mb-2">
             <span class="font-bold">全局约束</span>
             <el-button type="primary" link icon="Edit" @click="openGlobalConstraint">编辑</el-button>
@@ -30,7 +30,7 @@
           <div class="text-xs text-gray-500">路径: {{ globalConstraintPath }}</div>
         </el-card>
 
-        <el-card shadow="never" class="!border-none flex-1 mt-2 flex flex-col min-h-0">
+        <el-card shadow="never" class="skills-panel flex-1 mt-2 flex flex-col min-h-0">
           <div class="flex justify-between items-center mb-2">
             <span class="font-bold">Skills</span>
             <div class="flex gap-1">
@@ -74,7 +74,7 @@
       </el-col>
 
       <el-col :xs="24" :sm="16" :md="18" :lg="19" class="h-full">
-        <el-card shadow="never" class="!border-none h-full flex flex-col">
+        <el-card shadow="never" class="skills-panel h-full flex flex-col">
           <template v-if="!activeSkill">
             <div class="h-full flex items-center justify-center">
               <el-empty description="请选择或新建一个技能" />

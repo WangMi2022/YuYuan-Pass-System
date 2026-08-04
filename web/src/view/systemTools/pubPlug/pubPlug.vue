@@ -1,6 +1,6 @@
 <template>
-  <div class="gva-form-box">
-    <div class="p-4 bg-white dark:bg-slate-900">
+  <div class="na-page na-page--list plugin-package-page">
+    <div class="plugin-package-workspace">
       <WarningBar
         title="目前只支持标准插件（通过插件模板生成的标准目录插件），非标准插件请自行打包"
       />
@@ -297,7 +297,14 @@
 </script>
 
 <style lang="scss">
-  .plugin-transfer {
+.plugin-package-workspace {
+  display: grid;
+  gap: 14px;
+}
+
+.plugin-package-workspace > .el-card { margin-top: 0 !important; }
+
+.plugin-transfer {
     .el-transfer-panel {
       width: 400px !important;
     }

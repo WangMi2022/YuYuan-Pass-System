@@ -1,4 +1,5 @@
 <template>
+  <main class="na-workspace na-workspace--tool scan-upload-page">
   <div class="flex justify-center w-full pt-2">
     <el-upload
         ref="uploadRef"
@@ -19,7 +20,7 @@
   <div class="flex flex-col w-full h-auto p-0 pt-4">
     <!-- 左侧编辑区 -->
     <div class="flex-1 min-h-[60vh]">
-      <div class="w-screen h-[calc(100vh-175px)] rounded">
+      <div class="w-full h-[calc(100vh-175px)] rounded">
         <template v-if="isCrop">
           <VueCropper
               ref="cropperRef"
@@ -72,7 +73,7 @@
     <el-button type="primary" @click="handleUpload" :loading="uploading"> {{ uploading ? '上传中...' : '上 传' }}
     </el-button>
   </div>
-
+  </main>
 
 </template>
 
@@ -208,7 +209,15 @@ const handleImageSuccess = (res) => {
 
 /* 工具栏（固定在底部） */
 .toolbar {
-  @apply fixed bottom-0 m-0 rounded-none p-2.5 shadow-[0_-2px_10px_rgba(0,0,0,0.1)] z-[1000] flex justify-between w-screen bg-slate-900;
+  @apply fixed bottom-0 left-0 right-0 m-0 rounded-none p-2.5 z-50 flex justify-between;
+  box-sizing: border-box;
+  gap: 8px;
+  border-top: 1px solid var(--na-border);
+  background: var(--na-card);
+  box-shadow: 0 -2px 6px rgb(22 35 57 / 8%);
+
+  > .el-button,
+  > .el-switch { flex: 0 0 auto; }
 
   /* 按钮组适配 */
   .el-button-group {

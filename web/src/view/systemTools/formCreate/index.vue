@@ -1,5 +1,5 @@
 <template>
-  <div class="form-designer-container">
+  <div class="na-workspace na-workspace--tool form-designer-container">
     <fc-designer ref="designer" :config="config" height="calc(100vh - 160px)">
       <template #handle>
         <el-button type="primary" size="small" plain @click="exportVueTemplate">

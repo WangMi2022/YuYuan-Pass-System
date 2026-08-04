@@ -1,6 +1,6 @@
 <template>
-  <main class="system-settings-page">
-    <section class="settings-heading" aria-labelledby="settings-title">
+  <main class="na-page na-page--list system-settings-page">
+    <section class="na-page-header settings-heading" aria-labelledby="settings-title">
       <div>
         <p class="eyebrow">SYSTEM APPEARANCE</p>
         <h1 id="settings-title">系统设置</h1>
@@ -8,8 +8,8 @@
       </div>
     </section>
 
-    <section class="setting-card" aria-labelledby="login-logo-title">
-      <header class="setting-card-header">
+    <section class="na-panel setting-card" aria-labelledby="login-logo-title">
+      <header class="na-panel-header setting-card-header">
         <div>
           <h2 id="login-logo-title">登录页图标</h2>
           <p>图标显示在登录表单顶部和登录页品牌区域，建议上传清晰的正方形图片。</p>
@@ -54,8 +54,8 @@
       </div>
     </section>
 
-    <section class="setting-card" aria-labelledby="login-background-title">
-      <header class="setting-card-header">
+    <section class="na-panel setting-card" aria-labelledby="login-background-title">
+      <header class="na-panel-header setting-card-header">
         <div>
           <h2 id="login-background-title">登录页背景</h2>
           <p>登录页将使用当前启用的背景图片，并自动叠加遮罩保证表单可读性。</p>
@@ -358,16 +358,13 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-.system-settings-page { min-height: 100%; overflow-x: hidden; padding: 18px; background: var(--na-background, #f6f8fb); color: var(--el-text-color-primary); }
-.settings-heading,
-.setting-card { border: 1px solid var(--na-border, var(--el-border-color-light)); border-radius: 14px; background: var(--na-card, var(--el-bg-color)); box-shadow: 0 8px 24px rgb(15 23 42 / 4%); }
-.settings-heading { margin-bottom: 14px; padding: 18px 20px; }
-.setting-card + .setting-card { margin-top: 14px; }
+.system-settings-page { overflow-x: hidden; color: var(--el-text-color-primary); }
+.settings-heading { margin-bottom: 18px; }
 .eyebrow { margin: 0 0 5px; color: var(--el-color-primary); font-size: 11px; font-weight: 750; letter-spacing: .12em; }
-.settings-heading h1 { margin: 0; font-size: 19px; }
+.settings-heading h1 { margin: 0; font-size: 24px; }
 .settings-heading p:last-child { margin: 5px 0 0; color: var(--el-text-color-secondary); font-size: 13px; }
 .setting-card { overflow: hidden; }
-.setting-card-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 20px; border-bottom: 1px solid var(--el-border-color-lighter); }
+.setting-card-header { gap: 20px; }
 .setting-card-header h2 { margin: 0; font-size: 16px; }
 .setting-card-header p { margin: 5px 0 0; color: var(--el-text-color-secondary); font-size: 12px; }
 .current-background { display: grid; grid-template-columns: minmax(260px, 420px) minmax(220px, 1fr); align-items: center; gap: 24px; padding: 20px; }

@@ -522,6 +522,20 @@
   margin-inline: 0;
   min-width: 0;
 }
+.na-workspace {
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+  padding: 18px;
+  background: transparent;
+  color: var(--na-foreground);
+}
+.na-workspace--flush {
+  height: 100%;
+  overflow: hidden;
+  padding: 0;
+}
+.na-workspace--tool { height: 100%; }
 .na-page-header {
   display: flex;
   align-items: flex-end;
@@ -565,6 +579,11 @@
   gap: 8px;
   padding: 12px 16px;
   border-bottom: 1px solid var(--na-border);
+}
+
+@media (max-width: 800px) {
+  .na-page,
+  .na-workspace { padding: 14px; }
 }
 /* legacy aliases kept for pages not yet migrated */
 .na-card {

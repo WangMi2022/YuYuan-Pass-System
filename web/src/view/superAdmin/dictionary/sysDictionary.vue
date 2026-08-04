@@ -1,12 +1,12 @@
 <template>
-  <div>
+  <div class="na-workspace na-workspace--flush dictionary-page">
     <warning-bar
       title="获取字典且缓存方法已在前端utils/dictionary 已经封装完成 不必自己书写 使用方法查看文件内注释"
     />
-    <el-splitter class="h-full">
+    <el-splitter class="dictionary-splitter h-full">
       <el-splitter-panel size="300px" min="200px" max="800px" collapsible>
         <div
-          class="flex-none bg-white text-slate-700 dark:text-slate-400 dark:bg-slate-900 rounded p-4"
+          class="na-panel dictionary-sidebar flex-none p-4"
         >
           <div class="flex justify-between items-center relative">
             <span class="text font-bold">字典列表</span>
@@ -110,9 +110,7 @@
         </div>
       </el-splitter-panel>
       <el-splitter-panel :min="200">
-        <div
-          class="flex-1 bg-white text-slate-700 dark:text-slate-400 dark:bg-slate-900"
-        >
+        <div class="dictionary-detail flex-1">
           <sysDictionaryDetail :sys-dictionary-i-d="selectID" />
         </div>
       </el-splitter-panel>

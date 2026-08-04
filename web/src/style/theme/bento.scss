@@ -5,16 +5,16 @@
  */
 
 html.bento {
-  --na-background: #f3f6fa;
+  --na-background: #f0f3f8;
   --na-card: #ffffff;
   --na-card-foreground: #172033;
   --na-popover: #ffffff;
-  --na-muted: #edf2f7;
+  --na-muted: #e9eef5;
   --na-muted-foreground: #62708a;
   --na-border: #dce4ef;
   --na-border-strong: #c7d2e1;
   --na-input: #d5dfeb;
-  --na-sidebar: #f8fafd;
+  --na-sidebar: #ffffff;
   --na-sidebar-border: #dce4ef;
   --na-table-header: #f5f8fc;
   --na-table-hover: #f1f5fa;
@@ -25,7 +25,8 @@ html.bento {
   --na-shadow-md: 0 8px 14px rgb(22 35 57 / 12%);
   --na-bento-card-shadow: 0 1px 2px rgb(22 35 57 / 5%);
   --na-bento-card-shadow-hover: 0 3px 8px rgb(22 35 57 / 9%);
-  --na-bento-surface: color-mix(in srgb, var(--na-primary) 5%, var(--na-card));
+  --na-bento-surface: color-mix(in srgb, var(--na-primary) 7%, var(--na-card));
+  --na-bento-subtle: color-mix(in srgb, var(--na-primary) 3%, var(--na-card));
 
   color-scheme: light;
 }
@@ -49,6 +50,7 @@ html.bento.dark {
   --na-bento-card-shadow: 0 1px 2px rgb(0 0 0 / 24%);
   --na-bento-card-shadow-hover: 0 3px 8px rgb(0 0 0 / 32%);
   --na-bento-surface: color-mix(in srgb, var(--na-primary) 12%, var(--na-card));
+  --na-bento-subtle: color-mix(in srgb, var(--na-primary) 7%, var(--na-card));
 
   color-scheme: dark;
 }
@@ -66,7 +68,7 @@ html.bento .settings-content {
 /* Application frame */
 html.bento .na-header {
   border-bottom-color: var(--na-border);
-  background: color-mix(in srgb, var(--na-card) 92%, transparent);
+  background: var(--na-card);
   box-shadow: 0 1px 0 rgb(22 35 57 / 3%);
 }
 
@@ -115,7 +117,7 @@ html.bento .na-search-trigger {
 
 html.bento .gva-tabs {
   border-bottom-color: var(--na-border);
-  background: color-mix(in srgb, var(--na-card) 94%, transparent);
+  background: var(--na-card);
 }
 
 html.bento .gva-tabs .el-tabs__item {
@@ -127,6 +129,28 @@ html.bento .gva-tabs .el-tabs__item.is-active {
   box-shadow: 0 -1px 0 var(--na-border), 1px 0 0 var(--na-border), -1px 0 0 var(--na-border);
 }
 
+/* Page rhythm and tool workspaces */
+html.bento :is(.na-page, .na-workspace, .monitor-page, .system-settings-page, .about-page, .profile-container) {
+  color: var(--na-foreground);
+}
+
+html.bento :is(.na-page-header, .monitor-header, .settings-heading, .about-hero) {
+  padding: 4px 2px;
+}
+
+html.bento :is(.na-page-title, .monitor-header h1, .settings-heading h1, .about-hero h1) {
+  font-size: 24px;
+  font-weight: 680;
+  letter-spacing: 0;
+}
+
+html.bento .na-workspace--tool {
+  border: 1px solid var(--na-border);
+  border-radius: 12px;
+  background: var(--na-card);
+  box-shadow: var(--na-bento-card-shadow);
+}
+
 /* Modular surfaces */
 html.bento :is(
   .na-panel,
@@ -136,25 +160,92 @@ html.bento :is(
   .gva-table-box,
   .gva-search-box,
   .settings-panel,
+  .metric-card,
+  .monitor-card,
+  .setting-card,
+  .about-card,
+  .profile-card,
+  .profile-hero,
+  .skills-panel,
+  .dictionary-sidebar,
+  .asset-dashboard .dashboard-panel,
+  .asset-dashboard .matrix-card,
   .dashboard-page .metric-band,
   .dashboard-page .workbench-band
 ) {
   border-color: var(--na-border);
+  border-radius: 12px;
   background: var(--na-card);
   box-shadow: var(--na-bento-card-shadow);
 }
 
-html.bento :is(.na-panel, .na-card, .el-card, .gva-card-box, .gva-table-box, .gva-search-box) {
+html.bento :is(
+  .na-panel,
+  .na-card,
+  .el-card,
+  .gva-card-box,
+  .gva-table-box,
+  .gva-search-box,
+  .metric-card,
+  .monitor-card,
+  .setting-card,
+  .profile-card,
+  .profile-hero,
+  .skills-panel,
+  .dictionary-sidebar
+) {
   overflow: clip;
 }
 
 html.bento .na-panel-header,
+html.bento .card-header,
+html.bento .setting-card-header,
 html.bento .gva-search-box,
 html.bento .na-toolbar { border-color: var(--na-border); }
+
+html.bento :is(.gva-search-box, .filter-panel) {
+  background: var(--na-bento-subtle) !important;
+  box-shadow: none !important;
+}
+
+html.bento :is(.gva-table-box, .table-panel, .ledger-panel) .el-table {
+  border-right-color: transparent;
+  border-left-color: transparent;
+  border-radius: 8px;
+}
+
+html.bento :is(.metric-card:first-child, .profile-hero, .dashboard-page .metric-band > *:first-child) {
+  background: var(--na-bento-surface);
+}
 
 html.bento .dashboard-page .metric-band > *:first-child,
 html.bento .dashboard-page .workbench-band {
   background: var(--na-bento-surface);
+}
+
+html.bento .profile-banner { background: color-mix(in srgb, var(--na-primary) 13%, var(--na-card)); }
+
+html.bento .asset-dashboard {
+  --canvas: var(--na-background);
+  --surface: var(--na-card);
+  --surface-soft: var(--na-muted);
+  --text: var(--na-foreground);
+  --muted: var(--na-muted-foreground);
+  --border: var(--na-border);
+  --border-strong: var(--na-border-strong);
+}
+
+html.bento .scan-upload-page .toolbar {
+  border-top-color: var(--na-border);
+  background: var(--na-card);
+}
+
+@media (min-width: 1201px) {
+  html.bento .kpi-grid { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+  html.bento .kpi-grid > .metric-card:nth-child(1) { grid-column: span 4; }
+  html.bento .kpi-grid > .metric-card:nth-child(2) { grid-column: span 3; }
+  html.bento .kpi-grid > .metric-card:nth-child(3) { grid-column: span 2; }
+  html.bento .kpi-grid > .metric-card:nth-child(4) { grid-column: span 3; }
 }
 
 /* Controls */
@@ -299,6 +390,11 @@ html.bento :is(.theme-mode-option, .visual-style-option, .theme-color-option).is
 }
 
 html.bento .settings-section { border-color: var(--na-border); }
+
+@media (max-width: 800px) {
+  html.bento :is(.na-page-header, .monitor-header, .settings-heading, .about-hero) { padding-inline: 0; }
+  html.bento .na-workspace--tool { border-right: 0; border-left: 0; border-radius: 0; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   html.bento .el-button { transform: none !important; }

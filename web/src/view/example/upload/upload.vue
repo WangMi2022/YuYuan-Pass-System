@@ -1,8 +1,8 @@
 <template>
-  <div v-loading.fullscreen.lock="fullscreenLoading" class="upload-page">
+  <div v-loading.fullscreen.lock="fullscreenLoading" class="na-page na-page--list upload-page">
     <div class="upload-layout flex min-w-0 gap-4 pt-2">
       <div
-        class="flex-none w-64 bg-white text-slate-700 dark:text-slate-400 dark:bg-slate-900 rounded p-4"
+        class="na-panel upload-sidebar flex-none w-64 p-4"
       >
         <el-scrollbar style="height: calc(100vh - 300px)">
           <el-tree
@@ -49,7 +49,7 @@
         </el-scrollbar>
       </div>
       <div
-        class="upload-main min-w-0 flex-1 bg-white text-slate-700 dark:text-slate-400 dark:bg-slate-900"
+        class="upload-main min-w-0 flex-1"
       >
         <div class="upload-table-box gva-table-box mt-0 mb-0">
           <warning-bar

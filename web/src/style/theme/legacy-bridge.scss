@@ -24,9 +24,7 @@
 }
 .gva-search-box {
   padding-bottom: 4px !important;
-  background:
-    radial-gradient(80% 140% at 100% 0%, var(--na-primary-soft), transparent 58%),
-    var(--na-card) !important;
+  background: color-mix(in srgb, var(--na-primary) 3%, var(--na-card)) !important;
 }
 .gva-search-box + .gva-table-box,
 .gva-table-box + .gva-table-box { margin-top: 0 !important; }
