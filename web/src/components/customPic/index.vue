@@ -84,8 +84,19 @@
     margin-right: 8px;
   }
   .file {
+    display: block;
+    overflow: hidden;
     width: 80px;
     height: 80px;
     position: relative;
+    border: 1px solid var(--na-border);
+    border-radius: 8px;
+    background: var(--na-muted);
+  }
+  .file :deep(.el-image__inner) {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
   }
 </style>

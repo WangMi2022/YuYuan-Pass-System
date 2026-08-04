@@ -175,39 +175,41 @@
           align="center"
           label="操作"
           fixed="right"
-          width="118"
+          width="136"
         >
           <template #default="scope">
-            <el-tooltip v-if="scope.row.status !== '处理中'" content="使用 AI 分析解决方案" placement="top">
-            <el-button
-              v-if="scope.row.status !== '处理中'"
-              type="warning"
-              text
-              class="table-button"
-              @click="getSolution(scope.row.ID)"
-            >
-              <el-icon><ai-gva /></el-icon>
-            </el-button>
-            </el-tooltip>
-            <el-tooltip content="查看详情" placement="top">
-            <el-button
-              :icon="InfoFilled"
-              type="primary"
-              text
-              class="table-button"
-              @click="getDetails(scope.row)"
-              aria-label="查看错误详情"
-            />
-            </el-tooltip>
-            <el-tooltip content="删除记录" placement="top">
-            <el-button
-              :icon="Delete"
-              type="danger"
-              text
-              @click="deleteRow(scope.row)"
-              aria-label="删除错误日志"
-            />
-            </el-tooltip>
+            <div class="error-row-actions">
+              <el-tooltip v-if="scope.row.status !== '处理中'" content="使用 AI 分析解决方案" placement="top">
+                <el-button
+                  type="warning"
+                  text
+                  class="table-button"
+                  @click="getSolution(scope.row.ID)"
+                >
+                  <el-icon><ai-gva /></el-icon>
+                </el-button>
+              </el-tooltip>
+              <el-tooltip content="查看详情" placement="top">
+                <el-button
+                  :icon="InfoFilled"
+                  type="primary"
+                  text
+                  class="table-button"
+                  @click="getDetails(scope.row)"
+                  aria-label="查看错误详情"
+                />
+              </el-tooltip>
+              <el-tooltip content="删除记录" placement="top">
+                <el-button
+                  :icon="Delete"
+                  type="danger"
+                  text
+                  class="table-button"
+                  @click="deleteRow(scope.row)"
+                  aria-label="删除错误日志"
+                />
+              </el-tooltip>
+            </div>
           </template>
         </el-table-column>
       </el-table>
