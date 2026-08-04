@@ -1,5 +1,15 @@
 <template>
-  <div>
+  <main class="na-page na-page--list legacy-admin-page legacy-admin-page--version">
+    <AppPageHeader
+      title-id="version-management-title"
+      title="版本管理"
+      description="创建、导入和下载菜单、API、字典配置版本包。"
+    >
+      <template #actions>
+        <el-button type="success" icon="download" @click="openExportDialog">创建发版</el-button>
+        <el-button type="warning" icon="upload" @click="openImportDialog">导入版本</el-button>
+      </template>
+    </AppPageHeader>
     <div class="gva-search-box">
       <el-form ref="elSearchFormRef" :inline="true" :model="searchInfo" class="demo-form-inline"
         @keyup.enter="onSubmit">
@@ -44,9 +54,7 @@
     </div>
     <div class="gva-table-box">
       <div class="gva-btn-list">
-        <el-button type="success" icon="download" @click="openExportDialog">创建发版</el-button>
-        <el-button type="warning" icon="upload" @click="openImportDialog">导入版本</el-button>
-        <el-button icon="delete" style="margin-left: 10px;" :disabled="!multipleSelection.length"
+        <el-button icon="delete" :disabled="!multipleSelection.length"
           @click="onDelete">删除</el-button>
       </div>
       <el-table ref="multipleTable" style="width: 100%" tooltip-effect="dark" :data="tableData" row-key="ID"
@@ -74,7 +82,7 @@
         </el-table-column>
       </el-table>
       <div class="gva-pagination">
-        <el-pagination layout="total, sizes, prev, pager, next, jumper" :current-page="page" :page-size="pageSize"
+        <el-pagination layout="total, sizes, prev, pager, next" :current-page="page" :page-size="pageSize"
           :page-sizes="[10, 30, 50, 100]" :total="total" @current-change="handleCurrentChange"
           @size-change="handleSizeChange" />
       </div>
@@ -300,7 +308,7 @@
       </el-form>
     </el-drawer>
 
-  </div>
+  </main>
 </template>
 
 <script setup>
@@ -325,6 +333,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { UploadFilled } from '@element-plus/icons-vue'
 import { ref, watch } from 'vue'
 import { useAppStore } from "@/pinia"
+import AppPageHeader from '@/components/page/AppPageHeader.vue'
 
 defineOptions({
   name: 'SysVersion'

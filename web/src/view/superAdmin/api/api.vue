@@ -1,5 +1,16 @@
 <template>
-  <div>
+  <main class="na-page na-page--list legacy-admin-page legacy-admin-page--api">
+    <AppPageHeader
+      title-id="api-management-title"
+      title="API 管理"
+      description="维护接口清单、分组、请求方式和角色授权，保持权限缓存一致。"
+    >
+      <template #actions>
+        <el-button icon="Refresh" @click="onFresh">刷新缓存</el-button>
+        <el-button icon="Compass" @click="onSync">同步 API</el-button>
+        <el-button type="primary" icon="plus" @click="openDialog('addApi')">新增 API</el-button>
+      </template>
+    </AppPageHeader>
     <div class="gva-search-box">
       <el-form ref="searchForm" :inline="true" :model="searchInfo">
         <el-form-item label="路径">
@@ -42,14 +53,9 @@
     </div>
     <div class="gva-table-box">
       <div class="gva-btn-list">
-        <el-button type="primary" icon="plus" @click="openDialog('addApi')">
-          新增
-        </el-button>
         <el-button icon="delete" :disabled="!apis.length" @click="onDelete">
           删除
         </el-button>
-        <el-button icon="Refresh" @click="onFresh"> 刷新缓存 </el-button>
-        <el-button icon="Compass" @click="onSync"> 同步API </el-button>
         <ExportTemplate template-id="api" />
         <ExportExcel template-id="api" :limit="9999" />
         <ImportExcel template-id="api" @on-success="getTableData" />
@@ -137,7 +143,7 @@
           :page-size="pageSize"
           :page-sizes="[10, 30, 50, 100]"
           :total="total"
-          layout="total, sizes, prev, pager, next, jumper"
+          layout="total, sizes, prev, pager, next"
           @current-change="handleCurrentChange"
           @size-change="handleSizeChange"
         />
@@ -432,7 +438,7 @@
         default-expand-all
       />
     </el-drawer>
-  </div>
+  </main>
 </template>
 
 <script setup>
@@ -461,6 +467,7 @@
   import ImportExcel from '@/components/exportExcel/importExcel.vue'
   import { llmAuto } from '@/api/autoCode'
   import { useAppStore } from "@/pinia";
+  import AppPageHeader from '@/components/page/AppPageHeader.vue'
 
   defineOptions({
     name: 'Api'

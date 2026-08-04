@@ -1,12 +1,16 @@
 <template>
-  <div class="authority">
+  <main class="na-page na-page--list legacy-admin-page authority">
+    <AppPageHeader
+      title-id="authority-management-title"
+      title="角色管理"
+      description="配置角色层级、菜单权限、API 权限和用户归属。"
+    >
+      <template #actions>
+        <el-button type="primary" icon="plus" @click="addAuthority(0)">新增角色</el-button>
+      </template>
+    </AppPageHeader>
     <warning-bar title="注：右上角头像下拉可切换角色" />
     <div class="gva-table-box">
-      <div class="gva-btn-list">
-        <el-button size="small" type="primary" icon="plus" @click="addAuthority(0)"
-          >新增角色</el-button
-        >
-      </div>
       <el-table
         class="authority-table"
         :data="tableData"
@@ -210,7 +214,7 @@
         />
       </div>
     </el-drawer>
-  </div>
+  </main>
 </template>
 
 <script setup>
@@ -229,6 +233,7 @@
   import Apis from '@/view/superAdmin/authority/components/apis.vue'
   import Datas from '@/view/superAdmin/authority/components/datas.vue'
   import WarningBar from '@/components/warningBar/warningBar.vue'
+  import AppPageHeader from '@/components/page/AppPageHeader.vue'
 
   import { ref, nextTick } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'

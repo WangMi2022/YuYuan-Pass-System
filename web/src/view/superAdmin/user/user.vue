@@ -1,5 +1,14 @@
 <template>
-  <div>
+  <main class="na-page na-page--list legacy-admin-page legacy-admin-page--user">
+    <AppPageHeader
+      title-id="user-management-title"
+      title="用户管理"
+      description="维护系统账户、角色归属和启用状态，支持快速检索与密码重置。"
+    >
+      <template #actions>
+        <el-button type="primary" icon="plus" @click="addUser">新增用户</el-button>
+      </template>
+    </AppPageHeader>
     <warning-bar title="注：右上角头像下拉可切换角色" />
     <div class="gva-search-box">
       <el-form ref="searchForm" :inline="true" :model="searchInfo">
@@ -24,11 +33,6 @@
       </el-form>
     </div>
     <div class="gva-table-box">
-      <div class="gva-btn-list">
-        <el-button type="primary" icon="plus" @click="addUser"
-          >新增用户</el-button
-        >
-      </div>
       <el-table :data="tableData" row-key="ID" :default-sort="{ prop: 'ID', order: 'descending' }" @sort-change="sortChange">
         <el-table-column align="left" label="头像" min-width="75">
           <template #default="scope">
@@ -137,7 +141,7 @@
           :page-size="pageSize"
           :page-sizes="[10, 30, 50, 100]"
           :total="total"
-          layout="total, sizes, prev, pager, next, jumper"
+          layout="total, sizes, prev, pager, next"
           @current-change="handleCurrentChange"
           @size-change="handleSizeChange"
         />
@@ -247,7 +251,7 @@
         </el-form-item>
       </el-form>
     </el-drawer>
-  </div>
+  </main>
 </template>
 
 <script setup>
@@ -268,6 +272,7 @@
   import SelectImage from '@/components/selectImage/selectImage.vue'
   import { useAppStore } from "@/pinia";
   import { toSQLLine } from '@/utils/stringFun'
+  import AppPageHeader from '@/components/page/AppPageHeader.vue'
 
   defineOptions({
     name: 'User'

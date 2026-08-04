@@ -1,12 +1,15 @@
 <template>
-  <div>
+  <main class="na-page na-page--list legacy-admin-page legacy-admin-page--menu">
+    <AppPageHeader
+      title-id="menu-management-title"
+      title="菜单管理"
+      description="维护左侧导航、路由入口、按钮权限和菜单角色授权。"
+    >
+      <template #actions>
+        <el-button type="primary" icon="plus" @click="addMenu(0)">新增根菜单</el-button>
+      </template>
+    </AppPageHeader>
     <div class="gva-table-box">
-      <div class="gva-btn-list">
-        <el-button type="primary" icon="plus" @click="addMenu(0)">
-          新增根菜单
-        </el-button>
-      </div>
-
       <!-- 由于此处菜单跟左侧列表一一对应所以不需要分页 pageSize默认999 -->
       <el-table :data="tableData" row-key="ID">
         <el-table-column align="left" label="ID" min-width="100" prop="ID" />
@@ -545,7 +548,7 @@
         default-expand-all
       />
     </el-drawer>
-  </div>
+  </main>
 </template>
 
 <script setup>
@@ -567,6 +570,7 @@
   import { QuestionFilled, InfoFilled, Delete } from '@element-plus/icons-vue'
   import { toLowerCase } from '@/utils/stringFun'
   import ComponentsCascader from '@/view/superAdmin/menu/components/components-cascader.vue'
+  import AppPageHeader from '@/components/page/AppPageHeader.vue'
 
   import pathInfo from '@/pathInfo.json'
   import { useAppStore } from "@/pinia";

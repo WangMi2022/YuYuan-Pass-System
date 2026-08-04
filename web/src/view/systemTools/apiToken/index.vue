@@ -1,5 +1,14 @@
 <template>
-  <div>
+  <main class="na-page na-page--list legacy-admin-page legacy-admin-page--api-token">
+    <AppPageHeader
+      title-id="api-token-title"
+      title="API Token"
+      description="签发、检索和作废接口访问令牌，支持快速复制调用示例。"
+    >
+      <template #actions>
+        <el-button type="primary" icon="plus" @click="openDrawer">签发 Token</el-button>
+      </template>
+    </AppPageHeader>
     <div class="gva-search-box">
       <el-form :inline="true" :model="searchInfo">
           <el-form-item label="用户ID">
@@ -18,9 +27,6 @@
       </el-form>
     </div>
     <div class="gva-table-box">
-      <div class="gva-btn-list">
-        <el-button type="primary" icon="plus" @click="openDrawer">签发</el-button>
-      </div>
       <el-table
         v-loading="loading"
         :data="tableData"
@@ -68,7 +74,7 @@
           :page-size="searchInfo.pageSize"
           :page-sizes="[10, 30, 50, 100]"
           :total="total"
-          layout="total, sizes, prev, pager, next, jumper"
+          layout="total, sizes, prev, pager, next"
           @current-change="changePage"
           @size-change="changePageSize"
         />
@@ -148,7 +154,7 @@
             <el-button style="margin-top: 5px;" size="small" @click="copyText(curlCookie)">复制</el-button>
         </div>
     </el-drawer>
-  </div>
+  </main>
 </template>
 
 <script setup>
@@ -162,6 +168,7 @@ import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { formatDate } from '@/utils/format'
 import { usePagedList } from '@/hooks/usePagedList'
+import AppPageHeader from '@/components/page/AppPageHeader.vue'
 
 const drawerVisible = ref(false)
 const tokenDialogVisible = ref(false)

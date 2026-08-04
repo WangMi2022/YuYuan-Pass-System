@@ -1,5 +1,14 @@
 <template>
-  <div>
+  <main class="na-page na-page--list legacy-admin-page legacy-admin-page--params">
+    <AppPageHeader
+      title-id="system-params-title"
+      title="参数管理"
+      description="维护系统运行参数和说明，统一前后端读取口径。"
+    >
+      <template #actions>
+        <el-button type="primary" icon="plus" @click="openDialog">新增参数</el-button>
+      </template>
+    </AppPageHeader>
     <warning-bar title="获取参数且缓存方法已在前端utils/params 已经封装完成 不必自己书写 使用方法查看文件内注释" />
     <div class="gva-search-box">
       <el-form
@@ -83,12 +92,8 @@
     </div>
     <div class="gva-table-box">
       <div class="gva-btn-list">
-        <el-button type="primary" icon="plus" @click="openDialog"
-          >新增</el-button
-        >
         <el-button
           icon="delete"
-          style="margin-left: 10px"
           :disabled="!multipleSelection.length"
           @click="onDelete"
           >删除</el-button
@@ -159,7 +164,7 @@
       </el-table>
       <div class="gva-pagination">
         <el-pagination
-          layout="total, sizes, prev, pager, next, jumper"
+          layout="total, sizes, prev, pager, next"
           :current-page="page"
           :page-size="pageSize"
           :page-sizes="[10, 30, 50, 100]"
@@ -281,7 +286,7 @@
         </el-descriptions-item>
       </el-descriptions>
     </el-drawer>
-  </div>
+  </main>
 </template>
 
 <script setup>
@@ -299,6 +304,7 @@
   import { ElMessage, ElMessageBox } from 'element-plus'
   import { ref, reactive } from 'vue'
   import WarningBar from "@/components/warningBar/warningBar.vue";
+  import AppPageHeader from '@/components/page/AppPageHeader.vue'
 
   defineOptions({
     name: 'SysParams'
