@@ -1,9 +1,5 @@
 <template>
-  <vue-office-pdf
-    :src="pdf"
-    @rendered="renderedHandler"
-    @error="errorHandler"
-  />
+  <PdfPreview :source="pdf" @load="renderedHandler" @error="errorHandler" />
 </template>
 <script>
   export default {
@@ -13,11 +9,7 @@
 <script setup>
   import { ref, watch } from 'vue'
 
-  //引入VueOfficeDocx组件
-  import VueOfficePdf from '@vue-office/pdf'
-  //引入相关样式
-  import '@vue-office/docx/lib/index.css'
-  console.log('pdf===>')
+  import PdfPreview from './PdfPreview.vue'
   const props = defineProps({
     modelValue: {
       type: String,
@@ -30,10 +22,6 @@
     (val) => (pdf.value = val),
     { immediate: true }
   )
-  const renderedHandler = () => {
-    console.log('pdf 加载成功')
-  }
-  const errorHandler = () => {
-    console.log('pdf 错误')
-  }
+  const renderedHandler = () => {}
+  const errorHandler = () => {}
 </script>

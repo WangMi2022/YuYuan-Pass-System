@@ -34,11 +34,11 @@
           <el-button :icon="View" text :disabled="!invoice.ID" @click="openPreview">查看原件</el-button>
         </div>
         <div v-if="isPdf" v-loading="pdfLoading" class="invoice-pdf-wrap">
-          <VueOfficePdf
+          <PdfPreview
             v-if="pdfSource"
-            :src="pdfSource"
+            :source="pdfSource"
             class="invoice-pdf-viewer"
-            @rendered="handlePdfRendered"
+            @load="handlePdfRendered"
             @error="handlePdfError"
           />
           <el-empty v-else-if="pdfError" :description="pdfError" :image-size="72">
@@ -323,11 +323,11 @@
 
   <el-dialog v-model="previewVisible" title="发票原始凭证" width="min(94vw, 1080px)" append-to-body>
     <div v-if="isPdf" v-loading="pdfLoading" class="preview-pdf-wrap">
-      <VueOfficePdf
+      <PdfPreview
         v-if="pdfSource"
-        :src="pdfSource"
+        :source="pdfSource"
         class="preview-pdf-viewer"
-        @rendered="handlePdfRendered"
+        @load="handlePdfRendered"
         @error="handlePdfError"
       />
       <el-empty v-else-if="pdfError" :description="pdfError" :image-size="72">
@@ -339,19 +339,18 @@
 </template>
 
 <script setup>
-import { computed, defineAsyncComponent, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { CircleCheck, Delete, EditPen, Plus, RefreshRight, View, WarningFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { confirmInvoice, downloadInvoiceFile, getInvoiceCapabilities, getInvoiceCategoryOptions, getInvoiceDetail, getInvoiceVerificationHistory, recheckInvoice, reopenInvoice, updateInvoice, verifyInvoice } from '@/plugin/invoice/api/invoice'
 import { centsToYuan, invoiceFileUrl, yuanToCents } from '@/plugin/invoice/utils/invoice'
 import InvoiceStatusTag from '@/plugin/invoice/components/InvoiceStatusTag.vue'
 import InvoiceVerificationTag from '@/plugin/invoice/components/InvoiceVerificationTag.vue'
+import PdfPreview from '@/components/office/PdfPreview.vue'
 import { useAppStore } from '@/pinia/modules/app'
 import { useUserStore } from '@/pinia/modules/user'
 
 defineOptions({ name: 'InvoiceReviewDrawer' })
-
-const VueOfficePdf = defineAsyncComponent(() => import('@vue-office/pdf'))
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -948,7 +947,6 @@ watch(() => form.verificationType, (type) => {
 .invoice-image-wrap :deep(.el-image) { width: 100%; height: 460px; }
 .invoice-pdf-wrap { min-height: 460px; max-height: 580px; overflow: auto; border: 1px solid var(--na-border); border-radius: 9px; background: var(--na-card); }
 .invoice-pdf-viewer { min-height: 460px; background: var(--na-card); }
-.invoice-pdf-wrap :deep(.vue-office-pdf-wrapper) { padding: 12px 0; background: var(--na-muted); }
 .evidence-meta { display: grid; gap: 0; margin: 12px 0; }
 .evidence-meta > div { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--na-border); }
 .evidence-meta dt { color: var(--na-muted-foreground); font-size: .75rem; }
@@ -1004,7 +1002,6 @@ watch(() => form.verificationType, (type) => {
 .preview-image { display: block; width: 100%; max-height: 76vh; object-fit: contain; background: var(--na-muted); }
 .preview-pdf-wrap { height: min(76vh, 820px); min-height: 520px; overflow: auto; border: 1px solid var(--na-border); border-radius: 9px; background: var(--na-muted); }
 .preview-pdf-viewer { min-height: 100%; }
-.preview-pdf-wrap :deep(.vue-office-pdf-wrapper) { padding: 16px 0; background: var(--na-muted); }
 
 @media (max-width: 900px) {
   .review-workbench { grid-template-columns: 1fr; }

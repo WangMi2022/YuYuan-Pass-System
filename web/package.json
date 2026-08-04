@@ -24,7 +24,6 @@
     "@unocss/transformer-directives": "^66.4.2",
     "@vue-office/docx": "^1.6.2",
     "@vue-office/excel": "^1.7.11",
-    "@vue-office/pdf": "^2.0.2",
     "@vueuse/core": "^12.8.2",
     "@vueuse/integrations": "^12.8.2",
     "@wangeditor/editor": "^5.1.23",

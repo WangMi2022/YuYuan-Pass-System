@@ -664,27 +664,28 @@ func (InvoiceService) OpenFile(ctx context.Context, id uint, scope AccessScope) 
 func (InvoiceService) Dashboard(scope AccessScope) (invoiceResponse.Dashboard, error) {
 	var result invoiceResponse.Dashboard
 	db := applyInvoiceScope(global.GVA_DB.Model(&model.Invoice{}), scope)
-	var counts struct {
-		Confirmed int64
-		Pending   int64
-		Failed    int64
+	var summary struct {
+		Confirmed   int64
+		Pending     int64
+		Failed      int64
+		TotalCents  int64
+		AmountCents int64
+		TaxCents    int64
 	}
 	if err := db.Select(`
-		SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) AS confirmed,
-		SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) AS pending,
-		SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) AS failed`,
+		COALESCE(SUM(CASE WHEN status = ? THEN 1 ELSE 0 END), 0) AS confirmed,
+		COALESCE(SUM(CASE WHEN status = ? THEN 1 ELSE 0 END), 0) AS pending,
+		COALESCE(SUM(CASE WHEN status = ? THEN 1 ELSE 0 END), 0) AS failed,
+		COALESCE(SUM(CASE WHEN status = ? THEN total_cents ELSE 0 END), 0) AS total_cents,
+		COALESCE(SUM(CASE WHEN status = ? THEN amount_cents ELSE 0 END), 0) AS amount_cents,
+		COALESCE(SUM(CASE WHEN status = ? THEN tax_cents ELSE 0 END), 0) AS tax_cents`,
 		model.InvoiceStatusConfirmed, model.InvoiceStatusPendingReview, model.InvoiceStatusRecognitionFailed,
-	).Scan(&counts).Error; err != nil {
+		model.InvoiceStatusConfirmed, model.InvoiceStatusConfirmed, model.InvoiceStatusConfirmed,
+	).Scan(&summary).Error; err != nil {
 		return result, err
 	}
-	result.ConfirmedCount, result.PendingCount, result.FailedCount = counts.Confirmed, counts.Pending, counts.Failed
-	var totals struct{ TotalCents, AmountCents, TaxCents int64 }
-	if err := db.Where("status = ?", model.InvoiceStatusConfirmed).
-		Select("COALESCE(SUM(total_cents), 0) AS total_cents, COALESCE(SUM(amount_cents), 0) AS amount_cents, COALESCE(SUM(tax_cents), 0) AS tax_cents").
-		Scan(&totals).Error; err != nil {
-		return result, err
-	}
-	result.TotalCents, result.AmountCents, result.TaxCents = totals.TotalCents, totals.AmountCents, totals.TaxCents
+	result.ConfirmedCount, result.PendingCount, result.FailedCount = summary.Confirmed, summary.Pending, summary.Failed
+	result.TotalCents, result.AmountCents, result.TaxCents = summary.TotalCents, summary.AmountCents, summary.TaxCents
 
 	now := time.Now()
 	start := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location()).AddDate(0, -11, 0)

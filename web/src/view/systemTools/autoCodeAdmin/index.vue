@@ -79,13 +79,13 @@
       </el-table>
       <div class="gva-pagination">
         <el-pagination
-          :current-page="page"
-          :page-size="pageSize"
+          :current-page="searchInfo.page"
+          :page-size="searchInfo.pageSize"
           :page-sizes="[10, 30, 50, 100]"
           :total="total"
           layout="total, sizes, prev, pager, next, jumper"
-          @current-change="handleCurrentChange"
-          @size-change="handleSizeChange"
+          @current-change="changePage"
+          @size-change="changePageSize"
         />
       </div>
     </div>
@@ -323,6 +323,7 @@
   import { ref } from 'vue'
   import { formatDate } from '@/utils/format'
   import { toUpperCase } from '@/utils/stringFun'
+  import { usePagedList } from '@/hooks/usePagedList'
 
   import { VAceEditor } from 'vue3-ace-editor'
   import 'ace-builds/src-noconflict/mode-javascript'
@@ -346,10 +347,18 @@
   const dialogFormVisible = ref(false)
   const dialogFormTitle = ref('')
 
-  const page = ref(1)
-  const total = ref(0)
-  const pageSize = ref(10)
-  const tableData = ref([])
+  const {
+    search: searchInfo,
+    items: tableData,
+    total,
+    load: getTableData,
+    changePage,
+    changePageSize,
+    reloadAfterRemoval
+  } = usePagedList({
+    defaults: { page: 1, pageSize: 10 },
+    request: getSysHistory
+  })
 
   const activeInfo = ref('')
 
@@ -438,31 +447,6 @@
     }
   }
 
-  // 分页
-  const handleSizeChange = (val) => {
-    pageSize.value = val
-    getTableData()
-  }
-
-  const handleCurrentChange = (val) => {
-    page.value = val
-    getTableData()
-  }
-
-  // 查询
-  const getTableData = async () => {
-    const table = await getSysHistory({
-      page: page.value,
-      pageSize: pageSize.value
-    })
-    if (table.code === 0) {
-      tableData.value = table.data.list
-      total.value = table.data.total
-      page.value = table.data.page
-      pageSize.value = table.data.pageSize
-    }
-  }
-
   getTableData()
 
   const deleteRow = async (row) => {
@@ -474,7 +458,7 @@
       const res = await delSysHistory({ id: Number(row.ID) })
       if (res.code === 0) {
         ElMessage.success('删除成功')
-        getTableData()
+        reloadAfterRemoval()
       }
     })
   }

@@ -62,7 +62,7 @@ type Invoice struct {
 	InvoiceNumber                  string             `json:"invoiceNumber" form:"invoiceNumber" gorm:"size:80;index;comment:发票号码"`
 	CheckCode                      string             `json:"checkCode" form:"checkCode" gorm:"size:80;comment:发票校验码"`
 	DuplicateKey                   *string            `json:"-" gorm:"size:64;uniqueIndex;comment:已确认发票防重键"`
-	IssueDate                      *time.Time         `json:"issueDate" form:"issueDate" gorm:"type:date;index;comment:开票日期"`
+	IssueDate                      *time.Time         `json:"issueDate" form:"issueDate" gorm:"type:date;index;index:idx_invoice_status_issue_date;comment:开票日期"`
 	BuyerName                      string             `json:"buyerName" form:"buyerName" gorm:"size:200;comment:购买方名称"`
 	BuyerTaxNo                     string             `json:"buyerTaxNo" form:"buyerTaxNo" gorm:"size:80;comment:购买方税号"`
 	SellerName                     string             `json:"sellerName" form:"sellerName" gorm:"size:200;index;comment:销售方名称"`
@@ -78,7 +78,7 @@ type Invoice struct {
 	ClassificationReason           string             `json:"classificationReason" gorm:"size:1000;comment:分类依据"`
 	SuggestedCategoryID            *uint              `json:"suggestedCategoryId" gorm:"index;comment:建议分类ID"`
 	SuggestedCategory              *InvoiceCategory   `json:"suggestedCategory,omitempty" gorm:"foreignKey:SuggestedCategoryID"`
-	Status                         string             `json:"status" form:"status" gorm:"size:30;not null;default:uploaded;index;comment:处理状态"`
+	Status                         string             `json:"status" form:"status" gorm:"size:30;not null;default:uploaded;index;index:idx_invoice_status_issue_date;comment:处理状态"`
 	RecognitionProvider            string             `json:"recognitionProvider" gorm:"size:50;comment:识别提供方"`
 	RecognitionConfidence          float64            `json:"recognitionConfidence" gorm:"type:numeric(5,4);default:0;comment:识别置信度"`
 	FieldConfidences               map[string]float64 `json:"fieldConfidences" gorm:"serializer:json;type:text;comment:字段识别置信度"`

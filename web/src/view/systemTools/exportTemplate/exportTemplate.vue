@@ -161,12 +161,12 @@
       <div class="gva-pagination">
         <el-pagination
           layout="total, sizes, prev, pager, next, jumper"
-          :current-page="page"
-          :page-size="pageSize"
+          :current-page="searchInfo.page"
+          :page-size="searchInfo.pageSize"
           :page-sizes="[10, 30, 50, 100]"
           :total="total"
-          @current-change="handleCurrentChange"
-          @size-change="handleSizeChange"
+          @current-change="changePage"
+          @size-change="changePageSize"
         />
       </div>
     </div>
@@ -522,6 +522,7 @@
   import { getDB, getTable, getColumn, llmAuto } from '@/api/autoCode'
   import { getCode } from './code'
   import { VAceEditor } from 'vue3-ace-editor'
+  import { usePagedList } from '@/hooks/usePagedList'
 
   import 'ace-builds/src-noconflict/mode-vue'
   import 'ace-builds/src-noconflict/theme-github_dark'
@@ -676,22 +677,22 @@ JOINS模式下不支持导入
       {
         validator: (rule, value, callback) => {
           if (
-            searchInfo.value.startCreatedAt &&
-            !searchInfo.value.endCreatedAt
+            searchInfo.startCreatedAt &&
+            !searchInfo.endCreatedAt
           ) {
             callback(new Error('请填写结束日期'))
           } else if (
-            !searchInfo.value.startCreatedAt &&
-            searchInfo.value.endCreatedAt
+            !searchInfo.startCreatedAt &&
+            searchInfo.endCreatedAt
           ) {
             callback(new Error('请填写开始日期'))
           } else if (
-            searchInfo.value.startCreatedAt &&
-            searchInfo.value.endCreatedAt &&
-            (searchInfo.value.startCreatedAt.getTime() ===
-              searchInfo.value.endCreatedAt.getTime() ||
-              searchInfo.value.startCreatedAt.getTime() >
-                searchInfo.value.endCreatedAt.getTime())
+            searchInfo.startCreatedAt &&
+            searchInfo.endCreatedAt &&
+            (searchInfo.startCreatedAt.getTime() ===
+              searchInfo.endCreatedAt.getTime() ||
+              searchInfo.startCreatedAt.getTime() >
+                searchInfo.endCreatedAt.getTime())
           ) {
             callback(new Error('开始日期应当早于结束日期'))
           } else {
@@ -707,11 +708,19 @@ JOINS模式下不支持导入
   const elSearchFormRef = ref()
 
   // =========== 表格控制部分 ===========
-  const page = ref(1)
-  const total = ref(0)
-  const pageSize = ref(10)
-  const tableData = ref([])
-  const searchInfo = ref({})
+  const {
+    search: searchInfo,
+    items: tableData,
+    total,
+    load: getTableData,
+    reset: resetSearch,
+    changePage,
+    changePageSize,
+    reloadAfterRemoval
+  } = usePagedList({
+    defaults: { page: 1, pageSize: 10, startCreatedAt: undefined, endCreatedAt: undefined, name: '', tableName: '', templateID: '' },
+    request: getSysExportTemplateList
+  })
 
   const dbList = ref([])
   const tableOptions = ref([])
@@ -828,45 +837,15 @@ JOINS模式下不支持导入
   }
 
   // 重置
-  const onReset = () => {
-    searchInfo.value = {}
-    getTableData()
-  }
+  const onReset = () => resetSearch()
 
   // 搜索
   const onSubmit = () => {
     elSearchFormRef.value?.validate(async (valid) => {
       if (!valid) return
-      page.value = 1
+      searchInfo.page = 1
       getTableData()
     })
-  }
-
-  // 分页
-  const handleSizeChange = (val) => {
-    pageSize.value = val
-    getTableData()
-  }
-
-  // 修改页面容量
-  const handleCurrentChange = (val) => {
-    page.value = val
-    getTableData()
-  }
-
-  // 查询
-  const getTableData = async () => {
-    const table = await getSysExportTemplateList({
-      page: page.value,
-      pageSize: pageSize.value,
-      ...searchInfo.value
-    })
-    if (table.code === 0) {
-      tableData.value = table.data.list
-      total.value = table.data.total
-      page.value = table.data.page
-      pageSize.value = table.data.pageSize
-    }
   }
 
   getTableData()
@@ -922,10 +901,7 @@ JOINS模式下不支持导入
           type: 'success',
           message: '删除成功'
         })
-        if (tableData.value.length === ids.length && page.value > 1) {
-          page.value--
-        }
-        getTableData()
+        reloadAfterRemoval(ids.length)
       }
     })
   }
@@ -996,10 +972,7 @@ JOINS模式下不支持导入
         type: 'success',
         message: '删除成功'
       })
-      if (tableData.value.length === 1 && page.value > 1) {
-        page.value--
-      }
-      getTableData()
+      reloadAfterRemoval()
     }
   }
   const drawerVisible = ref(false)

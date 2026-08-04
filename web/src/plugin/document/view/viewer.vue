@@ -128,9 +128,9 @@
                   class="office-viewer"
                   @error="handlePreviewError"
                 />
-                <VueOfficePdf
+                <PdfPreview
                   v-else-if="isPdfPreview && previewSource"
-                  :src="previewSource"
+                  :source="previewSource"
                   class="office-viewer pdf-viewer"
                   @error="handlePreviewError"
                 />
@@ -317,13 +317,13 @@ import '@vue-office/docx/lib/index.css'
 import { deleteDocument, downloadDocumentFile, getDocumentDetail, getDocumentList, updateDocumentContent, uploadDocument } from '@/plugin/document/api/document'
 import { formatDateText } from '@/utils/format'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
+import PdfPreview from '@/components/office/PdfPreview.vue'
 import { usePagedList } from '@/hooks/usePagedList'
 
 const RichEdit = defineAsyncComponent(() => import('@/components/richtext/rich-edit.vue'))
 const SpreadsheetEditor = defineAsyncComponent(() => import('@/plugin/document/components/SpreadsheetEditor.vue'))
 
 const VueOfficeDocx = defineAsyncComponent(() => import('@vue-office/docx'))
-const VueOfficePdf = defineAsyncComponent(() => import('@vue-office/pdf'))
 
 const route = useRoute()
 const router = useRouter()
