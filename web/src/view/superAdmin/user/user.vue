@@ -267,11 +267,12 @@
   import WarningBar from '@/components/warningBar/warningBar.vue'
   import { setUserInfo, resetPassword } from '@/api/user.js'
 
-  import { nextTick, ref, watch } from 'vue'
+  import { computed, nextTick, ref, watch } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import SelectImage from '@/components/selectImage/selectImage.vue'
   import { useAppStore } from "@/pinia";
   import { toSQLLine } from '@/utils/stringFun'
+  import { usePagedList } from '@/hooks/usePagedList'
   import AppPageHeader from '@/components/page/AppPageHeader.vue'
 
   defineOptions({
@@ -280,29 +281,6 @@
 
   const appStore = useAppStore()
 
-  const searchInfo = ref({
-    username: '',
-    nickname: '',
-    phone: '',
-    email: ''
-  })
-
-  const onSubmit = () => {
-    page.value = 1
-    getTableData()
-  }
-
-  const onReset = () => {
-    searchInfo.value = {
-      username: '',
-      nickname: '',
-      phone: '',
-      email: ''
-    }
-    orderKey.value = 'id'
-    desc.value = true
-    getTableData()
-  }
   // 初始化相关
   const setAuthorityOptions = (AuthorityData, optionsData) => {
     AuthorityData &&
@@ -325,47 +303,47 @@
       })
   }
 
-  const page = ref(1)
-  const total = ref(0)
-  const pageSize = ref(10)
-  const tableData = ref([])
-  const orderKey = ref('id')
-  const desc = ref(true)
+  const {
+    search: searchInfo,
+    items: tableData,
+    total,
+    load,
+    submit,
+    reset,
+    changePage,
+    changePageSize,
+    reloadAfterRemoval
+  } = usePagedList({
+    defaults: {
+      page: 1,
+      pageSize: 10,
+      orderKey: 'id',
+      desc: true,
+      username: '',
+      nickname: '',
+      phone: '',
+      email: ''
+    },
+    request: getUserList
+  })
+  const page = computed(() => searchInfo.page)
+  const pageSize = computed(() => searchInfo.pageSize)
+
+  const onSubmit = () => submit()
+
+  const onReset = () => reset()
 
   const sortChange = ({ prop, order }) => {
     if (prop) {
-      orderKey.value = prop === 'ID' ? 'id' : toSQLLine(prop)
-      desc.value = order === 'descending'
+      searchInfo.orderKey = prop === 'ID' ? 'id' : toSQLLine(prop)
+      searchInfo.desc = order === 'descending'
     }
-    getTableData()
+    load()
   }
   // 分页
-  const handleSizeChange = (val) => {
-    pageSize.value = val
-    getTableData()
-  }
+  const handleSizeChange = (val) => changePageSize(val)
 
-  const handleCurrentChange = (val) => {
-    page.value = val
-    getTableData()
-  }
-
-  // 查询
-  const getTableData = async () => {
-    const table = await getUserList({
-      page: page.value,
-      pageSize: pageSize.value,
-      orderKey: orderKey.value,
-      desc: desc.value,
-      ...searchInfo.value
-    })
-    if (table.code === 0) {
-      tableData.value = table.data.list
-      total.value = table.data.total
-      page.value = table.data.page
-      pageSize.value = table.data.pageSize
-    }
-  }
+  const handleCurrentChange = (val) => changePage(val)
 
   watch(
     () => tableData.value,
@@ -381,9 +359,8 @@
   }
 
   const initPage = async () => {
-    getTableData()
-    const res = await getAuthorityList()
-    setOptions(res.data)
+    const [, res] = await Promise.all([load(), getAuthorityList()])
+    if (res.code === 0) setOptions(res.data)
   }
 
   initPage()
@@ -483,7 +460,7 @@
       const res = await deleteUser({ id: row.ID })
       if (res.code === 0) {
         ElMessage.success('删除成功')
-        await getTableData()
+        await reloadAfterRemoval()
       }
     })
   }
@@ -539,7 +516,7 @@
           const res = await register(req)
           if (res.code === 0) {
             ElMessage({ type: 'success', message: '创建成功' })
-            await getTableData()
+            await load()
             closeAddUserDialog()
           }
         }
@@ -547,7 +524,7 @@
           const res = await setUserInfo(req)
           if (res.code === 0) {
             ElMessage({ type: 'success', message: '编辑成功' })
-            await getTableData()
+            await load()
             closeAddUserDialog()
           }
         }
@@ -613,7 +590,7 @@
         type: 'success',
         message: `${req.enable === 2 ? '禁用' : '启用'}成功`
       })
-      await getTableData()
+      await load()
       userInfo.value.headerImg = ''
       userInfo.value.authorityIds = []
     }

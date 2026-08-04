@@ -63,18 +63,6 @@ export default ({ mode }) => {
       rolldownOptions: {
         output: {
           cleanDir: true,
-          codeSplitting: {
-            minSize: 12 * 1024,
-            minShareCount: 2,
-            groups: [
-              {
-                name: 'vendor',
-                test: /node_modules[\\/]/,
-                minSize: 12 * 1024,
-                minShareCount: 2
-              }
-            ]
-          },
           entryFileNames: 'assets/087AC4D233B64EB0[name].[hash].js',
           chunkFileNames: 'assets/087AC4D233B64EB0[name].[hash].js',
           assetFileNames: 'assets/087AC4D233B64EB0[name].[hash].[ext]'

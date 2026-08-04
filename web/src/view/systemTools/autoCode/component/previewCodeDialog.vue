@@ -18,12 +18,44 @@
 <script setup>
   import { Marked } from 'marked'
   import { markedHighlight } from 'marked-highlight'
-  import hljs from 'highlight.js'
+  import hljs from 'highlight.js/lib/core'
+  import bash from 'highlight.js/lib/languages/bash'
+  import css from 'highlight.js/lib/languages/css'
+  import javascript from 'highlight.js/lib/languages/javascript'
+  import json from 'highlight.js/lib/languages/json'
+  import markdown from 'highlight.js/lib/languages/markdown'
+  import python from 'highlight.js/lib/languages/python'
+  import sql from 'highlight.js/lib/languages/sql'
+  import typescript from 'highlight.js/lib/languages/typescript'
+  import xml from 'highlight.js/lib/languages/xml'
+  import yaml from 'highlight.js/lib/languages/yaml'
   import { ElMessage } from 'element-plus'
   import { onMounted, ref, watchEffect } from 'vue'
   import { useAppStore } from '@/pinia'
 
   const appStore = useAppStore()
+
+  // 预览只覆盖代码生成器实际输出的语言，避免加载 Highlight.js 全量语言包。
+  const languageDefinitions = {
+    bash,
+    css,
+    html: xml,
+    javascript,
+    json,
+    markdown,
+    python,
+    sh: bash,
+    shell: bash,
+    sql,
+    ts: typescript,
+    typescript,
+    vue: xml,
+    xml,
+    yaml
+  }
+  Object.entries(languageDefinitions).forEach(([name, definition]) => {
+    hljs.registerLanguage(name, definition)
+  })
 
   const useCode = ref({})
 

@@ -460,13 +460,14 @@
   import { getAuthorityList } from '@/api/authority'
   import { toSQLLine } from '@/utils/stringFun'
   import WarningBar from '@/components/warningBar/warningBar.vue'
-  import { ref, nextTick } from 'vue'
+  import { computed, ref, nextTick } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import ExportExcel from '@/components/exportExcel/exportExcel.vue'
   import ExportTemplate from '@/components/exportExcel/exportTemplate.vue'
   import ImportExcel from '@/components/exportExcel/importExcel.vue'
   import { llmAuto } from '@/api/autoCode'
   import { useAppStore } from "@/pinia";
+  import { usePagedList } from '@/hooks/usePagedList'
   import AppPageHeader from '@/components/page/AppPageHeader.vue'
 
   defineOptions({
@@ -518,11 +519,31 @@
     description: [{ required: true, message: '请输入api介绍', trigger: 'blur' }]
   })
 
-  const page = ref(1)
-  const total = ref(0)
-  const pageSize = ref(10)
-  const tableData = ref([])
-  const searchInfo = ref({})
+  const {
+    search: searchInfo,
+    items: tableData,
+    total,
+    load,
+    submit,
+    reset,
+    changePage,
+    changePageSize,
+    reloadAfterRemoval
+  } = usePagedList({
+    defaults: {
+      page: 1,
+      pageSize: 10,
+      path: '',
+      description: '',
+      apiGroup: '',
+      method: ''
+    },
+    request: getApiList
+  })
+  const page = computed(() => searchInfo.page)
+  const pageSize = computed(() => searchInfo.pageSize)
+  // 保留旧调用名，表格刷新、导入回调和业务操作统一走同一个请求状态机。
+  const getTableData = load
   const apiGroupOptions = ref([])
   const apiGroupMap = ref({})
 
@@ -622,26 +643,18 @@
   }
 
   const onReset = () => {
-    searchInfo.value = {}
-    getTableData()
+    reset()
   }
   // 搜索
 
   const onSubmit = () => {
-    page.value = 1
-    getTableData()
+    submit()
   }
 
   // 分页
-  const handleSizeChange = (val) => {
-    pageSize.value = val
-    getTableData()
-  }
+  const handleSizeChange = (val) => changePageSize(val)
 
-  const handleCurrentChange = (val) => {
-    page.value = val
-    getTableData()
-  }
+  const handleCurrentChange = (val) => changePage(val)
 
   // 排序
   const sortChange = ({ prop, order }) => {
@@ -649,25 +662,10 @@
       if (prop === 'ID') {
         prop = 'id'
       }
-      searchInfo.value.orderKey = toSQLLine(prop)
-      searchInfo.value.desc = order === 'descending'
+      searchInfo.orderKey = toSQLLine(prop)
+      searchInfo.desc = order === 'descending'
     }
-    getTableData()
-  }
-
-  // 查询
-  const getTableData = async () => {
-    const table = await getApiList({
-      page: page.value,
-      pageSize: pageSize.value,
-      ...searchInfo.value
-    })
-    if (table.code === 0) {
-      tableData.value = table.data.list
-      total.value = table.data.total
-      page.value = table.data.page
-      pageSize.value = table.data.pageSize
-    }
+    load()
   }
 
   getTableData()
@@ -690,10 +688,7 @@
           type: 'success',
           message: res.msg
         })
-        if (tableData.value.length === ids.length && page.value > 1) {
-          page.value--
-        }
-        getTableData()
+        reloadAfterRemoval(ids.length)
       }
     })
   }
@@ -832,10 +827,7 @@
           type: 'success',
           message: '删除成功!'
         })
-        if (tableData.value.length === 1 && page.value > 1) {
-          page.value--
-        }
-        getTableData()
+        reloadAfterRemoval()
         getGroup()
       }
     })

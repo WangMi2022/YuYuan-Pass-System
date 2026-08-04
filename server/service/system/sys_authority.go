@@ -358,23 +358,43 @@ func (authorityService *AuthorityService) SetRoleUsers(authorityId uint, userIds
 		}
 
 		// 3. 对被移除的用户：若该角色是其主角色，则将主角色切换为其剩余的其他角色
+		removedUserIDs := make([]uint, 0, len(currentSet))
 		for userId := range currentSet {
-			if _, ok := targetSet[userId]; ok {
-				continue // 仍在目标列表中，不处理
+			if _, ok := targetSet[userId]; !ok {
+				removedUserIDs = append(removedUserIDs, userId)
 			}
-			var user system.SysUser
-			if err := tx.First(&user, "id = ?", userId).Error; err != nil {
-				continue
+		}
+		if len(removedUserIDs) > 0 {
+			var removedUsers []system.SysUser
+			if err := tx.Select("id", "authority_id").Where("id IN ?", removedUserIDs).Find(&removedUsers).Error; err != nil {
+				return err
 			}
-			if user.AuthorityId == authorityId {
-				// 从剩余关联（已删除当前角色后）中找另一个角色作为主角色
-				var another system.SysUserAuthority
-				if err := tx.Where("sys_user_id = ?", userId).First(&another).Error; err != nil {
-					// 没有其他角色，主角色保持不变，不做处理
+			var remainingRecords []system.SysUserAuthority
+			if err := tx.Where("sys_user_id IN ?", removedUserIDs).
+				Order("sys_user_id ASC, sys_authority_authority_id ASC").Find(&remainingRecords).Error; err != nil {
+				return err
+			}
+
+			// 一次性读取剩余角色，再按目标角色合并更新，避免每个用户触发两次查询。
+			fallbackByUser := make(map[uint]uint, len(removedUserIDs))
+			for _, record := range remainingRecords {
+				if _, exists := fallbackByUser[record.SysUserId]; !exists {
+					fallbackByUser[record.SysUserId] = record.SysAuthorityAuthorityId
+				}
+			}
+			updatesByAuthority := make(map[uint][]uint)
+			for _, user := range removedUsers {
+				if user.AuthorityId != authorityId {
 					continue
 				}
-				if err := tx.Model(&system.SysUser{}).Where("id = ?", userId).
-					Update("authority_id", another.SysAuthorityAuthorityId).Error; err != nil {
+				if fallbackAuthority, exists := fallbackByUser[user.ID]; exists {
+					updatesByAuthority[fallbackAuthority] = append(updatesByAuthority[fallbackAuthority], user.ID)
+				}
+			}
+			for fallbackAuthority, ids := range updatesByAuthority {
+				if err := tx.Model(&system.SysUser{}).
+					Where("id IN ? AND authority_id = ?", ids, authorityId).
+					Update("authority_id", fallbackAuthority).Error; err != nil {
 					return err
 				}
 			}
