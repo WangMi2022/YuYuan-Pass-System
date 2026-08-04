@@ -35,12 +35,7 @@
     </section>
 
     <section class="na-panel audit-filter" aria-label="错误日志筛选">
-      <el-form
-        ref="elSearchFormRef"
-        :model="searchInfo"
-        label-position="top"
-        @submit.prevent="onSubmit"
-      >
+      <el-form :model="searchInfo" label-position="top" @submit.prevent="onSubmit">
         <div class="audit-filter__grid" style="--audit-filter-columns: minmax(250px, 1.2fr) minmax(170px, .7fr) minmax(230px, 1fr) auto">
         <el-form-item prop="createdAtRange">
           <template #label>
@@ -96,6 +91,7 @@
       </header>
       <el-table
         ref="multipleTable"
+        v-loading="loading"
         style="width: 100%"
         tooltip-effect="dark"
         :data="tableData"
@@ -217,12 +213,12 @@
         <el-pagination
           :pager-count="5"
           layout="total, sizes, prev, pager, next"
-          :current-page="page"
-          :page-size="pageSize"
+          :current-page="searchInfo.page"
+          :page-size="searchInfo.pageSize"
           :page-sizes="[10, 30, 50, 100]"
           :total="total"
-          @current-change="handleCurrentChange"
-          @size-change="handleSizeChange"
+          @current-change="changePage"
+          @size-change="changePageSize"
         />
       </div>
     </section>
@@ -281,6 +277,7 @@
   import { computed, ref } from 'vue'
   import { Delete, Refresh, RefreshLeft, Search } from '@element-plus/icons-vue'
   import { useAppStore } from '@/pinia'
+  import { usePagedList } from '@/hooks/usePagedList'
   import AppPageHeader from '@/components/page/AppPageHeader.vue'
   import LogClearButton from '@/components/logClearButton/index.vue'
 
@@ -290,20 +287,22 @@
 
   const appStore = useAppStore()
 
-  const elSearchFormRef = ref()
-
-  // =========== 表格控制部分 ===========
-  const page = ref(1)
-  const total = ref(0)
-  const pageSize = ref(10)
-  const tableData = ref([])
-  const searchInfo = ref({})
+  const {
+    search: searchInfo,
+    items: tableData,
+    total,
+    loading,
+    load: getTableData,
+    submit: onSubmit,
+    reset: onReset,
+    changePage,
+    changePageSize,
+    reloadAfterRemoval
+  } = usePagedList({
+    defaults: { page: 1, pageSize: 10, createdAtRange: undefined, form: '', info: '' },
+    request: getSysErrorList
+  })
   const pendingCount = computed(() => tableData.value.filter((item) => !['处理完成', '处理失败'].includes(item.status)).length)
-  // 重置
-  const onReset = () => {
-    searchInfo.value = {}
-    getTableData()
-  }
 
   const getSolution = async (id) => {
     const confirmed = await ElMessageBox.confirm(
@@ -322,51 +321,9 @@
       getTableData()
     }
   }
-  // 搜索
-  const onSubmit = () => {
-    elSearchFormRef.value?.validate(async (valid) => {
-      if (!valid) return
-      page.value = 1
-      getTableData()
-    })
-  }
-
-  // 分页
-  const handleSizeChange = (val) => {
-    pageSize.value = val
-    getTableData()
-  }
-
-  // 修改页面容量
-  const handleCurrentChange = (val) => {
-    page.value = val
-    getTableData()
-  }
-
-  // 查询
-  const getTableData = async () => {
-    const table = await getSysErrorList({
-      page: page.value,
-      pageSize: pageSize.value,
-      ...searchInfo.value
-    })
-    if (table.code === 0) {
-      tableData.value = table.data.list
-      total.value = table.data.total
-      page.value = table.data.page
-      pageSize.value = table.data.pageSize
-    }
-  }
-
   getTableData()
 
   // ============== 表格控制部分结束 ===============
-
-  // 获取需要的字典 可能为空 按需保留
-  const setOptions = async () => {}
-
-  // 获取需要的字典 可能为空 按需保留
-  setOptions()
 
   // 多选数据
   const multipleSelection = ref([])
@@ -411,16 +368,13 @@
           type: 'success',
           message: '删除成功'
         })
-        if (tableData.value.length === IDs.length && page.value > 1) {
-          page.value--
-        }
-        getTableData()
+        reloadAfterRemoval(IDs.length)
       }
     })
   }
 
   const handleLogsCleared = () => {
-    page.value = 1
+    searchInfo.page = 1
     multipleSelection.value = []
     getTableData()
   }
@@ -433,10 +387,7 @@
         type: 'success',
         message: '删除成功'
       })
-      if (tableData.value.length === 1 && page.value > 1) {
-        page.value--
-      }
-      getTableData()
+      reloadAfterRemoval()
     }
   }
 
