@@ -27,6 +27,33 @@
         </div>
       </div>
 
+      <button
+        type="button"
+        class="runtime-summary"
+        :class="{ 'is-actionable': access.monitor }"
+        :disabled="!access.monitor"
+        aria-label="服务器监控摘要"
+        @click="go('state')"
+      >
+        <span class="runtime-topline">
+          <span class="runtime-heading" :class="`health-${systemHealth.tone}`"><i />{{ moduleLoaded.monitor ? systemHealth.label : '服务器监控' }}</span>
+          <small>{{ moduleLoaded.monitor ? `采集于 ${serverCollectedAt}` : '暂无可用数据' }}</small>
+        </span>
+        <dl>
+          <div>
+            <dt>CPU</dt><dd>{{ moduleLoaded.monitor ? percent(systemUsage.cpu) : '—' }}</dd>
+            <span class="runtime-track"><i :class="`tone-${usageTone(systemUsage.cpu)}`" :style="{ width: `${safePercent(systemUsage.cpu)}%` }" /></span>
+          </div>
+          <div>
+            <dt>内存</dt><dd>{{ moduleLoaded.monitor ? percent(systemUsage.ram) : '—' }}</dd>
+            <span class="runtime-track"><i :class="`tone-${usageTone(systemUsage.ram)}`" :style="{ width: `${safePercent(systemUsage.ram)}%` }" /></span>
+          </div>
+          <div>
+            <dt>磁盘</dt><dd>{{ moduleLoaded.monitor ? percent(systemUsage.disk) : '—' }}</dd>
+            <span class="runtime-track"><i :class="`tone-${usageTone(systemUsage.disk)}`" :style="{ width: `${safePercent(systemUsage.disk)}%` }" /></span>
+          </div>
+        </dl>
+      </button>
     </section>
 
     <section v-if="metrics.length" class="metric-band" aria-label="核心业务指标">
@@ -199,6 +226,7 @@ import { getAssetOperationList } from '@/plugin/asset/api/operation'
 import { getInvoiceDashboard } from '@/plugin/invoice/api/invoice'
 import { centsToCurrency } from '@/plugin/invoice/utils/invoice'
 import { getSysOperationRecordList } from '@/api/sysOperationRecord'
+import { getSystemState } from '@/api/system'
 import { useUserStore } from '@/pinia/modules/user'
 
 defineOptions({ name: 'Dashboard' })
@@ -211,7 +239,8 @@ const assetDashboard = ref(createAssetDashboard())
 const invoiceDashboard = ref(createInvoiceDashboard())
 const assetDraftTotal = ref(0)
 const recentOperations = ref([])
-const moduleLoaded = ref({ assets: false, invoices: false, audit: false })
+const systemState = ref(createSystemState())
+const moduleLoaded = ref({ assets: false, invoices: false, audit: false, monitor: false })
 const calendarEvents = ref([])
 const calendarTypes = ref([])
 
@@ -233,6 +262,7 @@ const access = computed(() => ({
   invoices: router.hasRoute('invoiceDashboard') || router.hasRoute('invoiceLedger'),
   calendar: router.hasRoute('workSchedule'),
   audit: router.hasRoute('operation'),
+  monitor: router.hasRoute('state')
 }))
 
 const greeting = computed(() => {
@@ -283,6 +313,28 @@ const invoiceTrend = computed(() => {
   const maximum = Math.max(...values.map((item) => Number(item.totalCents || 0)), 0)
   return values.map((item) => ({ ...item, ratio: maximum ? Math.max((Number(item.totalCents || 0) / maximum) * 100, Number(item.totalCents || 0) ? 5 : 0) : 0 }))
 })
+const systemUsage = computed(() => {
+  const cpuValues = Array.isArray(systemState.value.cpu?.cpus) ? systemState.value.cpu.cpus : []
+  const cpu = cpuValues.length
+    ? cpuValues.reduce((total, value) => total + Number(value || 0), 0) / cpuValues.length
+    : 0
+  const disks = Array.isArray(systemState.value.disk) ? systemState.value.disk : []
+  return {
+    cpu,
+    ram: Number(systemState.value.ram?.usedPercent || 0),
+    disk: Math.max(0, ...disks.map((item) => Number(item?.usedPercent || 0)))
+  }
+})
+const systemHealth = computed(() => {
+  const peak = Math.max(systemUsage.value.cpu, systemUsage.value.ram, systemUsage.value.disk)
+  if (peak >= 90) return { label: '资源紧张', tone: 'danger' }
+  if (peak >= 75) return { label: '资源需关注', tone: 'warning' }
+  return { label: '运行正常', tone: 'success' }
+})
+const serverCollectedAt = computed(() => {
+  const date = new Date(systemState.value.collectedAt)
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+})
 const todaySchedules = computed(() => calendarEvents.value
   .filter((item) => item.date === dateKey(new Date()))
   .sort((left, right) => String(left.time).localeCompare(String(right.time)))
@@ -306,6 +358,9 @@ function createAssetDashboard() {
 function createInvoiceDashboard() {
   return { confirmedCount: 0, pendingCount: 0, failedCount: 0, totalCents: 0, amountCents: 0, taxCents: 0, monthlyTrend: [] }
 }
+function createSystemState() {
+  return { collectedAt: '', cpu: { cpus: [] }, ram: { usedPercent: 0 }, disk: [] }
+}
 function dateKey(date) {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -328,6 +383,18 @@ function operationTime(value) {
 }
 function isRequestError(status) {
   return Number(status || 0) >= 400
+}
+function safePercent(value) {
+  return Math.min(100, Math.max(0, Number(value || 0)))
+}
+function percent(value) {
+  return `${safePercent(value).toFixed(0)}%`
+}
+function usageTone(value) {
+  const usage = safePercent(value)
+  if (usage >= 90) return 'danger'
+  if (usage >= 75) return 'warning'
+  return 'success'
 }
 function go(name) {
   if (router.hasRoute(name)) router.push({ name })
@@ -379,15 +446,23 @@ async function loadAudit() {
     moduleLoaded.value.audit = true
   }
 }
+async function loadMonitor() {
+  const result = await getSystemState()
+  if (result.code === 0 && result.data?.server) {
+    systemState.value = { ...createSystemState(), ...result.data.server }
+    moduleLoaded.value.monitor = true
+  }
+}
 async function loadDashboard() {
   loading.value = true
-  moduleLoaded.value = { assets: false, invoices: false, audit: false }
+  moduleLoaded.value = { assets: false, invoices: false, audit: false, monitor: false }
   try {
     readCalendarStorage()
     await Promise.allSettled([
       access.value.assets ? loadAssets() : Promise.resolve(),
       access.value.invoices ? loadInvoices() : Promise.resolve(),
       access.value.audit ? loadAudit() : Promise.resolve(),
+      access.value.monitor ? loadMonitor() : Promise.resolve()
     ])
     updatedAt.value = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
   } finally {
@@ -415,6 +490,23 @@ onUnmounted(() => window.removeEventListener('storage', handleStorageChange))
 .workbench-copy > p:last-of-type { margin: 7px 0 0; color: var(--na-muted-foreground); font-size: .8125rem; }
 .quick-actions { display: flex; flex-wrap: wrap; gap: 2px 6px; margin-top: 8px; }
 .quick-actions :deep(.el-button) { height: 26px; padding: 0 4px; font-size: .75rem; }
+
+.runtime-summary { display: grid; width: min(390px, 38%); min-width: 330px; grid-template-columns: 1fr; gap: 12px; padding: 0 0 0 26px; border: 0; border-left: 1px solid var(--na-border); background: transparent; color: var(--na-foreground); text-align: left; }
+.runtime-summary.is-actionable { cursor: pointer; }
+.runtime-summary.is-actionable:hover .runtime-heading { color: var(--na-primary); }
+.runtime-summary:disabled { cursor: default; opacity: 1; }
+.runtime-topline { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 16px; }
+.runtime-topline > small { overflow: hidden; color: var(--na-muted-foreground); font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
+.runtime-heading { display: inline-flex; align-items: center; gap: 7px; font-size: .75rem; font-weight: 630; transition: color 160ms ease; white-space: nowrap; }
+.runtime-heading i { width: 7px; height: 7px; border-radius: 50%; background: var(--na-success); box-shadow: 0 0 0 3px var(--na-success-soft); }
+.runtime-heading.health-warning i { background: var(--na-warning); box-shadow: 0 0 0 3px var(--na-warning-soft); }
+.runtime-heading.health-danger i { background: var(--na-danger); box-shadow: 0 0 0 3px var(--na-danger-soft); }
+.runtime-summary dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 26px; margin: 0; }
+.runtime-summary dl div { display: grid; min-width: 0; grid-template-columns: 1fr auto; align-items: end; gap: 4px 8px; }
+.runtime-summary dt { color: var(--na-muted-foreground); font-size: .6875rem; }
+.runtime-summary dd { margin: 0; color: var(--na-foreground); font-size: 1rem; font-variant-numeric: tabular-nums; font-weight: 670; }
+.runtime-track { grid-column: 1 / -1; height: 5px; overflow: hidden; border-radius: 3px; background: var(--na-muted); }
+.runtime-track i { display: block; height: 100%; border-radius: inherit; }
 
 .metric-band { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); margin-bottom: 12px; border: 1px solid var(--na-border); border-radius: var(--na-radius); background: var(--na-card); }
 .metric-item { display: flex; min-width: 0; min-height: 104px; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 16px 18px 15px 20px; border-right: 1px solid var(--na-border); }
@@ -529,6 +621,7 @@ onUnmounted(() => window.removeEventListener('storage', handleStorageChange))
 @media (max-width: 860px) {
   .dashboard-page { padding: 15px; }
   .workbench-band { flex-direction: column; }
+  .runtime-summary { width: 100%; min-width: 0; padding: 14px 0 0; border-top: 1px solid var(--na-border); border-left: 0; }
   .metric-band { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .metric-item:nth-child(2n) { border-right: 0; }
   .metric-item:nth-child(-n + 2) { border-bottom: 1px solid var(--na-border); }
@@ -541,6 +634,8 @@ onUnmounted(() => window.removeEventListener('storage', handleStorageChange))
 @media (max-width: 640px) {
   .dashboard-page { padding: 12px; }
   .workbench-band { padding: 15px; }
+  .runtime-summary dl { gap: 12px; }
+  .runtime-topline { align-items: flex-start; flex-direction: column; gap: 4px; }
   .asset-summary { grid-template-columns: 1fr; gap: 12px; }
   .asset-summary div, .asset-summary div:first-child, .asset-summary div:last-child { padding: 0; border-left: 0; }
   .asset-recent-table-head, .asset-recent-list button { grid-template-columns: minmax(0, 1fr) auto; }
