@@ -8,10 +8,10 @@
       <template #actions>
         <span class="updated-at">刷新于 {{ updatedAt || '—' }}</span>
         <el-button :icon="Refresh" :loading="loading" @click="loadDashboard">刷新</el-button>
-        <el-button-group v-if="access.assetInventory || access.invoiceRecognition" class="header-primary-actions">
+        <div v-if="access.assetInventory || access.invoiceRecognition" class="header-primary-actions">
           <el-button v-if="access.assetInventory" type="primary" :icon="Plus" @click="go('assetInventory')">登记资产</el-button>
           <el-button v-if="access.invoiceRecognition" type="primary" :icon="Tickets" @click="go('invoiceRecognition')">上传发票</el-button>
-        </el-button-group>
+        </div>
       </template>
     </AppPageHeader>
 
@@ -481,7 +481,8 @@ onUnmounted(() => window.removeEventListener('storage', handleStorageChange))
 <style scoped lang="scss">
 .dashboard-page { min-height: 100%; padding: 18px 20px 24px; background: var(--na-background); color: var(--na-foreground); }
 .updated-at { color: var(--na-muted-foreground); font-size: .75rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.header-primary-actions :deep(.el-button) { min-width: 104px; }
+.header-primary-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.header-primary-actions :deep(.el-button) { min-width: 104px; margin-left: 0; }
 
 .workbench-band { display: flex; min-width: 0; min-height: 120px; align-items: stretch; justify-content: space-between; gap: 28px; margin-bottom: 12px; padding: 18px 20px; border: 1px solid var(--na-border); border-radius: var(--na-radius); background: var(--na-card); }
 .workbench-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; justify-content: center; }
