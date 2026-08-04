@@ -300,13 +300,19 @@
               :plain="!draft.recurrence.enabled"
               size="small"
               :aria-pressed="draft.recurrence.enabled"
+              :aria-expanded="draft.recurrence.enabled"
+              aria-controls="schedule-repeat-editor"
               :aria-label="draft.recurrence.enabled ? '关闭重复日程' : '启用重复日程'"
               @click="toggleRecurrence"
             >
               {{ draft.recurrence.enabled ? '重复已启用' : '启用重复' }}
             </el-button>
           </div>
-          <div v-if="draft.recurrence.enabled" class="schedule-repeat-editor">
+          <div
+            v-if="draft.recurrence.enabled"
+            id="schedule-repeat-editor"
+            class="schedule-repeat-editor"
+          >
             <el-radio-group v-model="draft.recurrence.mode" class="repeat-mode-toggle" aria-label="重复周期">
               <el-radio-button label="weekly">每周</el-radio-button>
               <el-radio-button label="monthly">每月</el-radio-button>
@@ -442,6 +448,12 @@ watch(schedules, persistSchedules, { deep: true })
 watch(scheduleTypes, persistScheduleTypes, { deep: true })
 watch([pickerYear, pickerMonth], () => {
   pickerDay.value = Math.min(pickerDay.value, pickerDays.value.length)
+})
+watch(() => draft.value.date, (date) => {
+  if (!date || draft.value.recurrence.enabled) return
+  const parsedDate = fromDateKey(date)
+  draft.value.recurrence.weekday = weekdayFromKey(date)
+  draft.value.recurrence.monthDay = parsedDate.getDate()
 })
 
 onMounted(() => {
@@ -876,6 +888,7 @@ function isValidScheduleType(type) {
 .weekday-picker { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
 .weekday-picker button { min-width: 0; min-height: 30px; padding: 0; border: 1px solid var(--na-border); border-radius: 7px; background: var(--na-card); color: var(--na-foreground); font-size: .75rem; }
 .weekday-picker button:hover { border-color: var(--na-primary); color: var(--na-primary); }
+.weekday-picker button:focus-visible { position: relative; z-index: 1; border-color: var(--na-primary); outline: 2px solid color-mix(in srgb, var(--na-primary) 30%, transparent); outline-offset: 1px; }
 .weekday-picker button.is-active { border-color: var(--na-primary); background: var(--na-primary); color: var(--na-on-primary); font-weight: 650; }
 .repeat-month-select { width: 100%; }
 .dialog-actions { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 8px; }
