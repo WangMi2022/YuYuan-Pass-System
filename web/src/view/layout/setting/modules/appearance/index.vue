@@ -3,7 +3,7 @@
     <header class="settings-module__header">
       <p class="settings-module__eyebrow">APPEARANCE</p>
       <h3>外观设置</h3>
-      <p>调整工作区的主题模式、品牌色彩与显示辅助选项。</p>
+      <p>调整工作区的明暗模式、界面质感、品牌色彩与显示辅助选项。</p>
     </header>
 
     <section class="settings-section" aria-labelledby="theme-mode-title">
@@ -12,6 +12,14 @@
         <p>根据当前环境选择浅色、深色或自动模式。</p>
       </div>
       <ThemeModeSelector v-model="config.darkMode" @update:modelValue="appStore.toggleDarkMode" />
+    </section>
+
+    <section class="settings-section" aria-labelledby="visual-style-title">
+      <div class="settings-section__header">
+        <h4 id="visual-style-title">界面质感</h4>
+        <p>在清晰的标准界面和柔和立体的新拟态界面之间切换。</p>
+      </div>
+      <VisualStyleSelector v-model="config.visualStyle" @update:modelValue="appStore.toggleVisualStyle" />
     </section>
 
     <section class="settings-section" aria-labelledby="theme-color-title">
@@ -63,6 +71,7 @@ import { storeToRefs } from 'pinia'
 import { useAppStore } from '@/pinia'
 import ThemeModeSelector from '../../components/themeModeSelector.vue'
 import ThemeColorPicker from '../../components/themeColorPicker.vue'
+import VisualStyleSelector from '../../components/visualStyleSelector.vue'
 import SettingItem from '../../components/settingItem.vue'
 
 defineOptions({

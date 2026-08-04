@@ -1,0 +1,297 @@
+/*
+ * Neumorphism is an optional visual layer. It deliberately keeps semantic
+ * color, focus rings and table dividers while replacing flat elevation with
+ * restrained raised/inset surfaces.
+ */
+
+html.neumorphism {
+  --na-background: #e9edf3;
+  --na-card: #e9edf3;
+  --na-card-foreground: #222936;
+  --na-popover: #edf0f5;
+  --na-muted: #dfe4ec;
+  --na-muted-foreground: #626b79;
+  --na-border: #d1d8e2;
+  --na-border-strong: #c3ccd8;
+  --na-input: #cbd3de;
+  --na-sidebar: #e9edf3;
+  --na-sidebar-border: transparent;
+  --na-table-header: #e4e8ef;
+  --na-table-hover: #e1e6ee;
+  --na-radius: 12px;
+  --na-radius-sm: 8px;
+  --na-radius-lg: 12px;
+  --na-neu-highlight: rgb(255 255 255 / 84%);
+  --na-neu-shadow: rgb(137 149 167 / 30%);
+  --na-neu-shadow-strong: rgb(120 132 151 / 38%);
+  --na-neu-raised-sm: -3px -3px 7px var(--na-neu-highlight), 3px 3px 7px var(--na-neu-shadow);
+  --na-neu-raised: -5px -5px 11px var(--na-neu-highlight), 5px 5px 11px var(--na-neu-shadow);
+  --na-neu-raised-lg: -8px -8px 18px var(--na-neu-highlight), 9px 9px 20px var(--na-neu-shadow-strong);
+  --na-neu-inset: inset 3px 3px 7px var(--na-neu-shadow), inset -3px -3px 7px var(--na-neu-highlight);
+  --na-neu-inset-sm: inset 2px 2px 4px var(--na-neu-shadow), inset -2px -2px 4px var(--na-neu-highlight);
+  --na-shadow-sm: var(--na-neu-raised);
+  --na-shadow-md: var(--na-neu-raised-lg);
+
+  color-scheme: light;
+}
+
+html.neumorphism.dark {
+  --na-background: #1b1c22;
+  --na-card: #1b1c22;
+  --na-card-foreground: #f2f3f5;
+  --na-popover: #202127;
+  --na-muted: #23252d;
+  --na-muted-foreground: #a9adb7;
+  --na-border: #30323b;
+  --na-border-strong: #3b3e49;
+  --na-input: #343741;
+  --na-sidebar: #1b1c22;
+  --na-sidebar-border: transparent;
+  --na-table-header: #1e2027;
+  --na-table-hover: #23252d;
+  --na-neu-highlight: rgb(255 255 255 / 5%);
+  --na-neu-shadow: rgb(0 0 0 / 48%);
+  --na-neu-shadow-strong: rgb(0 0 0 / 64%);
+  --na-neu-raised-sm: -3px -3px 7px var(--na-neu-highlight), 3px 3px 7px var(--na-neu-shadow);
+  --na-neu-raised: -5px -5px 11px var(--na-neu-highlight), 5px 5px 11px var(--na-neu-shadow);
+  --na-neu-raised-lg: -8px -8px 18px var(--na-neu-highlight), 9px 9px 20px var(--na-neu-shadow-strong);
+  --na-neu-inset: inset 3px 3px 7px var(--na-neu-shadow), inset -3px -3px 7px var(--na-neu-highlight);
+  --na-neu-inset-sm: inset 2px 2px 4px var(--na-neu-shadow), inset -2px -2px 4px var(--na-neu-highlight);
+
+  color-scheme: dark;
+}
+
+html.neumorphism,
+html.neumorphism body,
+html.neumorphism #app,
+html.neumorphism .na-app-shell,
+html.neumorphism .na-main-column,
+html.neumorphism .na-page-scroll,
+html.neumorphism .settings-content {
+  background: var(--na-background);
+}
+
+/* Shell */
+html.neumorphism .na-header {
+  border-bottom-color: transparent;
+  background: var(--na-card);
+  box-shadow: 0 5px 12px var(--na-neu-shadow), 0 -2px 8px var(--na-neu-highlight);
+}
+
+html.neumorphism .na-sidebar {
+  border-right-color: transparent;
+  background: var(--na-sidebar);
+  box-shadow: 5px 0 12px var(--na-neu-shadow), -3px 0 9px var(--na-neu-highlight);
+}
+
+html.neumorphism .na-sidebar-heading,
+html.neumorphism .na-sidebar-toggle { border-color: color-mix(in srgb, var(--na-border) 64%, transparent); }
+
+html.neumorphism .na-sidebar .el-menu-item:hover,
+html.neumorphism .na-sidebar .el-sub-menu__title:hover,
+html.neumorphism .na-sidebar-toggle:hover { box-shadow: var(--na-neu-raised-sm); }
+
+html.neumorphism .na-sidebar .el-menu-item.is-active,
+html.neumorphism .na-sidebar .el-menu:not(.el-menu--inline) > .el-sub-menu.is-active > .el-sub-menu__title {
+  background: color-mix(in srgb, var(--na-primary) 8%, var(--na-card));
+  box-shadow: var(--na-neu-inset-sm);
+}
+
+html.neumorphism .na-sidebar .el-menu-item.is-active::before,
+html.neumorphism .na-sidebar .el-menu:not(.el-menu--inline) > .el-sub-menu.is-active > .el-sub-menu__title::before { display: none; }
+
+html.neumorphism .na-icon-button:hover,
+html.neumorphism .na-profile-trigger:hover { border-color: transparent; background: var(--na-card); box-shadow: var(--na-neu-raised-sm); }
+
+html.neumorphism .na-search-trigger {
+  border-color: transparent;
+  background: var(--na-card);
+  box-shadow: var(--na-neu-inset-sm);
+}
+
+html.neumorphism .na-search-trigger kbd { border-color: transparent; box-shadow: var(--na-neu-raised-sm); }
+
+html.neumorphism .gva-tabs {
+  border-bottom-color: transparent;
+  background: var(--na-card);
+  box-shadow: 0 4px 9px var(--na-neu-shadow);
+}
+
+html.neumorphism .gva-tabs .el-tabs__item:hover,
+html.neumorphism .gva-tabs-clear:hover:not(:disabled) { box-shadow: var(--na-neu-raised-sm); }
+
+html.neumorphism .gva-tabs .el-tabs__item.is-active {
+  background: color-mix(in srgb, var(--na-primary) 8%, var(--na-card));
+  box-shadow: var(--na-neu-inset-sm);
+}
+
+/* Shared surfaces */
+html.neumorphism :is(
+  .na-panel,
+  .na-card,
+  .el-card,
+  .gva-card-box,
+  .gva-table-box,
+  .gva-search-box,
+  .settings-panel
+) {
+  border-color: transparent;
+  background: var(--na-card);
+  box-shadow: var(--na-neu-raised);
+}
+
+html.neumorphism :is(.na-panel-header, .na-pagination, .na-toolbar) {
+  border-color: color-mix(in srgb, var(--na-border) 72%, transparent);
+}
+
+/* Buttons */
+html.neumorphism .el-button:not(.is-link, .is-text) {
+  border-color: transparent;
+  background: var(--na-card);
+  box-shadow: var(--na-neu-raised-sm);
+}
+
+html.neumorphism .el-button:not(.is-disabled, .is-link, .is-text):hover {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--na-primary) 4%, var(--na-card));
+  box-shadow: var(--na-neu-raised);
+  transform: translateY(-1px);
+}
+
+html.neumorphism .el-button:not(.is-disabled, .is-link, .is-text):active {
+  background: var(--na-card);
+  box-shadow: var(--na-neu-inset-sm);
+  transform: translateY(0);
+}
+
+html.neumorphism .el-button:is(
+  .el-button--primary,
+  .el-button--success,
+  .el-button--warning,
+  .el-button--danger,
+  .el-button--info
+):not(.is-plain, .is-link, .is-text) {
+  border-color: transparent;
+  background: var(--na-button-accent);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 18%), 3px 3px 7px var(--na-neu-shadow);
+}
+
+html.neumorphism .el-button:is(.is-link, .is-text):not(.is-disabled):hover {
+  background: var(--na-card);
+  box-shadow: var(--na-neu-inset-sm);
+}
+
+html.neumorphism .el-button.is-disabled,
+html.neumorphism .el-button.is-disabled:hover { box-shadow: none; transform: none; }
+
+/* Form controls */
+html.neumorphism :is(
+  .el-input__wrapper,
+  .el-select__wrapper,
+  .el-textarea__inner,
+  .el-date-editor.el-input__wrapper,
+  .el-date-editor .el-input__wrapper,
+  .el-input-number .el-input__wrapper
+) {
+  border-color: transparent;
+  background: var(--na-card);
+  box-shadow: var(--na-neu-inset-sm);
+}
+
+html.neumorphism :is(
+  .el-input__wrapper.is-focus,
+  .el-select__wrapper.is-focused,
+  .el-textarea__inner:focus,
+  .el-date-editor.el-input__wrapper.is-focus
+) {
+  border-color: transparent;
+  box-shadow: var(--na-neu-inset-sm), 0 0 0 3px var(--na-ring);
+}
+
+html.neumorphism :is(.el-input-group__append, .el-input-group__prepend) {
+  border-color: transparent;
+  background: var(--na-muted);
+  box-shadow: var(--na-neu-inset-sm);
+}
+
+html.neumorphism .el-switch__core { border-color: transparent; background: var(--na-card); box-shadow: var(--na-neu-inset-sm); }
+html.neumorphism .el-switch.is-checked .el-switch__core { background: var(--na-primary); box-shadow: inset 2px 2px 4px rgb(0 0 0 / 20%); }
+html.neumorphism :is(.el-checkbox__inner, .el-radio__inner) { border-color: transparent; background: var(--na-card); box-shadow: var(--na-neu-inset-sm); }
+
+/* Data surfaces */
+html.neumorphism .el-table {
+  border-color: transparent;
+  background: var(--na-card);
+  box-shadow: var(--na-neu-inset-sm);
+}
+
+html.neumorphism .el-table th.el-table__cell { background: color-mix(in srgb, var(--na-muted) 72%, var(--na-card)); }
+html.neumorphism .el-table__inner-wrapper::before { background-color: transparent; }
+
+html.neumorphism .el-pagination button,
+html.neumorphism .el-pagination .el-pager li { border-color: transparent; background: var(--na-card); box-shadow: var(--na-neu-raised-sm); }
+
+html.neumorphism .el-pagination button:active,
+html.neumorphism .el-pagination .el-pager li.is-active { box-shadow: var(--na-neu-inset-sm); }
+
+html.neumorphism .el-segmented { background: var(--na-card); box-shadow: var(--na-neu-inset-sm); }
+html.neumorphism .el-segmented__item-selected { background: var(--na-card); box-shadow: var(--na-neu-raised-sm); }
+html.neumorphism .el-progress-bar__outer { box-shadow: var(--na-neu-inset-sm); }
+
+/* Dialogs, drawers and teleported overlays */
+html.neumorphism :is(.el-dialog, .el-drawer, .el-message-box) {
+  border-color: transparent;
+  background: var(--na-card);
+  box-shadow: var(--na-neu-raised-lg);
+}
+
+html.neumorphism :is(.el-popper.is-light, .el-dropdown__popper, .el-select__popper, .el-picker__popper, .el-message, .el-notification, .contextmenu) {
+  border-color: transparent;
+  background: var(--na-popover);
+  box-shadow: var(--na-neu-raised-lg);
+}
+
+html.neumorphism :is(.el-dropdown-menu__item, .el-select-dropdown__item):not(.is-disabled):hover { box-shadow: var(--na-neu-inset-sm); }
+
+html.neumorphism .el-collapse { border-color: transparent; background: var(--na-card); box-shadow: var(--na-neu-inset-sm); }
+html.neumorphism .el-upload-dragger { border-color: transparent; background: var(--na-card); box-shadow: var(--na-neu-inset); }
+html.neumorphism .el-upload-dragger:hover { background: color-mix(in srgb, var(--na-primary) 5%, var(--na-card)); box-shadow: var(--na-neu-inset-sm), 0 0 0 3px var(--na-ring); }
+
+/* Settings surface and selectors */
+html.neumorphism .gva-theme-drawer.el-drawer,
+html.neumorphism .gva-theme-drawer .el-drawer {
+  border-left-color: transparent;
+  background: var(--na-background);
+  box-shadow: var(--na-neu-raised-lg);
+}
+
+html.neumorphism .gva-theme-drawer .el-drawer__header,
+html.neumorphism .settings-sidebar { border-color: transparent; background: var(--na-card); }
+html.neumorphism .settings-sidebar { box-shadow: 5px 0 12px var(--na-neu-shadow); }
+html.neumorphism .settings-nav__item:hover { background: var(--na-card); box-shadow: var(--na-neu-raised-sm); }
+html.neumorphism .settings-nav__item.is-active { background: color-mix(in srgb, var(--na-primary) 8%, var(--na-card)); box-shadow: var(--na-neu-inset-sm); }
+
+html.neumorphism :is(.theme-mode-option, .visual-style-option, .theme-color-option, .theme-color-custom) {
+  border-color: transparent;
+  background: var(--na-card);
+  box-shadow: var(--na-neu-raised-sm);
+}
+
+html.neumorphism :is(.theme-mode-option, .visual-style-option, .theme-color-option):hover {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--na-primary) 3%, var(--na-card));
+  box-shadow: var(--na-neu-raised);
+}
+
+html.neumorphism :is(.theme-mode-option, .visual-style-option, .theme-color-option).is-active {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--na-primary) 6%, var(--na-card));
+  box-shadow: var(--na-neu-inset-sm), 0 0 0 2px var(--na-ring);
+}
+
+html.neumorphism .settings-section { border-color: color-mix(in srgb, var(--na-border) 66%, transparent); }
+html.neumorphism .setting-row { border-color: color-mix(in srgb, var(--na-border) 66%, transparent); }
+
+@media (prefers-reduced-motion: reduce) {
+  html.neumorphism .el-button { transform: none !important; }
+}

@@ -28,6 +28,7 @@
   "/src/view/layout/setting/components/settingItem.vue": "SettingItem",
   "/src/view/layout/setting/components/themeColorPicker.vue": "ThemeColorPicker",
   "/src/view/layout/setting/components/themeModeSelector.vue": "ThemeModeSelector",
+  "/src/view/layout/setting/components/visualStyleSelector.vue": "VisualStyleSelector",
   "/src/view/layout/setting/index.vue": "GvaSetting",
   "/src/view/layout/setting/modules/appearance/index.vue": "AppearanceSettings",
   "/src/view/layout/setting/modules/general/index.vue": "GeneralSettings",

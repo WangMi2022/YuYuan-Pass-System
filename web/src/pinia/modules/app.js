@@ -13,6 +13,7 @@ export const useAppStore = defineStore('app', () => {
     primaryColor: '#6D5DFB',
     showTabs: false,
     darkMode: 'auto',
+    visualStyle: 'default',
     layout_side_width: 220,
     layout_side_collapsed_width: 64,
     layout_side_item_height: 40,
@@ -67,6 +68,10 @@ export const useAppStore = defineStore('app', () => {
     config.darkMode = e
   }
 
+  const toggleVisualStyle = (style) => {
+    config.visualStyle = style
+  }
+
   // 监听系统主题变化
   watchEffect(() => {
     if (config.darkMode === 'auto') {
@@ -110,6 +115,7 @@ export const useAppStore = defineStore('app', () => {
     primaryColor: '#6D5DFB',
     showTabs: false,
     darkMode: 'auto',
+    visualStyle: 'default',
     layout_side_width: 220,
     layout_side_collapsed_width: 64,
     layout_side_item_height: 40,
@@ -130,6 +136,7 @@ export const useAppStore = defineStore('app', () => {
   watchEffect(() => {
     document.documentElement.classList.toggle('html-weakenss', config.weakness)
     document.documentElement.classList.toggle('html-grey', config.grey)
+    document.documentElement.classList.toggle('neumorphism', config.visualStyle === 'neumorphism')
   })
 
   // 监听主题色
@@ -150,6 +157,7 @@ export const useAppStore = defineStore('app', () => {
     togglePrimaryColor,
     toggleTabs,
     toggleDarkMode,
+    toggleVisualStyle,
     toggleConfigSideWidth,
     toggleConfigSideCollapsedWidth,
     toggleConfigSideItemHeight,

@@ -97,7 +97,7 @@ const saveState = ref('saved')
 let saveTimer = null
 
 const tabs = [
-  { key: 'appearance', label: '外观', description: '主题、色彩与显示', icon: Brush },
+  { key: 'appearance', label: '外观', description: '主题、质感与色彩', icon: Brush },
   { key: 'layout', label: '布局', description: '导航与界面尺寸', icon: Grid },
   { key: 'general', label: '通用', description: '配置与系统信息', icon: Setting }
 ]
@@ -108,7 +108,10 @@ const modeLabels = {
   auto: '跟随系统'
 }
 
-const currentModeLabel = computed(() => modeLabels[config.value.darkMode] || '自定义主题')
+const currentModeLabel = computed(() => {
+  const mode = modeLabels[config.value.darkMode] || '自定义主题'
+  return config.value.visualStyle === 'neumorphism' ? `新拟态 · ${mode}` : mode
+})
 const saveStateText = computed(() => ({
   saved: '已保存',
   saving: '保存中',
