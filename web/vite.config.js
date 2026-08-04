@@ -1,5 +1,4 @@
 import { viteLogo } from './src/core/config'
-import Banner from 'vite-plugin-banner'
 import * as path from 'path'
 import { loadEnv } from 'vite'
 import vuePlugin from '@vitejs/plugin-vue'
@@ -15,8 +14,6 @@ import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
 export default ({ mode }) => {
   const env = loadEnv(mode, process.cwd())
   viteLogo(env)
-
-  const timestamp = Date.parse(new Date())
 
   const alias = {
     '@': path.resolve(import.meta.dirname, './src'),
@@ -61,9 +58,23 @@ export default ({ mode }) => {
       manifest: false, // 是否产出manifest.json
       sourcemap: false, // 是否产出sourcemap.json
       outDir: outDir, // 产出目录
+      emptyOutDir: true,
       target: 'es2015',
       rolldownOptions: {
         output: {
+          cleanDir: true,
+          codeSplitting: {
+            minSize: 12 * 1024,
+            minShareCount: 2,
+            groups: [
+              {
+                name: 'vendor',
+                test: /node_modules[\\/]/,
+                minSize: 12 * 1024,
+                minShareCount: 2
+              }
+            ]
+          },
           entryFileNames: 'assets/087AC4D233B64EB0[name].[hash].js',
           chunkFileNames: 'assets/087AC4D233B64EB0[name].[hash].js',
           assetFileNames: 'assets/087AC4D233B64EB0[name].[hash].[ext]'
@@ -83,7 +94,6 @@ export default ({ mode }) => {
         resolvers: [ElementPlusResolver({ importStyle: 'css' })]
       }),
       svgBuilder(['./src/plugin/', './src/assets/icons/'], base, outDir, 'assets', mode),
-      [Banner(`\n Build based on asset-center \n Time : ${timestamp}`)],
       VueFilePathPlugin('./src/pathInfo.json'),
       UnoCSS()
     ]

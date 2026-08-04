@@ -112,7 +112,7 @@
           :total="total"
           size="small"
           layout="total, sizes, prev, pager, next"
-          @current-change="loadCurrent"
+          @current-change="pageChanged"
           @size-change="sizeChanged"
         />
       </footer>
@@ -179,11 +179,12 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Edit, Location, Plus, Refresh, Search } from '@element-plus/icons-vue'
 import { createCategory, deleteCategory, getCategoryList, updateCategory } from '@/plugin/asset/api/category'
 import { createLocation, deleteLocation, getLocationList, updateLocation } from '@/plugin/asset/api/location'
+import { usePagedList } from '@/hooks/usePagedList'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
 
 defineOptions({ name: 'AssetCategories' })
@@ -201,12 +202,19 @@ const emptyCategoryForm = () => ({ ID: 0, name: '', code: '', description: '', c
 const emptyLocationForm = () => ({ ID: 0, name: '', type: activeTab.value, code: '', description: '', sort: 0, enabled: true })
 const activeTab = ref('category')
 const activeLocation = computed(() => locationTabs.find((item) => item.type === activeTab.value) || locationTabs[0])
-const categorySearch = reactive({ page: 1, pageSize: 10, keyword: '' })
-const locationSearch = reactive({ page: 1, pageSize: 10, keyword: '' })
-const currentSearch = computed(() => activeTab.value === 'category' ? categorySearch : locationSearch)
-const tableData = ref([])
-const total = ref(0)
-const loading = ref(false)
+const categoryList = usePagedList({
+  defaults: { page: 1, pageSize: 10, keyword: '' },
+  request: getCategoryList
+})
+const locationList = usePagedList({
+  defaults: { page: 1, pageSize: 10, keyword: '' },
+  request: (params) => getLocationList({ ...params, type: activeTab.value })
+})
+const currentList = computed(() => activeTab.value === 'category' ? categoryList : locationList)
+const currentSearch = computed(() => currentList.value.search)
+const tableData = computed(() => currentList.value.items.value)
+const total = computed(() => currentList.value.total.value)
+const loading = computed(() => currentList.value.loading.value)
 const categoryDialogVisible = ref(false)
 const locationDialogVisible = ref(false)
 const editing = ref(false)
@@ -229,39 +237,14 @@ const locationRules = {
   code: [{ pattern: /^[A-Za-z0-9_-]*$/, message: '仅支持字母、数字、中划线和下划线', trigger: 'blur' }]
 }
 
-const loadCategories = async () => {
-  loading.value = true
-  try {
-    const res = await getCategoryList(categorySearch)
-    if (res.code === 0) {
-      tableData.value = res.data?.list || []
-      total.value = res.data?.total || 0
-    }
-  } finally { loading.value = false }
-}
-
-const loadLocations = async () => {
-  loading.value = true
-  try {
-    const res = await getLocationList({ ...locationSearch, type: activeTab.value })
-    if (res.code === 0) {
-      tableData.value = res.data?.list || []
-      total.value = res.data?.total || 0
-    }
-  } finally { loading.value = false }
-}
-
-const loadCurrent = () => activeTab.value === 'category' ? loadCategories() : loadLocations()
 const changeTab = () => {
-  tableData.value = []
-  total.value = 0
-  locationSearch.page = 1
-  locationSearch.keyword = ''
-  loadCurrent()
+  if (activeTab.value === 'category') return categoryList.load()
+  return locationList.reset()
 }
-const submitSearch = () => { currentSearch.value.page = 1; loadCurrent() }
-const resetSearch = () => { Object.assign(currentSearch.value, { page: 1, pageSize: 10, keyword: '' }); loadCurrent() }
-const sizeChanged = () => { currentSearch.value.page = 1; loadCurrent() }
+const submitSearch = () => currentList.value.submit()
+const resetSearch = () => currentList.value.reset()
+const pageChanged = (page) => currentList.value.changePage(page)
+const sizeChanged = (pageSize) => currentList.value.changePageSize(pageSize)
 
 const openCreate = () => {
   editing.value = false
@@ -294,7 +277,7 @@ const saveCategory = async () => {
     if (res.code === 0) {
       ElMessage.success(editing.value ? '分类已更新' : '分类已创建')
       categoryDialogVisible.value = false
-      loadCategories()
+      categoryList.load()
     }
   } finally { saving.value = false }
 }
@@ -309,7 +292,7 @@ const saveLocation = async () => {
     if (res.code === 0) {
       ElMessage.success(editing.value ? '位置已更新' : '位置已创建')
       locationDialogVisible.value = false
-      loadLocations()
+      locationList.load()
     }
   } finally { saving.value = false }
 }
@@ -330,7 +313,7 @@ const removeCategory = async (row) => {
     await ElMessageBox.confirm(`确定删除分类“${row.name}”吗？`, '删除确认', { type: 'warning' })
   } catch { return }
   const res = await deleteCategory({ id: row.ID })
-  if (res.code === 0) { ElMessage.success('分类已删除'); loadCategories() }
+  if (res.code === 0) { ElMessage.success('分类已删除'); categoryList.reloadAfterRemoval() }
 }
 
 const removeLocation = async (row) => {
@@ -338,10 +321,10 @@ const removeLocation = async (row) => {
     await ElMessageBox.confirm(`确定删除${activeLocation.value.label}“${row.name}”吗？历史单据中的位置记录不受影响。`, '删除确认', { type: 'warning' })
   } catch { return }
   const res = await deleteLocation({ id: row.ID })
-  if (res.code === 0) { ElMessage.success('位置已删除'); loadLocations() }
+  if (res.code === 0) { ElMessage.success('位置已删除'); locationList.reloadAfterRemoval() }
 }
 
-onMounted(loadCategories)
+onMounted(() => categoryList.load())
 </script>
 
 <style scoped lang="scss">
