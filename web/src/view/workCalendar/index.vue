@@ -313,7 +313,11 @@
             id="schedule-repeat-editor"
             class="schedule-repeat-editor"
           >
-            <el-radio-group v-model="draft.recurrence.mode" class="repeat-mode-toggle" aria-label="重复周期">
+            <el-radio-group
+              v-model="draft.recurrence.mode"
+              class="repeat-mode-toggle"
+              aria-label="重复周期"
+            >
               <el-radio-button label="weekly">每周</el-radio-button>
               <el-radio-button label="monthly">每月</el-radio-button>
             </el-radio-group>
@@ -322,14 +326,16 @@
               <span>每周选择</span>
               <div class="weekday-picker" role="group" aria-label="选择每周星期几">
                 <button
-                  v-for="(weekday, index) in weekdays"
-                  :key="weekday"
+                  v-for="weekday in weekdayOptions"
+                  :key="weekday.value"
                   type="button"
-                  :class="{ 'is-active': draft.recurrence.weekday === index + 1 }"
-                  :aria-pressed="draft.recurrence.weekday === index + 1"
-                  @click="draft.recurrence.weekday = index + 1"
+                  :class="{ 'is-active': draft.recurrence.weekday === weekday.value }"
+                  :aria-pressed="draft.recurrence.weekday === weekday.value"
+                  :aria-label="`每周${weekday.label}`"
+                  :title="`每周${weekday.label}`"
+                  @click="draft.recurrence.weekday = weekday.value"
                 >
-                  {{ weekday }}
+                  {{ weekday.shortLabel }}
                 </button>
               </div>
             </div>
@@ -340,7 +346,9 @@
                 <el-option v-for="day in 31" :key="day" :label="`每月 ${day} 日`" :value="day" />
               </el-select>
             </div>
+            <small class="repeat-rule-hint">每月没有该日期的月份将跳过本次日程</small>
           </div>
+          <small v-else class="repeat-disabled-hint">启用后可选择每周星期或每月几日</small>
         </section>
         <el-form-item label="日程类型" required>
           <el-select v-model="draft.type">
@@ -374,13 +382,27 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { ArrowDown, ArrowLeft, ArrowRight, Clock, Delete, EditPen, Plus, Setting } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
+import {
+  WEEKDAY_LABELS,
+  createRecurrence,
+  dateKey,
+  fromDateKey,
+  normalizeSchedule,
+  scheduleMatchesDate,
+  weekdayFromKey
+} from '@/utils/workCalendar'
 
 defineOptions({ name: 'WorkCalendar' })
 
 const eventStorageKey = 'gva-work-calendar-events'
 const typeStorageKey = 'gva-work-calendar-types'
 const maxScheduleTypes = 12
-const weekdays = ['一', '二', '三', '四', '五', '六', '日']
+const weekdays = WEEKDAY_LABELS
+const weekdayOptions = WEEKDAY_LABELS.map((label, index) => ({
+  value: index + 1,
+  label: `星期${label}`,
+  shortLabel: `周${label}`
+}))
 const defaultScheduleTypes = [
   { value: 'task', label: '工作任务', color: '#4f7cf3' },
   { value: 'meeting', label: '会议沟通', color: '#7a61d4' },
@@ -422,7 +444,7 @@ const repeatSummary = computed(() => {
   const recurrence = draft.value.recurrence
   if (!recurrence?.enabled) return '未启用，仅创建当天日程'
   if (recurrence.mode === 'monthly') return `每月 ${recurrence.monthDay} 日`
-  return `每周星期${weekdays[recurrence.weekday - 1] || '一'}`
+  return `每周${weekdayOptions.find((item) => item.value === recurrence.weekday)?.label || '星期一'}`
 })
 const calendarDays = computed(() => buildCalendarDays(viewedMonth.value))
 const visibleSchedules = computed(() => schedules.value
@@ -492,58 +514,6 @@ function createDraft(date) {
     note: '',
     recurrence: createRecurrence(date)
   }
-}
-
-function dateKey(date) {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-function fromDateKey(key) {
-  return new Date(`${key}T00:00:00`)
-}
-
-function weekdayFromKey(key) {
-  const day = fromDateKey(key).getDay()
-  return day === 0 ? 7 : day
-}
-
-function createRecurrence(date) {
-  return {
-    enabled: false,
-    mode: 'weekly',
-    weekday: weekdayFromKey(date),
-    monthDay: fromDateKey(date).getDate()
-  }
-}
-
-function clampInteger(value, minimum, maximum, fallback) {
-  const number = Number(value)
-  return Number.isInteger(number) && number >= minimum && number <= maximum ? number : fallback
-}
-
-function normalizeRecurrence(recurrence, date) {
-  const fallback = createRecurrence(date)
-  return {
-    enabled: Boolean(recurrence?.enabled),
-    mode: recurrence?.mode === 'monthly' ? 'monthly' : 'weekly',
-    weekday: clampInteger(recurrence?.weekday, 1, 7, fallback.weekday),
-    monthDay: clampInteger(recurrence?.monthDay, 1, 31, fallback.monthDay)
-  }
-}
-
-function normalizeSchedule(schedule) {
-  return { ...schedule, recurrence: normalizeRecurrence(schedule.recurrence, schedule.date) }
-}
-
-function scheduleMatchesDate(schedule, key) {
-  if (!schedule?.date || key < schedule.date) return false
-  const recurrence = normalizeRecurrence(schedule.recurrence, schedule.date)
-  if (!recurrence.enabled) return key === schedule.date
-  if (recurrence.mode === 'monthly') return fromDateKey(key).getDate() === recurrence.monthDay
-  return weekdayFromKey(key) === recurrence.weekday
 }
 
 function buildCalendarDays(month) {
@@ -886,11 +856,14 @@ function isValidScheduleType(type) {
 .repeat-rule-row { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; gap: 10px; }
 .repeat-rule-row > span { color: var(--na-muted-foreground); font-size: .75rem; }
 .weekday-picker { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
-.weekday-picker button { min-width: 0; min-height: 30px; padding: 0; border: 1px solid var(--na-border); border-radius: 7px; background: var(--na-card); color: var(--na-foreground); font-size: .75rem; }
+.weekday-picker button { min-width: 0; min-height: 30px; padding: 0 3px; border: 1px solid var(--na-border); border-radius: 7px; background: var(--na-card); color: var(--na-foreground); font-size: .6875rem; white-space: nowrap; }
 .weekday-picker button:hover { border-color: var(--na-primary); color: var(--na-primary); }
 .weekday-picker button:focus-visible { position: relative; z-index: 1; border-color: var(--na-primary); outline: 2px solid color-mix(in srgb, var(--na-primary) 30%, transparent); outline-offset: 1px; }
 .weekday-picker button.is-active { border-color: var(--na-primary); background: var(--na-primary); color: var(--na-on-primary); font-weight: 650; }
 .repeat-month-select { width: 100%; }
+.repeat-rule-hint, .repeat-disabled-hint { color: var(--na-muted-foreground); font-size: .6875rem; line-height: 1.45; }
+.repeat-rule-hint { margin-left: 82px; }
+.repeat-disabled-hint { display: block; margin-top: -4px; }
 .dialog-actions { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 8px; }
 .schedule-form-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
 .schedule-form-grid :deep(.el-date-editor), .schedule-form-grid :deep(.el-select) { width: 100%; }

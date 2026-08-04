@@ -174,7 +174,10 @@
             <button v-for="item in todaySchedules" :key="item.id" type="button" @click="go('workSchedule')">
               <i :style="{ background: item.color }" />
               <time>{{ item.time }}</time>
-              <span><strong>{{ item.title }}</strong><small>{{ item.typeLabel }}</small></span>
+              <span>
+                <strong>{{ item.title }}</strong>
+                <small>{{ item.typeLabel }}<template v-if="item.repeatLabel"> · {{ item.repeatLabel }}</template></small>
+              </span>
             </button>
           </div>
           <div v-else class="side-empty"><Calendar /><span>今日暂无日程</span></div>
@@ -219,6 +222,7 @@ import {
   Tickets,
   WarningFilled
 } from '@element-plus/icons-vue'
+import { dateKey, recurrenceLabel, scheduleMatchesDate } from '@/utils/workCalendar'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
 import { formatCompactCurrency, formatCurrency, formatNumber } from '@/utils/format'
 import { getAssetDashboard } from '@/plugin/asset/api/asset'
@@ -336,12 +340,12 @@ const serverCollectedAt = computed(() => {
   return Number.isNaN(date.getTime()) ? '—' : date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
 })
 const todaySchedules = computed(() => calendarEvents.value
-  .filter((item) => item.date === dateKey(new Date()))
+  .filter((item) => scheduleMatchesDate(item, dateKey(new Date())))
   .sort((left, right) => String(left.time).localeCompare(String(right.time)))
   .slice(0, 4)
   .map((item) => {
     const type = calendarTypes.value.find((entry) => entry.value === item.type) || defaultScheduleTypes[0]
-    return { ...item, typeLabel: type.label, color: type.color }
+    return { ...item, typeLabel: type.label, color: type.color, repeatLabel: recurrenceLabel(item) }
   }))
 const assetStatusOrder = [
   { key: 'in_use', label: '在用', tone: 'success' },
@@ -360,12 +364,6 @@ function createInvoiceDashboard() {
 }
 function createSystemState() {
   return { collectedAt: '', cpu: { cpus: [] }, ram: { usedPercent: 0 }, disk: [] }
-}
-function dateKey(date) {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
 }
 function statusMeta(status) {
   return statusMap[status] || { label: status || '未知', tone: 'info' }
