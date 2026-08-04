@@ -11,7 +11,7 @@
       </template>
     </AppPageHeader>
     <div class="gva-search-box">
-      <el-form ref="elSearchFormRef" :inline="true" :model="searchInfo" class="demo-form-inline"
+      <el-form :inline="true" :model="searchInfo" class="demo-form-inline"
         @keyup.enter="onSubmit">
         <el-form-item label="创建日期" prop="createdAtRange">
           <template #label>
@@ -57,7 +57,7 @@
         <el-button icon="delete" :disabled="!multipleSelection.length"
           @click="onDelete">删除</el-button>
       </div>
-      <el-table ref="multipleTable" style="width: 100%" tooltip-effect="dark" :data="tableData" row-key="ID"
+      <el-table ref="multipleTable" v-loading="loading" style="width: 100%" tooltip-effect="dark" :data="tableData" row-key="ID"
         @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" />
 
@@ -82,9 +82,9 @@
         </el-table-column>
       </el-table>
       <div class="gva-pagination">
-        <el-pagination layout="total, sizes, prev, pager, next" :current-page="page" :page-size="pageSize"
-          :page-sizes="[10, 30, 50, 100]" :total="total" @current-change="handleCurrentChange"
-          @size-change="handleSizeChange" />
+        <el-pagination layout="total, sizes, prev, pager, next" :current-page="searchInfo.page"
+          :page-size="searchInfo.pageSize" :page-sizes="[10, 30, 50, 100]" :total="total"
+          @current-change="changePage" @size-change="changePageSize" />
       </div>
     </div>
 
@@ -334,6 +334,7 @@ import { UploadFilled } from '@element-plus/icons-vue'
 import { ref, watch } from 'vue'
 import { useAppStore } from "@/pinia"
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
+import { usePagedList } from '@/hooks/usePagedList'
 
 defineOptions({
   name: 'SysVersion'
@@ -413,51 +414,21 @@ const previewDictTreeData = ref([])
 
 
 
-const elSearchFormRef = ref()
-
-// =========== 表格控制部分 ===========
-const page = ref(1)
-const total = ref(0)
-const pageSize = ref(10)
-const tableData = ref([])
-const searchInfo = ref({})
-// 重置
-const onReset = () => {
-  searchInfo.value = {}
-  getTableData()
-}
-
-// 搜索
-const onSubmit = () => {
-  elSearchFormRef.value?.validate(async (valid) => {
-    if (!valid) return
-    page.value = 1
-    getTableData()
-  })
-}
-
-// 分页
-const handleSizeChange = (val) => {
-  pageSize.value = val
-  getTableData()
-}
-
-// 修改页面容量
-const handleCurrentChange = (val) => {
-  page.value = val
-  getTableData()
-}
-
-// 查询
-const getTableData = async () => {
-  const table = await getSysVersionList({ page: page.value, pageSize: pageSize.value, ...searchInfo.value })
-  if (table.code === 0) {
-    tableData.value = table.data.list
-    total.value = table.data.total
-    page.value = table.data.page
-    pageSize.value = table.data.pageSize
-  }
-}
+const {
+  search: searchInfo,
+  items: tableData,
+  total,
+  loading,
+  load: getTableData,
+  submit: onSubmit,
+  reset: onReset,
+  changePage,
+  changePageSize,
+  reloadAfterRemoval
+} = usePagedList({
+  defaults: { page: 1, pageSize: 10, createdAtRange: undefined, versionName: '', versionCode: '' },
+  request: getSysVersionList
+})
 
 getTableData()
 
@@ -506,10 +477,7 @@ const onDelete = async () => {
         type: 'success',
         message: '删除成功'
       })
-      if (tableData.value.length === IDs.length && page.value > 1) {
-        page.value--
-      }
-      getTableData()
+      reloadAfterRemoval(IDs.length)
     }
   })
 }
@@ -522,10 +490,7 @@ const deleteSysVersionFunc = async (row) => {
       type: 'success',
       message: '删除成功'
     })
-    if (tableData.value.length === 1 && page.value > 1) {
-      page.value--
-    }
-    getTableData()
+    reloadAfterRemoval()
   }
 }
 

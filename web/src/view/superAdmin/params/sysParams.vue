@@ -101,6 +101,7 @@
       </div>
       <el-table
         ref="multipleTable"
+        v-loading="loading"
         style="width: 100%"
         tooltip-effect="dark"
         :data="tableData"
@@ -165,12 +166,12 @@
       <div class="gva-pagination">
         <el-pagination
           layout="total, sizes, prev, pager, next"
-          :current-page="page"
-          :page-size="pageSize"
+          :current-page="searchInfo.page"
+          :page-size="searchInfo.pageSize"
           :page-sizes="[10, 30, 50, 100]"
           :total="total"
-          @current-change="handleCurrentChange"
-          @size-change="handleSizeChange"
+          @current-change="changePage"
+          @size-change="changePageSize"
         />
       </div>
     </div>
@@ -305,6 +306,7 @@
   import { ref, reactive } from 'vue'
   import WarningBar from "@/components/warningBar/warningBar.vue";
   import AppPageHeader from '@/components/page/AppPageHeader.vue'
+  import { usePagedList } from '@/hooks/usePagedList'
 
   defineOptions({
     name: 'SysParams'
@@ -366,22 +368,22 @@
       {
         validator: (rule, value, callback) => {
           if (
-            searchInfo.value.startCreatedAt &&
-            !searchInfo.value.endCreatedAt
+            searchInfo.startCreatedAt &&
+            !searchInfo.endCreatedAt
           ) {
             callback(new Error('请填写结束日期'))
           } else if (
-            !searchInfo.value.startCreatedAt &&
-            searchInfo.value.endCreatedAt
+            !searchInfo.startCreatedAt &&
+            searchInfo.endCreatedAt
           ) {
             callback(new Error('请填写开始日期'))
           } else if (
-            searchInfo.value.startCreatedAt &&
-            searchInfo.value.endCreatedAt &&
-            (searchInfo.value.startCreatedAt.getTime() ===
-              searchInfo.value.endCreatedAt.getTime() ||
-              searchInfo.value.startCreatedAt.getTime() >
-                searchInfo.value.endCreatedAt.getTime())
+            searchInfo.startCreatedAt &&
+            searchInfo.endCreatedAt &&
+            (searchInfo.startCreatedAt.getTime() ===
+              searchInfo.endCreatedAt.getTime() ||
+              searchInfo.startCreatedAt.getTime() >
+                searchInfo.endCreatedAt.getTime())
           ) {
             callback(new Error('开始日期应当早于结束日期'))
           } else {
@@ -396,64 +398,30 @@
   const elFormRef = ref()
   const elSearchFormRef = ref()
 
-  // =========== 表格控制部分 ===========
-  const page = ref(1)
-  const total = ref(0)
-  const pageSize = ref(10)
-  const tableData = ref([])
-  const searchInfo = ref({})
+  const {
+    search: searchInfo,
+    items: tableData,
+    total,
+    loading,
+    load: getTableData,
+    submit: submitSearch,
+    reset: resetSearch,
+    changePage,
+    changePageSize,
+    reloadAfterRemoval
+  } = usePagedList({
+    defaults: { page: 1, pageSize: 10, startCreatedAt: undefined, endCreatedAt: undefined, name: '', key: '' },
+    request: getSysParamsList
+  })
 
-  // 重置
-  const onReset = () => {
-    searchInfo.value = {}
-    getTableData()
-  }
-
-  // 搜索
+  const onReset = () => resetSearch()
   const onSubmit = () => {
-    elSearchFormRef.value?.validate(async (valid) => {
-      if (!valid) return
-      page.value = 1
-      getTableData()
+    elSearchFormRef.value?.validate((valid) => {
+      if (valid) submitSearch()
     })
-  }
-
-  // 分页
-  const handleSizeChange = (val) => {
-    pageSize.value = val
-    getTableData()
-  }
-
-  // 修改页面容量
-  const handleCurrentChange = (val) => {
-    page.value = val
-    getTableData()
-  }
-
-  // 查询
-  const getTableData = async () => {
-    const table = await getSysParamsList({
-      page: page.value,
-      pageSize: pageSize.value,
-      ...searchInfo.value
-    })
-    if (table.code === 0) {
-      tableData.value = table.data.list
-      total.value = table.data.total
-      page.value = table.data.page
-      pageSize.value = table.data.pageSize
-    }
   }
 
   getTableData()
-
-  // ============== 表格控制部分结束 ===============
-
-  // 获取需要的字典 可能为空 按需保留
-  const setOptions = async () => {}
-
-  // 获取需要的字典 可能为空 按需保留
-  setOptions()
 
   // 多选数据
   const multipleSelection = ref([])
@@ -498,10 +466,7 @@
           type: 'success',
           message: '删除成功'
         })
-        if (tableData.value.length === IDs.length && page.value > 1) {
-          page.value--
-        }
-        getTableData()
+        reloadAfterRemoval(IDs.length)
       }
     })
   }
@@ -527,10 +492,7 @@
         type: 'success',
         message: '删除成功'
       })
-      if (tableData.value.length === 1 && page.value > 1) {
-        page.value--
-      }
-      getTableData()
+      reloadAfterRemoval()
     }
   }
 
