@@ -7,6 +7,7 @@ ENV_FILE="${ENV_FILE:-.env}"
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml}"
 EXPECTED_SERVICES="${EXPECTED_SERVICES:-server web}"
 MAX_ATTEMPTS="${MAX_ATTEMPTS:-15}"
+STARTUP_MAX_ATTEMPTS="${STARTUP_MAX_ATTEMPTS:-45}"
 RETRY_INTERVAL_SECONDS="${RETRY_INTERVAL_SECONDS:-2}"
 CURL_MAX_TIME="${CURL_MAX_TIME:-5}"
 MAX_RESTART_COUNT="${MAX_RESTART_COUNT:-0}"
@@ -28,7 +29,8 @@ usage() {
 
 可配置环境变量：
   ENV_FILE COMPOSE_FILE EXPECTED_SERVICES MAX_ATTEMPTS
-  RETRY_INTERVAL_SECONDS CURL_MAX_TIME MAX_RESTART_COUNT
+  STARTUP_MAX_ATTEMPTS RETRY_INTERVAL_SECONDS CURL_MAX_TIME
+  MAX_RESTART_COUNT
 EOF
 }
 
@@ -124,6 +126,11 @@ case "$MAX_ATTEMPTS" in
 esac
 [ "$MAX_ATTEMPTS" -gt 0 ] || configuration_error "MAX_ATTEMPTS 必须大于 0"
 
+case "$STARTUP_MAX_ATTEMPTS" in
+  ''|*[!0-9]*) configuration_error "STARTUP_MAX_ATTEMPTS 必须是正整数" ;;
+esac
+[ "$STARTUP_MAX_ATTEMPTS" -gt 0 ] || configuration_error "STARTUP_MAX_ATTEMPTS 必须大于 0"
+
 case "$MAX_RESTART_COUNT" in
   ''|*[!0-9]*) configuration_error "MAX_RESTART_COUNT 必须是非负整数" ;;
 esac
@@ -163,6 +170,7 @@ fetch_url() {
   local error_file="$5"
   local attempt
   local http_status
+  local max_attempts="${6:-$MAX_ATTEMPTS}"
   local -a request_args
 
   request_args=(-fsS --max-time "$CURL_MAX_TIME" -D "$header_file" -o "$body_file" -w '%{http_code}')
@@ -171,7 +179,7 @@ fetch_url() {
   fi
 
   attempt=1
-  while [ "$attempt" -le "$MAX_ATTEMPTS" ]; do
+  while [ "$attempt" -le "$max_attempts" ]; do
     : > "$body_file"
     : > "$header_file"
     : > "$error_file"
@@ -179,7 +187,7 @@ fetch_url() {
       return 0
     fi
 
-    if [ "$attempt" -lt "$MAX_ATTEMPTS" ] && [ "$RETRY_INTERVAL_SECONDS" != "0" ]; then
+    if [ "$attempt" -lt "$max_attempts" ] && [ "$RETRY_INTERVAL_SECONDS" != "0" ]; then
       sleep "$RETRY_INTERVAL_SECONDS"
     fi
     attempt=$((attempt + 1))
@@ -258,7 +266,7 @@ fi
 api_body="${WORK_DIR}/api-health.body"
 api_headers="${WORK_DIR}/api-health.headers"
 api_error="${WORK_DIR}/api-health.error"
-if fetch_url GET "${SERVER_URL}/health" "$api_body" "$api_headers" "$api_error" && is_ok_response "$api_body"; then
+if fetch_url GET "${SERVER_URL}/health" "$api_body" "$api_headers" "$api_error" "$STARTUP_MAX_ATTEMPTS" && is_ok_response "$api_body"; then
   pass_check "api.direct" "Server /health 正常"
 else
   fail_check "api.direct" "Server /health 未返回 HTTP 200 和 \"ok\""

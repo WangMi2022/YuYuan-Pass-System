@@ -94,7 +94,10 @@ docker compose --env-file .env -f docker-compose.yml up -d --force-recreate serv
 - 浏览器实际使用的 `/api/health` 反代链路正常。
 - 首页引用的当前版本 JavaScript 入口可访问、非空且 MIME 类型正确。
 
-退出码 `0` 表示全部通过，可以标记上线成功；`1` 表示验收失败；`2` 表示参数、文件或依赖命令配置错误。失败时禁止更新部署版本标记。脚本自身的回归测试为：
+退出码 `0` 表示全部通过，可以标记上线成功；`1` 表示验收失败；`2` 表示参数、文件或依赖命令配置错误。失败时禁止更新部署版本标记。
+后端首次就绪默认最多等待约 90 秒，可通过 `STARTUP_MAX_ATTEMPTS` 和 `RETRY_INTERVAL_SECONDS` 调整；其他检查使用 `MAX_ATTEMPTS`，避免持续故障时长时间阻塞。
+
+脚本自身的回归测试为：
 
 ```bash
 bash tests/release-acceptance-test.sh

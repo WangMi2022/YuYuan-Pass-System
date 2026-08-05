@@ -50,7 +50,9 @@ run_case() {
       WEB_URL="http://web.test" \
       SERVER_URL="http://server.test" \
       MAX_ATTEMPTS=1 \
+      STARTUP_MAX_ATTEMPTS="${CASE_STARTUP_MAX_ATTEMPTS:-1}" \
       RETRY_INTERVAL_SECONDS=0 \
+      MOCK_STATE_DIR="$TEMP_DIR" \
       bash "$SCRIPT_UNDER_TEST" 2>&1
   )
   status=$?
@@ -87,6 +89,7 @@ run_config_case() {
       WEB_URL="http://web.test" \
       SERVER_URL="http://server.test" \
       MAX_ATTEMPTS=1 \
+      STARTUP_MAX_ATTEMPTS=1 \
       RETRY_INTERVAL_SECONDS=0 \
       "$variable_name=$variable_value" \
       bash "$SCRIPT_UNDER_TEST" 2>&1
@@ -107,6 +110,7 @@ run_config_case() {
 }
 
 run_case "全部检查通过" "success" 0 "上线验收通过"
+CASE_STARTUP_MAX_ATTEMPTS=2 run_case "后端慢启动时在独立窗口内重试成功" "server-health-delayed" 0 "上线验收通过"
 run_case "缺少运行中的服务时失败" "missing-service" 1 "[FAIL] containers.running"
 run_case "容器出现异常重启时失败" "restart-loop" 1 "[FAIL] containers.restarts"
 run_case "后端健康接口不可用时失败" "server-health-fail" 1 "[FAIL] api.direct"
@@ -116,6 +120,7 @@ run_case "Web API 反代断链时失败" "proxy-fail" 1 "[FAIL] api.proxy"
 run_case "前端静态资源不可用时失败" "asset-fail" 1 "[FAIL] web.asset"
 run_case "前端静态资源 MIME 错误时失败" "asset-wrong-mime" 1 "[FAIL] web.asset"
 run_config_case "非法请求超时时间返回配置错误" "CURL_MAX_TIME" "abc" "CURL_MAX_TIME 必须是正整数"
+run_config_case "非法启动等待次数返回配置错误" "STARTUP_MAX_ATTEMPTS" "0" "STARTUP_MAX_ATTEMPTS 必须大于 0"
 run_config_case "非法重试间隔返回配置错误" "RETRY_INTERVAL_SECONDS" "-1" "RETRY_INTERVAL_SECONDS 必须是非负整数"
 run_config_case "URL 中的账号凭据被拒绝" "WEB_URL" "https://user:secret@web.test" "WEB_URL 不能为空或包含账号凭据"
 

@@ -41,6 +41,16 @@ fail_request() {
 case "$url" in
   http://server.test/health)
     [ "$scenario" = "server-health-fail" ] && fail_request
+    if [ "$scenario" = "server-health-delayed" ]; then
+      counter_file="${MOCK_STATE_DIR:?}/server-health-attempts"
+      attempt_count=0
+      if [ -f "$counter_file" ]; then
+        IFS= read -r attempt_count < "$counter_file"
+      fi
+      attempt_count=$((attempt_count + 1))
+      printf '%s\n' "$attempt_count" > "$counter_file"
+      [ "$attempt_count" -lt 2 ] && fail_request
+    fi
     content_type="application/json"
     body='"ok"'
     ;;
