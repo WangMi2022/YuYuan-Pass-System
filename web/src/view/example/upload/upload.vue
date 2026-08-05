@@ -1,52 +1,16 @@
 <template>
   <div v-loading.fullscreen.lock="fullscreenLoading" class="na-page na-page--list upload-page">
     <div class="upload-layout flex min-w-0 gap-4 pt-2">
-      <div
-        class="na-panel upload-sidebar flex-none w-64 p-4"
-      >
-        <el-scrollbar style="height: calc(100vh - 300px)">
-          <el-tree
-            :data="categories"
-            node-key="id"
-            :props="defaultProps"
-            @node-click="handleNodeClick"
-            default-expand-all
-          >
-            <template #default="{ data }">
-              <div
-                class="w-36"
-                :class="
-                  search.classId === data.ID ? 'text-blue-500 font-bold' : ''
-                "
-              >
-                {{ data.name }}
-              </div>
-              <el-dropdown>
-                <el-icon class="ml-3 text-right" v-if="data.ID > 0"
-                  ><MoreFilled
-                /></el-icon>
-                <el-icon class="ml-3 text-right mt-1" v-else><Plus /></el-icon>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item @click="addCategoryFun(data)"
-                      >添加分类</el-dropdown-item
-                    >
-                    <el-dropdown-item
-                      @click="editCategory(data)"
-                      v-if="data.ID > 0"
-                      >编辑分类</el-dropdown-item
-                    >
-                    <el-dropdown-item
-                      @click="deleteCategoryFun(data.ID)"
-                      v-if="data.ID > 0"
-                      >删除分类</el-dropdown-item
-                    >
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-            </template>
-          </el-tree>
-        </el-scrollbar>
+      <div class="na-panel upload-sidebar flex-none w-64 p-3">
+        <MediaCategoryTree
+          :categories="categories"
+          :active-id="search.classId"
+          scroll-height="calc(100vh - 300px)"
+          @select="handleNodeClick"
+          @add="addCategoryFun"
+          @edit="editCategory"
+          @delete="deleteCategoryFun"
+        />
       </div>
       <div
         class="upload-main min-w-0 flex-1"
@@ -232,6 +196,7 @@
   } from '@/api/attachmentCategory'
   import CropperImage from '@/components/upload/cropper.vue'
   import QRCodeUpload from '@/components/upload/QR-code.vue'
+  import MediaCategoryTree from '@/components/mediaCategoryTree/index.vue'
 
   defineOptions({
     name: 'Upload'

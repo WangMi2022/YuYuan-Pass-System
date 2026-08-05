@@ -28,36 +28,20 @@
       />
     </div>
 
-    <el-drawer v-model="drawer" title="媒体库 | 仅支持图片上传，文件会写入 OSS，选择的类别即是上传的类别" :size="880">
-      <div class="flex">
-        <div class="w-64" style="border-right: solid 1px var(--el-border-color);">
-          <el-scrollbar style="height: calc(100vh - 110px)">
-            <el-tree
-                :data="categories"
-                node-key="id"
-                :props="defaultProps"
-                @node-click="handleNodeClick"
-                default-expand-all
-            >
-              <template #default="{ data }">
-                <div class="w-36" :class="search.classId === data.ID ? 'text-blue-500 font-bold' : ''">{{ data.name }}
-                </div>
-                <el-dropdown>
-                  <el-icon class="ml-3 text-right" v-if="data.ID > 0"><MoreFilled /></el-icon>
-                  <el-icon class="ml-3 text-right mt-1" v-else><Plus /></el-icon>
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item @click="addCategoryFun(data)">添加分类</el-dropdown-item>
-                      <el-dropdown-item @click="editCategory(data)" v-if="data.ID > 0">编辑分类</el-dropdown-item>
-                      <el-dropdown-item @click="deleteCategoryFun(data.ID)" v-if="data.ID > 0">删除分类</el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
-              </template>
-            </el-tree>
-          </el-scrollbar>
-        </div>
-        <div class="ml-4 w-[605px]">
+    <el-drawer v-model="drawer" class="media-library-drawer" title="媒体库 | 仅支持图片上传，文件会写入 OSS，选择的类别即是上传的类别" :size="880">
+      <div class="media-library-picker">
+        <aside class="media-library-picker__sidebar">
+          <MediaCategoryTree
+            :categories="categories"
+            :active-id="search.classId"
+            scroll-height="calc(100vh - 188px)"
+            @select="handleNodeClick"
+            @add="addCategoryFun"
+            @edit="editCategory"
+            @delete="deleteCategoryFun"
+          />
+        </aside>
+        <div class="media-library-picker__content">
           <div class="gva-btn-list gap-2">
             <el-input v-model.trim="search.keyword" class="w-96" placeholder="请输入文件名或备注" clearable />
             <el-button type="primary" icon="search" @click="onSubmit"></el-button>
@@ -150,13 +134,12 @@ import {
   ArrowLeftBold,
   CloseBold,
   Menu,
-  MoreFilled,
-  Picture as IconPicture,
-  Plus
+  Picture as IconPicture
 } from '@element-plus/icons-vue'
 import selectComponent from '@/components/selectImage/selectComponent.vue'
 import { addCategory, deleteCategory, getCategoryList } from '@/api/attachmentCategory'
 import draggable from 'vuedraggable'
+import MediaCategoryTree from '@/components/mediaCategoryTree/index.vue'
 
 // 媒体库打开后才需要这些上传能力，避免所有使用媒体库的页面首屏一起加载。
 const UploadImage = defineAsyncComponent(() => import('@/components/upload/image.vue'))
@@ -517,5 +500,36 @@ const onDragEnd = () => {
 
 .drag-handle:hover {
   background-color: rgba(64, 158, 255, 0.2);
+}
+
+.media-library-picker {
+  display: flex;
+  min-height: 0;
+  gap: 16px;
+}
+
+.media-library-picker__sidebar {
+  flex: 0 0 236px;
+  min-width: 0;
+  padding-right: 12px;
+  border-right: 1px solid var(--na-border);
+}
+
+.media-library-picker__content {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  .media-library-picker {
+    flex-direction: column;
+  }
+
+  .media-library-picker__sidebar {
+    flex-basis: auto;
+    padding: 0 0 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--na-border);
+  }
 }
 </style>
