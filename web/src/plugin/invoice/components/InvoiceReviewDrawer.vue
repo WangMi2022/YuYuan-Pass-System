@@ -58,7 +58,7 @@
           </el-image>
         </div>
         <dl class="evidence-meta">
-          <div><dt>识别方式</dt><dd>{{ invoice.recognitionProvider || '等待识别' }}</dd></div>
+          <div><dt>识别方式</dt><dd>{{ recognitionProviderText }}</dd></div>
           <div><dt>整体置信度</dt><dd>{{ confidenceText }}</dd></div>
           <div><dt>分类依据</dt><dd>{{ invoice.classificationReason || '暂无规则命中' }}</dd></div>
         </dl>
@@ -396,6 +396,14 @@ const recheckModeOptions = [
   { label: '专业 OCR', value: 'ocr' },
   { label: 'AI 模型', value: 'multimodal' }
 ]
+const recognitionProviderLabels = {
+  'baidu-vat-invoice': '百度智能云发票识别',
+  'multimodal-ai': 'AI 模型发票识别',
+  qrcode: '发票二维码识别',
+  ocr: '专业发票识别',
+  multimodal: 'AI 模型发票识别',
+  manual: '人工录入'
+}
 const verificationTypeOptions = [
   { value: 'special_vat_invoice', label: '增值税专用发票' },
   { value: 'elec_special_vat_invoice', label: '增值税电子专用发票' },
@@ -456,6 +464,11 @@ const isPdf = computed(() => {
 const confidenceText = computed(() => {
   const value = Number(invoice.value.recognitionConfidence || 0)
   return value > 0 ? `${Math.round(value * 100)}%` : '待人工核对'
+})
+const recognitionProviderText = computed(() => {
+  const provider = String(invoice.value.recognitionProvider || '').trim()
+  if (!provider) return '等待识别'
+  return recognitionProviderLabels[provider] || '智能发票识别'
 })
 const recheckHint = computed(() => recheckMode.value === 'ocr'
   ? '重新读取原始凭证并使用专业 OCR 识别，结果只回填当前表单'
