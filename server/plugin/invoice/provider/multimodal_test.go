@@ -1,8 +1,17 @@
 package provider
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
+	"fmt"
+	"image"
+	"image/color"
+	"image/jpeg"
+	"image/png"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -11,6 +20,231 @@ import (
 
 	"github.com/flipped-aurora/gin-vue-admin/server/config"
 )
+
+func TestMultimodalRecognizerRetriesOversizedOpenAIImage(t *testing.T) {
+	requestBodies := make([][]byte, 0, 2)
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		body, err := io.ReadAll(request.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		requestBodies = append(requestBodies, body)
+		if len(requestBodies) == 1 {
+			response.WriteHeader(http.StatusRequestEntityTooLarge)
+			return
+		}
+
+		mimeType, imageData := openAIImageFromRequest(t, body)
+		if mimeType != "image/jpeg" {
+			t.Fatalf("retry image MIME = %q, want image/jpeg", mimeType)
+		}
+		if _, _, err = image.DecodeConfig(bytes.NewReader(imageData)); err != nil {
+			t.Fatalf("retry image cannot be decoded: %v", err)
+		}
+		writeOpenAIInvoiceSuccess(response, "413-RETRIED")
+	}))
+	defer server.Close()
+
+	recognizer := MultimodalRecognizer{
+		BaseURL: server.URL, APIKey: "test-key", Model: "vision-model",
+		Protocol: config.MultimodalProtocolOpenAICompatible,
+		Timeout:  time.Second, AllowPrivateEndpoints: true,
+	}
+	result, err := recognizer.Recognize(context.Background(), Input{
+		FileName: "large-invoice.jpg", ContentType: "image/jpeg", Data: noisyJPEG(t, 1800, 1300),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.InvoiceNumber != "413-RETRIED" {
+		t.Fatalf("invoice number = %q", result.InvoiceNumber)
+	}
+	if len(requestBodies) != 2 {
+		t.Fatalf("requests = %d, want 2", len(requestBodies))
+	}
+	if len(requestBodies[0]) > 900<<10 {
+		t.Fatalf("first body = %d bytes, want at most 900 KiB", len(requestBodies[0]))
+	}
+	if len(requestBodies[1]) >= len(requestBodies[0]) {
+		t.Fatalf("retry body = %d bytes, first body = %d bytes", len(requestBodies[1]), len(requestBodies[0]))
+	}
+	if len(requestBodies[1]) > 576<<10 {
+		t.Fatalf("retry body = %d bytes, want at most 576 KiB", len(requestBodies[1]))
+	}
+}
+
+func TestMultimodalRecognizerReencodesSmallImageAfterOpenAI413(t *testing.T) {
+	requestBodies := make([][]byte, 0, 2)
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		body, err := io.ReadAll(request.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		requestBodies = append(requestBodies, body)
+		if len(requestBodies) == 1 {
+			response.WriteHeader(http.StatusRequestEntityTooLarge)
+			return
+		}
+		mimeType, _ := openAIImageFromRequest(t, body)
+		if mimeType != "image/jpeg" {
+			t.Fatalf("retry image MIME = %q, want image/jpeg", mimeType)
+		}
+		writeOpenAIInvoiceSuccess(response, "SMALL-413-RETRIED")
+	}))
+	defer server.Close()
+
+	imageData := noisyPNG(t, 360, 280)
+	if len(imageData) >= maxMultimodalRetryImageSize {
+		t.Fatalf("test image = %d bytes, want less than retry threshold", len(imageData))
+	}
+	recognizer := MultimodalRecognizer{
+		BaseURL: server.URL, Model: "vision-model",
+		Protocol: config.MultimodalProtocolOpenAICompatible,
+		Timeout:  time.Second, AllowPrivateEndpoints: true,
+	}
+	result, err := recognizer.Recognize(context.Background(), Input{
+		FileName: "small-invoice.png", ContentType: "image/png", Data: imageData,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.InvoiceNumber != "SMALL-413-RETRIED" || len(requestBodies) != 2 {
+		t.Fatalf("result = %#v, requests = %d", result, len(requestBodies))
+	}
+	if len(requestBodies[1]) >= len(requestBodies[0]) {
+		t.Fatalf("retry body = %d bytes, first body = %d bytes", len(requestBodies[1]), len(requestBodies[0]))
+	}
+}
+
+func TestMultimodalRecognizerAppliesJPEGOrientationBeforeCompression(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		body, err := io.ReadAll(request.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, imageData := openAIImageFromRequest(t, body)
+		prepared, _, err := image.Decode(bytes.NewReader(imageData))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if prepared.Bounds().Dx() >= prepared.Bounds().Dy() {
+			t.Fatalf("prepared dimensions = %dx%d, want portrait after Orientation 6", prepared.Bounds().Dx(), prepared.Bounds().Dy())
+		}
+		assertCornerColor(t, prepared, "top-left", prepared.Bounds().Dx()/12, prepared.Bounds().Dy()/12, color.RGBA{B: 255, A: 255})
+		assertCornerColor(t, prepared, "top-right", prepared.Bounds().Dx()*11/12, prepared.Bounds().Dy()/12, color.RGBA{R: 255, A: 255})
+		writeOpenAIInvoiceSuccess(response, "ORIENTED")
+	}))
+	defer server.Close()
+
+	imageData := orientedNoisyJPEG(t, 1600, 900, 6)
+	if len(imageData) <= maxMultimodalInitialImageSize {
+		t.Fatalf("test image = %d bytes, want compression path", len(imageData))
+	}
+	recognizer := MultimodalRecognizer{
+		BaseURL: server.URL, Model: "vision-model",
+		Protocol: config.MultimodalProtocolOpenAICompatible,
+		Timeout:  time.Second, AllowPrivateEndpoints: true,
+	}
+	result, err := recognizer.Recognize(context.Background(), Input{
+		FileName: "phone-invoice.jpg", ContentType: "image/jpeg", Data: imageData,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.InvoiceNumber != "ORIENTED" {
+		t.Fatalf("invoice number = %q", result.InvoiceNumber)
+	}
+}
+
+func TestMultimodalRecognizerRetriesOpenAI413OnlyOnce(t *testing.T) {
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+		requestCount++
+		response.WriteHeader(http.StatusRequestEntityTooLarge)
+	}))
+	defer server.Close()
+
+	recognizer := MultimodalRecognizer{
+		BaseURL: server.URL, Model: "vision-model",
+		Protocol: config.MultimodalProtocolOpenAICompatible,
+		Timeout:  time.Second, AllowPrivateEndpoints: true,
+	}
+	_, err := recognizer.Recognize(context.Background(), Input{
+		FileName: "large-invoice.jpg", ContentType: "image/jpeg", Data: noisyJPEG(t, 1300, 900),
+	})
+	if err == nil || !strings.Contains(err.Error(), "系统压缩后仍被拒绝") {
+		t.Fatalf("error = %v", err)
+	}
+	if requestCount != 2 {
+		t.Fatalf("requests = %d, want 2", requestCount)
+	}
+}
+
+func TestMultimodalRecognizerDoesNotRetryNon413Response(t *testing.T) {
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+		requestCount++
+		response.WriteHeader(http.StatusBadGateway)
+	}))
+	defer server.Close()
+
+	recognizer := MultimodalRecognizer{
+		BaseURL: server.URL, Model: "vision-model",
+		Protocol: config.MultimodalProtocolOpenAICompatible,
+		Timeout:  time.Second, AllowPrivateEndpoints: true,
+	}
+	_, err := recognizer.Probe(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "状态 502") {
+		t.Fatalf("error = %v", err)
+	}
+	if requestCount != 1 {
+		t.Fatalf("requests = %d, want 1", requestCount)
+	}
+}
+
+func TestMultimodalRecognizerStopsProtocolDetectionAfter413Retry(t *testing.T) {
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+		requestCount++
+		response.WriteHeader(http.StatusRequestEntityTooLarge)
+	}))
+	defer server.Close()
+
+	recognizer := MultimodalRecognizer{
+		BaseURL: server.URL, Model: "vision-model",
+		Timeout: time.Second, AllowPrivateEndpoints: true,
+	}
+	_, err := recognizer.Recognize(context.Background(), Input{
+		FileName: "large-invoice.jpg", ContentType: "image/jpeg", Data: noisyJPEG(t, 1300, 900),
+	})
+	if err == nil || !strings.Contains(err.Error(), "系统压缩后仍被拒绝") {
+		t.Fatalf("error = %v", err)
+	}
+	if requestCount != 2 {
+		t.Fatalf("requests = %d, want 2", requestCount)
+	}
+}
+
+func TestMultimodalRecognizerStopsProtocolDetectionAfter502(t *testing.T) {
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+		requestCount++
+		response.WriteHeader(http.StatusBadGateway)
+	}))
+	defer server.Close()
+
+	recognizer := MultimodalRecognizer{
+		BaseURL: server.URL, Model: "vision-model",
+		Timeout: time.Second, AllowPrivateEndpoints: true,
+	}
+	_, err := recognizer.Probe(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "状态 502") {
+		t.Fatalf("error = %v", err)
+	}
+	if requestCount != 1 {
+		t.Fatalf("requests = %d, want 1", requestCount)
+	}
+}
 
 func TestMultimodalRecognizerUsesImageInputAndParsesResult(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
@@ -186,4 +420,130 @@ func TestMultimodalRecognizerDoesNotForwardAPIKeyThroughRedirect(t *testing.T) {
 	if destinationRequests != 0 {
 		t.Fatalf("redirect destination received %d requests", destinationRequests)
 	}
+}
+
+func noisyJPEG(t *testing.T, width, height int) []byte {
+	t.Helper()
+	img := noisyImage(width, height)
+	var encoded bytes.Buffer
+	if err := jpeg.Encode(&encoded, img, &jpeg.Options{Quality: 96}); err != nil {
+		t.Fatal(err)
+	}
+	return encoded.Bytes()
+}
+
+func noisyPNG(t *testing.T, width, height int) []byte {
+	t.Helper()
+	var encoded bytes.Buffer
+	if err := png.Encode(&encoded, noisyImage(width, height)); err != nil {
+		t.Fatal(err)
+	}
+	return encoded.Bytes()
+}
+
+func orientedNoisyJPEG(t *testing.T, width, height, orientation int) []byte {
+	t.Helper()
+	img := noisyImage(width, height)
+	paintCorner(img, image.Rect(0, 0, width/5, height/5), color.RGBA{R: 255, A: 255})
+	paintCorner(img, image.Rect(width-width/5, 0, width, height/5), color.RGBA{G: 255, A: 255})
+	paintCorner(img, image.Rect(0, height-height/5, width/5, height), color.RGBA{B: 255, A: 255})
+	paintCorner(img, image.Rect(width-width/5, height-height/5, width, height), color.RGBA{R: 255, G: 255, A: 255})
+	var encoded bytes.Buffer
+	if err := jpeg.Encode(&encoded, img, &jpeg.Options{Quality: 96}); err != nil {
+		t.Fatal(err)
+	}
+	data := encoded.Bytes()
+	exif := []byte{
+		0xff, 0xe1, 0x00, 0x22,
+		'E', 'x', 'i', 'f', 0x00, 0x00,
+		'I', 'I', 0x2a, 0x00, 0x08, 0x00, 0x00, 0x00,
+		0x01, 0x00,
+		0x12, 0x01, 0x03, 0x00, 0x01, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+	}
+	binary.LittleEndian.PutUint16(exif[28:30], uint16(orientation))
+	withEXIF := make([]byte, 0, len(data)+len(exif))
+	withEXIF = append(withEXIF, data[:2]...)
+	withEXIF = append(withEXIF, exif...)
+	withEXIF = append(withEXIF, data[2:]...)
+	return withEXIF
+}
+
+func paintCorner(img *image.RGBA, bounds image.Rectangle, value color.RGBA) {
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			img.SetRGBA(x, y, value)
+		}
+	}
+}
+
+func assertCornerColor(t *testing.T, img image.Image, name string, x, y int, expected color.RGBA) {
+	t.Helper()
+	actual := color.RGBAModel.Convert(img.At(x, y)).(color.RGBA)
+	const dominance = 80
+	if expected.R > 0 && (int(actual.R) < int(actual.G)+dominance || int(actual.R) < int(actual.B)+dominance) {
+		t.Fatalf("%s color = %#v, want red-dominant", name, actual)
+	}
+	if expected.B > 0 && (int(actual.B) < int(actual.R)+dominance || int(actual.B) < int(actual.G)+dominance) {
+		t.Fatalf("%s color = %#v, want blue-dominant", name, actual)
+	}
+}
+
+func noisyImage(width, height int) *image.RGBA {
+	img := image.NewRGBA(image.Rect(0, 0, width, height))
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			value := uint8((x*31 + y*17 + x*y*13) % 256)
+			img.SetRGBA(x, y, color.RGBA{
+				R: value,
+				G: uint8((int(value)*53 + x*7) % 256),
+				B: uint8((int(value)*97 + y*11) % 256),
+				A: 255,
+			})
+		}
+	}
+	return img
+}
+
+func openAIImageFromRequest(t *testing.T, body []byte) (string, []byte) {
+	t.Helper()
+	var request struct {
+		Messages []struct {
+			Content []struct {
+				Type     string `json:"type"`
+				ImageURL struct {
+					URL string `json:"url"`
+				} `json:"image_url"`
+			} `json:"content"`
+		} `json:"messages"`
+	}
+	if err := json.Unmarshal(body, &request); err != nil {
+		t.Fatal(err)
+	}
+	for _, message := range request.Messages {
+		for _, content := range message.Content {
+			if content.Type != "image_url" {
+				continue
+			}
+			prefix, encoded, found := strings.Cut(content.ImageURL.URL, ";base64,")
+			if !found || !strings.HasPrefix(prefix, "data:") {
+				t.Fatalf("invalid image data URL")
+			}
+			data, err := base64.StdEncoding.DecodeString(encoded)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return strings.TrimPrefix(prefix, "data:"), data
+		}
+	}
+	t.Fatal("OpenAI request does not contain image data")
+	return "", nil
+}
+
+func writeOpenAIInvoiceSuccess(response http.ResponseWriter, invoiceNumber string) {
+	content := fmt.Sprintf(`{"invoiceType":"电子发票","invoiceNumber":%q,"issueDate":"2026-07-29","sellerName":"示例公司","totalCents":1060,"confidence":0.9,"fieldConfidences":{},"items":[]}`, invoiceNumber)
+	_ = json.NewEncoder(response).Encode(map[string]any{
+		"choices": []map[string]any{{"message": map[string]any{"content": content}}},
+	})
 }

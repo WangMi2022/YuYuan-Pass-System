@@ -135,15 +135,20 @@ func (r *MultimodalRecognizer) complete(
 	attemptErrors := make([]error, 0, len(protocols))
 	for _, protocol := range protocols {
 		payload, requestErr := r.chat(ctx, input, prompt, maxTokens, protocol)
-		if requestErr == nil {
-			var content string
-			content, requestErr = multimodalResponseContent(payload, protocol)
-			if requestErr == nil {
-				r.Protocol = protocol
-				return multimodalCompletion{payload: payload, content: content, protocol: protocol}, nil
+		if requestErr != nil {
+			wrappedErr := fmt.Errorf("%s: %w", multimodalProtocolName(protocol), requestErr)
+			if len(protocols) == 1 || !multimodalProtocolFallbackAllowed(requestErr) {
+				return multimodalCompletion{}, wrappedErr
 			}
+			attemptErrors = append(attemptErrors, wrappedErr)
+			continue
 		}
-		attemptErrors = append(attemptErrors, fmt.Errorf("%s: %w", multimodalProtocolName(protocol), requestErr))
+		content, contentErr := multimodalResponseContent(payload, protocol)
+		if contentErr == nil {
+			r.Protocol = protocol
+			return multimodalCompletion{payload: payload, content: content, protocol: protocol}, nil
+		}
+		attemptErrors = append(attemptErrors, fmt.Errorf("%s: %w", multimodalProtocolName(protocol), contentErr))
 	}
 	if len(protocols) == 1 {
 		return multimodalCompletion{}, attemptErrors[0]
@@ -184,6 +189,56 @@ func (r *MultimodalRecognizer) chat(
 	maxTokens int,
 	protocol string,
 ) ([]byte, error) {
+	preparedInput, err := prepareMultimodalImage(ctx, input, maxMultimodalInitialImageSize)
+	if err != nil {
+		return nil, err
+	}
+	client := providerHTTPClient(r.Timeout, r.AllowPrivateEndpoints)
+	response, err := r.chatOnce(ctx, client, preparedInput, prompt, maxTokens, protocol)
+	if err != nil {
+		return nil, err
+	}
+	if response.statusCode == http.StatusRequestEntityTooLarge {
+		retryInput, prepareErr := prepareMultimodalRetryImage(ctx, preparedInput)
+		if prepareErr != nil {
+			return nil, fmt.Errorf("模型拒绝了过大的图片，自动压缩失败: %w", prepareErr)
+		}
+		if bytes.Equal(retryInput.Data, preparedInput.Data) {
+			return nil, multimodalStatusError(response.statusCode)
+		}
+		response, err = r.chatOnce(ctx, client, retryInput, prompt, maxTokens, protocol)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if response.statusCode < 200 || response.statusCode >= 300 {
+		return nil, multimodalStatusError(response.statusCode)
+	}
+	return response.payload, nil
+}
+
+type multimodalHTTPResponse struct {
+	payload    []byte
+	statusCode int
+}
+
+type multimodalHTTPStatusError struct {
+	statusCode int
+	message    string
+}
+
+func (e *multimodalHTTPStatusError) Error() string {
+	return e.message
+}
+
+func (r *MultimodalRecognizer) chatOnce(
+	ctx context.Context,
+	client *http.Client,
+	input Input,
+	prompt string,
+	maxTokens int,
+	protocol string,
+) (multimodalHTTPResponse, error) {
 	mimeType := strings.TrimSpace(input.ContentType)
 	if mimeType != "image/jpeg" && mimeType != "image/png" {
 		mimeType = "image/png"
@@ -225,15 +280,15 @@ func (r *MultimodalRecognizer) chat(
 			"max_tokens":  maxTokens,
 		}
 	default:
-		return nil, errors.New("多模态模型协议不正确，请重新测试连接")
+		return multimodalHTTPResponse{}, errors.New("多模态模型协议不正确，请重新测试连接")
 	}
 	encoded, err := json.Marshal(requestBody)
 	if err != nil {
-		return nil, err
+		return multimodalHTTPResponse{}, err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(encoded))
 	if err != nil {
-		return nil, err
+		return multimodalHTTPResponse{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	if strings.TrimSpace(r.APIKey) != "" && protocol == config.MultimodalProtocolOpenAICompatible {
@@ -245,30 +300,56 @@ func (r *MultimodalRecognizer) chat(
 	if protocol == config.MultimodalProtocolAnthropic {
 		req.Header.Set("anthropic-version", "2023-06-01")
 	}
-	client := providerHTTPClient(r.Timeout, r.AllowPrivateEndpoints)
 	resp, err := client.Do(req)
 	if err != nil {
 		var urlErr *url.Error
 		if errors.As(err, &urlErr) {
 			err = urlErr.Err
 		}
-		return nil, fmt.Errorf("多模态模型请求失败: %w", err)
+		return multimodalHTTPResponse{}, fmt.Errorf("多模态模型请求失败: %w", err)
 	}
 	defer resp.Body.Close()
 	payload, err := io.ReadAll(io.LimitReader(resp.Body, maxMultimodalResponseSize+1))
 	if err != nil {
-		return nil, fmt.Errorf("多模态模型响应读取失败: %w", err)
+		return multimodalHTTPResponse{}, fmt.Errorf("多模态模型响应读取失败: %w", err)
 	}
 	if len(payload) > maxMultimodalResponseSize {
-		return nil, errors.New("多模态模型响应超过 4MB 限制")
+		return multimodalHTTPResponse{}, errors.New("多模态模型响应超过 4MB 限制")
 	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
-			return nil, fmt.Errorf("多模态模型鉴权失败（HTTP %d）", resp.StatusCode)
+	return multimodalHTTPResponse{payload: payload, statusCode: resp.StatusCode}, nil
+}
+
+func multimodalStatusError(statusCode int) error {
+	if statusCode == http.StatusUnauthorized || statusCode == http.StatusForbidden {
+		return &multimodalHTTPStatusError{
+			statusCode: statusCode,
+			message:    fmt.Sprintf("多模态模型鉴权失败（HTTP %d）", statusCode),
 		}
-		return nil, fmt.Errorf("多模态模型返回状态 %d", resp.StatusCode)
 	}
-	return payload, nil
+	if statusCode == http.StatusRequestEntityTooLarge {
+		return &multimodalHTTPStatusError{
+			statusCode: statusCode,
+			message:    "模型服务允许的图片大小过小，系统压缩后仍被拒绝，请联系管理员调整接口网关限制",
+		}
+	}
+	return &multimodalHTTPStatusError{
+		statusCode: statusCode,
+		message:    fmt.Sprintf("多模态模型返回状态 %d", statusCode),
+	}
+}
+
+func multimodalProtocolFallbackAllowed(err error) bool {
+	var statusErr *multimodalHTTPStatusError
+	if !errors.As(err, &statusErr) {
+		return false
+	}
+	switch statusErr.statusCode {
+	case http.StatusBadRequest, http.StatusNotFound, http.StatusMethodNotAllowed,
+		http.StatusUnsupportedMediaType, http.StatusUnprocessableEntity:
+		return true
+	default:
+		return false
+	}
 }
 
 func chatCompletionsURL(baseURL string) string {
