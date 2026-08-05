@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+scenario="${MOCK_SCENARIO:-success}"
+body_file=""
+header_file=""
+url=""
+
+if [ -n "${GVA_TEST_SECRET:-}" ]; then
+  printf 'sensitive .env variable leaked into curl process\n' >&2
+  exit 65
+fi
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -D|-o|-w|--max-time|-X)
+      option="$1"
+      value="${2:-}"
+      case "$option" in
+        -D) header_file="$value" ;;
+        -o) body_file="$value" ;;
+      esac
+      shift 2
+      ;;
+    -*)
+      shift
+      ;;
+    *)
+      url="$1"
+      shift
+      ;;
+  esac
+done
+
+fail_request() {
+  : > "$body_file"
+  : > "$header_file"
+  exit 22
+}
+
+case "$url" in
+  http://server.test/health)
+    [ "$scenario" = "server-health-fail" ] && fail_request
+    content_type="application/json"
+    body='"ok"'
+    ;;
+  http://server.test/init/checkdb)
+    content_type="application/json"
+    if [ "$scenario" = "db-not-ready" ]; then
+      body='{"code":0,"data":{"needInit":true}}'
+    else
+      body='{"code":0,"data":{"needInit":false}}'
+    fi
+    ;;
+  http://web.test/)
+    content_type="text/html; charset=utf-8"
+    if [ "$scenario" = "invalid-web" ]; then
+      body='<html><title>nginx error</title></html>'
+    else
+      body='<html><head><title>资产管理中心</title><script type="module" src="/assets/index-abc123.js"></script></head><body><div id="app"></div></body></html>'
+    fi
+    ;;
+  http://web.test/api/health)
+    [ "$scenario" = "proxy-fail" ] && fail_request
+    content_type="application/json"
+    body='"ok"'
+    ;;
+  http://web.test/assets/index-abc123.js)
+    [ "$scenario" = "asset-fail" ] && fail_request
+    if [ "$scenario" = "asset-wrong-mime" ]; then
+      content_type="text/html"
+    else
+      content_type="application/javascript"
+    fi
+    body='console.log("ready")'
+    ;;
+  *)
+    fail_request
+    ;;
+esac
+
+printf 'HTTP/1.1 200 OK\r\nContent-Type: %s\r\n\r\n' "$content_type" > "$header_file"
+printf '%s' "$body" > "$body_file"
+printf '200'

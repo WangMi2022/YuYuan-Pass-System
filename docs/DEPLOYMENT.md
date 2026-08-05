@@ -232,7 +232,7 @@ chmod +x ./*.sh tools/*.sh
 5. 启动两个容器。
 6. 等待后端就绪。
 7. 创建 PostgreSQL 数据库、表、基础菜单和管理员。
-8. 执行健康检查并显示容器状态。
+8. 执行完整上线验收门禁。
 
 首次构建耗时取决于网络和服务器性能。不要在构建尚未结束时重复执行 `up.sh`。
 
@@ -257,8 +257,10 @@ chmod +x ./*.sh tools/*.sh
 执行自动检查：
 
 ```bash
-./health-check.sh
+./release-acceptance.sh
 ```
+
+只有脚本退出码为 `0` 才表示上线成功。它会检查期望容器及重启次数、Server 直连健康接口、数据库初始化状态、Web 首页身份、Nginx API 反代链路和当前 JavaScript 入口资源。整个过程不写业务数据，也不调用 OCR、发票验真或大模型等付费接口。
 
 手动检查：
 
@@ -356,7 +358,7 @@ git pull --ff-only
 cd deploy/docker-dev
 ./build.sh
 docker compose --env-file .env -f docker-compose.yml up -d --force-recreate
-./health-check.sh
+./release-acceptance.sh
 ```
 
 ### 11.3 仅更新 Web
@@ -364,7 +366,7 @@ docker compose --env-file .env -f docker-compose.yml up -d --force-recreate
 ```bash
 ./build.sh web
 docker compose --env-file .env -f docker-compose.yml up -d --force-recreate web
-./health-check.sh
+./release-acceptance.sh
 ```
 
 ### 11.4 仅更新 Server
@@ -372,7 +374,7 @@ docker compose --env-file .env -f docker-compose.yml up -d --force-recreate web
 ```bash
 ./build.sh server
 docker compose --env-file .env -f docker-compose.yml up -d --force-recreate server
-./health-check.sh
+./release-acceptance.sh
 ```
 
 后端启动时会执行 GORM 自动迁移。包含模型变更的版本更新前必须先备份数据库。
@@ -386,7 +388,7 @@ git pull --ff-only
 cd deploy/docker-dev
 ./build.sh server web
 docker compose --env-file .env -f docker-compose.yml up -d --force-recreate server web
-./health-check.sh
+./release-acceptance.sh
 ```
 
 Server 启动时会自动创建或更新外观配置相关数据表。部署完成后应验证：
@@ -409,7 +411,7 @@ git pull --ff-only
 cd deploy/docker-dev
 ./build.sh server web
 docker compose --env-file .env -f docker-compose.yml up -d --force-recreate server web
-./health-check.sh
+./release-acceptance.sh
 ```
 
 升级完成后重新登录以刷新动态菜单，并验证默认管理员可以看到六个流转菜单。生产验收至少执行一次“保存草稿 → 编辑 → 提交”，确认资产状态发生预期变化且 Server 日志没有事务错误。
@@ -492,7 +494,7 @@ git checkout <tag-or-commit>
 cd deploy/docker-dev
 ./build.sh
 docker compose --env-file .env -f docker-compose.yml up -d --force-recreate
-./health-check.sh
+./release-acceptance.sh
 ```
 
 如果新版本已经执行不兼容的数据迁移，只回滚代码可能无法恢复，应同时按升级前备份恢复数据库。不要使用 `git reset --hard` 处理包含本地配置或未提交改动的部署目录。
@@ -633,6 +635,6 @@ docker compose --env-file .env -f docker-compose.yml up -d --force-recreate web
 - [ ] SSE 代理缓冲已关闭。
 - [ ] PostgreSQL 和对象存储备份任务已验证。
 - [ ] 已记录当前部署 commit/tag 和镜像版本。
-- [ ] `./health-check.sh` 执行通过。
+- [ ] `./release-acceptance.sh` 全部检查通过并返回退出码 `0`。
 - [ ] 登录、资产、文档、图片、公告和系统设置完成验收。
 - [ ] 登录图标上传、恢复默认以及登录背景切换均已验证。

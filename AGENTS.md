@@ -52,14 +52,14 @@ The recreate command is:
 docker compose --env-file .env -f docker-compose.yml up -d --force-recreate <services>
 ```
 
-`restart.sh` alone is forbidden for code updates because it does not rebuild images. After recreation, run:
+`restart.sh` alone is forbidden for code updates because it does not rebuild images. After recreation, the release gate is:
 
 ```bash
-./health-check.sh
+./release-acceptance.sh
 ./ps.sh
 ```
 
-Only after both succeed, write the full deployed commit hash to `.deploy/current-commit`. If upload, build, recreation, or health checking fails, keep the previous backup, stop, and report the exact failed stage. Never claim production was updated unless the health check passed.
+Only after `release-acceptance.sh` exits with status `0`, write the full deployed commit hash to `.deploy/current-commit`. `ps.sh` is retained for the deployment report, while the acceptance script is the authoritative success gate. If upload, build, recreation, or acceptance fails, keep the previous backup, stop, and report the exact failed stage. Never claim production was updated unless release acceptance passed.
 
 ## Secrets and safety
 

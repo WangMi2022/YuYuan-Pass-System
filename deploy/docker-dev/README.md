@@ -19,7 +19,7 @@ chmod +x ./*.sh tools/*.sh
 启动完成后执行：
 
 ```bash
-./health-check.sh
+./release-acceptance.sh
 ./ps.sh
 ```
 
@@ -35,10 +35,11 @@ chmod +x ./*.sh tools/*.sh
 
 | 脚本 | 用途 |
 | --- | --- |
-| `up.sh` | 校验配置、生成运行配置、构建镜像、启动服务、初始化数据库并执行健康检查 |
+| `up.sh` | 校验配置、构建并启动服务、初始化数据库并执行完整上线验收 |
 | `build.sh [web|server]` | 构建全部或指定服务镜像 |
 | `init-db.sh` | 手动执行首次数据库初始化，重复执行会自动跳过 |
-| `health-check.sh` | 检查容器、Web、API 和数据库初始化状态 |
+| `health-check.sh` | 日常快速检查 Web、API 和数据库初始化状态 |
+| `release-acceptance.sh` | 代码更新后的上线门禁，全部检查通过才可标记上线成功 |
 | `configure-rustfs.sh` | 将 `.env` 中的 Redis 和 S3 配置写入运行配置 |
 | `restart.sh [web|server]` | 仅重启容器，不重新构建镜像 |
 | `logs.sh [web|server]` | 持续查看最近 200 行日志 |
@@ -50,7 +51,10 @@ chmod +x ./*.sh tools/*.sh
 ## 常用命令
 
 ```bash
-# 查看状态和健康情况
+# 代码更新后的完整上线验收
+./release-acceptance.sh
+
+# 查看状态和快速健康检查
 ./ps.sh
 ./health-check.sh
 
@@ -72,6 +76,28 @@ docker compose --env-file .env -f docker-compose.yml up -d --force-recreate serv
 
 # 停止服务
 ./down.sh
+```
+
+## 上线验收门禁
+
+每次重新构建并创建容器后执行：
+
+```bash
+./release-acceptance.sh
+```
+
+脚本只执行无副作用的只读检查，不登录、不写业务数据，也不会调用 OCR、发票验真或大模型等付费接口。它会验证：
+
+- `server`、`web` 均已声明并处于运行状态，且新容器没有异常重启。
+- Server `/health` 与数据库初始化状态正常。
+- Web 首页是当前资产管理系统，而不是 Nginx 错误页或兜底页。
+- 浏览器实际使用的 `/api/health` 反代链路正常。
+- 首页引用的当前版本 JavaScript 入口可访问、非空且 MIME 类型正确。
+
+退出码 `0` 表示全部通过，可以标记上线成功；`1` 表示验收失败；`2` 表示参数、文件或依赖命令配置错误。失败时禁止更新部署版本标记。脚本自身的回归测试为：
+
+```bash
+bash tests/release-acceptance-test.sh
 ```
 
 ## 重要文件

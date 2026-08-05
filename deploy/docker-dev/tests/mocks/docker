@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+scenario="${MOCK_SCENARIO:-success}"
+
+if [ -n "${GVA_TEST_SECRET:-}" ]; then
+  printf 'sensitive .env variable leaked into docker process\n' >&2
+  exit 65
+fi
+
+if [ "${1:-}" = "compose" ]; then
+  shift
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --env-file|-f)
+        shift 2
+        ;;
+      config)
+        if [ "${2:-}" = "--services" ]; then
+          printf 'server\nweb\n'
+          exit 0
+        fi
+        ;;
+      ps)
+        shift
+        if [ "${1:-}" = "--services" ]; then
+          if [ "$scenario" = "missing-service" ]; then
+            printf 'server\n'
+          else
+            printf 'server\nweb\n'
+          fi
+          exit 0
+        fi
+        if [ "${1:-}" = "-q" ]; then
+          printf 'container-%s\n' "${2:-unknown}"
+          exit 0
+        fi
+        ;;
+    esac
+    shift
+  done
+fi
+
+if [ "${1:-}" = "inspect" ]; then
+  container_id="${4:-}"
+  if [ "$scenario" = "restart-loop" ] && [ "$container_id" = "container-server" ]; then
+    printf '2\n'
+  else
+    printf '0\n'
+  fi
+  exit 0
+fi
+
+printf 'unexpected docker arguments:' >&2
+printf ' %q' "$@" >&2
+printf '\n' >&2
+exit 64

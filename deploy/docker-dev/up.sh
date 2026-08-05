@@ -35,5 +35,4 @@ if docker image inspect registry.cn-zhangjiakou.aliyuncs.com/yunli_mid_platform/
 fi
 docker compose --env-file .env -f docker-compose.yml up -d --build --force-recreate
 ./init-db.sh
-docker compose --env-file .env -f docker-compose.yml ps
-./health-check.sh
+./release-acceptance.sh
