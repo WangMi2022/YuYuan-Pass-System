@@ -270,9 +270,11 @@ const defaultScheduleTypes = [
   { value: 'asset', label: '资产盘点', color: '#18a678' },
   { value: 'reminder', label: '到期提醒', color: '#d9773c' }
 ]
+const assetOperationRouteNames = ['assetInbound', 'assetIssue', 'assetTransfer', 'assetReturn', 'assetMaintenance', 'assetScrap']
 
 const access = computed(() => ({
   assetInventory: router.hasRoute('assetInventory'),
+  assetOperations: assetOperationRouteNames.some((name) => router.hasRoute(name)),
   invoiceDashboard: router.hasRoute('invoiceDashboard'),
   invoiceLedger: router.hasRoute('invoiceLedger'),
   invoiceRecognition: router.hasRoute('invoiceRecognition'),
@@ -283,6 +285,7 @@ const access = computed(() => ({
   monitor: router.hasRoute('state')
 }))
 const isPendingView = computed(() => route.query.view === 'pending')
+const canOpenPendingTasks = computed(() => access.value.assetOperations || access.value.invoiceRecognition)
 
 const greeting = computed(() => {
   const hour = new Date().getHours()
@@ -323,8 +326,8 @@ const metrics = computed(() => {
       hint: `${formatNumber(assetDraftTotal.value)} 项资产业务 · ${formatNumber(invoiceDashboard.value.pendingCount)} 张待核对 · ${formatNumber(invoiceDashboard.value.failedCount)} 张失败`,
       tone: 'warning',
       icon: WarningFilled,
-      action: 'pending',
-      actionLabel: '查看待处理事项'
+      action: canOpenPendingTasks.value ? 'pending' : '',
+      actionLabel: canOpenPendingTasks.value ? '查看待处理事项' : ''
     })
   }
   return items
