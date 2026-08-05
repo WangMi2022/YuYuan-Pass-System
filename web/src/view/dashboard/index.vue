@@ -1,5 +1,7 @@
 <template>
-  <main v-loading="loading" class="dashboard-page">
+  <PendingTasks v-if="isPendingView" @back="closePendingItems" />
+
+  <main v-else v-loading="loading" class="dashboard-page">
     <AppPageHeader
       title-id="dashboard-title"
       title="首页驾驶舱"
@@ -57,14 +59,23 @@
     </section>
 
     <section v-if="metrics.length" class="metric-band" aria-label="核心业务指标">
-      <article v-for="metric in metrics" :key="metric.label" class="metric-item">
+      <component
+        :is="metric.action ? 'button' : 'article'"
+        v-for="metric in metrics"
+        :key="metric.label"
+        class="metric-item"
+        :class="{ 'metric-item--actionable': metric.action }"
+        :type="metric.action ? 'button' : undefined"
+        :aria-label="metric.action ? metric.actionLabel : undefined"
+        @click="handleMetricClick(metric)"
+      >
         <div class="metric-copy">
           <span>{{ metric.label }}</span>
           <strong>{{ metric.value }}</strong>
           <small :class="metric.tone === 'warning' ? 'is-warning' : ''">{{ metric.hint }}</small>
         </div>
         <el-icon class="metric-icon" :class="`metric-${metric.tone}`"><component :is="metric.icon" /></el-icon>
-      </article>
+      </component>
     </section>
 
     <section class="dashboard-workspace">
@@ -208,8 +219,8 @@
 </template>
 
 <script setup>
-import { computed, onActivated, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onActivated, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
   ArrowRight,
   Box,
@@ -224,6 +235,7 @@ import {
 } from '@element-plus/icons-vue'
 import { dateKey, recurrenceLabel, scheduleMatchesDate } from '@/utils/workCalendar'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
+import PendingTasks from '@/view/dashboard/PendingTasks.vue'
 import { formatCompactCurrency, formatCurrency, formatNumber } from '@/utils/format'
 import { getAssetDashboard } from '@/plugin/asset/api/asset'
 import { getAssetOperationList } from '@/plugin/asset/api/operation'
@@ -237,6 +249,7 @@ import { useUserStore } from '@/pinia/modules/user'
 defineOptions({ name: 'Dashboard' })
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
 const loading = ref(false)
 const updatedAt = ref('')
@@ -269,6 +282,7 @@ const access = computed(() => ({
   audit: router.hasRoute('operation'),
   monitor: router.hasRoute('state')
 }))
+const isPendingView = computed(() => route.query.view === 'pending')
 
 const greeting = computed(() => {
   const hour = new Date().getHours()
@@ -303,7 +317,15 @@ const metrics = computed(() => {
   }
   if (access.value.invoices) {
     items.push({ label: '已确认发票', value: centsToCurrency(invoiceDashboard.value.totalCents), hint: `${formatNumber(invoiceDashboard.value.confirmedCount)} 张已进入正式统计`, tone: 'info', icon: Tickets })
-    items.push({ label: '待处理事项', value: `${formatNumber(pendingTotal.value)} 项`, hint: `${formatNumber(assetDraftTotal.value)} 项资产业务 · ${formatNumber(invoiceDashboard.value.pendingCount)} 张待核对 · ${formatNumber(invoiceDashboard.value.failedCount)} 张失败`, tone: 'warning', icon: WarningFilled })
+    items.push({
+      label: '待处理事项',
+      value: `${formatNumber(pendingTotal.value)} 项`,
+      hint: `${formatNumber(assetDraftTotal.value)} 项资产业务 · ${formatNumber(invoiceDashboard.value.pendingCount)} 张待核对 · ${formatNumber(invoiceDashboard.value.failedCount)} 张失败`,
+      tone: 'warning',
+      icon: WarningFilled,
+      action: 'pending',
+      actionLabel: '查看待处理事项'
+    })
   }
   return items
 })
@@ -397,6 +419,17 @@ function usageTone(value) {
 }
 function go(name) {
   if (router.hasRoute(name)) router.push({ name })
+}
+function handleMetricClick(metric) {
+  if (metric.action === 'pending') openPendingItems()
+}
+function openPendingItems() {
+  router.push({ path: route.path, query: { ...route.query, view: 'pending' } })
+}
+function closePendingItems() {
+  const query = { ...route.query }
+  delete query.view
+  router.replace({ path: route.path, query })
 }
 function loadCalendarTypes() {
   if (!access.value.calendar) return
@@ -507,9 +540,14 @@ async function loadDashboard() {
 }
 
 onMounted(() => {
-  loadDashboard()
+  if (!isPendingView.value) loadDashboard()
 })
-onActivated(loadCalendarSchedules)
+onActivated(() => {
+  if (!isPendingView.value) loadCalendarSchedules()
+})
+watch(isPendingView, (pending, wasPending) => {
+  if (!pending && wasPending) loadDashboard()
+})
 </script>
 
 <style scoped lang="scss">
@@ -545,7 +583,11 @@ onActivated(loadCalendarSchedules)
 
 .metric-band { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); margin-bottom: 12px; border: 1px solid var(--na-border); border-radius: var(--na-radius); background: var(--na-card); }
 .metric-item { display: flex; min-width: 0; min-height: 104px; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 16px 18px 15px 20px; border-right: 1px solid var(--na-border); }
+button.metric-item { width: 100%; border-top: 0; border-bottom: 0; border-left: 0; background: transparent; color: inherit; font: inherit; text-align: left; }
 .metric-item:last-child { border-right: 0; }
+.metric-item--actionable { cursor: pointer; transition: background-color 160ms ease; }
+.metric-item--actionable:hover { background: var(--na-table-hover); }
+.metric-item--actionable:focus-visible { position: relative; z-index: 1; outline: 2px solid var(--na-primary); outline-offset: -3px; }
 .metric-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; justify-content: center; gap: 4px; }
 .metric-copy > span, .metric-copy small { overflow: hidden; color: var(--na-muted-foreground); font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
 .metric-copy strong { overflow: hidden; color: var(--na-foreground); font-size: 1.25rem; font-variant-numeric: tabular-nums; font-weight: 680; text-overflow: ellipsis; white-space: nowrap; }

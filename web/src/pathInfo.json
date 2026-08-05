@@ -1,6 +1,7 @@
 {
   "/src/view/about/index.vue": "About",
   "/src/view/dashboard/index.vue": "Dashboard",
+  "/src/view/dashboard/PendingTasks.vue": "PendingTasks",
   "/src/view/error/index.vue": "Error",
   "/src/view/error/reload.vue": "Reload",
   "/src/view/example/breakpoint/breakpoint.vue": "BreakPoint",
