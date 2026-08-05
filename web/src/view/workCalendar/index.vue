@@ -379,6 +379,7 @@
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { ArrowDown, ArrowLeft, ArrowRight, Clock, Delete, EditPen, Plus, Setting } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
@@ -391,6 +392,13 @@ import {
   scheduleMatchesDate,
   weekdayFromKey
 } from '@/utils/workCalendar'
+import {
+  createWorkSchedule,
+  deleteWorkSchedule,
+  getWorkSchedules,
+  importLegacyWorkSchedules,
+  updateWorkSchedule
+} from '@/api/workSchedule'
 
 defineOptions({ name: 'WorkCalendar' })
 
@@ -412,6 +420,7 @@ const defaultScheduleTypes = [
 const typePalette = ['#4f7cf3', '#7a61d4', '#18a678', '#d9773c', '#d94f70', '#168aad', '#6b8e23', '#b26bce']
 
 const today = new Date()
+const route = useRoute()
 const viewedMonth = ref(new Date(today.getFullYear(), today.getMonth(), 1))
 const selectedDate = ref(dateKey(today))
 const schedules = ref([])
@@ -466,7 +475,6 @@ const monthSchedules = computed(() => calendarDays.value
   .filter((day) => day.isCurrentMonth)
   .reduce((total, day) => total + schedules.value.filter((schedule) => scheduleMatchesDate(schedule, day.key)).length, 0))
 
-watch(schedules, persistSchedules, { deep: true })
 watch(scheduleTypes, persistScheduleTypes, { deep: true })
 watch([pickerYear, pickerMonth], () => {
   pickerDay.value = Math.min(pickerDay.value, pickerDays.value.length)
@@ -477,8 +485,15 @@ watch(() => draft.value.date, (date) => {
   draft.value.recurrence.weekday = weekdayFromKey(date)
   draft.value.recurrence.monthDay = parsedDate.getDate()
 })
+watch(() => route.query.date, applyRouteDate, { immediate: true })
 
-onMounted(() => {
+onMounted(async () => {
+  loadScheduleTypes()
+  await migrateLegacySchedules()
+  await loadSchedules()
+})
+
+function loadScheduleTypes() {
   try {
     const savedTypes = JSON.parse(window.localStorage.getItem(typeStorageKey) || '[]')
     if (Array.isArray(savedTypes)) {
@@ -494,16 +509,80 @@ onMounted(() => {
     window.localStorage.removeItem(typeStorageKey)
   }
   activeTypes.value = scheduleTypes.value.map((type) => type.value)
+}
 
+function readLegacySchedules() {
   try {
     const savedSchedules = JSON.parse(window.localStorage.getItem(eventStorageKey) || '[]')
     if (Array.isArray(savedSchedules)) {
-      schedules.value = savedSchedules.filter(isValidSchedule).map(normalizeSchedule)
+      return savedSchedules.filter(isValidSchedule).map(normalizeSchedule)
     }
   } catch {
     window.localStorage.removeItem(eventStorageKey)
   }
-})
+  return []
+}
+
+async function migrateLegacySchedules() {
+  const legacySchedules = readLegacySchedules()
+  if (!legacySchedules.length) return
+  try {
+    const result = await importLegacyWorkSchedules({
+      schedules: legacySchedules.map(({ id, ...schedule }) => ({
+        ...schedule,
+        clientKey: id
+      }))
+    })
+    if (result.code === 0) window.localStorage.removeItem(eventStorageKey)
+  } catch {
+    // Keep the browser copy intact until a successful server-side import.
+  }
+}
+
+async function loadSchedules() {
+  try {
+    const result = await getWorkSchedules()
+    if (result.code === 0) {
+      schedules.value = (result.data || []).map(scheduleFromServer)
+      ensureScheduleTypes(schedules.value)
+    }
+  } catch {
+    ElMessage.error('加载日程失败，请稍后重试')
+  }
+}
+
+function ensureScheduleTypes(items) {
+  const knownTypes = new Set(scheduleTypes.value.map((type) => type.value))
+  const additionalTypes = []
+  for (const item of items) {
+    if (!item.type || knownTypes.has(item.type)) continue
+    knownTypes.add(item.type)
+    additionalTypes.push({
+      value: item.type,
+      label: '自定义日程',
+      color: typePalette[(scheduleTypes.value.length + additionalTypes.length) % typePalette.length]
+    })
+  }
+  if (!additionalTypes.length) return
+  scheduleTypes.value = [...scheduleTypes.value, ...additionalTypes]
+  activeTypes.value = scheduleTypes.value.map((type) => type.value)
+}
+
+function scheduleFromServer(schedule) {
+  return normalizeSchedule({
+    ...schedule,
+    id: String(schedule.id ?? schedule.ID)
+  })
+}
+
+function applyRouteDate(value) {
+  const key = String(value || '')
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return
+  const date = fromDateKey(key)
+  if (dateKey(date) !== key) return
+  selectedDate.value = key
+  viewedMonth.value = new Date(date.getFullYear(), date.getMonth(), 1)
+}
 
 function createDraft(date) {
   return {
@@ -614,35 +693,50 @@ function editSchedule(schedule) {
   dialogVisible.value = true
 }
 
-function saveSchedule() {
+async function saveSchedule() {
   const title = draft.value.title.trim()
   if (!title) {
     ElMessage.warning('请填写日程名称')
     return
   }
 
-  const schedule = normalizeSchedule({
+  const payload = normalizeSchedule({
     ...draft.value,
-    id: editingId.value || `schedule-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    id: editingId.value ? Number(editingId.value) : undefined,
     title
   })
-  const index = schedules.value.findIndex((item) => item.id === schedule.id)
-  if (index === -1) {
-    schedules.value = [...schedules.value, schedule]
-  } else {
-    schedules.value.splice(index, 1, schedule)
-  }
+  try {
+    const result = editingId.value
+      ? await updateWorkSchedule(payload)
+      : await createWorkSchedule(payload)
+    if (result.code !== 0) return
+    const schedule = scheduleFromServer(result.data)
+    const index = schedules.value.findIndex((item) => item.id === schedule.id)
+    if (index === -1) {
+      schedules.value = [...schedules.value, schedule]
+    } else {
+      schedules.value.splice(index, 1, schedule)
+    }
 
-  selectedDate.value = schedule.date
-  viewedMonth.value = new Date(fromDateKey(schedule.date).getFullYear(), fromDateKey(schedule.date).getMonth(), 1)
-  dialogVisible.value = false
-  ElMessage.success(editingId.value ? '日程已更新' : '日程已创建')
+    selectedDate.value = schedule.date
+    viewedMonth.value = new Date(fromDateKey(schedule.date).getFullYear(), fromDateKey(schedule.date).getMonth(), 1)
+    dialogVisible.value = false
+    ElMessage.success(editingId.value ? '日程已更新' : '日程已创建')
+  } catch {
+    ElMessage.error('保存日程失败，请稍后重试')
+  }
 }
 
-function removeSchedule(id) {
-  schedules.value = schedules.value.filter((schedule) => schedule.id !== id)
-  dialogVisible.value = false
-  ElMessage.success('日程已删除')
+async function removeSchedule(id) {
+  try {
+    const result = await deleteWorkSchedule({ id: Number(id) })
+    if (result.code !== 0) return
+    schedules.value = schedules.value.filter((schedule) => schedule.id !== id)
+    dialogVisible.value = false
+    ElMessage.success('日程已删除')
+  } catch {
+    ElMessage.error('删除日程失败，请稍后重试')
+  }
 }
 
 function startAddType() {
@@ -718,10 +812,6 @@ function removeScheduleType(value) {
   if (draft.value.type === value) draft.value.type = scheduleTypes.value[0].value
   if (editingTypeValue.value === value) cancelTypeEdit()
   ElMessage.success('日程类型已删除')
-}
-
-function persistSchedules() {
-  window.localStorage.setItem(eventStorageKey, JSON.stringify(schedules.value))
 }
 
 function persistScheduleTypes() {

@@ -15,11 +15,11 @@
         </el-badge>
       </template>
 
-      <section class="notification-panel" aria-label="公告提醒">
+      <section class="notification-panel" aria-label="公告中心">
         <header class="notification-header">
           <div>
-            <h2>公告提醒</h2>
-            <p>{{ unreadCount ? `${unreadCount} 条公告待查看` : '公告均已查看' }}</p>
+            <h2>公告中心</h2>
+            <p>{{ unreadCount ? `${unreadCount} 条消息待查看` : '没有未读消息' }}</p>
           </div>
           <el-button v-if="unreadCount" type="primary" link @click="readAll">全部已读</el-button>
         </header>
@@ -28,26 +28,27 @@
           <div class="notification-list">
             <button
               v-for="item in notifications"
-              :key="item.ID"
+              :key="item.key"
               type="button"
               class="notification-item"
               :class="{ unread: !item.isRead }"
-              @click="openAnnouncement(item)"
+              @click="openNotification(item)"
             >
               <span class="notification-state" aria-hidden="true" />
               <span class="notification-content">
                 <strong>{{ item.title }}</strong>
                 <span class="notification-summary">{{ plainText(item.content) }}</span>
                 <span class="notification-meta">
-                  <span>{{ item.publisher || '系统管理员' }}</span>
-                  <time>{{ formatNoticeTime(item.publishedAt || item.CreatedAt) }}</time>
+                  <span class="notification-kind" :class="`is-${item.kind}`">{{ notificationKind(item) }}</span>
+                  <span>{{ item.kind === 'schedule' ? '工作日历' : item.publisher || '系统管理员' }}</span>
+                  <time>{{ formatNoticeTime(notificationTime(item)) }}</time>
                 </span>
               </span>
             </button>
           </div>
         </el-scrollbar>
 
-        <el-empty v-else :image-size="64" description="暂无公告" />
+        <el-empty v-else :image-size="64" description="暂无提醒" />
       </section>
     </el-popover>
 
@@ -84,6 +85,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { Bell } from '@element-plus/icons-vue'
 import { ElNotification } from 'element-plus'
 import {
@@ -91,11 +93,17 @@ import {
   markAllNotificationsRead,
   markNotificationRead
 } from '@/plugin/announcement/api/info'
+import {
+  getWorkScheduleNotifications,
+  markAllWorkScheduleNotificationsRead,
+  markWorkScheduleNotificationRead
+} from '@/api/workSchedule'
 import { getBaseUrl } from '@/utils/format'
 import { getUrl } from '@/utils/image'
 import { useUserStore } from '@/pinia/modules/user'
 
 const userStore = useUserStore()
+const router = useRouter()
 const notifications = ref([])
 const unreadCount = ref(0)
 const popoverVisible = ref(false)
@@ -109,12 +117,12 @@ let pollTimer
 let disposed = false
 const pollInterval = 60000
 
-const notificationLabel = computed(() => unreadCount.value ? `公告提醒，${unreadCount.value} 条未读` : '公告提醒，无未读公告')
+const notificationLabel = computed(() => unreadCount.value ? `公告中心，${unreadCount.value} 条未读` : '公告中心，无未读消息')
 const attachments = computed(() => Array.isArray(currentNotice.value?.attachments) ? currentNotice.value.attachments : [])
 
 const plainText = (html = '') => {
   const text = String(html).replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim()
-  return text || '点击查看公告详情'
+  return text || '点击查看详情'
 }
 
 const sanitizeHTML = (html = '') => {
@@ -147,52 +155,110 @@ const formatNoticeTime = (value) => {
 
 const formatFullTime = (value) => value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : ''
 
+const notificationTime = (item) => item.occurrenceAt || item.publishedAt || item.CreatedAt
+
+const notificationKind = (item) => item.kind === 'schedule' ? '日程' : '公告'
+
+const normalizeNotification = (item, kind) => ({
+  ...item,
+  kind,
+  key: `${kind}-${item.ID ?? item.id}`,
+  notificationID: Number(item.ID ?? item.id)
+})
+
+const notificationTimestamp = (item) => {
+  const time = new Date(notificationTime(item)).getTime()
+  return Number.isNaN(time) ? 0 : time
+}
+
 const loadNotifications = async () => {
-  try {
-    const res = await getNotifications({ limit: 12 })
-    if (res.code === 0) {
-      notifications.value = res.data?.list || []
-      unreadCount.value = Number(res.data?.unreadCount || 0)
-    }
-  } catch {
-    // 实时连接会自动重试，避免弱网时重复提示错误。
+  const [announcementResult, scheduleResult] = await Promise.allSettled([
+    getNotifications({ limit: 12 }),
+    getWorkScheduleNotifications({ limit: 12 })
+  ])
+  const sources = []
+  let unread = 0
+  let hasSuccessfulSource = false
+
+  if (announcementResult.status === 'fulfilled' && announcementResult.value.code === 0) {
+    const data = announcementResult.value.data || {}
+    sources.push(...(data.list || []).map((item) => normalizeNotification(item, 'announcement')))
+    unread += Number(data.unreadCount || 0)
+    hasSuccessfulSource = true
+  }
+  if (scheduleResult.status === 'fulfilled' && scheduleResult.value.code === 0) {
+    const data = scheduleResult.value.data || {}
+    sources.push(...(data.list || []).map((item) => normalizeNotification(item, 'schedule')))
+    unread += Number(data.unreadCount || 0)
+    hasSuccessfulSource = true
+  }
+
+  if (hasSuccessfulSource) {
+    notifications.value = sources.sort((left, right) => notificationTimestamp(right) - notificationTimestamp(left)).slice(0, 12)
+    unreadCount.value = unread
   }
 }
 
-const openAnnouncement = async (item) => {
+const markRead = async (item) => {
+  if (item.isRead) return true
+  item.isRead = true
+  unreadCount.value = Math.max(0, unreadCount.value - 1)
+  try {
+    const result = item.kind === 'schedule'
+      ? await markWorkScheduleNotificationRead({ id: item.notificationID })
+      : await markNotificationRead({ id: item.notificationID })
+    if (result.code === 0) return true
+  } catch {
+    // Fall through to a reload so the badge remains accurate.
+  }
+  await loadNotifications()
+  return false
+}
+
+const openNotification = async (item) => {
+  popoverVisible.value = false
+  await markRead(item)
+  if (item.kind === 'schedule') {
+    const dueDate = new Date(item.occurrenceAt)
+    const date = Number.isNaN(dueDate.getTime()) ? '' : [
+      dueDate.getFullYear(),
+      String(dueDate.getMonth() + 1).padStart(2, '0'),
+      String(dueDate.getDate()).padStart(2, '0')
+    ].join('-')
+    if (router.hasRoute('workSchedule')) {
+      router.push({ name: 'workSchedule', query: date ? { date } : undefined })
+    }
+    return
+  }
   currentNotice.value = item
   detailVisible.value = true
-  popoverVisible.value = false
-  if (!item.isRead) {
-    item.isRead = true
-    unreadCount.value = Math.max(0, unreadCount.value - 1)
-    try {
-      await markNotificationRead({ id: item.ID })
-    } catch {
-      await loadNotifications()
-    }
-  }
 }
 
 const readAll = async () => {
-  const res = await markAllNotificationsRead()
-  if (res.code === 0) {
+  const results = await Promise.allSettled([
+    markAllNotificationsRead(),
+    markAllWorkScheduleNotificationsRead()
+  ])
+  const succeeded = results.every((result) => result.status === 'fulfilled' && result.value.code === 0)
+  if (succeeded) {
     notifications.value.forEach((item) => { item.isRead = true })
     unreadCount.value = 0
+  } else {
+    await loadNotifications()
   }
 }
 
 const handleStreamBlock = async (block) => {
   const lines = block.split('\n')
   const eventName = lines.find((line) => line.startsWith('event:'))?.slice(6).trim()
-  if (eventName !== 'announcement') return
+  if (eventName !== 'notification' && eventName !== 'announcement') return
   const data = lines.filter((line) => line.startsWith('data:')).map((line) => line.slice(5).trim()).join('')
   let event = {}
   try { event = JSON.parse(data) } catch { return }
   await loadNotifications()
   ElNotification({
-    title: '新公告提醒',
-    message: event.title || '有一条新公告，请及时查看',
+    title: event.kind === 'schedule' ? '日程提醒' : '新公告提醒',
+    message: event.title || (event.kind === 'schedule' ? '有一条日程已到时间，请及时处理' : '有一条新公告，请及时查看'),
     type: 'info',
     duration: 5000,
     position: 'top-right'
@@ -201,6 +267,8 @@ const handleStreamBlock = async (block) => {
 
 const startPolling = () => {
   if (disposed || pollTimer) return
+  // SSE is immediate on a single instance; polling keeps the inbox fresh when
+  // a load balancer routes the stream and reminder worker to different nodes.
   pollTimer = setInterval(loadNotifications, pollInterval)
 }
 
@@ -230,7 +298,6 @@ const startStream = async () => {
       signal: controller.signal
     })
     if (!response.ok || !response.body) throw new Error(`SSE ${response.status}`)
-    stopPolling()
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
@@ -302,6 +369,9 @@ onBeforeUnmount(() => {
 .notification-item.unread .notification-content strong { font-weight: 750; }
 .notification-summary { overflow: hidden; color: var(--el-text-color-secondary); font-size: 12px; line-height: 1.5; text-overflow: ellipsis; white-space: nowrap; }
 .notification-meta { display: flex; justify-content: space-between; gap: 12px; color: var(--el-text-color-placeholder); font-size: 11px; }
+.notification-meta > span:not(.notification-kind) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.notification-kind { display: inline-flex; flex: 0 0 auto; align-items: center; min-height: 18px; padding: 0 5px; border-radius: 4px; color: var(--el-color-primary); background: var(--el-color-primary-light-9); font-size: 10px; font-weight: 650; }
+.notification-kind.is-schedule { color: var(--el-color-warning); background: var(--el-color-warning-light-9); }
 .announcement-detail { min-height: 180px; }
 .announcement-detail-meta { display: flex; gap: 14px; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid var(--el-border-color-lighter); color: var(--el-text-color-secondary); font-size: 12px; }
 .announcement-rich-content { overflow-wrap: anywhere; color: var(--el-text-color-primary); font-size: 14px; line-height: 1.75; }

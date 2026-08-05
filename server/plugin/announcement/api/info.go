@@ -251,7 +251,7 @@ func (a *info) Stream(c *gin.Context) {
 	_, _ = fmt.Fprint(w, ": connected\n\n")
 	flusher.Flush()
 
-	client := service.NotificationHub.Subscribe()
+	client := service.NotificationHub.Subscribe(utils.GetUserID(c))
 	defer service.NotificationHub.Unsubscribe(client)
 	heartbeat := time.NewTicker(20 * time.Second)
 	defer heartbeat.Stop()
@@ -260,7 +260,7 @@ func (a *info) Stream(c *gin.Context) {
 		select {
 		case event := <-client:
 			payload, _ := json.Marshal(event)
-			_, _ = fmt.Fprintf(w, "event: announcement\ndata: %s\n\n", payload)
+			_, _ = fmt.Fprintf(w, "event: notification\ndata: %s\n\n", payload)
 			flusher.Flush()
 		case <-heartbeat.C:
 			_, _ = fmt.Fprintf(w, "event: ping\ndata: {\"time\":%d}\n\n", time.Now().Unix())

@@ -208,7 +208,7 @@
 </template>
 
 <script setup>
-import { computed, onActivated, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onActivated, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   ArrowRight,
@@ -231,6 +231,7 @@ import { getInvoiceDashboard } from '@/plugin/invoice/api/invoice'
 import { centsToCurrency } from '@/plugin/invoice/utils/invoice'
 import { getSysOperationRecordList } from '@/api/sysOperationRecord'
 import { getSystemState } from '@/api/system'
+import { getWorkSchedules, importLegacyWorkSchedules } from '@/api/workSchedule'
 import { useUserStore } from '@/pinia/modules/user'
 
 defineOptions({ name: 'Dashboard' })
@@ -397,7 +398,7 @@ function usageTone(value) {
 function go(name) {
   if (router.hasRoute(name)) router.push({ name })
 }
-function readCalendarStorage() {
+function loadCalendarTypes() {
   if (!access.value.calendar) return
   try {
     const savedTypes = JSON.parse(window.localStorage.getItem(typeStorageKey) || '[]')
@@ -405,15 +406,52 @@ function readCalendarStorage() {
   } catch {
     calendarTypes.value = defaultScheduleTypes
   }
+}
+function readLegacyCalendarSchedules() {
   try {
     const savedEvents = JSON.parse(window.localStorage.getItem(eventStorageKey) || '[]')
-    calendarEvents.value = Array.isArray(savedEvents) ? savedEvents.filter((item) => item && item.id && item.title && item.date && item.time) : []
+    return Array.isArray(savedEvents) ? savedEvents.filter((item) => item && item.id && item.title && item.date && item.time) : []
+  } catch {
+    return []
+  }
+}
+function ensureCalendarTypes(schedules) {
+  const knownTypes = new Set(calendarTypes.value.map((item) => item.value))
+  const additionalTypes = []
+  for (const schedule of schedules) {
+    if (!schedule.type || knownTypes.has(schedule.type)) continue
+    knownTypes.add(schedule.type)
+    additionalTypes.push({
+      value: schedule.type,
+      label: '自定义日程',
+      color: defaultScheduleTypes[(calendarTypes.value.length + additionalTypes.length) % defaultScheduleTypes.length].color
+    })
+  }
+  if (additionalTypes.length) calendarTypes.value = [...calendarTypes.value, ...additionalTypes]
+}
+async function loadCalendarSchedules() {
+  if (!access.value.calendar) return
+  loadCalendarTypes()
+  const legacySchedules = readLegacyCalendarSchedules()
+  if (legacySchedules.length) {
+    try {
+      const imported = await importLegacyWorkSchedules({
+        schedules: legacySchedules.map(({ id, ...schedule }) => ({ ...schedule, clientKey: id }))
+      })
+      if (imported.code === 0) window.localStorage.removeItem(eventStorageKey)
+    } catch {
+      // Keep the local data until a successful migration from the calendar page.
+    }
+  }
+  try {
+    const result = await getWorkSchedules()
+    if (result.code === 0) {
+      calendarEvents.value = (result.data || []).map((item) => ({ ...item, id: String(item.id ?? item.ID) }))
+      ensureCalendarTypes(calendarEvents.value)
+    }
   } catch {
     calendarEvents.value = []
   }
-}
-function handleStorageChange(event) {
-  if (event.key === eventStorageKey || event.key === typeStorageKey) readCalendarStorage()
 }
 async function loadAssets() {
   const [dashboardResult, operationResult] = await Promise.allSettled([
@@ -455,10 +493,10 @@ async function loadDashboard() {
   loading.value = true
   moduleLoaded.value = { assets: false, invoices: false, audit: false, monitor: false }
   try {
-    readCalendarStorage()
     await Promise.allSettled([
       access.value.assets ? loadAssets() : Promise.resolve(),
       access.value.invoices ? loadInvoices() : Promise.resolve(),
+      access.value.calendar ? loadCalendarSchedules() : Promise.resolve(),
       access.value.audit ? loadAudit() : Promise.resolve(),
       access.value.monitor ? loadMonitor() : Promise.resolve()
     ])
@@ -469,11 +507,9 @@ async function loadDashboard() {
 }
 
 onMounted(() => {
-  window.addEventListener('storage', handleStorageChange)
   loadDashboard()
 })
-onActivated(readCalendarStorage)
-onUnmounted(() => window.removeEventListener('storage', handleStorageChange))
+onActivated(loadCalendarSchedules)
 </script>
 
 <style scoped lang="scss">
