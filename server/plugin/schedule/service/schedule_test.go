@@ -107,6 +107,68 @@ func TestScanDueNotificationsIsIdempotent(t *testing.T) {
 	}
 }
 
+func TestScanDueNotificationsBackfillsOnlyTodaysOverdueSchedules(t *testing.T) {
+	originalDB := global.GVA_DB
+	t.Cleanup(func() { global.GVA_DB = originalDB })
+
+	db, err := gorm.Open(sqlite.Open("file:work-schedule-today-backfill?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	if err = db.AutoMigrate(&model.WorkSchedule{}, &model.WorkScheduleNotification{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	global.GVA_DB = db
+
+	schedules := []model.WorkSchedule{
+		{
+			UserID:             42,
+			ClientKey:          "today-overdue",
+			Title:              "今天已过点",
+			ScheduleDate:       "2026-08-05",
+			ScheduleTime:       "09:15",
+			Type:               "meeting",
+			RecurrenceMode:     model.RecurrenceWeekly,
+			RecurrenceWeekday:  3,
+			RecurrenceMonthDay: 5,
+		},
+		{
+			UserID:             42,
+			ClientKey:          "today-future",
+			Title:              "今天尚未到点",
+			ScheduleDate:       "2026-08-05",
+			ScheduleTime:       "15:00",
+			Type:               "meeting",
+			RecurrenceMode:     model.RecurrenceWeekly,
+			RecurrenceWeekday:  3,
+			RecurrenceMonthDay: 5,
+		},
+		{
+			UserID:             42,
+			ClientKey:          "yesterday-overdue",
+			Title:              "昨天已过点",
+			ScheduleDate:       "2026-08-04",
+			ScheduleTime:       "09:15",
+			Type:               "meeting",
+			RecurrenceMode:     model.RecurrenceWeekly,
+			RecurrenceWeekday:  2,
+			RecurrenceMonthDay: 4,
+		},
+	}
+	if err = db.Create(&schedules).Error; err != nil {
+		t.Fatalf("create schedules: %v", err)
+	}
+
+	now := time.Date(2026, 8, 5, 14, 19, 0, 0, time.Local)
+	created, err := WorkSchedule.ScanDueNotifications(context.Background(), now)
+	if err != nil {
+		t.Fatalf("scan reminders: %v", err)
+	}
+	if len(created) != 1 || created[0].Title != "今天已过点" {
+		t.Fatalf("created reminders = %#v, want only today's overdue schedule", created)
+	}
+}
+
 func TestUpdateClearsPreviousNotifications(t *testing.T) {
 	originalDB := global.GVA_DB
 	t.Cleanup(func() { global.GVA_DB = originalDB })

@@ -22,7 +22,6 @@ import (
 
 const (
 	maxImportedSchedules = 200
-	reminderLookback     = 2 * time.Minute
 )
 
 var WorkSchedule = new(workScheduleService)
@@ -246,12 +245,11 @@ func (s *workScheduleService) MarkAllNotificationsRead(ctx context.Context, user
 		Update("read_at", now).Error
 }
 
-// ScanDueNotifications records all due occurrences in the small lookback
-// window. The database unique index is the final guard against duplicate cron
-// runs, restarts, and overlapping workers.
+// ScanDueNotifications records due occurrences from the start of the current
+// day. The database unique index prevents duplicates across repeated scans.
 func (s *workScheduleService) ScanDueNotifications(ctx context.Context, now time.Time) ([]model.WorkScheduleNotification, error) {
 	now = now.In(time.Local)
-	windowStart := now.Add(-reminderLookback)
+	windowStart := startOfDay(now)
 	endDate := now.Format("2006-01-02")
 
 	var schedules []model.WorkSchedule
