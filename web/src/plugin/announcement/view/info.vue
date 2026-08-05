@@ -125,10 +125,12 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column align="center" label="操作" fixed="right" width="160">
+        <el-table-column align="center" label="操作" fixed="right" width="136">
           <template #default="scope">
-            <el-button type="primary" link icon="edit" @click="updateInfoFunc(scope.row)">变更</el-button>
-            <el-button type="danger" link icon="delete" @click="deleteRow(scope.row)">删除</el-button>
+            <div class="announcement-actions">
+              <el-button type="primary" link icon="edit" @click="updateInfoFunc(scope.row)">变更</el-button>
+              <el-button type="danger" link icon="delete" @click="deleteRow(scope.row)">删除</el-button>
+            </div>
           </template>
         </el-table-column>
         <template #empty>
@@ -480,6 +482,22 @@
   .file-list { display: flex; flex-wrap: wrap; gap: 4px; }
   .file-tag { cursor: pointer; }
   .file-empty { color: var(--na-muted-foreground); }
+  .announcement-actions {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: nowrap;
+    gap: 4px;
+    white-space: nowrap;
+  }
+  .announcement-actions :deep(.el-button) {
+    flex: 0 0 auto;
+    min-height: 28px;
+    padding: 4px;
+    font-size: 12px;
+  }
+  .announcement-actions :deep(.el-button + .el-button) { margin-left: 0; }
 
   .drawer-head { display: flex; flex: 1; align-items: center; justify-content: space-between; gap: 16px; }
   .drawer-title { display: flex; flex-direction: column; gap: 4px; }
