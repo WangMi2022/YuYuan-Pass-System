@@ -14,6 +14,25 @@ printf 'WEB_PORT=8080\nSERVER_PORT=8888\nGVA_TEST_SECRET=must-not-be-exported\n'
 passed=0
 failed=0
 
+verify_mocks() {
+  local docker_output
+
+  if ! docker_output=$(MOCK_SCENARIO=success "${MOCK_BIN}/docker" compose --env-file "${TEMP_DIR}/.env" -f "${TEMP_DIR}/docker-compose.yml" config --services) \
+    || ! printf '%s\n' "$docker_output" | grep -Fxq 'web'; then
+    printf '[FAIL] 测试基础设施：Docker mock 无法执行\n' >&2
+    exit 1
+  fi
+
+  if ! MOCK_SCENARIO=success "${MOCK_BIN}/curl" -fsS --max-time 1 \
+    -D "${TEMP_DIR}/mock.headers" -o "${TEMP_DIR}/mock.body" -w '%{http_code}' \
+    'http://server.test/health' >/dev/null; then
+    printf '[FAIL] 测试基础设施：curl mock 无法执行\n' >&2
+    exit 1
+  fi
+}
+
+verify_mocks
+
 run_case() {
   local name="$1"
   local scenario="$2"
@@ -37,7 +56,9 @@ run_case() {
   status=$?
   set -e
 
-  if [ "$status" -eq "$expected_status" ] && printf '%s' "$output" | grep -Fq "$expected_text"; then
+  if [ "$status" -eq "$expected_status" ] \
+    && printf '%s' "$output" | grep -Fq "$expected_text" \
+    && printf '%s' "$output" | grep -Fq '[PASS] compose.services'; then
     printf '[PASS] %s\n' "$name"
     passed=$((passed + 1))
     return

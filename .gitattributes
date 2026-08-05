@@ -1,3 +1,4 @@
 *.sh text eol=lf
+deploy/docker-dev/tests/mocks/* text eol=lf
 Dockerfile text eol=lf
 *.Dockerfile text eol=lf
