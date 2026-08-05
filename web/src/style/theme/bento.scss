@@ -351,7 +351,12 @@ html.bento :is(.el-dropdown-menu__item, .el-select-dropdown__item):not(.is-disab
   background: var(--na-muted);
 }
 
-html.bento .el-segmented { border: 1px solid var(--na-border); background: var(--na-muted); }
+html.bento .el-segmented {
+  --el-segmented-item-selected-color: var(--na-foreground);
+
+  border: 1px solid var(--na-border);
+  background: var(--na-muted);
+}
 html.bento .el-segmented__item-selected { background: var(--na-card); box-shadow: var(--na-shadow-sm); }
 html.bento .el-progress-bar__outer { background: var(--na-muted); }
 html.bento .el-upload-dragger { border-color: var(--na-border-strong); background: color-mix(in srgb, var(--na-primary) 3%, var(--na-card)); }
