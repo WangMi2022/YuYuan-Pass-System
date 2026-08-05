@@ -39,7 +39,7 @@ type Asset struct {
 	global.GVA_MODEL
 	AssetCode       string     `json:"assetCode" form:"assetCode" gorm:"size:80;not null;uniqueIndex;comment:资产编号"`
 	Name            string     `json:"name" form:"name" gorm:"size:150;not null;index;comment:资产名称"`
-	CategoryID      uint       `json:"categoryId" form:"categoryId" gorm:"not null;index;comment:资产分类ID"`
+	CategoryID      uint       `json:"categoryId" form:"categoryId" gorm:"not null;index;index:idx_assets_category_status,priority:1;comment:资产分类ID"`
 	Category        Category   `json:"category" gorm:"foreignKey:CategoryID"`
 	Brand           string     `json:"brand" form:"brand" gorm:"size:100;comment:品牌"`
 	Model           string     `json:"model" form:"model" gorm:"size:120;comment:规格型号"`
@@ -49,7 +49,7 @@ type Asset struct {
 	UnitPrice       float64    `json:"unitPrice" form:"unitPrice" gorm:"type:numeric(16,2);not null;default:0;comment:采购单价"`
 	OriginalValue   float64    `json:"originalValue" gorm:"type:numeric(18,2);not null;default:0;comment:资产原值"`
 	CurrentValue    float64    `json:"currentValue" form:"currentValue" gorm:"type:numeric(18,2);not null;default:0;comment:当前估值"`
-	Status          string     `json:"status" form:"status" gorm:"size:30;not null;default:pending_inbound;index;comment:资产状态"`
+	Status          string     `json:"status" form:"status" gorm:"size:30;not null;default:pending_inbound;index;index:idx_assets_category_status,priority:2;comment:资产状态"`
 	Location        string     `json:"location" form:"location" gorm:"size:150;index;comment:存放位置"`
 	Custodian       string     `json:"custodian" form:"custodian" gorm:"size:100;index;comment:保管人"`
 	Supplier        string     `json:"supplier" form:"supplier" gorm:"size:150;comment:供应商"`

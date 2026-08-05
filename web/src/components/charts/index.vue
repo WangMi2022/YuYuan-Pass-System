@@ -1,71 +1,41 @@
 <template>
-  <VCharts
-    v-if="renderChart"
-    :option="options"
-    :autoresize="autoResize"
-    :style="{ width, height }"
-  />
+  <component :is="chartComponent" v-bind="props" />
 </template>
 
 <script setup>
-  import { ref, nextTick } from 'vue'
-  import VCharts from 'vue-echarts'
-  import { use } from 'echarts/core'
-  import { BarChart, LineChart, PieChart } from 'echarts/charts'
-  import {
-    AriaComponent,
-    GraphicComponent,
-    GridComponent,
-    LegendComponent,
-    TitleComponent,
-    TooltipComponent
-  } from 'echarts/components'
-  import { CanvasRenderer } from 'echarts/renderers'
-  import { useWindowResize } from '@/hooks/use-windows-resize'
+import { computed, defineAsyncComponent } from 'vue'
 
-  use([
-    BarChart,
-    LineChart,
-    PieChart,
-    AriaComponent,
-    GraphicComponent,
-    GridComponent,
-    LegendComponent,
-    TitleComponent,
-    TooltipComponent,
-    CanvasRenderer
-  ])
+defineOptions({ inheritAttrs: false })
 
-  defineProps({
-    options: {
-      type: Object,
-      default() {
-        return {}
-      }
-    },
-    autoResize: {
-      type: Boolean,
-      default: true
-    },
-    width: {
-      type: String,
-      default: '100%'
-    },
-    height: {
-      type: String,
-      default: '100%'
-    }
-  })
-  const renderChart = ref(false)
-  nextTick(() => {
-    renderChart.value = true
-  })
-  useWindowResize(() => {
-    renderChart.value = false
-    nextTick(() => {
-      renderChart.value = true
-    })
-  })
+const props = defineProps({
+  options: {
+    type: Object,
+    default: () => ({})
+  },
+  autoResize: {
+    type: Boolean,
+    default: true
+  },
+  width: {
+    type: String,
+    default: '100%'
+  },
+  height: {
+    type: String,
+    default: '100%'
+  }
+})
+
+const chartModules = {
+  bar: defineAsyncComponent(() => import('./bar.vue')),
+  line: defineAsyncComponent(() => import('./line.vue')),
+  pie: defineAsyncComponent(() => import('./pie.vue'))
+}
+
+const chartType = computed(() => {
+  const series = Array.isArray(props.options?.series) ? props.options.series : []
+  const type = series.find((item) => item?.type)?.type
+  return chartModules[type] ? type : 'line'
+})
+const chartComponent = computed(() => chartModules[chartType.value])
 </script>
-
-<style scoped lang="less"></style>

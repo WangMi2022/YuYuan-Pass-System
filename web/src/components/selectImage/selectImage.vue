@@ -143,10 +143,8 @@
 
 <script setup>
 import { getUrl } from '@/utils/image'
-import { computed, ref } from 'vue'
+import { computed, defineAsyncComponent, ref } from 'vue'
 import { getFileList, editFileName, deleteFile } from '@/api/fileUploadAndDownload'
-import UploadImage from '@/components/upload/image.vue'
-import UploadCommon from '@/components/upload/common.vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   ArrowLeftBold,
@@ -158,9 +156,13 @@ import {
 } from '@element-plus/icons-vue'
 import selectComponent from '@/components/selectImage/selectComponent.vue'
 import { addCategory, deleteCategory, getCategoryList } from '@/api/attachmentCategory'
-import CropperImage from "@/components/upload/cropper.vue";
-import QRCodeUpload from "@/components/upload/QR-code.vue";
 import draggable from 'vuedraggable'
+
+// 媒体库打开后才需要这些上传能力，避免所有使用媒体库的页面首屏一起加载。
+const UploadImage = defineAsyncComponent(() => import('@/components/upload/image.vue'))
+const UploadCommon = defineAsyncComponent(() => import('@/components/upload/common.vue'))
+const CropperImage = defineAsyncComponent(() => import('@/components/upload/cropper.vue'))
+const QRCodeUpload = defineAsyncComponent(() => import('@/components/upload/QR-code.vue'))
 
 const imageUrl = ref('')
 const imageCommon = ref('')
@@ -277,8 +279,7 @@ const openChooseImg = async() => {
     return
   }
   selectedImages.value = []
-  await getImageList()
-  await fetchCategories()
+  await Promise.all([getImageList(), fetchCategories()])
   drawer.value = true
 }
 

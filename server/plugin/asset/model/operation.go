@@ -16,8 +16,8 @@ type AssetOperationOrder struct {
 	global.GVA_MODEL
 	OrderNo         string               `json:"orderNo" gorm:"size:80;not null;uniqueIndex;comment:业务单号"`
 	Type            string               `json:"type" gorm:"size:30;not null;index;comment:业务类型"`
-	Status          string               `json:"status" gorm:"size:20;not null;default:draft;index;comment:单据状态"`
-	BusinessDate    time.Time            `json:"businessDate" gorm:"type:date;not null;index;comment:业务日期"`
+	Status          string               `json:"status" gorm:"size:20;not null;default:draft;index;index:idx_asset_operation_status_date,priority:1;comment:单据状态"`
+	BusinessDate    time.Time            `json:"businessDate" gorm:"type:date;not null;index;index:idx_asset_operation_status_date,priority:2;comment:业务日期"`
 	TargetLocation  string               `json:"targetLocation" gorm:"size:150;comment:目标位置"`
 	TargetCustodian string               `json:"targetCustodian" gorm:"size:100;comment:目标保管人"`
 	Reason          string               `json:"reason" gorm:"size:500;comment:业务原因"`
