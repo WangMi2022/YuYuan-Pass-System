@@ -1,11 +1,11 @@
 <template>
   <div v-loading.fullscreen.lock="fullscreenLoading" class="na-page na-page--list upload-page">
-    <div class="upload-layout flex min-w-0 gap-4 pt-2">
-      <div class="na-panel upload-sidebar flex-none w-64 p-3">
+    <div class="upload-layout min-w-0 gap-4 pt-2">
+      <div class="na-panel upload-sidebar">
         <MediaCategoryTree
           :categories="categories"
           :active-id="search.classId"
-          scroll-height="calc(100vh - 300px)"
+          scroll-height="min(480px, calc(100vh - 330px))"
           @select="handleNodeClick"
           @add="addCategoryFun"
           @edit="editCategory"
@@ -492,6 +492,18 @@
   overflow-x: hidden;
 }
 
+.upload-layout {
+  display: grid;
+  grid-template-columns: 272px minmax(0, 1fr);
+  align-items: start;
+}
+
+.upload-sidebar {
+  position: sticky;
+  top: 12px;
+  align-self: start;
+}
+
 .upload-table-box {
   padding-right: 0;
 }
@@ -553,10 +565,11 @@
 
 @media (max-width: 1200px) {
   .upload-layout {
-    flex-direction: column;
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .upload-layout > .flex-none {
+  .upload-sidebar {
+    position: static;
     width: 100%;
   }
 }
