@@ -1,14 +1,17 @@
 <template>
-  <div>
-    <div class="gva-table-box">
-      <div class="gva-btn-list justify-between flex items-center">
-        <span class="text font-bold">字典详细内容</span>
-        <div class="flex items-center gap-2">
+  <div class="dictionary-detail-page">
+    <section class="na-panel dictionary-detail-panel">
+      <header class="dictionary-detail-panel__header">
+        <div class="dictionary-detail-panel__title-group">
+          <span class="dictionary-detail-panel__title">字典详细内容</span>
+          <span class="dictionary-detail-panel__count">{{ detailCount }} 个条目</span>
+        </div>
+        <div class="dictionary-detail-panel__actions">
           <el-input
             placeholder="搜索展示值"
             v-model="searchName"
             clearable
-            class="!w-64"
+            class="dictionary-detail-panel__search"
             @clear="clearSearchInput"
             :prefix-icon="Search"
             v-click-outside="handleCloseSearchInput"
@@ -22,27 +25,46 @@
               >
             </template>
           </el-input>
-          <el-button type="primary" icon="plus" @click="openDrawer">
+          <el-button
+            type="primary"
+            :icon="Plus"
+            :disabled="!props.sysDictionaryID"
+            @click="openDrawer"
+          >
             新增字典项
           </el-button>
         </div>
-      </div>
-      <!-- 表格视图 -->
-      <el-table
-        :data="displayTreeData"
-        style="width: 100%"
-        tooltip-effect="dark"
-        :tree-props="{ children: 'children'}"
-        row-key="ID"
-        default-expand-all
-      >
-        <el-table-column type="selection" width="55" />
+      </header>
+      <div class="dictionary-detail-panel__body">
+        <el-table
+          class="dictionary-detail-table"
+          :data="displayTreeData"
+          style="width: 100%"
+          tooltip-effect="dark"
+          :tree-props="{ children: 'children'}"
+          row-key="ID"
+          default-expand-all
+          :empty-text="emptyDescription"
+        >
+          <el-table-column type="selection" width="52" />
 
-        <el-table-column align="left" label="展示值" prop="label" min-width="100"/>
+          <el-table-column align="left" label="展示值" prop="label" min-width="140">
+            <template #default="scope">
+              <span class="dictionary-detail-table__label">{{ scope.row.label }}</span>
+            </template>
+          </el-table-column>
 
-        <el-table-column align="left" label="字典值" prop="value" />
+          <el-table-column align="left" label="字典值" prop="value" min-width="120">
+            <template #default="scope">
+              <code class="dictionary-detail-table__code">{{ scope.row.value }}</code>
+            </template>
+          </el-table-column>
 
-        <el-table-column align="left" label="扩展值" prop="extend" />
+          <el-table-column align="left" label="扩展值" prop="extend" min-width="120">
+            <template #default="scope">
+              <span class="dictionary-detail-table__muted">{{ scope.row.extend || '无' }}</span>
+            </template>
+          </el-table-column>
 
         <el-table-column align="left" label="层级" prop="level" width="80" />
 
@@ -53,7 +75,13 @@
           width="100"
         >
           <template #default="scope">
-            {{ formatBoolean(scope.row.status) }}
+              <el-tag
+                :type="scope.row.status ? 'success' : 'info'"
+                effect="light"
+                round
+              >
+                {{ formatBoolean(scope.row.status) }}
+              </el-tag>
           </template>
         </el-table-column>
 
@@ -71,10 +99,11 @@
           fixed="right"
         >
           <template #default="scope">
+              <div class="dictionary-detail-table__actions">
             <el-button
               type="primary"
               link
-              icon="plus"
+                  :icon="Plus"
               @click="addChildNode(scope.row)"
             >
               添加子项
@@ -82,23 +111,25 @@
             <el-button
               type="primary"
               link
-              icon="edit"
+                  :icon="Edit"
               @click="updateSysDictionaryDetailFunc(scope.row)"
             >
               变更
             </el-button>
             <el-button
-              type="primary"
+                  type="danger"
               link
-              icon="delete"
+                  :icon="Delete"
               @click="deleteSysDictionaryDetailFunc(scope.row)"
             >
               删除
             </el-button>
+              </div>
           </template>
         </el-table-column>
       </el-table>
-    </div>
+      </div>
+    </section>
 
     <el-drawer
       v-model="drawerFormVisible"
@@ -185,11 +216,11 @@
     findSysDictionaryDetail,
     getDictionaryTreeList
   } from '@/api/sysDictionaryDetail' // 此处请自行替换地址
-  import { ref, watch } from 'vue'
+  import { computed, ref, watch } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import { formatBoolean } from '@/utils/format'
   import { useAppStore } from '@/pinia'
-  import { Search } from '@element-plus/icons-vue'
+  import { Delete, Edit, Plus, Search } from '@element-plus/icons-vue'
 
   defineOptions({
     name: 'SysDictionaryDetail'
@@ -239,6 +270,10 @@
 
   const treeData = ref([])
   const displayTreeData = ref([])
+  const detailCount = computed(() => displayTreeData.value.length)
+  const emptyDescription = computed(() => (
+    props.sysDictionaryID ? '暂无字典项' : '请先选择左侧字典'
+  ))
 
   // 级联选择器配置
   const cascadeProps = {
@@ -319,7 +354,6 @@
 
   // 添加子节点
   const addChildNode = (parentNode) => {
-    console.log(parentNode)
     type.value = 'create'
     formData.value = {
       label: null,
@@ -426,5 +460,133 @@
 </script>
 
 <style scoped>
+  .dictionary-detail-page {
+    height: 100%;
+    min-height: 0;
+  }
 
+  .dictionary-detail-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .dictionary-detail-panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--na-border);
+  }
+
+  .dictionary-detail-panel__title-group {
+    min-width: 0;
+  }
+
+  .dictionary-detail-panel__title {
+    display: block;
+    color: var(--na-foreground);
+    font-size: 14px;
+    font-weight: 650;
+    line-height: 1.35;
+  }
+
+  .dictionary-detail-panel__count {
+    display: block;
+    margin-top: 2px;
+    color: var(--na-muted-foreground);
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .dictionary-detail-panel__actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .dictionary-detail-panel__search {
+    width: min(320px, 36vw);
+  }
+
+  .dictionary-detail-panel__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 16px;
+    overflow: auto;
+  }
+
+  .dictionary-detail-table {
+    min-width: 860px;
+  }
+
+  .dictionary-detail-table__label {
+    color: var(--na-foreground);
+    font-weight: 560;
+  }
+
+  .dictionary-detail-table__code {
+    display: inline-flex;
+    max-width: 100%;
+    align-items: center;
+    min-height: 24px;
+    padding: 2px 7px;
+    border: 1px solid var(--na-border);
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--na-muted) 70%, var(--na-card));
+    color: color-mix(in srgb, var(--na-foreground) 88%, var(--na-primary));
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.3;
+    word-break: break-all;
+  }
+
+  .dictionary-detail-table__muted {
+    color: var(--na-muted-foreground);
+  }
+
+  .dictionary-detail-table__actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    white-space: nowrap;
+  }
+
+  .dictionary-detail-table__actions :deep(.el-button.is-link) {
+    min-height: 28px;
+    padding: 5px 7px;
+  }
+
+  @media (max-width: 980px) {
+    .dictionary-detail-panel__header {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .dictionary-detail-panel__actions {
+      justify-content: flex-start;
+      width: 100%;
+    }
+
+    .dictionary-detail-panel__search {
+      width: 100%;
+      max-width: 360px;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .dictionary-detail-panel__actions {
+      flex-wrap: wrap;
+    }
+
+    .dictionary-detail-panel__search {
+      max-width: none;
+    }
+  }
 </style>

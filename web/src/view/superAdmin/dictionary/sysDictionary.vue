@@ -1,52 +1,40 @@
 <template>
   <div class="na-workspace na-workspace--flush dictionary-page">
     <warning-bar
+      class="dictionary-warning"
       title="获取字典且缓存方法已在前端utils/dictionary 已经封装完成 不必自己书写 使用方法查看文件内注释"
     />
-    <el-splitter class="dictionary-splitter h-full">
-      <el-splitter-panel size="300px" min="200px" max="800px" collapsible>
-        <div
-          class="na-panel dictionary-sidebar flex-none p-4"
-        >
-          <div class="flex justify-between items-center relative">
-            <span class="text font-bold">字典列表</span>
-            <el-input
-              class="!absolute top-0 left-0 z-2 ease-in-out animate-slide-left"
-              placeholder="搜索"
-              v-if="showSearchInput"
-              v-model="searchName"
-              clearable
-              :autofocus="showSearchInput"
-              @clear="clearSearchInput"
-              :prefix-icon="Search"
-              v-click-outside="handleCloseSearchInput"
-              @keydown="handleInputKeyDown"
-            >
-              <template #append>
-                <el-button
-                  :type="searchName ? 'primary' : 'info'"
-                  @click="getTableData"
-                  >搜索</el-button
-                >
-              </template>
-            </el-input>
-            <el-button-group class="ml-auto">
+    <el-splitter class="dictionary-splitter">
+      <el-splitter-panel size="320px" min="260px" max="460px" collapsible>
+        <aside class="na-panel dictionary-sidebar">
+          <header class="dictionary-sidebar__header">
+            <div class="dictionary-sidebar__title-group">
+              <span class="dictionary-sidebar__title">字典列表</span>
+              <span class="dictionary-sidebar__count">{{ dictionaryData.length }} 个字典</span>
+            </div>
+            <div class="dictionary-sidebar__actions">
               <el-tooltip content="搜索" placement="top">
                 <el-button
+                  circle
                   :icon="Search"
+                  :class="{ 'is-active': showSearchInput }"
                   @click="showSearchInputHandler"
                 />
               </el-tooltip>
               <el-tooltip content="导入字典" placement="top">
                 <el-button
+                  circle
                   type="success"
+                  plain
                   :icon="Upload"
                   @click="openImportDialog"
                 />
               </el-tooltip>
               <el-tooltip content="AI 生成字典" placement="top">
                 <el-button
+                  class="dictionary-sidebar__ai-button"
                   type="warning"
+                  plain
                   @click="openAiDialog"
                 >
                   AI
@@ -54,65 +42,113 @@
               </el-tooltip>
               <el-tooltip content="新建字典" placement="top">
                 <el-button
+                  circle
                   type="primary"
                   :icon="Plus"
                   @click="openDrawer"
                 />
               </el-tooltip>
-            </el-button-group>
-          </div>
-          <el-scrollbar class="mt-4" style="height: calc(100vh - 300px)">
+            </div>
+          </header>
+          <transition name="dictionary-search">
             <div
-              v-for="dictionary in dictionaryData"
-              :key="dictionary.ID"
-              class="rounded flex justify-between items-center px-2 py-4 cursor-pointer mt-2 hover:bg-blue-50 dark:hover:bg-blue-900 bg-gray-50 dark:bg-gray-800 gap-4"
-              :class="[
-                selectID === dictionary.ID
-                  ? 'text-active'
-                  : 'text-slate-700 dark:text-slate-50',
-                dictionary.parentID ? 'ml-4 border-l-2 border-blue-200' : ''
-              ]"
-              @click="toDetail(dictionary)"
+              v-if="showSearchInput"
+              class="dictionary-sidebar__search"
             >
-              <div class="max-w-[160px] truncate">
-                <span
-                  v-if="dictionary.parentID"
-                  class="text-xs text-gray-400 mr-1"
-                  >└─</span
-                >
-                {{ dictionary.name }}
-                <span class="mr-auto text-sm">（{{ dictionary.type }}）</span>
-              </div>
+              <el-input
+                v-model="searchName"
+                placeholder="搜索"
+                clearable
+                :autofocus="showSearchInput"
+                @clear="clearSearchInput"
+                :prefix-icon="Search"
+                v-click-outside="handleCloseSearchInput"
+                @keydown="handleInputKeyDown"
+              >
+                <template #append>
+                  <el-button
+                    :type="searchName ? 'primary' : 'info'"
+                    @click="getTableData"
+                    >搜索</el-button
+                  >
+                </template>
+              </el-input>
+            </div>
+          </transition>
+          <el-scrollbar class="dictionary-sidebar__scroll">
+            <div
+              v-if="dictionaryData.length"
+              class="dictionary-list"
+            >
+              <div
+                v-for="dictionary in dictionaryData"
+                :key="dictionary.ID"
+                class="dictionary-list__item"
+                :class="[
+                  selectID === dictionary.ID ? 'is-active' : '',
+                  dictionary.parentID ? 'is-child' : ''
+                ]"
+                role="button"
+                tabindex="0"
+                :aria-current="selectID === dictionary.ID ? 'true' : undefined"
+                :title="`${dictionary.name}（${dictionary.type}）`"
+                @click="toDetail(dictionary)"
+                @keydown.enter.prevent="toDetail(dictionary)"
+                @keydown.space.prevent="toDetail(dictionary)"
+              >
+                <div class="dictionary-list__content">
+                  <span
+                    v-if="dictionary.parentID"
+                    class="dictionary-list__branch"
+                    >└─</span
+                  >
+                  <span class="dictionary-list__name">{{ dictionary.name }}</span>
+                  <span class="dictionary-list__type">{{ dictionary.type }}</span>
+                </div>
 
-              <div class="min-w-[60px] flex items-center gap-2">
-                <el-icon
-                  class="!text-green-500"
-                  @click.stop="exportDictionary(dictionary)"
-                  title="导出字典"
-                >
-                  <Download />
-                </el-icon>
-                <el-icon
-                  class="!text-blue-500"
-                  @click.stop="updateSysDictionaryFunc(dictionary)"
-                >
-                  <Edit />
-                </el-icon>
-                <el-icon
-                  class="!text-red-500"
-                  @click="deleteSysDictionaryFunc(dictionary)"
-                >
-                  <Delete />
-                </el-icon>
+                <div class="dictionary-list__actions">
+                  <el-tooltip content="导出字典" placement="top">
+                    <el-button
+                      link
+                      type="success"
+                      :icon="Download"
+                      aria-label="导出字典"
+                      @click.stop="exportDictionary(dictionary)"
+                    />
+                  </el-tooltip>
+                  <el-tooltip content="编辑字典" placement="top">
+                    <el-button
+                      link
+                      type="primary"
+                      :icon="Edit"
+                      aria-label="编辑字典"
+                      @click.stop="updateSysDictionaryFunc(dictionary)"
+                    />
+                  </el-tooltip>
+                  <el-tooltip content="删除字典" placement="top">
+                    <el-button
+                      link
+                      type="danger"
+                      :icon="Delete"
+                      aria-label="删除字典"
+                      @click.stop="deleteSysDictionaryFunc(dictionary)"
+                    />
+                  </el-tooltip>
+                </div>
               </div>
             </div>
+            <el-empty
+              v-else
+              :image-size="72"
+              description="暂无字典"
+            />
           </el-scrollbar>
-        </div>
+        </aside>
       </el-splitter-panel>
-      <el-splitter-panel :min="200">
-        <div class="dictionary-detail flex-1">
+      <el-splitter-panel :min="420">
+        <main class="dictionary-detail">
           <sysDictionaryDetail :sys-dictionary-i-d="selectID" />
-        </div>
+        </main>
       </el-splitter-panel>
     </el-splitter>
 
@@ -347,7 +383,7 @@
   import { ElMessage, ElMessageBox } from 'element-plus'
 
   import sysDictionaryDetail from './sysDictionaryDetail.vue'
-  import { Edit, Plus, Search, Download, Upload } from '@element-plus/icons-vue'
+  import { Delete, Edit, Plus, Search, Download, Upload } from '@element-plus/icons-vue'
   import { useAppStore } from '@/pinia'
 
   defineOptions({
@@ -485,7 +521,7 @@
     })
     if (res.code === 0) {
       dictionaryData.value = res.data
-      selectID.value = res.data[0].ID
+      selectID.value = res.data[0]?.ID || 0
       // 更新可选父级字典列表
       updateAvailableParentDictionaries()
     }
@@ -795,6 +831,233 @@
 </script>
 
 <style scoped>
+  .dictionary-page {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    height: 100%;
+    padding: 16px;
+    background: var(--na-background);
+  }
+
+  .dictionary-warning {
+    flex: 0 0 auto;
+    margin: 0;
+  }
+
+  .dictionary-splitter {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .dictionary-splitter :deep(.el-splitter-panel) {
+    min-width: 0;
+  }
+
+  .dictionary-sidebar,
+  .dictionary-detail {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .dictionary-sidebar {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .dictionary-sidebar__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 14px 12px;
+    border-bottom: 1px solid var(--na-border);
+  }
+
+  .dictionary-sidebar__title-group {
+    min-width: 0;
+  }
+
+  .dictionary-sidebar__title {
+    display: block;
+    color: var(--na-foreground);
+    font-size: 14px;
+    font-weight: 650;
+    line-height: 1.35;
+  }
+
+  .dictionary-sidebar__count {
+    display: block;
+    margin-top: 2px;
+    color: var(--na-muted-foreground);
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .dictionary-sidebar__actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .dictionary-sidebar__actions :deep(.el-button.is-circle) {
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+  }
+
+  .dictionary-sidebar__actions :deep(.el-button.is-active) {
+    border-color: color-mix(in srgb, var(--na-primary) 34%, var(--na-border));
+    background: var(--na-primary-soft);
+    color: var(--na-primary);
+  }
+
+  .dictionary-sidebar__ai-button {
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+    padding: 0;
+  }
+
+  .dictionary-sidebar__search {
+    padding: 12px 14px 0;
+  }
+
+  .dictionary-search-enter-active,
+  .dictionary-search-leave-active {
+    transition: opacity 160ms cubic-bezier(.22, 1, .36, 1), transform 160ms cubic-bezier(.22, 1, .36, 1);
+  }
+
+  .dictionary-search-enter-from,
+  .dictionary-search-leave-to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  .dictionary-sidebar__scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 12px 10px 14px;
+  }
+
+  .dictionary-sidebar__scroll :deep(.el-scrollbar__view) {
+    min-height: 100%;
+  }
+
+  .dictionary-list {
+    display: grid;
+    gap: 8px;
+  }
+
+  .dictionary-list__item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    min-height: 58px;
+    padding: 10px 8px 10px 12px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--na-muted) 66%, var(--na-card));
+    color: var(--na-foreground);
+    cursor: pointer;
+    transition:
+      border-color 160ms cubic-bezier(.22, 1, .36, 1),
+      background-color 160ms cubic-bezier(.22, 1, .36, 1),
+      color 160ms cubic-bezier(.22, 1, .36, 1);
+  }
+
+  .dictionary-list__item:hover {
+    border-color: color-mix(in srgb, var(--na-primary) 18%, var(--na-border));
+    background: color-mix(in srgb, var(--na-primary) 7%, var(--na-card));
+  }
+
+  .dictionary-list__item:focus-visible {
+    outline: 2px solid var(--na-primary);
+    outline-offset: 2px;
+  }
+
+  .dictionary-list__item.is-active {
+    border-color: color-mix(in srgb, var(--na-primary) 34%, var(--na-border));
+    background: var(--na-primary-soft);
+    color: var(--na-primary);
+  }
+
+  .dictionary-list__item.is-child:not(.is-active) {
+    margin-left: 14px;
+    background: color-mix(in srgb, var(--na-muted) 46%, var(--na-card));
+  }
+
+  .dictionary-list__content {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      'branch name'
+      'branch type';
+    column-gap: 6px;
+    min-width: 0;
+  }
+
+  .dictionary-list__branch {
+    grid-area: branch;
+    align-self: center;
+    color: var(--na-muted-foreground);
+    font-size: 12px;
+  }
+
+  .dictionary-list__name {
+    grid-area: name;
+    overflow: hidden;
+    color: currentColor;
+    font-size: 13px;
+    font-weight: 620;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dictionary-list__type {
+    grid-area: type;
+    overflow: hidden;
+    margin-top: 3px;
+    color: var(--na-muted-foreground);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dictionary-list__item.is-active .dictionary-list__type {
+    color: color-mix(in srgb, var(--na-primary) 70%, var(--na-foreground));
+  }
+
+  .dictionary-list__actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 1px;
+    opacity: .74;
+    transition: opacity 160ms ease-out;
+  }
+
+  .dictionary-list__item:hover .dictionary-list__actions,
+  .dictionary-list__item:focus-within .dictionary-list__actions,
+  .dictionary-list__item.is-active .dictionary-list__actions {
+    opacity: 1;
+  }
+
+  .dictionary-list__actions :deep(.el-button.is-link) {
+    min-height: 28px;
+    padding: 5px;
+  }
+
+  .dictionary-detail {
+    padding-left: 12px;
+  }
+
   .dict-box {
     height: calc(100vh - 240px);
   }
