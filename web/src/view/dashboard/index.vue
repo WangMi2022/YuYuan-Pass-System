@@ -806,7 +806,7 @@ button.metric-item { width: 100%; border-top: 0; border-bottom: 0; border-left: 
   backdrop-filter: blur(14px) saturate(112%);
   box-shadow: inset 0 1px 0 rgba(222, 255, 248, .08), inset 0 -1px 0 rgba(0, 0, 0, .24);
 }
-:global(html.bento) .cockpit-hero .workbench-band {
+:global(html.bento .cockpit-hero .workbench-band) {
   background: rgba(5, 22, 22, .84);
   box-shadow: inset 0 1px 0 rgba(222, 255, 248, .08), inset 0 -1px 0 rgba(0, 0, 0, .24);
 }
@@ -841,8 +841,8 @@ button.metric-item { width: 100%; border-top: 0; border-bottom: 0; border-left: 
   box-shadow: 0 8px 8px rgba(0, 0, 0, .16), inset 0 1px 0 rgba(222, 255, 248, .1), inset 0 -1px 0 rgba(0, 0, 0, .22);
   color: #eefcf8;
 }
-:global(html.bento) .cockpit-hero .metric-item,
-:global(html.bento) .cockpit-hero button.metric-item {
+:global(html.bento .cockpit-hero .metric-item),
+:global(html.bento .cockpit-hero button.metric-item) {
   background: rgba(7, 27, 27, .88);
 }
 .cockpit-hero .metric-item:last-child { border-right: 1px solid rgba(153, 255, 237, .18); }
