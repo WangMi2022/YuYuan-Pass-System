@@ -1014,53 +1014,106 @@
         </el-tab-pane>
         <el-tab-pane label="发票识别" name="11" lazy>
           <div class="recognition-settings">
-            <div class="recognition-overview">
-              <div class="recognition-flow" aria-label="发票识别顺序">
-                <span class="flow-node is-fixed">二维码</span>
-                <span class="flow-step">
-                  <span class="flow-arrow">→</span>
-                  <span class="flow-node">百度 / 公网 OCR</span>
-                </span>
-                <span class="flow-step">
-                  <span class="flow-arrow">→</span>
-                  <span class="flow-node">多模态模型</span>
-                </span>
-                <span class="flow-step">
-                  <span class="flow-arrow">→</span>
-                  <span class="flow-node is-fixed">人工核对</span>
-                </span>
+            <section class="recognition-overview" aria-labelledby="invoice-recognition-overview">
+              <div class="recognition-overview-main">
+                <div class="recognition-section-heading">
+                  <div>
+                    <span class="recognition-eyebrow">处理流程</span>
+                    <h3 id="invoice-recognition-overview">发票识别链路</h3>
+                    <p>系统会先读取票面信息，再按配置调用识别服务，最后交由人工确认。</p>
+                  </div>
+                  <el-tag type="info" effect="plain" size="small">人工最终确认</el-tag>
+                </div>
+                <div class="recognition-flow" aria-label="发票识别顺序">
+                  <div class="flow-step">
+                    <div class="flow-node is-fixed">
+                      <span class="flow-index">01</span>
+                      <span>
+                        <strong>二维码</strong>
+                        <small>优先读取</small>
+                      </span>
+                    </div>
+                    <span class="flow-arrow" aria-hidden="true">→</span>
+                  </div>
+                  <div class="flow-step">
+                    <div class="flow-node">
+                      <span class="flow-index">02</span>
+                      <span>
+                        <strong>OCR 服务</strong>
+                        <small>百度或公网</small>
+                      </span>
+                    </div>
+                    <span class="flow-arrow" aria-hidden="true">→</span>
+                  </div>
+                  <div class="flow-step">
+                    <div class="flow-node">
+                      <span class="flow-index">03</span>
+                      <span>
+                        <strong>多模态模型</strong>
+                        <small>复杂票面兜底</small>
+                      </span>
+                    </div>
+                    <span class="flow-arrow" aria-hidden="true">→</span>
+                  </div>
+                  <div class="flow-step">
+                    <div class="flow-node is-fixed">
+                      <span class="flow-index">04</span>
+                      <span>
+                        <strong>人工核对</strong>
+                        <small>结果可追溯</small>
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div class="recognition-controls">
-                <el-form-item label="允许内网端点" label-width="112px" class="threshold-field">
-                  <el-switch
-                    v-model="config['invoice-recognition']['allow-private-endpoints']"
-                    :disabled="!canManageInvoiceRecognition"
-                    inline-prompt
-                    active-text="允许"
-                    inactive-text="拒绝"
-                  />
-                </el-form-item>
-                <el-form-item label="大模型兜底阈值" label-width="132px" class="threshold-field">
-                  <el-input-number
-                    v-model="config['invoice-recognition']['fallback-threshold']"
-                    :min="0.1"
-                    :max="1"
-                    :step="0.01"
-                    :precision="2"
-                    :disabled="!canManageInvoiceRecognition"
-                    controls-position="right"
-                  />
-                </el-form-item>
+              <div class="recognition-policy">
+                <div class="recognition-section-heading">
+                  <div>
+                    <span class="recognition-eyebrow">全局策略</span>
+                    <h3>安全与兜底</h3>
+                  </div>
+                </div>
+                <div class="recognition-controls">
+                  <el-form-item label="允许内网端点" class="threshold-field">
+                    <el-switch
+                      v-model="config['invoice-recognition']['allow-private-endpoints']"
+                      :disabled="!canManageInvoiceRecognition"
+                      inline-prompt
+                      active-text="允许"
+                      inactive-text="拒绝"
+                    />
+                  </el-form-item>
+                  <el-form-item label="大模型兜底阈值" class="threshold-field">
+                    <div class="threshold-input">
+                      <el-input-number
+                        v-model="config['invoice-recognition']['fallback-threshold']"
+                        :min="0.1"
+                        :max="1"
+                        :step="0.01"
+                        :precision="2"
+                        :disabled="!canManageInvoiceRecognition"
+                        controls-position="right"
+                      />
+                      <span class="input-unit">置信度</span>
+                    </div>
+                  </el-form-item>
+                </div>
               </div>
-            </div>
+            </section>
 
             <section class="provider-section">
               <div class="provider-heading">
-                <div class="provider-title-line">
-                  <h3>百度发票 OCR</h3>
-                  <el-tag :type="baiduCredentialsReady ? 'success' : 'info'" effect="plain" size="small">
-                    {{ baiduCredentialsReady ? '凭据已配置' : '无凭据' }}
-                  </el-tag>
+                <div class="provider-heading-copy">
+                  <div class="provider-title-line">
+                    <span class="provider-index">A</span>
+                    <div>
+                      <h3>百度发票 OCR</h3>
+                      <p>国内增值税发票的主识别服务</p>
+                    </div>
+                    <el-tag :type="baiduCredentialsReady ? 'success' : 'info'" effect="plain" size="small">
+                      {{ baiduCredentialsReady ? '凭据已配置' : '无凭据' }}
+                    </el-tag>
+                  </div>
                 </div>
                 <div class="provider-heading-actions">
                   <el-button
@@ -1133,23 +1186,29 @@
 
             <section class="provider-section">
               <div class="provider-heading">
-                <div class="provider-title-line">
-                  <h3>公网 OCR</h3>
-                  <el-tag
-                    :type="publicOCRKeyReady ? 'success' : 'info'"
-                    effect="plain"
-                    size="small"
-                  >
-                    {{ publicOCRKeyReady ? '凭据已配置' : '无凭据' }}
-                  </el-tag>
-                  <el-tag
-                    v-if="publicOCRDetectionLabel"
-                    type="info"
-                    effect="plain"
-                    size="small"
-                  >
-                    {{ publicOCRDetectionLabel }}
-                  </el-tag>
+                <div class="provider-heading-copy">
+                  <div class="provider-title-line">
+                    <span class="provider-index">B</span>
+                    <div>
+                      <h3>公网 OCR</h3>
+                      <p>兼容外部 HTTP OCR 服务</p>
+                    </div>
+                    <el-tag
+                      :type="publicOCRKeyReady ? 'success' : 'info'"
+                      effect="plain"
+                      size="small"
+                    >
+                      {{ publicOCRKeyReady ? '凭据已配置' : '无凭据' }}
+                    </el-tag>
+                    <el-tag
+                      v-if="publicOCRDetectionLabel"
+                      type="info"
+                      effect="plain"
+                      size="small"
+                    >
+                      {{ publicOCRDetectionLabel }}
+                    </el-tag>
+                  </div>
                 </div>
                 <div class="provider-heading-actions">
                   <el-button
@@ -1217,19 +1276,25 @@
 
             <section class="provider-section">
               <div class="provider-heading">
-                <div class="provider-title-line">
-                  <h3>权威发票验真</h3>
-                  <el-tag :type="verificationCredentialsReady ? 'success' : 'info'" effect="plain" size="small">
-                    {{ verificationCredentialsReady ? '凭据已配置' : '无凭据' }}
-                  </el-tag>
-                  <el-tag
-                    v-if="verificationDetectionLabel"
-                    type="info"
-                    effect="plain"
-                    size="small"
-                  >
-                    {{ verificationDetectionLabel }}
-                  </el-tag>
+                <div class="provider-heading-copy">
+                  <div class="provider-title-line">
+                    <span class="provider-index">C</span>
+                    <div>
+                      <h3>权威发票验真</h3>
+                      <p>确认发票状态与真伪结果</p>
+                    </div>
+                    <el-tag :type="verificationCredentialsReady ? 'success' : 'info'" effect="plain" size="small">
+                      {{ verificationCredentialsReady ? '凭据已配置' : '无凭据' }}
+                    </el-tag>
+                    <el-tag
+                      v-if="verificationDetectionLabel"
+                      type="info"
+                      effect="plain"
+                      size="small"
+                    >
+                      {{ verificationDetectionLabel }}
+                    </el-tag>
+                  </div>
                 </div>
                 <div class="provider-heading-actions">
                   <el-button
@@ -1317,23 +1382,29 @@
 
             <section class="provider-section">
               <div class="provider-heading">
-                <div class="provider-title-line">
-                  <h3>多模态大模型</h3>
-                  <el-tag
-                    :type="multimodalKeyReady ? 'success' : 'info'"
-                    effect="plain"
-                    size="small"
-                  >
-                    {{ multimodalKeyReady ? '凭据已配置' : '无凭据' }}
-                  </el-tag>
-                  <el-tag
-                    v-if="multimodalProtocolLabel"
-                    type="info"
-                    effect="plain"
-                    size="small"
-                  >
-                    {{ multimodalProtocolLabel }}
-                  </el-tag>
+                <div class="provider-heading-copy">
+                  <div class="provider-title-line">
+                    <span class="provider-index">D</span>
+                    <div>
+                      <h3>多模态大模型</h3>
+                      <p>复杂票面和 OCR 结果的智能兜底</p>
+                    </div>
+                    <el-tag
+                      :type="multimodalKeyReady ? 'success' : 'info'"
+                      effect="plain"
+                      size="small"
+                    >
+                      {{ multimodalKeyReady ? '凭据已配置' : '无凭据' }}
+                    </el-tag>
+                    <el-tag
+                      v-if="multimodalProtocolLabel"
+                      type="info"
+                      effect="plain"
+                      size="small"
+                    >
+                      {{ multimodalProtocolLabel }}
+                    </el-tag>
+                  </div>
                 </div>
                 <div class="provider-heading-actions">
                   <el-button
@@ -2087,47 +2158,133 @@
   }
 
   .recognition-settings {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
     width: 100%;
+    padding: 4px 0 12px;
   }
 
   .recognition-overview {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 16px;
-    padding: 8px 12px;
+    grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+    gap: 20px;
+    padding: 20px;
     border: 1px solid var(--na-border);
     border-radius: var(--na-radius-sm);
-    background: var(--na-muted);
+    background: color-mix(in srgb, var(--na-muted) 46%, var(--na-card));
+  }
+
+  .recognition-overview-main,
+  .recognition-policy {
+    min-width: 0;
+  }
+
+  .recognition-policy {
+    padding-left: 20px;
+    border-left: 1px solid var(--na-border);
+  }
+
+  .recognition-section-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .recognition-eyebrow {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--na-primary);
+    font-size: 11px;
+    font-weight: 650;
+    line-height: 18px;
+  }
+
+  .recognition-section-heading h3 {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    color: var(--na-foreground);
+    font-size: 16px;
+    font-weight: 650;
+    line-height: 24px;
+  }
+
+  .recognition-section-heading p {
+    max-width: 60ch;
+    margin: 3px 0 0;
+    color: var(--na-muted-foreground);
+    font-size: 12px;
+    line-height: 18px;
   }
 
   .recognition-flow {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 8px 12px;
     min-width: 0;
   }
 
   .flow-step {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    white-space: nowrap;
+    flex: 1 1 0;
+    min-width: 0;
   }
 
   .flow-node {
     display: inline-flex;
     align-items: center;
-    min-height: 28px;
-    padding: 4px 8px;
+    flex: 1 1 auto;
+    gap: 8px;
+    min-width: 0;
+    min-height: 58px;
+    padding: 9px 10px;
     border: 1px solid var(--na-ring);
-    border-radius: var(--na-radius-sm);
+    border-radius: 8px;
     color: var(--na-primary);
     background: var(--na-primary-soft);
+  }
+
+  .flow-node > span:last-child {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .flow-node strong {
+    overflow: hidden;
+    color: var(--na-foreground);
     font-size: 12px;
+    font-weight: 650;
     line-height: 18px;
+    text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .flow-node small {
+    overflow: hidden;
+    color: var(--na-muted-foreground);
+    font-size: 11px;
+    line-height: 16px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .flow-index {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    flex: 0 0 auto;
+    border-radius: 6px;
+    color: var(--na-primary);
+    background: color-mix(in srgb, var(--na-primary) 12%, var(--na-card));
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
   }
 
   .flow-node.is-fixed {
@@ -2137,13 +2294,21 @@
   }
 
   .flow-arrow {
+    flex: 0 0 auto;
+    margin: 0 8px;
     color: var(--na-muted-foreground);
-    font-size: 13px;
+    font-size: 15px;
     line-height: 1;
   }
 
+  .recognition-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 14px;
+  }
+
   .threshold-field {
-    flex: 0 0 auto;
     margin-bottom: 0;
   }
 
@@ -2152,25 +2317,34 @@
     font-size: 12px;
   }
 
-  .recognition-controls {
+  .threshold-input {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 8px;
+  }
+
+  .threshold-input :deep(.el-input-number) {
+    width: 100%;
+  }
+
+  .threshold-input .input-unit {
     flex: 0 0 auto;
+    margin-left: 0;
   }
 
   .provider-section {
-    display: grid;
-    grid-template-columns: 220px minmax(0, 1fr);
-    gap: 0 24px;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
     margin: 0;
-    padding: 16px 0 4px;
-    border-bottom: 1px solid var(--na-border);
-    background: transparent;
+    padding: 18px 20px 6px;
+    border: 1px solid var(--na-border);
+    border-radius: var(--na-radius-sm);
+    background: var(--na-card);
   }
 
   .provider-section:last-child {
-    border-bottom: 0;
+    margin-bottom: 0;
   }
 
   .provider-heading,
@@ -2182,28 +2356,50 @@
   }
 
   .provider-heading {
-    grid-column: 1;
-    grid-row: span 2;
     align-items: flex-start;
-    flex-direction: column;
-    justify-content: flex-start;
-    gap: 8px;
-    margin: 0;
-    padding: 0;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 16px;
+  }
+
+  .provider-heading-copy {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .provider-index {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    flex: 0 0 auto;
+    border-radius: 7px;
+    color: var(--na-primary);
+    background: var(--na-primary-soft);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
   }
 
   .provider-hint {
-    grid-column: 2;
-    max-width: 82ch;
-    margin: 0 0 12px;
+    margin: -2px 0 14px;
+    padding: 10px 12px;
+    border-radius: 6px;
     color: var(--na-muted-foreground);
+    background: color-mix(in srgb, var(--na-muted) 60%, var(--na-card));
     font-size: 12px;
     line-height: 19px;
   }
 
   .provider-title-line {
+    align-items: flex-start;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 8px 10px;
+    min-width: 0;
+  }
+
+  .provider-title-line > div {
     min-width: 0;
   }
 
@@ -2213,8 +2409,18 @@
     border: 0;
     color: var(--na-foreground);
     font-size: 15px;
-    font-weight: 600;
-    line-height: 24px;
+    font-weight: 650;
+    line-height: 22px;
+  }
+
+  .provider-title-line p {
+    overflow: hidden;
+    margin: 1px 0 0;
+    color: var(--na-muted-foreground);
+    font-size: 12px;
+    line-height: 18px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .provider-title-line :deep(.el-tag) {
@@ -2229,10 +2435,9 @@
 
   .provider-grid {
     display: grid;
-    grid-column: 2;
-    grid-template-columns: repeat(2, minmax(240px, 420px));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0 16px;
-    max-width: 856px;
+    max-width: none;
   }
 
   .provider-grid .grid-full {
@@ -2292,33 +2497,35 @@
   }
 
   @media (max-width: 1280px) {
-    .provider-section {
-      grid-template-columns: minmax(0, 1fr);
-      gap: 0;
-    }
-
-    .provider-heading {
-      grid-column: 1;
-      grid-row: auto;
-      align-items: center;
-      flex-direction: row;
-      justify-content: space-between;
-      margin-bottom: 16px;
-    }
-
-    .provider-hint,
-    .provider-grid {
-      grid-column: 1;
-    }
-  }
-
-  @media (max-width: 1100px) {
     .recognition-overview {
       grid-template-columns: minmax(0, 1fr);
     }
 
+    .recognition-policy {
+      padding-top: 18px;
+      padding-left: 0;
+      border-top: 1px solid var(--na-border);
+      border-left: 0;
+    }
+
     .recognition-controls {
-      justify-content: flex-start;
+      max-width: 560px;
+    }
+  }
+
+  @media (max-width: 1100px) {
+    .recognition-flow {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .flow-step {
+      display: block;
+    }
+
+    .flow-arrow {
+      display: none;
     }
   }
 
@@ -2345,22 +2552,16 @@
     }
 
     .recognition-overview {
-      gap: 16px;
-      padding: 12px;
+      gap: 18px;
+      padding: 16px;
     }
 
     .recognition-controls {
-      align-items: flex-start;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .threshold-field :deep(.el-form-item__label) {
-      justify-content: flex-start;
+      grid-template-columns: minmax(0, 1fr);
     }
 
     .provider-section {
-      padding: 20px 0 4px;
+      padding: 16px 16px 4px;
     }
 
     .provider-heading {
@@ -2405,14 +2606,19 @@
       max-width: none;
     }
 
-    .flow-step {
+    .recognition-flow {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .provider-heading-actions {
+      align-items: stretch;
+      flex-direction: column;
       width: 100%;
     }
 
-    .flow-arrow {
-      width: 18px;
-      text-align: center;
-      transform: rotate(90deg);
+    .provider-heading-actions :deep(.el-button) {
+      width: 100%;
+      margin-left: 0;
     }
   }
 
