@@ -36,7 +36,7 @@
 
     <section
       v-loading="configLoading"
-      class="runtime-summary"
+      class="na-panel runtime-summary"
       :class="{ unavailable: !configReady }"
       aria-label="运行配置总览"
     >
@@ -82,8 +82,10 @@
     <div class="config-console na-panel">
       <aside class="config-sidebar" aria-label="配置导航">
         <header class="config-sidebar-header">
-          <span>配置导航</span>
-          <strong>{{ visibleSections.length }} 个配置项</strong>
+          <div class="config-sidebar-title-group">
+            <span>配置导航</span>
+            <strong>{{ visibleSections.length }} 个配置项</strong>
+          </div>
         </header>
         <nav class="config-sidebar-nav">
           <section
@@ -106,7 +108,10 @@
                 :aria-current="activeNames === section.name ? 'page' : undefined"
                 @click="activeNames = section.name"
               >
-                <span>{{ section.label }}</span>
+                <span class="config-nav-text">
+                  <strong>{{ section.label }}</strong>
+                  <small>{{ section.description }}</small>
+                </span>
                 <el-icon class="config-nav-arrow" aria-hidden="true"><ArrowRight /></el-icon>
               </button>
             </div>
@@ -2009,11 +2014,12 @@
 <style lang="scss" scoped>
   .system-config-page {
     min-width: 0;
-    padding: 20px 24px 28px;
+    padding: 16px 18px 24px;
     color: var(--na-foreground);
   }
 
   .system-config-page :deep(.na-page-header) {
+    align-items: center;
     margin-bottom: 12px;
   }
 
@@ -2034,9 +2040,12 @@
     grid-template-columns: minmax(180px, 1.1fr) minmax(0, 3fr) auto;
     align-items: stretch;
     min-width: 0;
-    margin-bottom: 16px;
-    border-block: 1px solid var(--na-border);
+    margin-bottom: 12px;
+    overflow: hidden;
+    border-color: var(--na-border);
+    border-radius: 12px;
     background: var(--na-card);
+    box-shadow: var(--na-shadow-sm);
   }
 
   .runtime-summary.unavailable .runtime-summary-lead,
@@ -2049,7 +2058,7 @@
     align-items: center;
     gap: 12px;
     min-width: 0;
-    padding: 12px 16px;
+    padding: 13px 16px;
   }
 
   .runtime-summary-lead > div {
@@ -2133,34 +2142,44 @@
   .config-console {
     display: grid;
     overflow: hidden;
-    grid-template-columns: 220px minmax(0, 1fr);
+    grid-template-columns: 282px minmax(0, 1fr);
     min-width: 0;
-    min-height: 620px;
+    min-height: 660px;
+    border-radius: 12px;
   }
 
   .config-sidebar {
+    display: flex;
+    flex-direction: column;
     min-width: 0;
     border-right: 1px solid var(--na-border);
-    background: color-mix(in srgb, var(--na-muted) 70%, var(--na-card));
+    background: var(--na-card);
   }
 
   .config-sidebar-header {
     display: flex;
-    min-height: 64px;
-    flex-direction: column;
-    justify-content: center;
-    gap: 2px;
-    padding: 12px 16px;
+    min-height: 66px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 14px 12px;
     border-bottom: 1px solid var(--na-border);
   }
 
+  .config-sidebar-title-group {
+    min-width: 0;
+  }
+
   .config-sidebar-header span {
+    display: block;
     color: var(--na-muted-foreground);
     font-size: 12px;
     line-height: 18px;
   }
 
   .config-sidebar-header strong {
+    display: block;
+    margin-top: 2px;
     color: var(--na-foreground);
     font-size: 14px;
     font-weight: 650;
@@ -2168,11 +2187,14 @@
   }
 
   .config-sidebar-nav {
-    padding: 12px 8px 20px;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 12px 10px 18px;
+    overflow: auto;
   }
 
   .config-nav-group + .config-nav-group {
-    margin-top: 12px;
+    margin-top: 14px;
   }
 
   .config-nav-group-title {
@@ -2181,7 +2203,7 @@
     align-items: center;
     gap: 8px;
     min-height: 28px;
-    padding: 4px 8px;
+    padding: 3px 6px 6px;
     color: var(--na-muted-foreground);
     font-size: 12px;
     font-weight: 600;
@@ -2200,29 +2222,31 @@
   .config-nav-items {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 7px;
   }
 
   .config-nav-items button {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 16px;
     align-items: center;
-    gap: 8px;
-    min-height: 36px;
-    padding: 7px 10px 7px 34px;
-    border: 0;
-    border-radius: 7px;
-    color: var(--na-muted-foreground);
-    background: transparent;
+    gap: 10px;
+    min-height: 58px;
+    padding: 10px 10px 10px 12px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    color: var(--na-foreground);
+    background: color-mix(in srgb, var(--na-muted) 66%, var(--na-card));
     cursor: pointer;
-    font-size: 13px;
     text-align: left;
-    transition: color 180ms cubic-bezier(.22, 1, .36, 1), background-color 180ms cubic-bezier(.22, 1, .36, 1);
+    transition:
+      color 160ms cubic-bezier(.22, 1, .36, 1),
+      border-color 160ms cubic-bezier(.22, 1, .36, 1),
+      background-color 160ms cubic-bezier(.22, 1, .36, 1);
   }
 
-  .config-nav-items button:hover {
-    color: var(--na-foreground);
-    background: var(--na-card);
+  .config-nav-items button:not(:disabled):hover {
+    border-color: color-mix(in srgb, var(--na-primary) 18%, var(--na-border));
+    background: color-mix(in srgb, var(--na-primary) 7%, var(--na-card));
   }
 
   .config-nav-items button:focus-visible {
@@ -2231,9 +2255,9 @@
   }
 
   .config-nav-items button.active {
+    border-color: color-mix(in srgb, var(--na-primary) 34%, var(--na-border));
     color: var(--na-primary);
     background: var(--na-primary-soft);
-    font-weight: 650;
   }
 
   .config-nav-items button:disabled {
@@ -2246,7 +2270,7 @@
     transition: opacity 180ms ease, transform 180ms cubic-bezier(.22, 1, .36, 1);
   }
 
-  .config-nav-items button:hover .config-nav-arrow,
+  .config-nav-items button:not(:disabled):hover .config-nav-arrow,
   .config-nav-items button.active .config-nav-arrow {
     opacity: 1;
   }
@@ -2260,22 +2284,55 @@
     background: var(--na-card);
   }
 
+  .config-nav-text {
+    display: grid;
+    min-width: 0;
+    gap: 3px;
+  }
+
+  .config-nav-text strong {
+    overflow: hidden;
+    color: currentColor;
+    font-size: 13px;
+    font-weight: 630;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .config-nav-text small {
+    overflow: hidden;
+    color: var(--na-muted-foreground);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .config-nav-items button.active .config-nav-text small {
+    color: color-mix(in srgb, var(--na-primary) 70%, var(--na-foreground));
+  }
+
   .config-mobile-nav {
     display: none;
   }
 
   .config-workbench {
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
     min-width: 0;
-    min-height: 620px;
+    min-height: 660px;
   }
 
   .config-editor-header {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 16px;
-    min-height: 84px;
-    padding: 14px 20px;
+    min-height: 74px;
+    padding: 14px 16px;
     border-bottom: 1px solid var(--na-border);
   }
 
@@ -2290,8 +2347,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
+    width: 38px;
+    height: 38px;
     flex: 0 0 auto;
     border-radius: var(--na-radius-sm);
     color: var(--na-primary);
@@ -2369,6 +2426,13 @@
     min-width: 0;
   }
 
+  .config-form {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    background: color-mix(in srgb, var(--na-muted) 30%, var(--na-card));
+  }
+
   .config-tabs {
     --config-field-max-width: 300px;
   }
@@ -2386,11 +2450,11 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, var(--config-field-max-width)));
     justify-content: start;
-    gap: 0 16px;
+    gap: 2px 16px;
     width: 100%;
     min-height: 360px;
     margin-top: 0 !important;
-    padding: 16px 20px 24px;
+    padding: 16px 16px 24px;
   }
 
   .config-tabs :deep(.el-tab-pane > .el-form-item) {
@@ -2410,9 +2474,9 @@
   .config-tabs :deep(.el-form-item__label) {
     height: auto;
     padding: 0 0 4px;
-    color: var(--na-muted-foreground);
+    color: color-mix(in srgb, var(--na-muted-foreground) 82%, var(--na-foreground));
     font-size: 12px;
-    font-weight: 550;
+    font-weight: 580;
     line-height: 18px;
   }
 
