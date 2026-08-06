@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -354,46 +355,56 @@ func scheduleFromPayload(userID uint, payload scheduleRequest.WorkScheduleUpsert
 	}
 
 	recurrence := payload.Recurrence
-	if recurrence.Mode != model.RecurrenceMonthly {
+	switch recurrence.Mode {
+	case model.RecurrenceDaily, model.RecurrenceWeekly, model.RecurrenceMonthly:
+	default:
 		recurrence.Mode = model.RecurrenceWeekly
 	}
-	if recurrence.Weekday < 1 || recurrence.Weekday > 7 {
-		recurrence.Weekday = weekdayFromDate(date)
-	}
-	if recurrence.MonthDay < 1 || recurrence.MonthDay > 31 {
-		recurrence.MonthDay = date.Day()
-	}
+	weekdays := normalizeRecurrenceValues(recurrence.Weekdays, recurrence.Weekday, weekdayFromDate(date), 1, 7)
+	monthDays := normalizeRecurrenceValues(recurrence.MonthDays, recurrence.MonthDay, date.Day(), 1, 31)
 
 	return model.WorkSchedule{
-		UserID:             userID,
-		ClientKey:          clientKey,
-		Title:              title,
-		ScheduleDate:       date.Format("2006-01-02"),
-		ScheduleTime:       timeValue.Format("15:04"),
-		Type:               typeValue,
-		Note:               note,
-		RecurrenceEnabled:  recurrence.Enabled,
-		RecurrenceMode:     recurrence.Mode,
-		RecurrenceWeekday:  recurrence.Weekday,
-		RecurrenceMonthDay: recurrence.MonthDay,
+		UserID:              userID,
+		ClientKey:           clientKey,
+		Title:               title,
+		ScheduleDate:        date.Format("2006-01-02"),
+		ScheduleTime:        timeValue.Format("15:04"),
+		Type:                typeValue,
+		Note:                note,
+		RecurrenceEnabled:   recurrence.Enabled,
+		RecurrenceMode:      recurrence.Mode,
+		RecurrenceWeekday:   weekdays[0],
+		RecurrenceMonthDay:  monthDays[0],
+		RecurrenceWeekdays:  encodeRecurrenceValues(weekdays),
+		RecurrenceMonthDays: encodeRecurrenceValues(monthDays),
 	}, nil
 }
 
 func scheduleUpdates(schedule model.WorkSchedule) map[string]any {
 	return map[string]any{
-		"title":                schedule.Title,
-		"schedule_date":        schedule.ScheduleDate,
-		"schedule_time":        schedule.ScheduleTime,
-		"type":                 schedule.Type,
-		"note":                 schedule.Note,
-		"recurrence_enabled":   schedule.RecurrenceEnabled,
-		"recurrence_mode":      schedule.RecurrenceMode,
-		"recurrence_weekday":   schedule.RecurrenceWeekday,
-		"recurrence_month_day": schedule.RecurrenceMonthDay,
+		"title":                 schedule.Title,
+		"schedule_date":         schedule.ScheduleDate,
+		"schedule_time":         schedule.ScheduleTime,
+		"type":                  schedule.Type,
+		"note":                  schedule.Note,
+		"recurrence_enabled":    schedule.RecurrenceEnabled,
+		"recurrence_mode":       schedule.RecurrenceMode,
+		"recurrence_weekday":    schedule.RecurrenceWeekday,
+		"recurrence_month_day":  schedule.RecurrenceMonthDay,
+		"recurrence_weekdays":   schedule.RecurrenceWeekdays,
+		"recurrence_month_days": schedule.RecurrenceMonthDays,
 	}
 }
 
 func toScheduleResponse(item model.WorkSchedule) scheduleResponse.WorkSchedule {
+	fallbackWeekday := 1
+	fallbackMonthDay := 1
+	if date, err := parseScheduleDate(item.ScheduleDate); err == nil {
+		fallbackWeekday = weekdayFromDate(date)
+		fallbackMonthDay = date.Day()
+	}
+	weekdays := decodeRecurrenceValues(item.RecurrenceWeekdays, item.RecurrenceWeekday, fallbackWeekday, 1, 7)
+	monthDays := decodeRecurrenceValues(item.RecurrenceMonthDays, item.RecurrenceMonthDay, fallbackMonthDay, 1, 31)
 	return scheduleResponse.WorkSchedule{
 		ID:    item.ID,
 		Title: item.Title,
@@ -402,14 +413,64 @@ func toScheduleResponse(item model.WorkSchedule) scheduleResponse.WorkSchedule {
 		Type:  item.Type,
 		Note:  item.Note,
 		Recurrence: scheduleResponse.Recurrence{
-			Enabled:  item.RecurrenceEnabled,
-			Mode:     item.RecurrenceMode,
-			Weekday:  item.RecurrenceWeekday,
-			MonthDay: item.RecurrenceMonthDay,
+			Enabled:   item.RecurrenceEnabled,
+			Mode:      item.RecurrenceMode,
+			Weekdays:  weekdays,
+			MonthDays: monthDays,
+			Weekday:   weekdays[0],
+			MonthDay:  monthDays[0],
 		},
 		CreatedAt: item.CreatedAt,
 		UpdatedAt: item.UpdatedAt,
 	}
+}
+
+func normalizeRecurrenceValues(values []int, legacyValue, fallbackValue, minValue, maxValue int) []int {
+	selected := make([]bool, maxValue+1)
+	if len(values) == 0 {
+		values = []int{legacyValue}
+	}
+	for _, value := range values {
+		if value >= minValue && value <= maxValue {
+			selected[value] = true
+		}
+	}
+
+	normalized := make([]int, 0, len(values))
+	for value := minValue; value <= maxValue; value++ {
+		if selected[value] {
+			normalized = append(normalized, value)
+		}
+	}
+	if len(normalized) > 0 {
+		return normalized
+	}
+	if fallbackValue < minValue || fallbackValue > maxValue {
+		fallbackValue = minValue
+	}
+	return []int{fallbackValue}
+}
+
+func encodeRecurrenceValues(values []int) string {
+	encoded, _ := json.Marshal(values)
+	return string(encoded)
+}
+
+func decodeRecurrenceValues(raw string, legacyValue, fallbackValue, minValue, maxValue int) []int {
+	var values []int
+	if raw != "" {
+		_ = json.Unmarshal([]byte(raw), &values)
+	}
+	return normalizeRecurrenceValues(values, legacyValue, fallbackValue, minValue, maxValue)
+}
+
+func containsRecurrenceValue(values []int, target int) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }
 
 func parseScheduleDate(value string) (time.Time, error) {
@@ -453,12 +514,27 @@ func occurrenceAt(schedule model.WorkSchedule, day time.Time) (time.Time, bool) 
 	}
 	if schedule.RecurrenceEnabled {
 		switch schedule.RecurrenceMode {
+		case model.RecurrenceDaily:
 		case model.RecurrenceMonthly:
-			if day.Day() != schedule.RecurrenceMonthDay {
+			monthDays := decodeRecurrenceValues(
+				schedule.RecurrenceMonthDays,
+				schedule.RecurrenceMonthDay,
+				startDate.Day(),
+				1,
+				31,
+			)
+			if !containsRecurrenceValue(monthDays, day.Day()) {
 				return time.Time{}, false
 			}
 		default:
-			if weekdayFromDate(day) != schedule.RecurrenceWeekday {
+			weekdays := decodeRecurrenceValues(
+				schedule.RecurrenceWeekdays,
+				schedule.RecurrenceWeekday,
+				weekdayFromDate(startDate),
+				1,
+				7,
+			)
+			if !containsRecurrenceValue(weekdays, weekdayFromDate(day)) {
 				return time.Time{}, false
 			}
 		}

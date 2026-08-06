@@ -318,6 +318,7 @@
               class="repeat-mode-toggle"
               aria-label="重复周期"
             >
+              <el-radio-button label="daily">每日</el-radio-button>
               <el-radio-button label="weekly">每周</el-radio-button>
               <el-radio-button label="monthly">每月</el-radio-button>
             </el-radio-group>
@@ -329,26 +330,41 @@
                   v-for="weekday in weekdayOptions"
                   :key="weekday.value"
                   type="button"
-                  :class="{ 'is-active': draft.recurrence.weekday === weekday.value }"
-                  :aria-pressed="draft.recurrence.weekday === weekday.value"
+                  :class="{ 'is-active': draft.recurrence.weekdays.includes(weekday.value) }"
+                  :aria-pressed="draft.recurrence.weekdays.includes(weekday.value)"
                   :aria-label="`每周${weekday.label}`"
                   :title="`每周${weekday.label}`"
-                  @click="draft.recurrence.weekday = weekday.value"
+                  @click="toggleWeekday(weekday.value)"
                 >
                   {{ weekday.shortLabel }}
                 </button>
               </div>
             </div>
 
-            <div v-else class="repeat-rule-row">
+            <div v-else-if="draft.recurrence.mode === 'monthly'" class="repeat-rule-row">
               <span>每月选择</span>
-              <el-select v-model="draft.recurrence.monthDay" class="repeat-month-select" aria-label="选择每月几日">
-                <el-option v-for="day in 31" :key="day" :label="`每月 ${day} 日`" :value="day" />
+              <el-select
+                v-model="draft.recurrence.monthDays"
+                class="repeat-month-select"
+                multiple
+                collapse-tags
+                collapse-tags-tooltip
+                :max-collapse-tags="3"
+                placeholder="选择日期"
+                aria-label="选择每月日期"
+                @change="handleMonthDaysChange"
+              >
+                <el-option v-for="day in 31" :key="day" :label="`${day} 日`" :value="day" />
               </el-select>
             </div>
-            <small class="repeat-rule-hint">每月没有该日期的月份将跳过本次日程</small>
+            <small v-if="draft.recurrence.mode === 'daily'" class="repeat-rule-hint repeat-rule-hint--full">
+              从开始日期起每天重复
+            </small>
+            <small v-else-if="draft.recurrence.mode === 'monthly'" class="repeat-rule-hint">
+              当月没有所选日期时，仅跳过对应日期
+            </small>
           </div>
-          <small v-else class="repeat-disabled-hint">启用后可选择每周星期或每月几日</small>
+          <small v-else class="repeat-disabled-hint">支持每日、每周和每月重复</small>
         </section>
         <el-form-item label="日程类型" required>
           <el-select v-model="draft.type">
@@ -389,6 +405,7 @@ import {
   dateKey,
   fromDateKey,
   normalizeSchedule,
+  recurrenceLabel,
   scheduleMatchesDate,
   weekdayFromKey
 } from '@/utils/workCalendar'
@@ -452,8 +469,7 @@ const selectedDateLabel = computed(() => dateFormatter.format(fromDateKey(select
 const repeatSummary = computed(() => {
   const recurrence = draft.value.recurrence
   if (!recurrence?.enabled) return '未启用，仅创建当天日程'
-  if (recurrence.mode === 'monthly') return `每月 ${recurrence.monthDay} 日`
-  return `每周${weekdayOptions.find((item) => item.value === recurrence.weekday)?.label || '星期一'}`
+  return recurrenceLabel({ date: draft.value.date, recurrence })
 })
 const calendarDays = computed(() => buildCalendarDays(viewedMonth.value))
 const visibleSchedules = computed(() => schedules.value
@@ -482,8 +498,12 @@ watch([pickerYear, pickerMonth], () => {
 watch(() => draft.value.date, (date) => {
   if (!date || draft.value.recurrence.enabled) return
   const parsedDate = fromDateKey(date)
-  draft.value.recurrence.weekday = weekdayFromKey(date)
-  draft.value.recurrence.monthDay = parsedDate.getDate()
+  const weekday = weekdayFromKey(date)
+  const monthDay = parsedDate.getDate()
+  draft.value.recurrence.weekdays = [weekday]
+  draft.value.recurrence.monthDays = [monthDay]
+  draft.value.recurrence.weekday = weekday
+  draft.value.recurrence.monthDay = monthDay
 })
 watch(() => route.query.date, applyRouteDate, { immediate: true })
 
@@ -683,6 +703,34 @@ function openCreate(date = selectedDate.value) {
 
 function toggleRecurrence() {
   draft.value.recurrence.enabled = !draft.value.recurrence.enabled
+}
+
+function toggleWeekday(value) {
+  const selected = new Set(draft.value.recurrence.weekdays)
+  if (selected.has(value)) {
+    if (selected.size === 1) {
+      ElMessage.warning('每周重复至少选择一天')
+      return
+    }
+    selected.delete(value)
+  } else {
+    selected.add(value)
+  }
+  const weekdays = [...selected].sort((left, right) => left - right)
+  draft.value.recurrence.weekdays = weekdays
+  draft.value.recurrence.weekday = weekdays[0]
+}
+
+function handleMonthDaysChange(values) {
+  let monthDays = [...new Set((Array.isArray(values) ? values : []).map(Number))]
+    .filter((value) => Number.isInteger(value) && value >= 1 && value <= 31)
+    .sort((left, right) => left - right)
+  if (!monthDays.length) {
+    monthDays = [fromDateKey(draft.value.date).getDate()]
+    ElMessage.warning('每月重复至少选择一天')
+  }
+  draft.value.recurrence.monthDays = monthDays
+  draft.value.recurrence.monthDay = monthDays[0]
 }
 
 function editSchedule(schedule) {
@@ -941,7 +989,7 @@ function isValidScheduleType(type) {
 .schedule-repeat-header small { overflow: hidden; color: var(--na-muted-foreground); font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
 .repeat-toggle-button { flex: 0 0 auto; min-width: 88px; }
 .schedule-repeat-editor { display: grid; gap: 11px; padding-top: 11px; border-top: 1px solid var(--na-border); }
-.repeat-mode-toggle { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.repeat-mode-toggle { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .repeat-mode-toggle :deep(.el-radio-button__inner) { width: 100%; padding: 7px 10px; }
 .repeat-rule-row { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; gap: 10px; }
 .repeat-rule-row > span { color: var(--na-muted-foreground); font-size: .75rem; }
@@ -953,6 +1001,7 @@ function isValidScheduleType(type) {
 .repeat-month-select { width: 100%; }
 .repeat-rule-hint, .repeat-disabled-hint { color: var(--na-muted-foreground); font-size: .6875rem; line-height: 1.45; }
 .repeat-rule-hint { margin-left: 82px; }
+.repeat-rule-hint--full { margin-left: 0; }
 .repeat-disabled-hint { display: block; margin-top: -4px; }
 .dialog-actions { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 8px; }
 .schedule-form-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
@@ -979,5 +1028,6 @@ function isValidScheduleType(type) {
   .calendar-sidebar .selected-day-section { grid-column: auto; }
   .schedule-form-grid { grid-template-columns: 1fr; gap: 0; }
   .repeat-rule-row { grid-template-columns: 1fr; gap: 6px; }
+  .repeat-rule-hint { margin-left: 0; }
 }
 </style>

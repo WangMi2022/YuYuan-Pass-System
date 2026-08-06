@@ -17,23 +17,39 @@ export function weekdayFromKey(key) {
 }
 
 export function createRecurrence(date) {
+  const weekday = weekdayFromKey(date)
+  const monthDay = fromDateKey(date).getDate()
   return {
     enabled: false,
     mode: 'weekly',
-    weekday: weekdayFromKey(date),
-    monthDay: fromDateKey(date).getDate()
+    weekdays: [weekday],
+    monthDays: [monthDay],
+    weekday,
+    monthDay
   }
+}
+
+function normalizeIntegerList(values, legacyValue, fallbackValue, min, max) {
+  const source = Array.isArray(values) && values.length ? values : [legacyValue]
+  const normalized = source
+    .map(Number)
+    .filter((value) => Number.isInteger(value) && value >= min && value <= max)
+  const unique = [...new Set(normalized)].sort((left, right) => left - right)
+  return unique.length ? unique : [fallbackValue]
 }
 
 export function normalizeRecurrence(recurrence, date) {
   const fallback = createRecurrence(date)
-  const weekday = Number(recurrence?.weekday)
-  const monthDay = Number(recurrence?.monthDay)
+  const weekdays = normalizeIntegerList(recurrence?.weekdays, recurrence?.weekday, fallback.weekday, 1, 7)
+  const monthDays = normalizeIntegerList(recurrence?.monthDays, recurrence?.monthDay, fallback.monthDay, 1, 31)
+  const mode = ['daily', 'weekly', 'monthly'].includes(recurrence?.mode) ? recurrence.mode : 'weekly'
   return {
     enabled: Boolean(recurrence?.enabled),
-    mode: recurrence?.mode === 'monthly' ? 'monthly' : 'weekly',
-    weekday: Number.isInteger(weekday) && weekday >= 1 && weekday <= 7 ? weekday : fallback.weekday,
-    monthDay: Number.isInteger(monthDay) && monthDay >= 1 && monthDay <= 31 ? monthDay : fallback.monthDay
+    mode,
+    weekdays,
+    monthDays,
+    weekday: weekdays[0],
+    monthDay: monthDays[0]
   }
 }
 
@@ -45,13 +61,15 @@ export function scheduleMatchesDate(schedule, key) {
   if (!schedule?.date || key < schedule.date) return false
   const recurrence = normalizeRecurrence(schedule.recurrence, schedule.date)
   if (!recurrence.enabled) return key === schedule.date
-  if (recurrence.mode === 'monthly') return fromDateKey(key).getDate() === recurrence.monthDay
-  return weekdayFromKey(key) === recurrence.weekday
+  if (recurrence.mode === 'daily') return true
+  if (recurrence.mode === 'monthly') return recurrence.monthDays.includes(fromDateKey(key).getDate())
+  return recurrence.weekdays.includes(weekdayFromKey(key))
 }
 
 export function recurrenceLabel(schedule) {
   const recurrence = normalizeRecurrence(schedule.recurrence, schedule.date)
   if (!recurrence.enabled) return ''
-  if (recurrence.mode === 'monthly') return `每月${recurrence.monthDay}日`
-  return `每周星期${WEEKDAY_LABELS[recurrence.weekday - 1]}`
+  if (recurrence.mode === 'daily') return '每天'
+  if (recurrence.mode === 'monthly') return `每月${recurrence.monthDays.map((day) => `${day}日`).join('、')}`
+  return `每周${recurrence.weekdays.map((weekday) => `星期${WEEKDAY_LABELS[weekday - 1]}`).join('、')}`
 }

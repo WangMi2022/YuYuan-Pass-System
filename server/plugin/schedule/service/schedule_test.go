@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"slices"
 	"testing"
 	"time"
 
@@ -20,9 +21,10 @@ func TestScheduleFromPayloadNormalizesRecurrence(t *testing.T) {
 		Type:  "asset",
 		Note:  "  核对资产状态  ",
 		Recurrence: scheduleRequest.Recurrence{
-			Enabled:  true,
-			Mode:     model.RecurrenceMonthly,
-			MonthDay: 5,
+			Enabled:   true,
+			Mode:      model.RecurrenceMonthly,
+			Weekdays:  []int{5, 2, 2, 9},
+			MonthDays: []int{20, 5, 20, 32},
 		},
 	}
 
@@ -36,9 +38,75 @@ func TestScheduleFromPayloadNormalizesRecurrence(t *testing.T) {
 	if !schedule.RecurrenceEnabled || schedule.RecurrenceMode != model.RecurrenceMonthly || schedule.RecurrenceMonthDay != 5 {
 		t.Fatalf("unexpected recurrence: %#v", schedule)
 	}
+	if schedule.RecurrenceWeekdays != "[2,5]" || schedule.RecurrenceMonthDays != "[5,20]" {
+		t.Fatalf("unexpected recurrence selections: %#v", schedule)
+	}
+	response := toScheduleResponse(schedule)
+	if !slices.Equal(response.Recurrence.Weekdays, []int{2, 5}) || !slices.Equal(response.Recurrence.MonthDays, []int{5, 20}) {
+		t.Fatalf("unexpected recurrence response: %#v", response.Recurrence)
+	}
 }
 
-func TestOccurrenceAtRespectsStartDateAndRule(t *testing.T) {
+func TestScheduleFromPayloadAcceptsLegacyScalarRecurrence(t *testing.T) {
+	payload := scheduleRequest.WorkScheduleUpsert{
+		Title: "周会",
+		Date:  "2026-08-05",
+		Time:  "09:30",
+		Type:  "meeting",
+		Recurrence: scheduleRequest.Recurrence{
+			Enabled:  true,
+			Mode:     model.RecurrenceWeekly,
+			Weekday:  3,
+			MonthDay: 5,
+		},
+	}
+
+	schedule, err := scheduleFromPayload(7, payload)
+	if err != nil {
+		t.Fatalf("scheduleFromPayload() error = %v", err)
+	}
+	if schedule.RecurrenceWeekdays != "[3]" || schedule.RecurrenceMonthDays != "[5]" {
+		t.Fatalf("legacy recurrence was not preserved: %#v", schedule)
+	}
+}
+
+func TestScheduleFromPayloadPreservesDailyMode(t *testing.T) {
+	payload := scheduleRequest.WorkScheduleUpsert{
+		Title: "每日巡检",
+		Date:  "2026-08-05",
+		Time:  "09:30",
+		Type:  "task",
+		Recurrence: scheduleRequest.Recurrence{
+			Enabled: true,
+			Mode:    model.RecurrenceDaily,
+		},
+	}
+
+	schedule, err := scheduleFromPayload(7, payload)
+	if err != nil {
+		t.Fatalf("scheduleFromPayload() error = %v", err)
+	}
+	if schedule.RecurrenceMode != model.RecurrenceDaily {
+		t.Fatalf("daily mode was normalized to %q", schedule.RecurrenceMode)
+	}
+}
+
+func TestOccurrenceAtSupportsDailyAndMultipleRules(t *testing.T) {
+	daily := model.WorkSchedule{
+		ScheduleDate:      "2026-08-03",
+		ScheduleTime:      "09:15",
+		RecurrenceEnabled: true,
+		RecurrenceMode:    model.RecurrenceDaily,
+	}
+	beforeStart := time.Date(2026, time.July, 27, 0, 0, 0, 0, time.Local)
+	if _, ok := occurrenceAt(daily, beforeStart); ok {
+		t.Fatal("daily schedule matched before its start date")
+	}
+	dailyOccurrence, ok := occurrenceAt(daily, time.Date(2026, time.August, 4, 0, 0, 0, 0, time.Local))
+	if !ok || dailyOccurrence.Format("2006-01-02 15:04") != "2026-08-04 09:15" {
+		t.Fatalf("unexpected daily occurrence: %v, %t", dailyOccurrence, ok)
+	}
+
 	schedule := model.WorkSchedule{
 		ScheduleDate:       "2026-08-03",
 		ScheduleTime:       "09:15",
@@ -46,15 +114,30 @@ func TestOccurrenceAtRespectsStartDateAndRule(t *testing.T) {
 		RecurrenceMode:     model.RecurrenceWeekly,
 		RecurrenceWeekday:  1,
 		RecurrenceMonthDay: 3,
+		RecurrenceWeekdays: "[1,4]",
 	}
-	beforeStart := time.Date(2026, 7, 27, 0, 0, 0, 0, time.Local)
-	if _, ok := occurrenceAt(schedule, beforeStart); ok {
-		t.Fatal("recurring schedule matched before its start date")
-	}
-	matchingDay := time.Date(2026, 8, 10, 0, 0, 0, 0, time.Local)
+	matchingDay := time.Date(2026, time.August, 6, 0, 0, 0, 0, time.Local)
 	occurrence, ok := occurrenceAt(schedule, matchingDay)
-	if !ok || occurrence.Format("2006-01-02 15:04") != "2026-08-10 09:15" {
+	if !ok || occurrence.Format("2006-01-02 15:04") != "2026-08-06 09:15" {
 		t.Fatalf("unexpected weekly occurrence: %v, %t", occurrence, ok)
+	}
+	if _, ok = occurrenceAt(schedule, time.Date(2026, time.August, 5, 0, 0, 0, 0, time.Local)); ok {
+		t.Fatal("weekly schedule matched an unselected weekday")
+	}
+
+	monthly := model.WorkSchedule{
+		ScheduleDate:        "2026-08-05",
+		ScheduleTime:        "10:30",
+		RecurrenceEnabled:   true,
+		RecurrenceMode:      model.RecurrenceMonthly,
+		RecurrenceMonthDay:  5,
+		RecurrenceMonthDays: "[5,20]",
+	}
+	if occurrence, ok = occurrenceAt(monthly, time.Date(2026, time.September, 20, 0, 0, 0, 0, time.Local)); !ok || occurrence.Format("2006-01-02 15:04") != "2026-09-20 10:30" {
+		t.Fatalf("unexpected monthly occurrence: %v, %t", occurrence, ok)
+	}
+	if _, ok = occurrenceAt(monthly, time.Date(2026, time.September, 6, 0, 0, 0, 0, time.Local)); ok {
+		t.Fatal("monthly schedule matched an unselected day")
 	}
 }
 
@@ -211,6 +294,12 @@ func TestUpdateClearsPreviousNotifications(t *testing.T) {
 		Date:  "2026-08-05",
 		Time:  "10:00",
 		Type:  "meeting",
+		Recurrence: scheduleRequest.Recurrence{
+			Enabled:   true,
+			Mode:      model.RecurrenceWeekly,
+			Weekdays:  []int{3, 5},
+			MonthDays: []int{5, 20},
+		},
 	})
 	if err != nil {
 		t.Fatalf("update schedule: %v", err)
@@ -224,6 +313,13 @@ func TestUpdateClearsPreviousNotifications(t *testing.T) {
 	}
 	if count != 0 {
 		t.Fatalf("notifications after schedule update = %d, want 0", count)
+	}
+	var updated model.WorkSchedule
+	if err = db.First(&updated, schedule.ID).Error; err != nil {
+		t.Fatalf("load updated schedule: %v", err)
+	}
+	if updated.RecurrenceWeekdays != "[3,5]" || updated.RecurrenceMonthDays != "[5,20]" {
+		t.Fatalf("updated recurrence selections = %#v", updated)
 	}
 }
 

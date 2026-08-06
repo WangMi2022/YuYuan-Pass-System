@@ -1,10 +1,12 @@
 package request
 
 type Recurrence struct {
-	Enabled  bool   `json:"enabled"`
-	Mode     string `json:"mode"`
-	Weekday  int    `json:"weekday"`
-	MonthDay int    `json:"monthDay"`
+	Enabled   bool   `json:"enabled"`
+	Mode      string `json:"mode"`
+	Weekdays  []int  `json:"weekdays"`
+	MonthDays []int  `json:"monthDays"`
+	Weekday   int    `json:"weekday"`
+	MonthDay  int    `json:"monthDay"`
 }
 
 type WorkScheduleUpsert struct {

@@ -34,110 +34,8 @@
       </template>
     </AppPageHeader>
 
-    <section
-      v-loading="configLoading"
-      class="na-panel runtime-summary"
-      :class="{ unavailable: !configReady }"
-      aria-label="运行配置总览"
-    >
-      <div class="runtime-summary-lead">
-        <span class="signal-dot" :class="{ waiting: !configReady, failed: configLoadError }" aria-hidden="true" />
-        <div>
-          <span>运行状态</span>
-          <strong>{{ configReady ? '配置中心在线' : '正在连接配置中心' }}</strong>
-        </div>
-      </div>
-      <dl class="runtime-summary-facts">
-        <div>
-          <dt>主数据库</dt>
-          <dd>{{ databaseTypeLabel }}</dd>
-        </div>
-        <div>
-          <dt>文件存储</dt>
-          <dd>{{ storageTypeLabel }}</dd>
-        </div>
-        <div>
-          <dt>数据服务</dt>
-          <dd>{{ dataServiceLabel }}</dd>
-        </div>
-        <div>
-          <dt>识别通道</dt>
-          <dd>{{ recognitionProviderCount }} / 4</dd>
-        </div>
-      </dl>
-      <div
-        class="config-sync-state"
-        :class="{ dirty: isDirty, failed: configLoadError, waiting: !configReady && !configLoadError }"
-        role="status"
-      >
-        <el-icon>
-          <WarningFilled v-if="isDirty || configLoadError" />
-          <CircleCheckFilled v-else-if="configReady" />
-          <Refresh v-else />
-        </el-icon>
-        <span>{{ configLoadError ? '配置读取失败' : (!configReady ? '正在读取配置' : (isDirty ? '有未保存更改' : '配置已同步')) }}</span>
-      </div>
-    </section>
-
     <div class="config-console na-panel">
-      <aside class="config-sidebar" aria-label="配置导航">
-        <header class="config-sidebar-header">
-          <div class="config-sidebar-title-group">
-            <span>配置导航</span>
-            <strong>{{ visibleSections.length }} 个配置项</strong>
-          </div>
-        </header>
-        <nav class="config-sidebar-nav">
-          <section
-            v-for="group in visibleConfigGroups"
-            :key="group.key"
-            class="config-nav-group"
-          >
-            <div class="config-nav-group-title">
-              <el-icon><component :is="group.icon" /></el-icon>
-              <span>{{ group.label }}</span>
-              <small>{{ group.sections.length }}</small>
-            </div>
-            <div class="config-nav-items">
-              <button
-                v-for="section in group.sections"
-                :key="section.name"
-                type="button"
-                :disabled="saving || !configReady"
-                :class="{ active: activeNames === section.name }"
-                :aria-current="activeNames === section.name ? 'page' : undefined"
-                @click="activeNames = section.name"
-              >
-                <span class="config-nav-text">
-                  <strong>{{ section.label }}</strong>
-                  <small>{{ section.description }}</small>
-                </span>
-                <el-icon class="config-nav-arrow" aria-hidden="true"><ArrowRight /></el-icon>
-              </button>
-            </div>
-          </section>
-        </nav>
-      </aside>
-
       <div class="config-main">
-        <div class="config-mobile-nav">
-          <span>配置区域</span>
-          <el-select v-model="activeNames" :disabled="saving || !configReady" aria-label="选择配置区域">
-            <el-option-group
-              v-for="group in visibleConfigGroups"
-              :key="group.key"
-              :label="group.label"
-            >
-              <el-option
-                v-for="section in group.sections"
-                :key="section.name"
-                :label="section.label"
-                :value="section.name"
-              />
-            </el-option-group>
-          </el-select>
-        </div>
-
         <section class="config-workbench" :aria-labelledby="`config-section-${activeNames}`">
           <header class="config-editor-header">
             <div class="config-editor-heading">
@@ -145,7 +43,6 @@
                 <el-icon><component :is="activeSection.icon" /></el-icon>
               </span>
               <div>
-                <span>{{ activeSection.groupLabel }}</span>
                 <h2 :id="`config-section-${activeNames}`">{{ activeSection.label }}</h2>
                 <p>{{ activeSection.description }}</p>
               </div>
@@ -1535,9 +1432,7 @@
   import { computed, ref, watch } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import {
-    ArrowRight,
     Check,
-    CircleCheckFilled,
     Coin,
     Connection,
     DataBoard,
@@ -1675,61 +1570,20 @@
     'invoice-recognition': defaultInvoiceRecognition()
   })
 
-  const configGroups = [
-    {
-      key: 'runtime',
-      label: '核心运行',
-      icon: Setting,
-      sections: [
-        { name: '1', label: '基础设置', description: '服务端口、存储类型与基础开关', icon: Setting },
-        { name: '3', label: '运行日志', description: '日志级别、输出方式与保留策略', icon: Document }
-      ]
-    },
-    {
-      key: 'security',
-      label: '安全认证',
-      icon: Key,
-      sections: [
-        { name: '2', label: 'JWT 签名', description: '签名密钥、令牌周期与签发身份', icon: Key },
-        { name: '7', label: '验证码', description: '验证码尺寸与字符规则', icon: View }
-      ]
-    },
-    {
-      key: 'data',
-      label: '数据服务',
-      icon: DataBoard,
-      sections: [
-        { name: '9', label: '主数据库', description: '数据库连接、连接池与日志策略', icon: Coin },
-        { name: '4', label: 'Redis', description: '缓存连接与数据库选择', icon: Connection, enabled: () => config.value.system['use-redis'] },
-        { name: '14', label: 'MongoDB', description: '文档数据库集群与连接参数', icon: DataBoard, enabled: () => config.value.system['use-mongo'] }
-      ]
-    },
-    {
-      key: 'integration',
-      label: '外部集成',
-      icon: Connection,
-      sections: [
-        { name: '10', label: '文件存储', description: '本地与对象存储服务连接', icon: UploadFilled },
-        { name: '5', label: '邮件服务', description: 'SMTP 连接与通知账户', icon: Message }
-      ]
-    },
-    {
-      key: 'intelligence',
-      label: '智能识别',
-      icon: Tickets,
-      sections: [
-        { name: '11', label: '发票识别', description: 'OCR、权威查验与多模态模型', icon: Tickets }
-      ]
-    }
+  const configSections = [
+    { name: '1', label: '基础设置', description: '服务端口、存储类型与基础开关', icon: Setting },
+    { name: '2', label: 'JWT 签名', description: '签名密钥、令牌周期与签发身份', icon: Key },
+    { name: '3', label: '运行日志', description: '日志级别、输出方式与保留策略', icon: Document },
+    { name: '4', label: 'Redis', description: '缓存连接与数据库选择', icon: Connection, enabled: () => config.value.system['use-redis'] },
+    { name: '5', label: '邮件服务', description: 'SMTP 连接与通知账户', icon: Message },
+    { name: '7', label: '验证码', description: '验证码尺寸与字符规则', icon: View },
+    { name: '9', label: '主数据库', description: '数据库连接、连接池与日志策略', icon: Coin },
+    { name: '10', label: '文件存储', description: '本地与对象存储服务连接', icon: UploadFilled },
+    { name: '11', label: '发票识别', description: 'OCR、权威查验与多模态模型', icon: Tickets },
+    { name: '14', label: 'MongoDB', description: '文档数据库集群与连接参数', icon: DataBoard, enabled: () => config.value.system['use-mongo'] }
   ]
 
-  const visibleConfigGroups = computed(() => configGroups.map((group) => ({
-    ...group,
-    sections: group.sections.filter((section) => !section.enabled || section.enabled())
-  })).filter((group) => group.sections.length))
-  const visibleSections = computed(() => visibleConfigGroups.value.flatMap((group) =>
-    group.sections.map((section) => ({ ...section, groupLabel: group.label }))
-  ))
+  const visibleSections = computed(() => configSections.filter((section) => !section.enabled || section.enabled()))
   const activeSection = computed(() =>
     visibleSections.value.find((section) => section.name === activeNames.value) || visibleSections.value[0]
   )
@@ -1737,38 +1591,6 @@
   const isSecretConfigured = (path) => Boolean(configuredSecrets.value[path])
   const isDirty = computed(() => Boolean(savedSnapshot.value) &&
     serializeConfig(config.value) !== savedSnapshot.value)
-  const databaseTypeLabel = computed(() => ({
-    mysql: 'MySQL',
-    pgsql: 'PostgreSQL',
-    mssql: 'SQL Server',
-    sqlite: 'SQLite',
-    oracle: 'Oracle'
-  })[config.value.system['db-type']] || '未设置')
-  const storageTypeLabel = computed(() => ({
-    local: '本地存储',
-    qiniu: '七牛云',
-    'tencent-cos': '腾讯云 COS',
-    'aliyun-oss': '阿里云 OSS',
-    'huawei-obs': '华为云 OBS',
-    'cloudflare-r2': 'Cloudflare R2',
-    minio: 'MinIO'
-  })[config.value.system['oss-type']] || '未设置')
-  const dataServiceLabel = computed(() => {
-    const services = []
-    if (config.value.system['use-redis']) services.push('Redis')
-    if (config.value.system['use-mongo']) services.push('MongoDB')
-    return services.length ? services.join(' + ') : '未启用'
-  })
-  const recognitionProviderCount = computed(() => {
-    const recognition = config.value['invoice-recognition']
-    return [
-      recognition.baidu.enabled,
-      recognition['public-ocr'].enabled,
-      recognition.verification.enabled,
-      recognition.multimodal.enabled
-    ].filter(Boolean).length
-  })
-
   watch(visibleSections, (sections) => {
     if (!sections.some((section) => section.name === activeNames.value)) {
       activeNames.value = '1'
@@ -2035,291 +1857,27 @@
     display: inline-flex;
   }
 
-  .runtime-summary {
-    display: grid;
-    grid-template-columns: minmax(180px, 1.1fr) minmax(0, 3fr) auto;
-    align-items: stretch;
-    min-width: 0;
-    margin-bottom: 12px;
-    overflow: hidden;
-    border-color: var(--na-border);
-    border-radius: 12px;
-    background: var(--na-card);
-    box-shadow: var(--na-shadow-sm);
-  }
-
-  .runtime-summary.unavailable .runtime-summary-lead,
-  .runtime-summary.unavailable .runtime-summary-facts {
-    opacity: 0.55;
-  }
-
-  .runtime-summary-lead {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-width: 0;
-    padding: 13px 16px;
-  }
-
-  .runtime-summary-lead > div {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .runtime-summary-lead span {
-    color: var(--na-muted-foreground);
-    font-size: 12px;
-    line-height: 18px;
-  }
-
-  .runtime-summary-lead strong {
-    overflow: hidden;
-    color: var(--na-foreground);
-    font-size: 13px;
-    font-weight: 650;
-    line-height: 20px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .signal-dot {
-    width: 9px;
-    height: 9px;
-    flex: 0 0 auto;
-    border: 2px solid var(--na-card);
-    border-radius: 50%;
-    background: var(--na-success);
-    box-shadow: 0 0 0 3px var(--na-success-soft);
-  }
-
-  .signal-dot.waiting {
-    background: var(--na-info);
-    box-shadow: 0 0 0 3px var(--na-info-soft);
-  }
-
-  .signal-dot.failed {
-    background: var(--na-danger);
-    box-shadow: 0 0 0 3px var(--na-danger-soft);
-  }
-
-  .runtime-summary-facts {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(120px, 1fr));
-    min-width: 0;
-    margin: 0;
-    border-left: 1px solid var(--na-border);
-  }
-
-  .runtime-summary-facts > div {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    justify-content: center;
-    gap: 2px;
-    padding: 10px 14px;
-    border-right: 1px solid var(--na-border);
-  }
-
-  .runtime-summary-facts dt {
-    color: var(--na-muted-foreground);
-    font-size: 12px;
-    line-height: 18px;
-  }
-
-  .runtime-summary-facts dd {
-    overflow: hidden;
-    margin: 0;
-    color: var(--na-foreground);
-    font-size: 13px;
-    font-weight: 600;
-    line-height: 20px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
   .config-console {
-    display: grid;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
-    grid-template-columns: 282px minmax(0, 1fr);
     min-width: 0;
     min-height: 660px;
     border-radius: 12px;
   }
 
-  .config-sidebar {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    border-right: 1px solid var(--na-border);
-    background: var(--na-card);
-  }
-
-  .config-sidebar-header {
-    display: flex;
-    min-height: 66px;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 14px 14px 12px;
-    border-bottom: 1px solid var(--na-border);
-  }
-
-  .config-sidebar-title-group {
-    min-width: 0;
-  }
-
-  .config-sidebar-header span {
-    display: block;
-    color: var(--na-muted-foreground);
-    font-size: 12px;
-    line-height: 18px;
-  }
-
-  .config-sidebar-header strong {
-    display: block;
-    margin-top: 2px;
-    color: var(--na-foreground);
-    font-size: 14px;
-    font-weight: 650;
-    line-height: 20px;
-  }
-
-  .config-sidebar-nav {
-    flex: 1 1 auto;
-    min-height: 0;
-    padding: 12px 10px 18px;
-    overflow: auto;
-  }
-
-  .config-nav-group + .config-nav-group {
-    margin-top: 14px;
-  }
-
-  .config-nav-group-title {
-    display: grid;
-    grid-template-columns: 18px minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 8px;
-    min-height: 28px;
-    padding: 3px 6px 6px;
-    color: var(--na-muted-foreground);
-    font-size: 12px;
-    font-weight: 600;
-  }
-
-  .config-nav-group-title .el-icon {
-    font-size: 14px;
-  }
-
-  .config-nav-group-title small {
-    font-size: 11px;
-    font-variant-numeric: tabular-nums;
-    font-weight: 600;
-  }
-
-  .config-nav-items {
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
-  }
-
-  .config-nav-items button {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 16px;
-    align-items: center;
-    gap: 10px;
-    min-height: 58px;
-    padding: 10px 10px 10px 12px;
-    border: 1px solid transparent;
-    border-radius: 10px;
-    color: var(--na-foreground);
-    background: color-mix(in srgb, var(--na-muted) 66%, var(--na-card));
-    cursor: pointer;
-    text-align: left;
-    transition:
-      color 160ms cubic-bezier(.22, 1, .36, 1),
-      border-color 160ms cubic-bezier(.22, 1, .36, 1),
-      background-color 160ms cubic-bezier(.22, 1, .36, 1);
-  }
-
-  .config-nav-items button:not(:disabled):hover {
-    border-color: color-mix(in srgb, var(--na-primary) 18%, var(--na-border));
-    background: color-mix(in srgb, var(--na-primary) 7%, var(--na-card));
-  }
-
-  .config-nav-items button:focus-visible {
-    outline: 2px solid var(--na-primary);
-    outline-offset: 2px;
-  }
-
-  .config-nav-items button.active {
-    border-color: color-mix(in srgb, var(--na-primary) 34%, var(--na-border));
-    color: var(--na-primary);
-    background: var(--na-primary-soft);
-  }
-
-  .config-nav-items button:disabled {
-    cursor: not-allowed;
-    opacity: 0.55;
-  }
-
-  .config-nav-arrow {
-    opacity: 0;
-    transition: opacity 180ms ease, transform 180ms cubic-bezier(.22, 1, .36, 1);
-  }
-
-  .config-nav-items button:not(:disabled):hover .config-nav-arrow,
-  .config-nav-items button.active .config-nav-arrow {
-    opacity: 1;
-  }
-
-  .config-nav-items button.active .config-nav-arrow {
-    transform: translateX(2px);
-  }
-
   .config-main {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
     min-width: 0;
+    min-height: 0;
     background: var(--na-card);
-  }
-
-  .config-nav-text {
-    display: grid;
-    min-width: 0;
-    gap: 3px;
-  }
-
-  .config-nav-text strong {
-    overflow: hidden;
-    color: currentColor;
-    font-size: 13px;
-    font-weight: 630;
-    line-height: 1.35;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .config-nav-text small {
-    overflow: hidden;
-    color: var(--na-muted-foreground);
-    font-size: 11px;
-    font-weight: 500;
-    line-height: 1.3;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .config-nav-items button.active .config-nav-text small {
-    color: color-mix(in srgb, var(--na-primary) 70%, var(--na-foreground));
-  }
-
-  .config-mobile-nav {
-    display: none;
   }
 
   .config-workbench {
     display: flex;
+    flex: 1 1 auto;
     flex-direction: column;
     overflow: hidden;
     min-width: 0;
@@ -2389,38 +1947,6 @@
     white-space: nowrap;
   }
 
-  .config-sync-state {
-    display: inline-flex;
-    align-items: center;
-    flex: 0 0 auto;
-    gap: 8px;
-    min-height: 32px;
-    align-self: center;
-    margin: 0 16px;
-    padding: 4px 8px;
-    border: 1px solid var(--na-border);
-    border-radius: 999px;
-    color: var(--na-success);
-    background: var(--na-success-soft);
-    font-size: 12px;
-    font-weight: 600;
-  }
-
-  .config-sync-state.dirty {
-    color: var(--na-warning);
-    background: var(--na-warning-soft);
-  }
-
-  .config-sync-state.failed {
-    color: var(--na-danger);
-    background: var(--na-danger-soft);
-  }
-
-  .config-sync-state.waiting {
-    color: var(--na-info);
-    background: var(--na-info-soft);
-  }
-
   .config-form,
   .config-tabs {
     min-width: 0;
@@ -2438,7 +1964,38 @@
   }
 
   .config-tabs :deep(.el-tabs__header) {
+    display: block;
+    margin: 0;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--na-border);
+    background: var(--na-card);
+  }
+
+  .config-tabs :deep(.el-tabs__nav-wrap::after) {
     display: none;
+  }
+
+  .config-tabs :deep(.el-tabs__nav) {
+    gap: 18px;
+  }
+
+  .config-tabs :deep(.el-tabs__item) {
+    height: 44px;
+    padding: 0 2px;
+    color: var(--na-muted-foreground);
+    font-size: 13px;
+    font-weight: 560;
+  }
+
+  .config-tabs :deep(.el-tabs__item:hover),
+  .config-tabs :deep(.el-tabs__item.is-active) {
+    color: var(--na-primary);
+  }
+
+  .config-tabs :deep(.el-tabs__active-bar) {
+    height: 2px;
+    border-radius: 2px 2px 0 0;
+    background: var(--na-primary);
   }
 
   .config-tabs :deep(.el-tabs__content) {
@@ -2756,41 +2313,6 @@
   }
 
   @media (max-width: 1100px) {
-    .runtime-summary {
-      grid-template-columns: minmax(0, 1fr) auto;
-    }
-
-    .runtime-summary-facts {
-      grid-column: 1 / -1;
-      grid-row: 2;
-      border-top: 1px solid var(--na-border);
-      border-left: 0;
-    }
-
-    .config-console {
-      grid-template-columns: minmax(0, 1fr);
-    }
-
-    .config-sidebar {
-      display: none;
-    }
-
-    .config-mobile-nav {
-      display: grid;
-      grid-template-columns: 88px minmax(0, 1fr);
-      align-items: center;
-      gap: 12px;
-      padding: 10px 16px;
-      border-bottom: 1px solid var(--na-border);
-      background: color-mix(in srgb, var(--na-muted) 70%, var(--na-card));
-    }
-
-    .config-mobile-nav > span {
-      color: var(--na-muted-foreground);
-      font-size: 12px;
-      font-weight: 600;
-    }
-
     .recognition-overview {
       grid-template-columns: minmax(0, 1fr);
     }
@@ -2801,14 +2323,6 @@
   }
 
   @media (max-width: 768px) {
-    .runtime-summary-facts {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .runtime-summary-facts > div:nth-child(2n) {
-      border-right: 0;
-    }
-
     .config-tabs :deep(.el-tab-pane) {
       grid-template-columns: minmax(0, 1fr);
       min-height: 360px;
@@ -2891,25 +2405,6 @@
       max-width: none;
     }
 
-    .runtime-summary {
-      grid-template-columns: minmax(0, 1fr);
-    }
-
-    .runtime-summary-facts {
-      grid-row: auto;
-    }
-
-    .config-sync-state {
-      justify-self: start;
-      width: auto;
-      margin: 0 12px 12px;
-    }
-
-    .config-mobile-nav {
-      grid-template-columns: minmax(0, 1fr);
-      gap: 8px;
-    }
-
     .flow-step {
       width: 100%;
     }
@@ -2922,8 +2417,8 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .config-nav-items button,
-    .config-nav-arrow {
+    .config-tabs :deep(.el-tabs__item),
+    .config-tabs :deep(.el-tabs__active-bar) {
       transition: none;
     }
   }
