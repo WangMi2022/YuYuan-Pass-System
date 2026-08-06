@@ -2,14 +2,17 @@
   <PendingTasks v-if="isPendingView" @back="closePendingItems" />
 
   <main v-else v-loading="loading" class="dashboard-page">
+    <section class="cockpit-hero" aria-labelledby="dashboard-title">
+      <div class="cockpit-ambient" aria-hidden="true"><FluidGlassCanvas /></div>
+      <div class="cockpit-content">
     <AppPageHeader
       title-id="dashboard-title"
-      title="首页驾驶舱"
-      description="汇总当前权限范围内的资产、流水与日程。"
+      title="领导驾驶舱"
+      description="资产、流水与运营状态一屏掌握。"
     >
       <template #actions>
         <span class="updated-at">刷新于 {{ updatedAt || '—' }}</span>
-        <el-button :icon="Refresh" :loading="loading" @click="loadDashboard">刷新</el-button>
+        <el-button class="cockpit-ghost-button" :icon="Refresh" :loading="loading" @click="loadDashboard">刷新</el-button>
         <div v-if="access.assetInventory || access.invoiceRecognition" class="header-primary-actions">
           <el-button v-if="access.assetInventory" type="primary" :icon="Plus" @click="go('assetInventory')">登记资产</el-button>
           <el-button v-if="access.invoiceRecognition" type="primary" :icon="Tickets" @click="go('invoiceRecognition')">上传发票</el-button>
@@ -76,6 +79,8 @@
         </div>
         <el-icon class="metric-icon" :class="`metric-${metric.tone}`"><component :is="metric.icon" /></el-icon>
       </component>
+    </section>
+      </div>
     </section>
 
     <section class="dashboard-workspace">
@@ -235,6 +240,7 @@ import {
 } from '@element-plus/icons-vue'
 import { dateKey, recurrenceLabel, scheduleMatchesDate } from '@/utils/workCalendar'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
+import FluidGlassCanvas from '@/components/fluidGlass/FluidGlassCanvas.vue'
 import PendingTasks from '@/view/dashboard/PendingTasks.vue'
 import { formatCompactCurrency, formatCurrency, formatNumber } from '@/utils/format'
 import { getAssetDashboard } from '@/plugin/asset/api/asset'
@@ -732,5 +738,128 @@ button.metric-item { width: 100%; border-top: 0; border-bottom: 0; border-left: 
 }
 @media (prefers-reduced-motion: reduce) {
   .progress-track > i { transition: none; }
+}
+
+/* Fluid Glass treatment is intentionally scoped to the cockpit's decision layer. */
+.cockpit-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  margin-bottom: 14px;
+  border: 1px solid rgba(153, 255, 237, .18);
+  border-radius: 18px;
+  background: #071416;
+  color: #eefcf8;
+  box-shadow: inset 0 1px 0 rgba(222, 255, 248, .1);
+}
+.cockpit-ambient {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  background: #071416;
+  pointer-events: none;
+}
+.cockpit-ambient.fluid-glass-fallback { background: #0b1e1f; }
+.cockpit-content {
+  position: relative;
+  z-index: 1;
+  padding: 10px 16px 16px;
+}
+.cockpit-content :deep(.na-page-header) {
+  margin-bottom: 15px;
+  padding: 0 4px;
+}
+.cockpit-content :deep(.na-page-title) { color: #f0fffb; }
+.cockpit-content :deep(.na-page-description) { color: rgba(195, 225, 218, .74); }
+.cockpit-content :deep(.el-button:not(.el-button--primary)) {
+  color: rgba(215, 245, 238, .78);
+}
+.cockpit-content :deep(.el-button:not(.el-button--primary):hover),
+.cockpit-content :deep(.el-button:not(.el-button--primary):focus-visible) {
+  color: #eafff8;
+  background: rgba(0, 231, 210, .1);
+}
+.cockpit-ghost-button {
+  border: 1px solid rgba(153, 255, 237, .22) !important;
+  border-radius: 9px !important;
+  background: rgba(0, 231, 210, .06) !important;
+}
+.cockpit-hero .header-primary-actions :deep(.el-button) {
+  border-color: rgba(80, 234, 204, .36);
+  background: rgba(0, 201, 113, .22);
+  color: #eafff3;
+}
+.cockpit-hero .header-primary-actions :deep(.el-button:hover),
+.cockpit-hero .header-primary-actions :deep(.el-button:focus-visible) {
+  border-color: rgba(111, 255, 228, .58);
+  background: rgba(0, 201, 113, .34);
+}
+.cockpit-hero .workbench-band {
+  min-height: 128px;
+  margin-bottom: 12px;
+  padding: 18px 20px;
+  border: 1px solid rgba(153, 255, 237, .16);
+  border-radius: 14px;
+  background: rgba(3, 18, 17, .56);
+  -webkit-backdrop-filter: blur(14px) saturate(112%);
+  backdrop-filter: blur(14px) saturate(112%);
+  box-shadow: inset 0 1px 0 rgba(222, 255, 248, .08), inset 0 -1px 0 rgba(0, 0, 0, .24);
+}
+.cockpit-hero .current-date { color: #64e7c7; }
+.cockpit-hero .workbench-copy h2 { color: #f0fffb; }
+.cockpit-hero .workbench-copy > p:last-of-type { color: rgba(195, 225, 218, .72); }
+.cockpit-hero .runtime-summary { border-left-color: rgba(153, 255, 237, .18); color: #eefcf8; }
+.cockpit-hero .runtime-topline > small,
+.cockpit-hero .runtime-heading,
+.cockpit-hero .runtime-summary dt { color: rgba(195, 225, 218, .7); }
+.cockpit-hero .runtime-summary dd { color: #eefcf8; }
+.cockpit-hero .runtime-track { background: rgba(211, 245, 237, .16); }
+.cockpit-hero .quick-actions :deep(.el-button) { color: rgba(215, 245, 238, .78); }
+.cockpit-hero .quick-actions :deep(.el-button:hover),
+.cockpit-hero .quick-actions :deep(.el-button:focus-visible) { color: #eafff8; }
+.cockpit-hero .metric-band {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 0;
+  border: 0;
+  background: transparent;
+}
+.cockpit-hero .metric-item,
+.cockpit-hero button.metric-item {
+  min-height: 130px;
+  padding: 17px 18px 16px 20px;
+  border: 1px solid rgba(153, 255, 237, .18);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, .075);
+  -webkit-backdrop-filter: blur(16px) saturate(118%);
+  backdrop-filter: blur(16px) saturate(118%);
+  box-shadow: 0 8px 8px rgba(0, 0, 0, .16), inset 0 1px 0 rgba(222, 255, 248, .1), inset 0 -1px 0 rgba(0, 0, 0, .22);
+  color: #eefcf8;
+}
+.cockpit-hero .metric-item:last-child { border-right: 1px solid rgba(153, 255, 237, .18); }
+.cockpit-hero .metric-item--actionable:hover,
+.cockpit-hero .metric-item--actionable:focus-visible {
+  background: rgba(0, 231, 210, .12);
+  border-color: rgba(111, 255, 228, .38);
+}
+.cockpit-hero .metric-copy > span,
+.cockpit-hero .metric-copy small { color: rgba(195, 225, 218, .7); }
+.cockpit-hero .metric-copy strong { color: #f3fffb; font-size: 1.45rem; }
+.cockpit-hero .metric-copy small.is-warning { color: #ffd079; }
+.cockpit-hero .metric-icon { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12); }
+
+@media (max-width: 860px) {
+  .cockpit-content { padding: 9px 12px 14px; }
+}
+@media (max-width: 640px) {
+  .cockpit-hero { border-radius: 14px; }
+  .cockpit-content { padding: 8px 10px 12px; }
+  .cockpit-hero .workbench-band { padding: 15px; }
+  .cockpit-hero .metric-item,
+  .cockpit-hero button.metric-item { min-height: 112px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cockpit-hero .metric-item { transition: none; }
 }
 </style>
