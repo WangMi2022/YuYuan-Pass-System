@@ -179,6 +179,10 @@ html.bento :is(
   box-shadow: var(--na-bento-card-shadow);
 }
 
+html.bento .dashboard-page .metric-band {
+  overflow: hidden;
+}
+
 html.bento :is(
   .na-panel,
   .na-card,
@@ -214,11 +218,10 @@ html.bento :is(.gva-table-box, .table-panel, .ledger-panel) .el-table {
   border-radius: 8px;
 }
 
-html.bento :is(.metric-card:first-child, .profile-hero, .dashboard-page .metric-band > *:first-child) {
+html.bento :is(.metric-card:first-child, .profile-hero) {
   background: var(--na-bento-surface);
 }
 
-html.bento .dashboard-page .metric-band > *:first-child,
 html.bento .dashboard-page .workbench-band {
   background: var(--na-bento-surface);
 }
