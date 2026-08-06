@@ -1,7 +1,12 @@
 <template>
   <PendingTasks v-if="isPendingView" @back="closePendingItems" />
 
-  <main v-else v-loading="loading" class="dashboard-page">
+  <main
+    v-else
+    v-loading="loading"
+    element-loading-background="transparent"
+    class="dashboard-page"
+  >
     <div class="dashboard-ambient" aria-hidden="true">
       <FluidGlassCanvas
         :color-a="fluidPalette.colorA"

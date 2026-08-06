@@ -87,7 +87,7 @@
   })
 
   watchEffect(() => {
-    font.color = isDark.value ? 'rgba(255,255,255, .15)' : 'rgba(0, 0, 0, .15)'
+    font.color = isDark.value ? 'rgba(255,255,255, .07)' : 'rgba(25, 23, 44, .08)'
   })
 
   const router = useRouter()
