@@ -10,7 +10,11 @@ import fragmentShaderSource from './shaders/canonical-fragment.glsl?raw'
 const props = defineProps({
   speed: { type: Number, default: 0.52 },
   intensity: { type: Number, default: 0.86 },
-  pointer: { type: Number, default: 0.62 }
+  pointer: { type: Number, default: 0.62 },
+  colorA: { type: String, default: '#00e7d2' },
+  colorB: { type: String, default: '#3cc8ff' },
+  colorC: { type: String, default: '#075f68' },
+  surfaceOpacity: { type: Number, default: 0.08 }
 })
 
 const canvas = ref(null)
@@ -19,6 +23,7 @@ let gl = null
 let program = null
 let resizeObserver = null
 let host = null
+let pointerTarget = null
 let onPointerMove = null
 let onPointerLeave = null
 let onVisibilityChange = null
@@ -79,8 +84,8 @@ function resize() {
 }
 
 function setPointer(event) {
-  if (!host) return
-  const rect = host.getBoundingClientRect()
+  if (!pointerTarget) return
+  const rect = pointerTarget.getBoundingClientRect()
   if (!rect.width || !rect.height) return
   const nextX = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width))
   const nextY = Math.min(1, Math.max(0, 1 - (event.clientY - rect.top) / rect.height))
@@ -117,10 +122,10 @@ function draw(now) {
   gl.uniform1f(uniforms.intensity, props.intensity)
   gl.uniform1f(uniforms.pointer, props.pointer)
   gl.uniform1f(uniforms.seed, 5.4)
-  gl.uniform1f(uniforms.surfaceOpacity, 0.08)
-  gl.uniform3fv(uniforms.colorA, hexToRgb('#00e7d2'))
-  gl.uniform3fv(uniforms.colorB, hexToRgb('#3cc8ff'))
-  gl.uniform3fv(uniforms.colorC, hexToRgb('#075f68'))
+  gl.uniform1f(uniforms.surfaceOpacity, props.surfaceOpacity)
+  gl.uniform3fv(uniforms.colorA, hexToRgb(props.colorA))
+  gl.uniform3fv(uniforms.colorB, hexToRgb(props.colorB))
+  gl.uniform3fv(uniforms.colorC, hexToRgb(props.colorC))
   gl.drawArrays(gl.TRIANGLES, 0, 6)
 }
 
@@ -139,6 +144,7 @@ function activateFallback() {
 
 onMounted(() => {
   host = canvas.value?.parentElement
+  pointerTarget = host?.parentElement || host
   reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   try {
     gl = canvas.value?.getContext('webgl', { alpha: true, premultipliedAlpha: false, antialias: true })
@@ -162,8 +168,8 @@ onMounted(() => {
     onVisibilityChange = () => {
       if (!document.hidden) lastFrame = performance.now()
     }
-    host?.addEventListener('pointermove', onPointerMove, { passive: true })
-    host?.addEventListener('pointerleave', onPointerLeave, { passive: true })
+    pointerTarget?.addEventListener('pointermove', onPointerMove, { passive: true })
+    pointerTarget?.addEventListener('pointerleave', onPointerLeave, { passive: true })
     document.addEventListener('visibilitychange', onVisibilityChange)
     startedAt = performance.now()
     lastFrame = startedAt
@@ -177,8 +183,8 @@ onMounted(() => {
 onBeforeUnmount(() => {
   cancelAnimationFrame(animationFrame)
   resizeObserver?.disconnect()
-  if (host && onPointerMove) host.removeEventListener('pointermove', onPointerMove)
-  if (host && onPointerLeave) host.removeEventListener('pointerleave', onPointerLeave)
+  if (pointerTarget && onPointerMove) pointerTarget.removeEventListener('pointermove', onPointerMove)
+  if (pointerTarget && onPointerLeave) pointerTarget.removeEventListener('pointerleave', onPointerLeave)
   if (onVisibilityChange) document.removeEventListener('visibilitychange', onVisibilityChange)
   if (gl && program) gl.deleteProgram(program)
   gl = null
