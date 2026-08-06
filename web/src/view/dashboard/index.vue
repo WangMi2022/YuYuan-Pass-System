@@ -1,105 +1,85 @@
 <template>
   <PendingTasks v-if="isPendingView" @back="closePendingItems" />
 
-  <main
-    v-else
-    v-loading="loading"
-    element-loading-background="transparent"
-    class="dashboard-page"
-  >
-    <div class="dashboard-ambient" aria-hidden="true">
-      <FluidGlassCanvas
-        :color-a="fluidPalette.colorA"
-        :color-b="fluidPalette.colorB"
-        :color-c="fluidPalette.colorC"
-        :intensity="fluidPalette.intensity"
-        :surface-opacity="fluidPalette.surfaceOpacity"
-      />
-    </div>
-
-    <div class="dashboard-content">
-      <section class="cockpit-hero" aria-labelledby="dashboard-title">
-        <div class="cockpit-content">
-          <AppPageHeader
-            title-id="dashboard-title"
-            title="领导驾驶舱"
-            description="资产、流水与运营状态一屏掌握。"
-          >
-            <template #actions>
-              <span class="updated-at">刷新于 {{ updatedAt || '—' }}</span>
-              <el-button class="cockpit-ghost-button" :icon="Refresh" :loading="loading" @click="loadDashboard">刷新</el-button>
-              <div v-if="access.assetInventory || access.invoiceRecognition" class="header-primary-actions">
-                <el-button v-if="access.assetInventory" type="primary" :icon="Plus" @click="go('assetInventory')">登记资产</el-button>
-                <el-button v-if="access.invoiceRecognition" type="primary" :icon="Tickets" @click="go('invoiceRecognition')">上传发票</el-button>
-              </div>
-            </template>
-          </AppPageHeader>
-
-          <section class="workbench-band" aria-labelledby="workbench-title">
-            <div class="workbench-copy">
-              <p class="current-date">{{ currentDateText }}</p>
-              <h2 id="workbench-title">{{ greeting }}，{{ userStore.userInfo.nickName || userStore.userInfo.userName || '用户' }}</h2>
-              <p>{{ overviewText }}</p>
-              <div class="quick-actions" aria-label="常用操作">
-                <el-button v-if="access.invoiceLedger" text :icon="DocumentChecked" @click="go('invoiceLedger')">发票台账</el-button>
-                <el-button v-if="access.calendar" text :icon="Calendar" @click="go('workSchedule')">日程总览</el-button>
-                <el-button v-if="access.audit" text :icon="Clock" @click="go('operation')">操作历史</el-button>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              class="runtime-summary"
-              :class="{ 'is-actionable': access.monitor }"
-              :disabled="!access.monitor"
-              aria-label="服务器监控摘要"
-              @click="go('state')"
-            >
-              <span class="runtime-topline">
-                <span class="runtime-heading" :class="`health-${systemHealth.tone}`"><i />{{ moduleLoaded.monitor ? systemHealth.label : '服务器监控' }}</span>
-                <small>{{ moduleLoaded.monitor ? `采集于 ${serverCollectedAt}` : '暂无可用数据' }}</small>
-              </span>
-              <dl>
-                <div>
-                  <dt>CPU</dt><dd>{{ moduleLoaded.monitor ? percent(systemUsage.cpu) : '—' }}</dd>
-                  <span class="runtime-track"><i :class="`tone-${usageTone(systemUsage.cpu)}`" :style="{ width: `${safePercent(systemUsage.cpu)}%` }" /></span>
-                </div>
-                <div>
-                  <dt>内存</dt><dd>{{ moduleLoaded.monitor ? percent(systemUsage.ram) : '—' }}</dd>
-                  <span class="runtime-track"><i :class="`tone-${usageTone(systemUsage.ram)}`" :style="{ width: `${safePercent(systemUsage.ram)}%` }" /></span>
-                </div>
-                <div>
-                  <dt>磁盘</dt><dd>{{ moduleLoaded.monitor ? percent(systemUsage.disk) : '—' }}</dd>
-                  <span class="runtime-track"><i :class="`tone-${usageTone(systemUsage.disk)}`" :style="{ width: `${safePercent(systemUsage.disk)}%` }" /></span>
-                </div>
-              </dl>
-            </button>
-          </section>
-
-          <section v-if="metrics.length" class="metric-band" aria-label="核心业务指标">
-            <component
-              :is="metric.action ? 'button' : 'article'"
-              v-for="metric in metrics"
-              :key="metric.label"
-              class="metric-item"
-              :class="{ 'metric-item--actionable': metric.action }"
-              :type="metric.action ? 'button' : undefined"
-              :aria-label="metric.action ? metric.actionLabel : undefined"
-              @click="handleMetricClick(metric)"
-            >
-              <div class="metric-copy">
-                <span>{{ metric.label }}</span>
-                <strong>{{ metric.value }}</strong>
-                <small :class="metric.tone === 'warning' ? 'is-warning' : ''">{{ metric.hint }}</small>
-              </div>
-              <el-icon class="metric-icon" :class="`metric-${metric.tone}`"><component :is="metric.icon" /></el-icon>
-            </component>
-          </section>
+  <main v-else v-loading="loading" class="dashboard-page">
+    <AppPageHeader
+      title-id="dashboard-title"
+      title="首页驾驶舱"
+      description="汇总当前权限范围内的资产、流水与日程。"
+    >
+      <template #actions>
+        <span class="updated-at">刷新于 {{ updatedAt || '—' }}</span>
+        <el-button :icon="Refresh" :loading="loading" @click="loadDashboard">刷新</el-button>
+        <div v-if="access.assetInventory || access.invoiceRecognition" class="header-primary-actions">
+          <el-button v-if="access.assetInventory" type="primary" :icon="Plus" @click="go('assetInventory')">登记资产</el-button>
+          <el-button v-if="access.invoiceRecognition" type="primary" :icon="Tickets" @click="go('invoiceRecognition')">上传发票</el-button>
         </div>
-      </section>
+      </template>
+    </AppPageHeader>
 
-      <section class="dashboard-workspace">
-        <div class="business-column">
+    <section class="workbench-band" aria-labelledby="workbench-title">
+      <div class="workbench-copy">
+        <p class="current-date">{{ currentDateText }}</p>
+        <h2 id="workbench-title">{{ greeting }}，{{ userStore.userInfo.nickName || userStore.userInfo.userName || '用户' }}</h2>
+        <p>{{ overviewText }}</p>
+        <div class="quick-actions" aria-label="常用操作">
+          <el-button v-if="access.invoiceLedger" text :icon="DocumentChecked" @click="go('invoiceLedger')">发票台账</el-button>
+          <el-button v-if="access.calendar" text :icon="Calendar" @click="go('workSchedule')">日程总览</el-button>
+          <el-button v-if="access.audit" text :icon="Clock" @click="go('operation')">操作历史</el-button>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        class="runtime-summary"
+        :class="{ 'is-actionable': access.monitor }"
+        :disabled="!access.monitor"
+        aria-label="服务器监控摘要"
+        @click="go('state')"
+      >
+        <span class="runtime-topline">
+          <span class="runtime-heading" :class="`health-${systemHealth.tone}`"><i />{{ moduleLoaded.monitor ? systemHealth.label : '服务器监控' }}</span>
+          <small>{{ moduleLoaded.monitor ? `采集于 ${serverCollectedAt}` : '暂无可用数据' }}</small>
+        </span>
+        <dl>
+          <div>
+            <dt>CPU</dt><dd>{{ moduleLoaded.monitor ? percent(systemUsage.cpu) : '—' }}</dd>
+            <span class="runtime-track"><i :class="`tone-${usageTone(systemUsage.cpu)}`" :style="{ width: `${safePercent(systemUsage.cpu)}%` }" /></span>
+          </div>
+          <div>
+            <dt>内存</dt><dd>{{ moduleLoaded.monitor ? percent(systemUsage.ram) : '—' }}</dd>
+            <span class="runtime-track"><i :class="`tone-${usageTone(systemUsage.ram)}`" :style="{ width: `${safePercent(systemUsage.ram)}%` }" /></span>
+          </div>
+          <div>
+            <dt>磁盘</dt><dd>{{ moduleLoaded.monitor ? percent(systemUsage.disk) : '—' }}</dd>
+            <span class="runtime-track"><i :class="`tone-${usageTone(systemUsage.disk)}`" :style="{ width: `${safePercent(systemUsage.disk)}%` }" /></span>
+          </div>
+        </dl>
+      </button>
+    </section>
+
+    <section v-if="metrics.length" class="metric-band" aria-label="核心业务指标">
+      <component
+        :is="metric.action ? 'button' : 'article'"
+        v-for="metric in metrics"
+        :key="metric.label"
+        class="metric-item"
+        :class="{ 'metric-item--actionable': metric.action }"
+        :type="metric.action ? 'button' : undefined"
+        :aria-label="metric.action ? metric.actionLabel : undefined"
+        @click="handleMetricClick(metric)"
+      >
+        <div class="metric-copy">
+          <span>{{ metric.label }}</span>
+          <strong>{{ metric.value }}</strong>
+          <small :class="metric.tone === 'warning' ? 'is-warning' : ''">{{ metric.hint }}</small>
+        </div>
+        <el-icon class="metric-icon" :class="`metric-${metric.tone}`"><component :is="metric.icon" /></el-icon>
+      </component>
+    </section>
+
+    <section class="dashboard-workspace">
+      <div class="business-column">
         <article v-if="access.assets" class="na-panel dashboard-panel asset-panel">
           <header class="na-panel-header panel-heading">
             <div>
@@ -233,9 +213,8 @@
           <div v-else class="panel-placeholder">操作记录暂不可用</div>
         </article>
 
-        </aside>
-      </section>
-    </div>
+      </aside>
+    </section>
   </main>
 </template>
 
@@ -256,7 +235,6 @@ import {
 } from '@element-plus/icons-vue'
 import { dateKey, recurrenceLabel, scheduleMatchesDate } from '@/utils/workCalendar'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
-import FluidGlassCanvas from '@/components/fluidGlass/FluidGlassCanvas.vue'
 import PendingTasks from '@/view/dashboard/PendingTasks.vue'
 import { formatCompactCurrency, formatCurrency, formatNumber } from '@/utils/format'
 import { getAssetDashboard } from '@/plugin/asset/api/asset'
@@ -266,14 +244,12 @@ import { centsToCurrency } from '@/plugin/invoice/utils/invoice'
 import { getSysOperationRecordList } from '@/api/sysOperationRecord'
 import { getSystemState } from '@/api/system'
 import { getWorkSchedules, importLegacyWorkSchedules } from '@/api/workSchedule'
-import { useAppStore } from '@/pinia/modules/app'
 import { useUserStore } from '@/pinia/modules/user'
 
 defineOptions({ name: 'Dashboard' })
 
 const router = useRouter()
 const route = useRoute()
-const appStore = useAppStore()
 const userStore = useUserStore()
 const loading = ref(false)
 const updatedAt = ref('')
@@ -310,42 +286,6 @@ const access = computed(() => ({
 }))
 const isPendingView = computed(() => route.query.view === 'pending')
 const canOpenPendingTasks = computed(() => access.value.assetOperations || access.value.invoiceRecognition)
-const defaultPrimaryColor = '#6D5DFB'
-const normalizeHexColor = (color) => {
-  const value = typeof color === 'string' ? color.trim() : ''
-  if (/^#[\da-f]{6}$/i.test(value)) return value
-  if (/^#[\da-f]{3}$/i.test(value)) return `#${value[1]}${value[1]}${value[2]}${value[2]}${value[3]}${value[3]}`
-  return defaultPrimaryColor
-}
-const mixHexColor = (source, target, amount) => {
-  const from = normalizeHexColor(source).slice(1)
-  const to = normalizeHexColor(target).slice(1)
-  const channels = [0, 2, 4].map((offset) => {
-    const value = Number.parseInt(from.slice(offset, offset + 2), 16) * (1 - amount)
-      + Number.parseInt(to.slice(offset, offset + 2), 16) * amount
-    return Math.round(value)
-  })
-  return `#${channels.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`
-}
-const fluidPalette = computed(() => {
-  const primary = normalizeHexColor(appStore.config.primaryColor)
-  if (appStore.isDark) {
-    return {
-      colorA: mixHexColor(primary, '#f4fffb', 0.12),
-      colorB: mixHexColor(primary, '#70e6ff', 0.28),
-      colorC: mixHexColor(primary, '#041a24', 0.72),
-      intensity: 0.92,
-      surfaceOpacity: 0.16
-    }
-  }
-  return {
-    colorA: primary,
-    colorB: mixHexColor(primary, '#eef7ff', 0.36),
-    colorC: mixHexColor(primary, '#f6edff', 0.58),
-    intensity: 0.72,
-    surfaceOpacity: 0.1
-  }
-})
 
 const greeting = computed(() => {
   const hour = new Date().getHours()
@@ -792,290 +732,5 @@ button.metric-item { width: 100%; border-top: 0; border-bottom: 0; border-left: 
 }
 @media (prefers-reduced-motion: reduce) {
   .progress-track > i { transition: none; }
-}
-
-/* Fluid Glass treatment spans the whole cockpit and follows the app theme. */
-.dashboard-page {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  background: var(--na-background);
-  --cockpit-surface: color-mix(in srgb, var(--na-primary) 3%, rgb(255 255 255 / 72%));
-  --cockpit-surface-strong: color-mix(in srgb, var(--na-primary) 4%, rgb(255 255 255 / 84%));
-  --cockpit-surface-soft: color-mix(in srgb, var(--na-primary) 4%, rgb(255 255 255 / 54%));
-  --cockpit-border: color-mix(in srgb, var(--na-primary) 18%, var(--na-border));
-  --cockpit-divider: color-mix(in srgb, var(--na-primary) 10%, var(--na-border));
-  --cockpit-ink: var(--na-foreground);
-  --cockpit-muted: var(--na-muted-foreground);
-  --cockpit-track: color-mix(in srgb, var(--na-foreground) 10%, transparent);
-  --cockpit-shadow: 0 16px 36px color-mix(in srgb, var(--na-primary) 12%, transparent);
-  --cockpit-hover: color-mix(in srgb, var(--na-primary) 10%, transparent);
-}
-:global(html.dark .dashboard-page) {
-  --cockpit-surface: color-mix(in srgb, var(--na-primary) 6%, rgb(17 28 34 / 70%));
-  --cockpit-surface-strong: color-mix(in srgb, var(--na-primary) 8%, rgb(17 28 34 / 84%));
-  --cockpit-surface-soft: color-mix(in srgb, var(--na-primary) 8%, rgb(24 45 52 / 62%));
-  --cockpit-border: color-mix(in srgb, var(--na-primary) 22%, var(--na-border));
-  --cockpit-divider: color-mix(in srgb, var(--na-primary) 16%, var(--na-border));
-  --cockpit-ink: #f2fffd;
-  --cockpit-muted: color-mix(in srgb, var(--na-foreground) 72%, var(--na-primary));
-  --cockpit-track: color-mix(in srgb, var(--na-foreground) 16%, transparent);
-  --cockpit-shadow: 0 18px 42px color-mix(in srgb, var(--na-primary) 14%, #000);
-  --cockpit-hover: color-mix(in srgb, var(--na-primary) 14%, transparent);
-}
-.dashboard-ambient {
-  position: absolute;
-  z-index: 0;
-  inset: 0;
-  overflow: hidden;
-  opacity: .68;
-  pointer-events: none;
-}
-.dashboard-ambient :deep(.fluid-glass-canvas) {
-  opacity: .86;
-  filter: saturate(1.12) contrast(1.05) blur(2px);
-}
-.dashboard-ambient.fluid-glass-fallback {
-  background: linear-gradient(115deg, color-mix(in srgb, var(--na-primary) 18%, transparent), transparent 44%),
-    linear-gradient(24deg, transparent 34%, color-mix(in srgb, var(--na-primary) 10%, transparent), transparent 72%);
-}
-.dashboard-content {
-  position: relative;
-  z-index: 1;
-}
-.cockpit-hero {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  margin-bottom: 14px;
-  border: 1px solid var(--cockpit-border);
-  border-radius: 18px;
-  background: var(--cockpit-surface-strong);
-  color: var(--cockpit-ink);
-  box-shadow: var(--cockpit-shadow);
-  -webkit-backdrop-filter: blur(20px) saturate(120%);
-  backdrop-filter: blur(20px) saturate(120%);
-}
-.cockpit-hero::before,
-.workbench-band::before,
-.metric-item::before,
-.dashboard-panel::before {
-  position: absolute;
-  z-index: 0;
-  inset: -55% -25%;
-  background: linear-gradient(112deg, transparent 23%, color-mix(in srgb, var(--na-primary) 13%, transparent) 43%, transparent 62%);
-  opacity: .62;
-  transform: translate3d(-18%, -8%, 0);
-  animation: cockpit-flow 9s ease-in-out infinite alternate;
-  content: "";
-  pointer-events: none;
-}
-:global(html.dark .dashboard-page) .cockpit-hero::before,
-:global(html.dark .dashboard-page) .workbench-band::before,
-:global(html.dark .dashboard-page) .metric-item::before,
-:global(html.dark .dashboard-page) .dashboard-panel::before {
-  opacity: .34;
-}
-.cockpit-content,
-.workbench-band > *,
-.metric-item > *,
-.dashboard-panel > * {
-  position: relative;
-  z-index: 1;
-}
-.cockpit-content { padding: 10px 16px 16px; }
-.cockpit-content :deep(.na-page-header) {
-  margin-bottom: 15px;
-  padding: 0 4px;
-}
-.cockpit-content :deep(.na-page-title) { color: var(--cockpit-ink); }
-.cockpit-content :deep(.na-page-description) { color: var(--cockpit-muted); }
-.cockpit-content :deep(.el-button:not(.el-button--primary)) { color: var(--cockpit-muted); }
-.cockpit-content .updated-at { color: var(--cockpit-muted); }
-.cockpit-content :deep(.el-button:not(.el-button--primary):hover),
-.cockpit-content :deep(.el-button:not(.el-button--primary):focus-visible) {
-  color: var(--cockpit-ink);
-  background: var(--cockpit-hover);
-}
-.cockpit-ghost-button {
-  border: 1px solid var(--cockpit-border) !important;
-  border-radius: 9px !important;
-  background: var(--cockpit-surface-soft) !important;
-  color: var(--cockpit-ink) !important;
-}
-.cockpit-hero .header-primary-actions :deep(.el-button) {
-  border-color: var(--na-button-accent);
-  background: var(--na-button-accent);
-  color: var(--na-button-on-accent);
-}
-.cockpit-hero .header-primary-actions :deep(.el-button:hover),
-.cockpit-hero .header-primary-actions :deep(.el-button:focus-visible) {
-  border-color: var(--na-button-accent-hover);
-  background: var(--na-button-accent-hover);
-}
-.workbench-band {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  min-height: 128px;
-  margin-bottom: 12px;
-  padding: 18px 20px;
-  border: 1px solid var(--cockpit-border);
-  border-radius: 14px;
-  background: var(--cockpit-surface);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 24%);
-  -webkit-backdrop-filter: blur(18px) saturate(120%);
-  backdrop-filter: blur(18px) saturate(120%);
-}
-.current-date { color: var(--na-primary); }
-.workbench-copy h2 { color: var(--cockpit-ink); }
-.workbench-copy > p:last-of-type { color: var(--cockpit-muted); }
-.runtime-summary { border-left-color: var(--cockpit-border); color: var(--cockpit-ink); }
-.runtime-topline > small,
-.runtime-heading,
-.runtime-summary dt { color: var(--cockpit-muted); }
-.runtime-summary dd { color: var(--cockpit-ink); }
-.runtime-track { background: var(--cockpit-track); }
-.quick-actions :deep(.el-button) { color: var(--cockpit-muted); }
-.quick-actions :deep(.el-button:hover),
-.quick-actions :deep(.el-button:focus-visible) {
-  color: var(--cockpit-ink);
-  background: var(--cockpit-hover);
-}
-.metric-band {
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 10px;
-  margin-bottom: 0;
-  border: 0;
-  background: transparent;
-}
-.metric-item,
-button.metric-item {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  min-height: 130px;
-  padding: 17px 18px 16px 20px;
-  border: 1px solid var(--cockpit-border);
-  border-radius: 16px;
-  background: var(--cockpit-surface);
-  color: var(--cockpit-ink);
-  box-shadow: var(--cockpit-shadow);
-  -webkit-backdrop-filter: blur(18px) saturate(120%);
-  backdrop-filter: blur(18px) saturate(120%);
-}
-.metric-item:last-child { border-right: 1px solid var(--cockpit-border); }
-.metric-item--actionable:hover,
-.metric-item--actionable:focus-visible {
-  background: var(--cockpit-hover);
-  border-color: var(--na-primary);
-}
-:global(html.bento .dashboard-page .workbench-band) {
-  border-color: var(--cockpit-border);
-  background: var(--cockpit-surface);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 24%);
-}
-:global(html.bento .dashboard-page .metric-band) {
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-:global(html.bento .dashboard-page .metric-band > *) {
-  border-color: var(--cockpit-border);
-  background: var(--cockpit-surface);
-  box-shadow: var(--cockpit-shadow);
-}
-.metric-copy > span,
-.metric-copy small { color: var(--cockpit-muted); }
-.metric-copy strong { color: var(--cockpit-ink); font-size: 1.45rem; }
-.metric-copy small.is-warning { color: var(--na-warning); }
-
-.dashboard-panel {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  border-color: var(--cockpit-border) !important;
-  border-radius: 16px !important;
-  background: var(--cockpit-surface) !important;
-  color: var(--cockpit-ink);
-  box-shadow: var(--cockpit-shadow) !important;
-  -webkit-backdrop-filter: blur(18px) saturate(115%);
-  backdrop-filter: blur(18px) saturate(115%);
-}
-.dashboard-panel .na-panel-header { border-color: var(--cockpit-divider); background: var(--cockpit-surface-soft); }
-.dashboard-panel .asset-summary { border-color: var(--cockpit-divider); }
-.dashboard-panel .asset-summary div { border-color: var(--cockpit-divider); }
-.dashboard-panel .asset-recent-table-head,
-.dashboard-panel .operation-table-head { background: var(--cockpit-surface-soft); color: var(--cockpit-muted); }
-.dashboard-panel .asset-recent-list button,
-.dashboard-panel .schedule-list button,
-.dashboard-panel .operation-list button { border-color: var(--cockpit-divider); }
-.dashboard-panel .asset-recent-list button:hover,
-.dashboard-panel .schedule-list button:hover,
-.dashboard-panel .operation-list button:hover { background: var(--cockpit-hover); }
-.dashboard-panel .invoice-total { background: var(--cockpit-surface-soft); }
-.dashboard-panel .trend-bar { border-color: var(--cockpit-divider); }
-.dashboard-panel .progress-track { background: var(--cockpit-track); }
-.dashboard-panel .schedule-footer { border-color: var(--cockpit-divider); }
-.dashboard-panel .metric-copy > span,
-.dashboard-panel .metric-copy small,
-.dashboard-panel .section-mini-heading small,
-.dashboard-panel .asset-summary dt,
-.dashboard-panel .asset-summary small,
-.dashboard-panel .panel-heading span,
-.dashboard-panel .invoice-total > span,
-.dashboard-panel .invoice-total > small,
-.dashboard-panel .invoice-breakdown dt,
-.dashboard-panel .invoice-trend-heading small,
-.dashboard-panel .trend-value,
-.dashboard-panel .trend-item small,
-.dashboard-panel .schedule-list time,
-.dashboard-panel .schedule-list small,
-.dashboard-panel .operation-list time,
-.dashboard-panel .side-empty,
-.dashboard-panel .panel-placeholder,
-.dashboard-panel .inline-empty {
-  color: var(--cockpit-muted);
-}
-.dashboard-panel .panel-heading h2,
-.dashboard-panel .section-mini-heading > span,
-.dashboard-panel .asset-summary dd,
-.dashboard-panel .asset-status-row > strong,
-.dashboard-panel .asset-identity strong,
-.dashboard-panel .asset-place span,
-.dashboard-panel .asset-recent-list b,
-.dashboard-panel .invoice-breakdown dd,
-.dashboard-panel .invoice-trend-heading > div:first-child > span,
-.dashboard-panel .schedule-list strong,
-.dashboard-panel .operation-list button,
-.dashboard-panel .request-path {
-  color: var(--cockpit-ink);
-}
-.dashboard-panel .invoice-total > strong,
-.dashboard-panel .request-method { color: var(--na-primary); }
-.dashboard-panel .side-empty :deep(svg) { color: var(--na-primary); }
-
-@keyframes cockpit-flow {
-  0% { transform: translate3d(-18%, -8%, 0) rotate(0deg); }
-  100% { transform: translate3d(14%, 10%, 0) rotate(2deg); }
-}
-
-@media (max-width: 860px) {
-  .cockpit-content { padding: 9px 12px 14px; }
-}
-@media (max-width: 640px) {
-  .cockpit-hero { border-radius: 14px; }
-  .cockpit-content { padding: 8px 10px 12px; }
-  .workbench-band { padding: 15px; }
-  .metric-item,
-  button.metric-item { min-height: 112px; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .cockpit-hero::before,
-  .workbench-band::before,
-  .metric-item::before,
-  .dashboard-panel::before { animation: none; }
-  .dashboard-panel,
-  .metric-item { transition: none; }
 }
 </style>
