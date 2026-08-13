@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	gormadapter "github.com/casbin/gorm-adapter/v3"
+	sysModel "github.com/flipped-aurora/gin-vue-admin/server/model/system"
 	"gorm.io/gorm"
 )
 
@@ -16,6 +17,11 @@ const (
 
 var requiredCoreAdminRules = []gormadapter.CasbinRule{
 	{Ptype: "p", V0: coreAdminAuthorityID, V1: reloadSystemPath, V2: reloadSystemMethod},
+	{Ptype: "p", V0: coreAdminAuthorityID, V1: "/autoCode/llmAuto", V2: "POST"},
+	{Ptype: "p", V0: coreAdminAuthorityID, V1: "/autoCode/llmAutoSSE", V2: "POST"},
+	{Ptype: "p", V0: coreAdminAuthorityID, V1: "/autoCode/initMenu", V2: "POST"},
+	{Ptype: "p", V0: coreAdminAuthorityID, V1: "/autoCode/initAPI", V2: "POST"},
+	{Ptype: "p", V0: coreAdminAuthorityID, V1: "/autoCode/initDictionary", V2: "POST"},
 }
 
 // EnsureCoreAdminPermissions repairs mandatory administrator-only permissions
@@ -25,6 +31,13 @@ func (casbinService *CasbinService) EnsureCoreAdminPermissions(ctx context.Conte
 		return errors.New("database is not initialized")
 	}
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Unscoped().Where(
+			"(path = ? AND method = ?) OR (path = ? AND method = ?)",
+			"/autoCode/llmAuto", "POST",
+			"/autoCode/llmAutoSSE", "POST",
+		).Delete(&sysModel.SysIgnoreApi{}).Error; err != nil {
+			return err
+		}
 		for i := range requiredCoreAdminRules {
 			rule := requiredCoreAdminRules[i]
 			if err := tx.Where(

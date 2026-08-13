@@ -2,6 +2,7 @@ package system
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -33,6 +34,10 @@ func (autoApi *AutoCodeApi) LLMAutoSSE(c *gin.Context) {
 
 	if err := autoApi.streamLLMAsSSE(c, llm); err != nil {
 		global.GVA_LOG.Error("大模型 SSE 代理失败!", zap.Error(err))
+		if errors.Is(c.Request.Context().Err(), context.DeadlineExceeded) && !c.Writer.Written() {
+			c.AbortWithStatusJSON(http.StatusGatewayTimeout, gin.H{"code": response.ERROR, "msg": "AI 请求超时"})
+			return
+		}
 		if c.Writer.Written() {
 			writeLLMStreamError(c, err)
 			return

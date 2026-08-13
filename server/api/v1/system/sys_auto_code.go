@@ -1,6 +1,7 @@
 package system
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -106,6 +107,10 @@ func (autoApi *AutoCodeApi) LLMAuto(c *gin.Context) {
 	data, err := autoCodeService.LLMAuto(c.Request.Context(), llm)
 	if err != nil {
 		global.GVA_LOG.Error("大模型生成失败!", zap.Error(err))
+		if errors.Is(c.Request.Context().Err(), context.DeadlineExceeded) {
+			c.AbortWithStatusJSON(http.StatusGatewayTimeout, gin.H{"code": response.ERROR, "msg": "AI 请求超时"})
+			return
+		}
 		response.FailWithMessage(err.Error(), c)
 		return
 	}

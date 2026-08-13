@@ -15,6 +15,21 @@ import (
 	"github.com/goccy/go-json"
 )
 
+var allowedLLMModes = map[string]struct{}{
+	"ai":                 {},
+	"analysisChat":       {},
+	"apiCompletion":      {},
+	"addFunc":            {},
+	"autoCompleteFunc":   {},
+	"autoExportTemplate": {},
+	"createWeb":          {},
+	"dict":               {},
+	"dictEye":            {},
+	"exportCompletion":   {},
+	"eye":                {},
+	"workflowPromptChat": {},
+}
+
 func (s *AutoCodeService) LLMAuto(ctx context.Context, llm common.JSONMap) (interface{}, error) {
 	path, err := buildLLMAutoPath(llm)
 	if err != nil {
@@ -96,6 +111,12 @@ func buildLLMAutoPath(llm common.JSONMap) (string, error) {
 	mode := strings.TrimSpace(fmt.Sprintf("%v", llm["mode"]))
 	if mode == "" {
 		return "", errors.New("llmAuto 缺少 mode 参数")
+	}
+	if len(mode) > 64 {
+		return "", errors.New("llmAuto mode 参数过长")
+	}
+	if _, ok := allowedLLMModes[mode]; !ok {
+		return "", fmt.Errorf("llmAuto mode 不受支持: %s", mode)
 	}
 
 	return strings.ReplaceAll(global.GVA_CONFIG.AutoCode.AiPath, "{FUNC}", mode), nil

@@ -1,12 +1,17 @@
 package system
 
-import "github.com/gin-gonic/gin"
+import (
+	"time"
+
+	"github.com/flipped-aurora/gin-vue-admin/server/middleware"
+	"github.com/gin-gonic/gin"
+)
 
 type AutoCodeRouter struct{}
 
 func (s *AutoCodeRouter) InitAutoCodeRouter(Router *gin.RouterGroup, RouterPublic *gin.RouterGroup) {
 	autoCodeRouter := Router.Group("autoCode")
-	publicAutoCodeRouter := RouterPublic.Group("autoCode")
+	_ = RouterPublic
 	{
 		autoCodeRouter.GET("getDB", autoCodeApi.GetDB)
 		autoCodeRouter.GET("getTables", autoCodeApi.GetTables)
@@ -46,10 +51,29 @@ func (s *AutoCodeRouter) InitAutoCodeRouter(Router *gin.RouterGroup, RouterPubli
 		autoCodeRouter.GET("getPluginList", autoCodePluginApi.GetPluginList)
 	}
 	{
-		publicAutoCodeRouter.POST("llmAuto", autoCodeApi.LLMAuto)
-		publicAutoCodeRouter.POST("llmAutoSSE", autoCodeApi.LLMAutoSSE)
-		publicAutoCodeRouter.POST("initMenu", autoCodePluginApi.InitMenu)
-		publicAutoCodeRouter.POST("initAPI", autoCodePluginApi.InitAPI)
-		publicAutoCodeRouter.POST("initDictionary", autoCodePluginApi.InitDictionary)
+		autoCodeRouter.POST("llmAuto",
+			middleware.AISecurity(middleware.AIRequestPolicy{
+				Window:      time.Minute,
+				MaxRequests: 30,
+				BodyLimit:   2 << 20,
+				Timeout:     90 * time.Second,
+			}),
+			middleware.AIOperationRecord(),
+			autoCodeApi.LLMAuto,
+		)
+		autoCodeRouter.POST("llmAutoSSE",
+			middleware.AISecurity(middleware.AIRequestPolicy{
+				Window:      time.Minute,
+				MaxRequests: 10,
+				BodyLimit:   2 << 20,
+				Timeout:     5 * time.Minute,
+			}),
+			middleware.AISSEConcurrency(2),
+			middleware.AIOperationRecord(),
+			autoCodeApi.LLMAutoSSE,
+		)
+		autoCodeRouter.POST("initMenu", middleware.OperationRecord(), middleware.RequireSuperAdmin(), autoCodePluginApi.InitMenu)
+		autoCodeRouter.POST("initAPI", middleware.OperationRecord(), middleware.RequireSuperAdmin(), autoCodePluginApi.InitAPI)
+		autoCodeRouter.POST("initDictionary", middleware.OperationRecord(), middleware.RequireSuperAdmin(), autoCodePluginApi.InitDictionary)
 	}
 }
