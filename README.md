@@ -287,6 +287,7 @@ git diff --check
 | --- | --- |
 | [文档中心](docs/README.md) | 全部文档的统一入口和阅读路径 |
 | [项目审计报告](docs/PROJECT-AUDIT.md) | 技术栈、成熟度、风险和改进路线 |
+| [智能资产运营中心开发实施文档](docs/SMART-ASSET-OPERATIONS-DEVELOPMENT-PLAN.md) | 智能建档、风险中心、业务助手和智能日报的执行路线 |
 | [产品说明书](docs/PRODUCT-MANUAL.md) | 产品定位、用户、功能、流程和验收 |
 | [功能规格说明](docs/FUNCTIONAL-SPECIFICATION.md) | 业务规则、状态机、权限与非功能要求 |
 | [用户使用手册](docs/USER-GUIDE.md) | 资产、发票、日程、文档、公告和管理操作 |
