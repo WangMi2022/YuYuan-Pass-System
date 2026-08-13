@@ -1,8 +1,14 @@
 # 文档入口
 
-项目主说明采用 GitHub 标准文件名 [README.md](README.md)。
+项目文档统一维护在 [docs/README.md](docs/README.md)。
 
-- [项目说明与部署](README.md)
-- [用户使用文档](docs/USER-GUIDE.md)
+- [GitHub 项目总览](README.md)
 - [产品说明书](docs/PRODUCT-MANUAL.md)
+- [用户使用手册](docs/USER-GUIDE.md)
+- [功能规格说明](docs/FUNCTIONAL-SPECIFICATION.md)
+- [API 接口文档](docs/API.md)
+- [系统架构说明](docs/ARCHITECTURE.md)
+- [数据字典](docs/DATA-DICTIONARY.md)
+- [开发维护指南](docs/DEVELOPMENT.md)
 - [部署运维手册](docs/DEPLOYMENT.md)
+- [项目审计报告](docs/PROJECT-AUDIT.md)

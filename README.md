@@ -1,20 +1,25 @@
 # YuYuan Pass System
 
-YuYuan Pass System 是一套面向企业内部资产管理、文档协作和工作入口整合的管理平台。项目基于 Go、Gin、Vue 3、Element Plus 和 PostgreSQL 构建，提供资产全生命周期档案、可视化大屏、文档预览与在线编辑、站点收藏、公告提醒、媒体库和角色权限管理。
+<p align="center">
+  <strong>面向企业内部资产、票据、文档与协同办公的一体化管理平台</strong>
+</p>
 
-## 最新界面
+<p align="center">
+  Go · Gin · Vue 3 · PostgreSQL · Redis · RustFS/MinIO · JWT · Casbin
+</p>
+
+YuYuan Pass System 以资产全生命周期为核心，整合发票识别与流水、文档协作、个人日程、站点收藏、公告通知、系统外观、权限与审计。项目由 Gin-Vue-Admin 演进而来，已经形成独立的业务插件、数据模型、部署脚本和产品文档体系。
+
+> 当前应用版本：`2.9.2`（来自 `web/package.json`）<br>
+> 文档与项目整体审计：`2026-08-13`
+
+## 界面预览
 
 <p align="center">
   <a href="docs/images/admin-ui-lifecycle-orbit.png">
-    <img src="docs/images/admin-ui-lifecycle-orbit.png" alt="生命周期轨道后台与秩序蓝图资产首页" width="100%" />
+    <img src="docs/images/admin-ui-lifecycle-orbit.png" alt="YuYuan Pass System 首页驾驶舱" width="100%" />
   </a>
 </p>
-
-<p align="center">
-  生命周期轨道后台外壳 + 秩序蓝图首页：顶部动态导航、实时资产健康度、最近登记与今日待办。
-</p>
-
-### 核心功能界面
 
 <table>
   <tr>
@@ -47,125 +52,136 @@ YuYuan Pass System 是一套面向企业内部资产管理、文档协作和工�
   </tr>
 </table>
 
-## 当前版本
-
-### v2.9.2（2026-07-20）
-
-- 后台整体升级为“生命周期轨道 04”视觉体系，默认使用 `#6D5DFB` 品牌紫、顶部胶囊导航、轻量边框和低层级阴影。
-- 数据库动态菜单、运行时 `router.addRoute` 与 keep-alive 映射保持不变；桌面端使用顶部主导航，移动端自动降级为紧凑图标导航。
-- 首页升级为“秩序蓝图”资产驾驶舱，集中展示实时资产健康度、核心指标、最近登记与草稿待办。
-- 系统配置面板完整保留，可继续切换主题、导航布局、组件尺寸、分页标签、水印与过渡效果。
-- Three.js 动画计时器由已弃用的 `THREE.Clock` 更新为 `THREE.Timer`，并继续保持动态导入的独立 Chunk。
-- 分类管理扩展为资产分类、入库位置、使用位置、调入位置、归还位置、维修位置和处置位置七个页签。
-- 六类位置支持搜索、新增、编辑、删除、排序及启停；停用位置不再出现在新业务单的选项中。
-- 入库、领用、调拨、归还、维修和报废单的位置字段支持搜索选择预置位置，也支持直接录入临时自定义位置。
-- 业务单保存位置文本快照，位置字典停用或删除后不会破坏历史流转记录。
-- Docker 健康检查增加启动等待重试，避免后端首次迁移期间产生错误告警。
-
-本版本已通过 Go 测试、Vite 8 生产构建、Playwright 桌面/深色/移动端回归、六类位置接口 CRUD、十二组业务位置草稿回显及 Docker 容器健康检查。
-
 ## 核心能力
 
-| 模块 | 能力 |
+| 业务域 | 已实现能力 |
 | --- | --- |
-| 资产大屏 | 资产数量、原值、当前估值、分类价值、状态构成、位置排行、最近登记 |
-| 资产档案 | 资产编号、分类、品牌型号、序列号、数量、金额、状态、位置、保管人、照片和备注 |
-| 分类与位置 | 资产分类统计，以及入库、使用、调入、归还、维修、处置六类位置字典 |
-| 资产流转 | 入库、领用、调拨、归还、维修、报废统一单据，支持草稿、提交和不可变流转记录 |
-| 文档管理 | 文档上传、OSS 存储、源文件预览、Markdown/文本/Word/Excel 在线编辑和版本保存 |
-| 站点管理 | 收藏 HTTP/HTTPS 工作站点，支持分类、搜索、启停和访问次数统计 |
-| 公告中心 | 草稿、发布、SSE 实时提醒、未读数量、公告详情、附件和跨设备已读状态 |
-| 媒体库 | 仅允许图片上传，统一写入 S3 兼容对象存储 |
-| 监控状态 | 定时采集服务器 CPU、内存、系统负载、磁盘、运行时和最近 30 次采样趋势 |
-| 系统设置 | 登录页图标配置、背景图库、OSS 上传、缩略图选择和启用管理 |
-| 系统管理 | 用户、角色、菜单、API、字典、参数、操作记录、登录日志和 API Token |
+| 首页驾驶舱 | 资产健康度、核心指标、最近登记、流转草稿与个人日程摘要 |
+| 资产管理 | 分类、六类位置、资产档案、图片、价值统计、入库/领用/调拨/归还/维修/报废 |
+| 资产审计 | 草稿与正式提交分离、事务更新、不可变前后快照、业务单查询 |
+| 流水管理 | 发票批量上传、OCR/多模态识别、人工复核、验真、确认/重开、防重、分类规则和统计 |
+| 文档管理 | 对象存储、源文件读取、Word/Excel/PDF/Markdown/文本预览与在线内容保存 |
+| 工作日历 | 个人日程、每日/每周/每月重复规则、旧数据导入、持久化提醒与已读状态 |
+| 协同办公 | 站点收藏、公告草稿/发布、SSE 实时通知、媒体库 |
+| 系统外观 | 登录图标、背景图库、激活与恢复默认 |
+| 权限审计 | JWT、Casbin、菜单/API/按钮权限、操作记录、登录日志和错误日志 |
+| 运维交付 | Docker Compose、数据库初始化、健康检查、发布验收、备份与回滚手册 |
 
-## 界面体验
+## 业务规则摘要
 
-- 全站采用“生命周期轨道 04”视觉体系，以紫色 `#6D5DFB`、冷灰紫工作区、14px 圆角和克制阴影统一业务页与系统管理页。
-- 桌面端默认使用顶部胶囊式动态导航，不改变数据库菜单和权限模型；移动端自动切换为紧凑图标导航，页面无横向溢出。
-- 首页工作台采用蓝图网格与数据台账布局，展示真实资产健康度、核心指标、最近登记和今日待办；资产大屏的 Three.js 场景继续保持动态加载，并支持 reduced-motion 降级。
-- 资产档案、搜索表单、表格、分页、按钮、弹窗和抽屉均由统一设计令牌驱动，亮色与深色主题完整覆盖。
-- 系统配置面板保留外观、布局和通用三个分类，可实时调整主题色、导航模式、标签栏、水印、组件尺寸与页面过渡。
-- “资产管理”已开放入库、领用、调拨、归还、维修和报废管理，六类业务共用统一单据模型和分类型位置字典。
-- 桌面端登录页采用左右分区，背景图独立显示，登录表单固定在右侧，不遮挡背景内容。
-- 移动端登录页自动切换为上方背景、下方表单的纵向布局。
-- 登录图标与背景均可在“系统管理 → 系统设置”中维护，图片统一上传至对象存储。
-- 顶部公告铃铛显示未读数量，点击后可查看公告、标记单条已读或全部已读。
+### 资产生命周期
 
-## 技术栈
+```mermaid
+stateDiagram-v2
+    [*] --> pending_inbound: 新建档案
+    pending_inbound --> idle: 入库
+    idle --> in_use: 领用
+    in_use --> idle: 归还
+    idle --> maintenance: 维修
+    in_use --> maintenance: 维修
+    maintenance --> idle: 归还
+    idle --> retired: 报废
+    in_use --> retired: 报废
+    maintenance --> retired: 报废
+```
 
-### 服务端
+- 草稿不修改资产，提交后才在事务中更新状态、位置、保管人和审计快照。
+- 调拨保持当前状态，只更新位置和可选保管人。
+- 报废业务类型为 `scrap`，终态为 `retired`，处置位置字典类型为 `disposal`。
+- 当前每条资产档案作为完整流转单位，不支持部分数量拆分。
 
-- Go 1.24
-- Gin 1.10
-- GORM 1.31
-- PostgreSQL 14-18
-- Redis 6+
-- JWT + Casbin RBAC
-- MinIO / RustFS 等 S3 兼容对象存储
+### 发票处理
 
-### Web 端
+```mermaid
+flowchart LR
+    A["上传证据"] --> B["识别任务"]
+    B --> C["人工复核"]
+    C --> D["验真（可选）"]
+    D --> E["确认"]
+    E --> F["正式台账与统计"]
+```
 
-- Vue 3.5
-- Vite 8
-- Element Plus 2
-- Pinia 2
-- ECharts 5
-- Three.js 0.185
-- WangEditor、Mammoth、SheetJS、x-data-spreadsheet
-
-### 部署
-
-- 自维护多阶段 Dockerfile
-- Docker Compose
-- Nginx 静态资源与 API 反向代理
+- 只有 `confirmed` 发票进入正式统计。
+- 金额以整数分存储，避免浮点累计误差。
+- 已确认发票不能直接修改，管理员需要先重开。
+- 删除发票后由持久化清理任务重试删除对象存储证据。
 
 ## 系统架构
 
 ```mermaid
 flowchart LR
-    U[浏览器] --> N[Nginx Web :8080]
-    N --> V[Vue 3 SPA]
-    N -->|/api| G[Gin API :8888]
-    G --> P[(PostgreSQL)]
-    G --> R[(Redis)]
-    G --> O[(S3 兼容对象存储)]
-    G -->|SSE| U
+    U["浏览器"] --> W["Vue 3 / Nginx :8080"]
+    W -->|"/api"| S["Gin Server :8888"]
+    S --> M["JWT + Casbin + 审计中间件"]
+    M --> P["业务插件"]
+    P --> DB[("PostgreSQL")]
+    P --> R[("Redis")]
+    P --> O[("RustFS / MinIO")]
+    P --> X["OCR / 验真 / 多模态服务"]
 ```
+
+当前 Compose 只运行 Web 和 Server 两个容器；PostgreSQL、Redis、RustFS/MinIO 使用外部服务。Web Nginx 将 `/api/*` 去掉 `/api` 前缀后转发到 Server。
+
+## 技术栈
+
+### 服务端
+
+- Go `1.24.0` / toolchain `1.24.2`
+- Gin `1.10.0`
+- GORM `1.31.1`
+- PostgreSQL 14-18
+- Redis 6+
+- JWT + Casbin
+- Swaggo / Swagger
+- Zap、Cron、S3 SDK
+
+### Web
+
+- Vue `3.5.x`
+- Vite `8.x`
+- Element Plus `2.13.x`
+- Pinia、Vue Router、Axios
+- ECharts、Three.js
+- Vue Office、Mammoth、Marked、WangEditor、XLSX
+- UnoCSS、Sass
+
+### 部署
+
+- Docker / Docker Compose
+- Nginx
+- 外部 PostgreSQL、Redis、RustFS/MinIO
+- Bash 运维与发布验收脚本
 
 ## 目录结构
 
 ```text
 .
-├── server/                         Go 后端
-│   ├── plugin/asset/               资产管理插件
-│   ├── plugin/document/            文档管理插件
-│   ├── plugin/site/                站点管理插件
-│   ├── plugin/announcement/        公告与实时提醒
-│   └── plugin/systemsetting/       登录图标与背景设置
-├── web/                            Vue 3 前端
-│   └── src/plugin/                 业务插件页面与 API
-├── deploy/docker-dev/              Dockerfile、Compose 和运维脚本
-├── docs/DEPLOYMENT.md              部署运维手册
-├── docs/USER-GUIDE.md              用户使用文档
-└── docs/PRODUCT-MANUAL.md          产品说明书
+├─ server/                       Go API、系统能力和业务插件
+│  ├─ plugin/asset/              资产管理
+│  ├─ plugin/invoice/            发票与流水
+│  ├─ plugin/document/           文档管理
+│  ├─ plugin/announcement/       公告通知
+│  ├─ plugin/schedule/           个人日程
+│  ├─ plugin/site/               站点收藏
+│  └─ plugin/systemsetting/      登录外观
+├─ web/                          Vue 3 Web 端
+│  └─ src/plugin/                对应业务插件页面与 API
+├─ deploy/docker-dev/            Compose、镜像、初始化与运维脚本
+├─ docs/                         产品、使用、接口、架构、数据与部署文档
+└─ design-system/                前端视觉系统说明
 ```
 
-## 快速启动
+## 快速部署
 
-以下步骤适用于已准备外部 PostgreSQL、Redis 和 S3 兼容对象存储的单机 Docker Compose 环境。生产部署、HTTPS、备份、更新和回滚请阅读[部署运维手册](docs/DEPLOYMENT.md)。
+### 环境要求
 
-### 1. 环境要求
+- Linux 服务器或支持 Docker Compose 的开发机。
+- Docker Engine 24+、Docker Compose v2。
+- 外部 PostgreSQL 14-18。
+- 外部 Redis 6+。
+- 外部 RustFS/MinIO S3 API。
 
-- Linux x86_64
-- Docker 24+
-- Docker Compose v2
-- 可访问的 PostgreSQL、Redis 和 S3 兼容对象存储
-
-数据库、缓存和对象存储默认使用外部服务，不由本项目的 Compose 创建。
-
-### 2. 配置环境变量
+### 1. 创建配置
 
 ```bash
 cd deploy/docker-dev
@@ -173,15 +189,18 @@ cp .env.example .env
 chmod 600 .env
 ```
 
-编辑 `.env`，至少配置以下内容：
+编辑 `.env`，至少替换所有 `change-me`：
 
 ```dotenv
+GVA_DB_TYPE=pgsql
 GVA_PG_HOST=127.0.0.1
 GVA_PG_PORT=5432
 GVA_PG_USER=postgres
 GVA_PG_PASSWORD=change-me
 GVA_PG_DB=gva
+GVA_ADMIN_PASSWORD=change-me-now
 
+GVA_USE_REDIS=true
 GVA_REDIS_ADDR=127.0.0.1:6379
 GVA_REDIS_PASSWORD=change-me
 
@@ -189,58 +208,28 @@ GVA_RUSTFS_ENDPOINT=127.0.0.1:9000
 GVA_RUSTFS_ACCESS_KEY=change-me
 GVA_RUSTFS_SECRET_KEY=change-me
 GVA_RUSTFS_BUCKET=gva-assets
-
-GVA_ADMIN_PASSWORD=change-me-now
 ```
 
-不要提交 `.env` 或运行时生成的 `config.yaml`。它们已加入项目级 `.gitignore`。
-
-### 3. 构建并启动
+### 2. 启动并验收
 
 ```bash
 chmod +x ./*.sh tools/*.sh
 ./up.sh
+./release-acceptance.sh
+./ps.sh
 ```
 
-`up.sh` 会完成：
+默认访问：
 
-1. 从 `config.init.yaml` 生成运行时 `config.yaml`。
-2. 写入 Redis 和 S3 兼容对象存储配置。
-3. 构建前后端镜像。
-4. 启动 Web 与 API 容器。
-5. 首次运行时初始化 PostgreSQL 数据库和管理员账号。
-
-### 4. 访问服务
-
-| 服务 | 默认地址 |
+| 服务 | 地址 |
 | --- | --- |
 | Web | `http://<服务器IP>:8080` |
 | API | `http://<服务器IP>:8888` |
 | Swagger | `http://<服务器IP>:8888/swagger/index.html` |
 
-### 5. 常用运维命令
+初始管理员用户名为 `admin`，密码由 `.env` 的 `GVA_ADMIN_PASSWORD` 决定。
 
-```bash
-./ps.sh
-./logs.sh server
-./logs.sh web
-./restart.sh
-./down.sh
-```
-
-仅重建前端：
-
-```bash
-./build.sh web
-docker compose --env-file .env -f docker-compose.yml up -d --force-recreate web
-```
-
-仅重建后端：
-
-```bash
-./build.sh server
-docker compose --env-file .env -f docker-compose.yml up -d --force-recreate server
-```
+> `.env` 和运行时 `config.yaml` 包含敏感信息，已被 Git 忽略，禁止提交。
 
 ## 本地开发
 
@@ -260,51 +249,70 @@ go mod download
 go run . -c config.yaml
 ```
 
-本地开发前需准备独立的 `server/config.yaml`，不要将真实连接信息提交到仓库。
+本地需要独立的 `server/config.yaml`。当前 Docker Compose 生产/集成方案使用 `deploy/docker-dev/config.init.yaml` 和 `.env` 生成 PostgreSQL 配置；`server/config.docker.yaml` 是保留的上游通用示例，不代表当前部署默认值。
 
-## 演示数据
+## API 与权限
 
-部署完成后可以生成资产演示数据：
+- 浏览器调用 Base URL：`/api`。
+- Server 直连 Base URL：`http://<host>:8888`。
+- 私有请求头：`x-token`、`x-user-id`。
+- 统一 JSON 响应：`{code,data,msg}`，成功业务码为 `0`。
+- JWT 失效通常返回 HTTP `401`。
+- 系统管理接口以运行时 Swagger 为权威；业务插件接口见 [API 接口文档](docs/API.md)。
+
+## 常用校验
 
 ```bash
-./deploy/docker-dev/tools/seed-assets.sh --count 100
+# 服务端
+cd server
+go test ./...
+
+# Web
+cd web
+npm test
+npm run lint
+npm run build
+
+# 部署脚本回归
+cd deploy/docker-dev
+bash tests/release-acceptance-test.sh
+
+# Git 文本检查
+git diff --check
 ```
-
-脚本会补齐六类常用位置，并生成 100 条字段完整的演示档案，覆盖办公家具、电脑、显示、网络、服务器与存储、办公设备、生产设备、安防、机电设施、车辆、软件许可等 14 个分类。状态按“待入库、闲置、使用中、维修中、已处置”分布，并同步生成入库、领用、调拨、归还、维修和报废单据与审计快照；每类业务额外生成 2 张可编辑草稿。演示数据使用固定前缀，可再次运行脚本清理并重建。
-
-## 使用约定
-
-- 媒体库只接受图片文件，图片统一上传到 OSS/S3 存储。
-- 文档源文件和在线编辑版本分开保存，在线保存不会覆盖原始文件。
-- Word、Excel 等文档默认先显示源文件预览，点击“开始编辑”后进入在线编辑模式。
-- 公告只有处于“已发布”状态时才会通过 SSE 推送给在线用户。
-- 资产状态、位置和保管人由资产业务单驱动；草稿不改变资产，提交后在事务中更新并生成审计记录。
-- 长期使用的位置应在“资产管理 → 分类管理”的对应位置页签中维护；临时位置可以在业务单中直接输入，不会自动写入位置字典。
-- 新建资产默认为“待入库”，必须提交入库单后才能进入闲置状态，避免重复入库。
-- 当前每条资产档案作为完整流转单位，业务单会流转该档案记录的全部数量。
-- 默认使用顶部主导航；如需侧边栏、双列导航或分页标签，可在右上角“系统配置 → 布局”中切换并保存为个人偏好。
-- 登录图标仅支持 JPG、PNG、WebP，单张不超过 2 MB；可随时恢复系统默认图标。
-- 登录背景仅支持 JPG、PNG、WebP，上传后需要选择目标缩略图并保存才会生效。
-- 非管理员角色需要在“系统管理 → 角色权限”中分配对应菜单和 API 权限。
-- 菜单权限调整后需要刷新页面或重新登录，客户端才会重新获取最新动态菜单。
-
-## 安全要求
-
-- 生产环境必须修改管理员密码、JWT 签名密钥和所有外部服务凭据。
-- PostgreSQL、Redis 和对象存储不应直接暴露到公网。
-- 推荐通过 HTTPS 反向代理对外提供 Web 与 API 服务。
-- 定期备份 PostgreSQL 数据库和对象存储桶。
-- 发布前执行密钥扫描，确认 `.env`、`config.yaml`、私钥和服务器连接脚本未进入 Git。
 
 ## 文档
 
-- [用户使用文档](docs/USER-GUIDE.md)
-- [产品说明书](docs/PRODUCT-MANUAL.md)
-- [部署运维手册](docs/DEPLOYMENT.md)
-- [Docker 部署说明](deploy/docker-dev/README.md)
-- [资产模块说明](ASSET-MVP.md)
-- [前端设计规范](FRONTEND-STYLE.md)
+| 文档 | 内容 |
+| --- | --- |
+| [文档中心](docs/README.md) | 全部文档的统一入口和阅读路径 |
+| [项目审计报告](docs/PROJECT-AUDIT.md) | 技术栈、成熟度、风险和改进路线 |
+| [产品说明书](docs/PRODUCT-MANUAL.md) | 产品定位、用户、功能、流程和验收 |
+| [功能规格说明](docs/FUNCTIONAL-SPECIFICATION.md) | 业务规则、状态机、权限与非功能要求 |
+| [用户使用手册](docs/USER-GUIDE.md) | 资产、发票、日程、文档、公告和管理操作 |
+| [API 接口文档](docs/API.md) | 鉴权、响应约定和业务接口清单 |
+| [系统架构说明](docs/ARCHITECTURE.md) | 分层、插件、数据流、鉴权和部署架构 |
+| [数据字典](docs/DATA-DICTIONARY.md) | 核心表、字段、枚举和关联关系 |
+| [开发维护指南](docs/DEVELOPMENT.md) | 本地开发、测试、Swagger、Git 与发布 |
+| [部署运维手册](docs/DEPLOYMENT.md) | 首次部署、升级、备份、回滚和故障处理 |
 
-## 项目状态
+## 安全基线
 
-当前版本面向企业内部资产与知识协作场景，已具备可部署、可配置和可继续二次开发的完整前后端链路。资产全生命周期单据、分类与位置字典、文档协作、站点收藏、公告提醒、系统品牌配置和服务器监控均已纳入正式功能。
+- 修改管理员密码、JWT key、数据库、Redis 和对象存储凭据。
+- 不将 PostgreSQL、Redis、S3 API 直接暴露到公网。
+- 通过 HTTPS 反向代理对外服务。
+- 定期备份 PostgreSQL 与对象存储桶。
+- 发布前执行测试、构建、`git diff --check` 和敏感信息扫描。
+- 只从已推送 Git commit 构建生产版本，保留完整 commit hash。
+
+## 项目现状与路线
+
+当前已经具备资产生命周期、发票处理、文档协作、个人日程、公告通知、权限审计和 Compose 交付闭环。下一阶段建议优先推进：
+
+1. 启动阶段弱默认凭据检查和 CI 发布门禁。
+2. 业务插件 Swagger 全覆盖。
+3. 资产盘点、标签/二维码和审批流。
+4. 发票识别队列监控、财务导出与外部系统集成。
+5. 文档版本历史、全文检索和更细粒度数据权限。
+
+详细结论见 [项目审计报告](docs/PROJECT-AUDIT.md)。
