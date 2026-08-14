@@ -65,6 +65,7 @@ YuYuan Pass System 以资产全生命周期为核心，整合发票识别与流�
 | 协同办公 | 站点收藏、公告草稿/发布、SSE 实时通知、媒体库 |
 | 系统外观 | 登录图标、背景图库、激活与恢复默认 |
 | 权限审计 | JWT、Casbin、菜单/API/按钮权限、操作记录、登录日志和错误日志 |
+| AI 安全底座 | 统一 AI Gateway、OpenAI Compatible/Anthropic、调用审计、配额、脱敏、Prompt 版本和 JSON Schema 校验 |
 | 运维交付 | Docker Compose、数据库初始化、健康检查、发布验收、备份与回滚手册 |
 
 ## 业务规则摘要
@@ -114,10 +115,12 @@ flowchart LR
     W -->|"/api"| S["Gin Server :8888"]
     S --> M["JWT + Casbin + 审计中间件"]
     M --> P["业务插件"]
+    P --> G["AI Gateway"]
     P --> DB[("PostgreSQL")]
     P --> R[("Redis")]
     P --> O[("RustFS / MinIO")]
-    P --> X["OCR / 验真 / 多模态服务"]
+    G --> X["OpenAI Compatible / Anthropic"]
+    P --> X["OCR / 验真服务"]
 ```
 
 当前 Compose 只运行 Web 和 Server 两个容器；PostgreSQL、Redis、RustFS/MinIO 使用外部服务。Web Nginx 将 `/api/*` 去掉 `/api` 前缀后转发到 Server。
@@ -157,7 +160,9 @@ flowchart LR
 ```text
 .
 ├─ server/                       Go API、系统能力和业务插件
+│  ├─ ai/                        统一 AI Gateway、Provider、配额、脱敏与审计
 │  ├─ plugin/asset/              资产管理
+│  ├─ plugin/aioperations/       AI Provider、用量、配额和 Prompt 运营管理
 │  ├─ plugin/invoice/            发票与流水
 │  ├─ plugin/document/           文档管理
 │  ├─ plugin/announcement/       公告通知
@@ -308,12 +313,12 @@ git diff --check
 
 ## 项目现状与路线
 
-当前已经具备资产生命周期、发票处理、文档协作、个人日程、公告通知、权限审计和 Compose 交付闭环。下一阶段建议优先推进：
+当前已经具备资产生命周期、发票处理、文档协作、个人日程、公告通知、权限审计、统一 AI Gateway 和 Compose 交付闭环。智能化路线已完成 M0 安全门禁，M1 Gateway 进入生产验收；下一阶段建议优先推进：
 
-1. 启动阶段弱默认凭据检查和 CI 发布门禁。
-2. 业务插件 Swagger 全覆盖。
-3. 资产盘点、标签/二维码和审批流。
-4. 发票识别队列监控、财务导出与外部系统集成。
-5. 文档版本历史、全文检索和更细粒度数据权限。
+1. M2 资产风险中心 V1。
+2. M4 智能资产建档 MVP。
+3. M3 发票修正差异与质量看板。
+4. 业务插件 Swagger 全覆盖和 CI 发布门禁。
+5. 资产盘点、标签/二维码和审批流。
 
 详细结论见 [项目审计报告](docs/PROJECT-AUDIT.md)。

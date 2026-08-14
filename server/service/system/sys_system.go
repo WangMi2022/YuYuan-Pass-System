@@ -57,6 +57,10 @@ func (systemConfigService *SystemConfigService) SetSystemConfig(
 	system system.System,
 	allowInvoiceRecognition bool,
 ) (detections InvoiceRecognitionDetections, err error) {
+	system.Config.AI, err = prepareAIConfig(system.Config.AI, global.GVA_CONFIG.AI, allowInvoiceRecognition)
+	if err != nil {
+		return InvoiceRecognitionDetections{}, err
+	}
 	system.Config.InvoiceRecognition, err = prepareInvoiceRecognitionConfig(
 		ctx,
 		system.Config.InvoiceRecognition,
@@ -77,8 +81,18 @@ func (systemConfigService *SystemConfigService) SetSystemConfig(
 	// The invoice worker reads this section for every job, so provider changes
 	// take effect immediately without restarting database connections.
 	global.GVA_CONFIG.InvoiceRecognition = system.Config.InvoiceRecognition
+	global.GVA_CONFIG.AI = system.Config.AI
 	invoiceProvider.SetRuntimeInvoiceRecognition(system.Config.InvoiceRecognition)
 	return invoiceRecognitionDetections(system.Config.InvoiceRecognition), nil
+}
+
+func prepareAIConfig(incoming, current config.AI, allow bool) (config.AI, error) {
+	prepared := incoming.MergeSecrets(current, allow)
+	prepared.Normalize()
+	if err := prepared.Validate(); err != nil {
+		return config.AI{}, err
+	}
+	return prepared, nil
 }
 
 func invoiceRecognitionDetections(configuration config.InvoiceRecognition) InvoiceRecognitionDetections {

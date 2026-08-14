@@ -9,9 +9,11 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/flipped-aurora/gin-vue-admin/server/ai"
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/common"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
+	"github.com/flipped-aurora/gin-vue-admin/server/utils"
 	"github.com/gin-contrib/sse"
 	"github.com/gin-gonic/gin"
 	"github.com/goccy/go-json"
@@ -47,7 +49,10 @@ func (autoApi *AutoCodeApi) LLMAutoSSE(c *gin.Context) {
 }
 
 func (autoApi *AutoCodeApi) streamLLMAsSSE(c *gin.Context, llm common.JSONMap) error {
-	res, err := autoCodeService.LLMAutoStream(c.Request.Context(), llm)
+	res, err := autoCodeService.LLMAutoStream(ai.WithActorPermission(
+		c.Request.Context(), utils.GetUserID(c), utils.GetUserAuthorityId(c),
+		strings.TrimPrefix(c.Request.URL.Path, global.GVA_CONFIG.System.RouterPrefix), c.Request.Method,
+	), llm)
 	if err != nil {
 		return fmt.Errorf("调用上游大模型失败: %w", err)
 	}

@@ -1,9 +1,9 @@
 # 智能资产运营中心开发实施文档
 
-> 文档版本：1.0
-> 编制日期：2026-08-13
+> 文档版本：1.1
+> 编制日期：2026-08-14
 > 适用项目：YuYuan Pass System
-> 文档状态：待立项执行
+> 文档状态：M0 已上线，M1 待生产验收
 > 建议发布方式：按里程碑独立发布，不等待全部功能完成
 
 ## 1. 文档目的
@@ -171,16 +171,16 @@ flowchart LR
 
 ### 8.2 任务清单
 
-- [ ] AI-SEC-001 将 `llmAuto` 移入 JWT + Casbin 私有路由。
-- [ ] AI-SEC-002 将 `llmAutoSSE` 移入 JWT + Casbin 私有路由。
-- [ ] AI-SEC-003 将 `initMenu`、`initAPI`、`initDictionary` 移入私有写路由。
-- [ ] AI-SEC-004 为 AI 调用和三个初始化动作建立独立 API 权限。
-- [ ] AI-SEC-005 为初始化动作挂载 `OperationRecord`。
-- [ ] AI-SEC-006 增加用户级请求频率限制。
-- [ ] AI-SEC-007 限制单用户 SSE 并发连接。
-- [ ] AI-SEC-008 限制请求体大小和最大响应时间。
-- [ ] AI-SEC-009 对上游 Endpoint 建立协议及主机白名单策略。
-- [ ] AI-SEC-010 增加未认证、未授权和限流测试。
+- [x] AI-SEC-001 将 `llmAuto` 移入 JWT + Casbin 私有路由。
+- [x] AI-SEC-002 将 `llmAutoSSE` 移入 JWT + Casbin 私有路由。
+- [x] AI-SEC-003 将 `initMenu`、`initAPI`、`initDictionary` 移入私有写路由。
+- [x] AI-SEC-004 为 AI 调用和三个初始化动作建立独立 API 权限。
+- [x] AI-SEC-005 为初始化动作挂载 `OperationRecord`。
+- [x] AI-SEC-006 增加用户级请求频率限制。
+- [x] AI-SEC-007 限制单用户 SSE 并发连接。
+- [x] AI-SEC-008 限制请求体大小和最大响应时间。
+- [x] AI-SEC-009 对上游 Endpoint 建立协议及主机白名单策略。
+- [x] AI-SEC-010 增加未认证、未授权和限流测试。
 
 ### 8.3 权限建议
 
@@ -319,7 +319,24 @@ type Gateway interface {
 | POST | `/ai/prompts` | 新建 Prompt 版本 |
 | PUT | `/ai/prompts/activate` | 激活版本 |
 
-### 9.7 验收标准
+### 9.7 实现进度
+
+- [x] AI-GW-001 建立 `server/ai` 统一 Gateway 深模块。
+- [x] AI-GW-002 实现 OpenAI Compatible、Anthropic 和自动代码兼容 Provider。
+- [x] AI-GW-003 实现 `Complete`、`Vision` 和兼容 SSE 的 `Stream`。
+- [x] AI-GW-004 以 JWT actor 覆盖调用身份并执行 Casbin 二次授权。
+- [x] AI-GW-005 实现全局、模块、角色、用户配额和单实例原子预占。
+- [x] AI-GW-006 实现 Prompt、结构化 Payload 和业务敏感词脱敏。
+- [x] AI-GW-007 实现 Prompt 版本、激活和 JSON Schema 校验。
+- [x] AI-GW-008 实现成功、失败、阻断和流式调用审计。
+- [x] AI-GW-009 实现 API Key 写入即隐藏与系统配置安全合并。
+- [x] AI-GW-010 上线 Provider、用量、审计、配额和 Prompt 管理页面。
+- [x] AI-GW-011 将现有自动代码模型调用迁移到 Gateway。
+- [x] AI-GW-012 完成定向测试、后端构建、前端生产构建和文档同步。
+
+当前限制：配额预占以单 Server 实例为边界；扩展为多实例部署前应迁移到 Redis 或数据库原子计数。模型凭据、允许图片外发模块和预算需由生产管理员配置。
+
+### 9.8 验收标准
 
 - Provider 切换不影响业务 Service 接口。
 - 超时、限流、配额耗尽和 Schema 错误具有独立错误类型。
@@ -907,8 +924,8 @@ AI 功能默认使用功能开关关闭，由管理员按角色逐步开放。
 
 | 里程碑 | 状态 | 负责人 | 计划开始 | 计划完成 | 已完成/总任务 | 风险 |
 | --- | --- | --- | --- | --- | --- | --- |
-| M0 AI 安全 | Backlog | 待定 | 待定 | 待定 | 0/10 | 无 |
-| M1 AI Gateway | Backlog | 待定 | 待定 | 待定 | 0/待拆分 | 需模型配置 |
+| M0 AI 安全 | Done | 开发团队 | 2026-08-13 | 2026-08-14 | 10/10 | 无 |
+| M1 AI Gateway | Ready to Release | 开发团队 | 2026-08-14 | 2026-08-14 | 12/12 | 生产验收与模型配置 |
 | M2 风险中心 | Backlog | 待定 | 待定 | 待定 | 0/待拆分 | 阈值需业务确认 |
 | M3 发票质量 | Backlog | 待定 | 待定 | 待定 | 0/待拆分 | 历史数据不完整 |
 | M4 智能建档 | Backlog | 待定 | 待定 | 待定 | 0/待拆分 | 需多模态模型 |

@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	_ "github.com/flipped-aurora/gin-vue-admin/server/plugin/aioperations"
 	_ "github.com/flipped-aurora/gin-vue-admin/server/plugin/announcement"
 	_ "github.com/flipped-aurora/gin-vue-admin/server/plugin/asset"
 	_ "github.com/flipped-aurora/gin-vue-admin/server/plugin/auto"

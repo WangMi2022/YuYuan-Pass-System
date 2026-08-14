@@ -18,10 +18,12 @@ flowchart LR
     N -->|"/api 重写并代理"| S["Gin API :8888"]
     S --> A["JWT + Casbin + OperationRecord"]
     A --> P["业务插件服务"]
+    P --> G["统一 AI Gateway"]
     P --> DB[("PostgreSQL")]
     P --> R[("Redis")]
     P --> O[("RustFS / MinIO S3")]
-    P --> X["OCR / 验真 / 多模态提供方"]
+    G --> X["OpenAI Compatible / Anthropic"]
+    P --> X["OCR / 验真提供方"]
 ```
 
 当前 Docker Compose 只负责 Web 和 Server。数据库、缓存和对象存储均是外部依赖。
@@ -32,6 +34,7 @@ flowchart LR
 gin-vue-admin/
 ├─ server/                     Go 服务端
 │  ├─ api/v1/                 系统与示例 API 层
+│  ├─ ai/                     统一 AI Gateway 深模块
 │  ├─ initialize/             路由、GORM、插件初始化
 │  ├─ middleware/             JWT、Casbin、操作记录等中间件
 │  ├─ model/                  框架公共模型
@@ -83,6 +86,7 @@ Service 层负责：
 - GORM 查询和事务。
 - 对象存储读写。
 - OCR、验真和分类提供方适配。
+- AI Gateway、Provider、Prompt、Schema、配额、脱敏和调用审计。
 - 资产流转、发票确认等领域动作。
 
 ### 4.4 Model 层
@@ -106,6 +110,7 @@ Service 层负责：
 | 插件 | 职责 |
 | --- | --- |
 | `asset` | 资产档案、分类、位置、流转和大屏 |
+| `aioperations` | AI Provider、调用审计、用量、配额和 Prompt 运营管理 |
 | `invoice` | 发票上传、识别、验真、审核、分类与统计 |
 | `document` | 文档上传、预览、编辑和删除 |
 | `announcement` | 公告发布、实时通知和已读状态 |
@@ -195,6 +200,22 @@ flowchart LR
 - 数据库保存对象 key、元数据、在线编辑内容和业务状态。
 - 资产照片通过后端公开代理读取；发票和文档证据要求登录及权限校验。
 
+### 8.4 AI Gateway
+
+```mermaid
+flowchart LR
+    B["业务 Service"] --> G["server/ai Gateway"]
+    G --> A["Actor 与 Casbin 二次校验"]
+    A --> Q["配额原子预占"]
+    Q --> D["输入限制与脱敏"]
+    D --> P["Prompt 版本解析"]
+    P --> V["Provider"]
+    V --> S["输出大小与 JSON Schema"]
+    S --> L[("ai_model_invocations")]
+```
+
+业务模块只依赖 `Gateway.Complete/Vision/Stream`，不持有 Provider Endpoint 和密钥。调用身份由认证 context 覆盖，失败和阻断路径同样写审计。图片仅允许配置白名单中的模块外发，Provider Endpoint 默认拒绝私有网络地址。
+
 ## 9. 数据一致性策略
 
 - 单数据库业务更新使用 GORM 事务。
@@ -211,6 +232,7 @@ flowchart LR
 2. `deploy/docker-dev/config.init.yaml` 提供 PostgreSQL 初始化模板。
 3. `up.sh`/`configure-rustfs.sh` 生成或更新运行时 `config.yaml`。
 4. Compose 将 `config.yaml` 挂载到 `/app/config.yaml`。
+5. AI Provider 密钥保存在运行时配置中；浏览器读取只能看到 `api-key-configured`，更新使用写入即隐藏字段。
 
 ### 示例配置
 

@@ -349,7 +349,83 @@ SSE 连接应保持代理正确支持流式传输；断线后客户端仍应通�
 | PUT | `/appearance/login-background/activate` | API 权限 | 激活 `{id}` |
 | DELETE | `/appearance/login-background?id=<id>` | API 权限 | 删除非当前背景 |
 
-## 10. 系统管理接口
+## 10. AI Gateway 与运营接口
+
+所有 AI 运营接口都位于 JWT + Casbin 私有路由。写接口额外挂载 `OperationRecord()`。默认管理员角色 `888` 在插件初始化时获得菜单和 API 权限，其他角色需单独授权。
+
+| 方法 | 路径 | 主要参数 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/ai/providers` | - | 获取脱敏后的 Gateway 与 Provider 配置 |
+| PUT | `/ai/providers` | Provider 配置 JSON | 更新 Gateway、模型、费用、脱敏和图片策略 |
+| GET | `/ai/usage/summary` | - | 当前用户今日请求、Token、本月费用和累计请求 |
+| GET | `/ai/invocations` | `page/pageSize/status/module/provider/userId` | 分页查询调用审计 |
+| GET | `/ai/quotas` | - | 查询所有配额 |
+| PUT | `/ai/quotas` | 配额 JSON | 新建或更新配额 |
+| GET | `/ai/prompts` | - | 查询 Prompt 全部版本 |
+| POST | `/ai/prompts` | Prompt JSON | 创建新的草稿版本 |
+| PUT | `/ai/prompts/activate` | `{promptKey,version}` | 激活指定版本并退役旧版本 |
+
+Provider 更新示例：
+
+```json
+{
+  "enabled": true,
+  "allow-private-endpoints": false,
+  "sensitive-words": ["内部项目代号"],
+  "allow-vision-modules": ["asset-recognition"],
+  "openai-compatible": {
+    "enabled": true,
+    "base-url": "https://api.example.com/v1",
+    "api-key": "<write-only-key>",
+    "model": "example-model",
+    "timeout-seconds": 60,
+    "input-cost-micros-per-million": 1000000,
+    "output-cost-micros-per-million": 3000000
+  },
+  "anthropic": {
+    "enabled": false,
+    "base-url": "https://api.anthropic.com",
+    "model": "",
+    "timeout-seconds": 60,
+    "input-cost-micros-per-million": 0,
+    "output-cost-micros-per-million": 0
+  }
+}
+```
+
+读取配置时不返回任何密钥，只返回 `api-key-configured`。更新时省略或留空 `api-key` 会保留原密钥；`clear-api-key: true` 才会清空。内网、回环、链路本地和私有地址默认禁止作为 Provider Endpoint。
+
+配额示例：
+
+```json
+{
+  "scopeType": "module",
+  "scopeId": "asset-recognition",
+  "dailyRequests": 500,
+  "dailyTokens": 2000000,
+  "monthlyCostMicros": 300000000,
+  "maxConcurrency": 4,
+  "enabled": true
+}
+```
+
+`scopeType` 支持 `global/module/authority/user`；数值 `0` 表示对应维度不限制。所有匹配且启用的配额同时生效。
+
+Prompt 创建示例：
+
+```json
+{
+  "promptKey": "asset-recognition",
+  "content": "识别资产铭牌并返回结构化字段。",
+  "outputSchema": "{\"type\":\"object\",\"required\":[\"name\"]}"
+}
+```
+
+服务端在入库前编译 JSON Schema。业务调用指定 `promptKey` 且不指定版本时使用 `active` 版本；指定 `version` 时读取对应历史版本。模型输出不符合 Schema 时返回独立 `schema` 错误并写入审计。
+
+审计表不保存完整 Prompt、Payload、图片、模型输出或 API Key，只保存身份、模块、Provider、模型、Token、估算费用、耗时、状态、错误类型、脱敏数和输入输出哈希。
+
+## 11. 系统管理接口
 
 系统用户、角色、菜单、API、字典、日志、参数、版本、文件、自动代码等接口数量较多，运行时 Swagger 是权威清单。生成文件位于：
 
@@ -363,7 +439,7 @@ SSE 连接应保持代理正确支持流式传输；断线后客户端仍应通�
 - 本文列出的业务插件接口以插件 Router 源码为准。
 - 联调前同时检查浏览器 Network、前端 `api/*.js` 和后端 Router。
 
-## 11. 调用示例
+## 12. 调用示例
 
 登录并查询资产：
 
@@ -379,7 +455,7 @@ curl 'http://localhost:8888/asset/list?page=1&pageSize=20' \
 
 经 Web 反向代理调用时，将地址改为 `http://localhost:8080/api/asset/list?...`。
 
-## 12. 错误处理
+## 13. 错误处理
 
 客户端应同时处理：
 
@@ -389,7 +465,7 @@ curl 'http://localhost:8888/asset/list?page=1&pageSize=20' \
 4. 文件接口返回 JSON 错误而不是预期二进制的情况。
 5. 长任务的重试、幂等与用户反馈。
 
-## 13. 接口变更规则
+## 14. 接口变更规则
 
 1. 不直接破坏已有字段语义；必要时新增字段并提供兼容期。
 2. 新增分页列表必须返回 `list/total/page/pageSize`。

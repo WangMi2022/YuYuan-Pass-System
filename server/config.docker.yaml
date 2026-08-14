@@ -287,6 +287,30 @@ invoice-recognition:
         protocol: ""
         timeout-seconds: 45
 
+# Central AI Gateway configuration. Provider credentials are write-only in the
+# operations console and must not be committed with real values.
+ai:
+    enabled: false
+    allow-private-endpoints: false
+    sensitive-words: []
+    allow-vision-modules: []
+    openai-compatible:
+        enabled: false
+        base-url: ""
+        api-key: ""
+        model: ""
+        timeout-seconds: 60
+        input-cost-micros-per-million: 0
+        output-cost-micros-per-million: 0
+    anthropic:
+        enabled: false
+        base-url: "https://api.anthropic.com"
+        api-key: ""
+        model: ""
+        timeout-seconds: 60
+        input-cost-micros-per-million: 0
+        output-cost-micros-per-million: 0
+
 # disk usage configuration
 disk-list:
     - mount-point: "/"

@@ -40,4 +40,6 @@ type Server struct {
 
 	// 发票智能识别
 	InvoiceRecognition InvoiceRecognition `mapstructure:"invoice-recognition" json:"invoice-recognition" yaml:"invoice-recognition"`
+	// 统一 AI Gateway
+	AI AI `mapstructure:"ai" json:"ai" yaml:"ai"`
 }

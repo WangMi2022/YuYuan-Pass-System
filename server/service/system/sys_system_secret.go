@@ -117,12 +117,24 @@ var systemSecretAccessors = map[string]systemSecretAccessor{
 			configuration.InvoiceRecognition.Multimodal.APIKey = value
 		},
 	},
+	"ai.openai-compatible.api-key": {
+		get: func(configuration config.Server) string { return configuration.AI.OpenAICompatible.APIKey },
+		set: func(configuration *config.Server, value string) {
+			configuration.AI.OpenAICompatible.APIKey = value
+		},
+	},
+	"ai.anthropic.api-key": {
+		get: func(configuration config.Server) string { return configuration.AI.Anthropic.APIKey },
+		set: func(configuration *config.Server, value string) { configuration.AI.Anthropic.APIKey = value },
+	},
 }
 
 func redactSystemConfigSecrets(configuration config.Server) (config.Server, map[string]bool) {
 	configured := make(map[string]bool, len(systemSecretAccessors))
 	configuration.InvoiceRecognition.Normalize()
 	configuration.InvoiceRecognition = configuration.InvoiceRecognition.Redacted()
+	configuration.AI.Normalize()
+	configuration.AI = configuration.AI.Redacted()
 	for path, accessor := range systemSecretAccessors {
 		if strings.TrimSpace(accessor.get(configuration)) != "" {
 			configured[path] = true

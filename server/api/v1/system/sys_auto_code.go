@@ -8,9 +8,11 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/flipped-aurora/gin-vue-admin/server/ai"
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/common"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
+	"github.com/flipped-aurora/gin-vue-admin/server/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/goccy/go-json"
 	"go.uber.org/zap"
@@ -104,7 +106,10 @@ func (autoApi *AutoCodeApi) LLMAuto(c *gin.Context) {
 		return
 	}
 
-	data, err := autoCodeService.LLMAuto(c.Request.Context(), llm)
+	data, err := autoCodeService.LLMAuto(ai.WithActorPermission(
+		c.Request.Context(), utils.GetUserID(c), utils.GetUserAuthorityId(c),
+		strings.TrimPrefix(c.Request.URL.Path, global.GVA_CONFIG.System.RouterPrefix), c.Request.Method,
+	), llm)
 	if err != nil {
 		global.GVA_LOG.Error("大模型生成失败!", zap.Error(err))
 		if errors.Is(c.Request.Context().Err(), context.DeadlineExceeded) {
@@ -129,7 +134,10 @@ func shouldStreamLLM(c *gin.Context, llm common.JSONMap) bool {
 }
 
 func (autoApi *AutoCodeApi) proxyLLMStream(c *gin.Context, llm common.JSONMap) error {
-	res, err := autoCodeService.LLMAutoStream(c.Request.Context(), llm)
+	res, err := autoCodeService.LLMAutoStream(ai.WithActorPermission(
+		c.Request.Context(), utils.GetUserID(c), utils.GetUserAuthorityId(c),
+		strings.TrimPrefix(c.Request.URL.Path, global.GVA_CONFIG.System.RouterPrefix), c.Request.Method,
+	), llm)
 	if err != nil {
 		return err
 	}

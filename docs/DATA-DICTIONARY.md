@@ -238,11 +238,61 @@ erDiagram
 | `system_login_logos` | 当前自定义登录图标 |
 | `system_login_backgrounds` | 登录背景图库、创建人和启用状态 |
 
-## 9. 系统表
+## 9. AI Gateway
+
+### 9.1 `ai_model_invocations`
+
+模型调用审计摘要。该表禁止保存完整 Prompt、业务 Payload、图片、模型输出和 Provider 密钥。
+
+| 字段 | 说明 |
+| --- | --- |
+| `request_id` | UUID 调用追踪 ID，唯一 |
+| `user_id` / `authority_id` | 认证用户和角色 |
+| `module` / `operation` | 业务模块和动作 |
+| `provider` / `model` | 实际 Provider 和模型 |
+| `prompt_key` / `prompt_version` | 使用的 Prompt 版本 |
+| `input_tokens` / `output_tokens` | Provider 返回或本地估算的 Token |
+| `estimated_cost_micros` | 按配置单价估算的费用微单位 |
+| `duration_ms` | 调用耗时毫秒 |
+| `status` | `success/failed/blocked` |
+| `error_type` | `disabled/validation/policy/quota/provider/timeout/schema` |
+| `object_type` / `object_id` | 可选业务对象关联 |
+| `redaction_count` | 本次脱敏命中数 |
+| `input_hash` / `output_hash` | 输入和输出 SHA-256 哈希 |
+
+### 9.2 `ai_usage_quotas`
+
+| 字段 | 说明 |
+| --- | --- |
+| `scope_type` | `global/module/authority/user` |
+| `scope_id` | `global`、模块标识、角色 ID 或用户 ID |
+| `daily_requests` | 每日请求上限，0 不限制 |
+| `daily_tokens` | 每日 Token 上限，0 不限制 |
+| `monthly_cost_micros` | 每月费用上限，0 不限制 |
+| `max_concurrency` | 最大并发，0 不限制 |
+| `enabled` | 是否参与配额匹配 |
+
+`scope_type + scope_id` 唯一。单实例内通过原子预占避免并发突发绕过；多 Server 实例部署需改用共享原子计数。
+
+### 9.3 `ai_prompt_templates`
+
+| 字段 | 说明 |
+| --- | --- |
+| `prompt_key` | 稳定业务标识 |
+| `version` | 从 1 递增的版本号 |
+| `content` | Prompt 模板正文 |
+| `output_schema` | 可选 JSON Schema |
+| `status` | `draft/active/retired` |
+| `created_by` | 创建用户 |
+| `activated_at` | 激活时间 |
+
+`prompt_key + version` 唯一。同一 `prompt_key` 仅保留一个 `active` 版本；新建版本发生并发冲突时服务层重新分配版本号。
+
+## 10. 系统表
 
 系统用户、角色、菜单、API、Casbin、字典、参数、操作记录、登录日志、JWT 黑名单等表继承 Gin-Vue-Admin 模型。维护时优先通过系统模块 API 和迁移逻辑修改，不直接手工破坏权限关联表。
 
-## 10. 迁移与备份原则
+## 11. 迁移与备份原则
 
 1. 生产升级前备份 PostgreSQL 与对象存储。
 2. 自动迁移只解决兼容性建表/加字段，不等同于数据修复方案。
