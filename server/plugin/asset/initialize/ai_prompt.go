@@ -2,12 +2,40 @@ package initialize
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/ai"
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
+
+const assetRecognitionPromptKey = "asset-draft"
+
+const legacyAssetRecognitionOutputSchema = `{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "brand", "model", "serialNumber", "specifications", "productionDate", "recommendedCategoryCode", "recommendedUnit", "recommendedWarrantyMonths", "rawText", "fieldConfidences"],
+  "properties": {
+    "name": {"type": "string", "maxLength": 150},
+    "brand": {"type": "string", "maxLength": 100},
+    "model": {"type": "string", "maxLength": 120},
+    "serialNumber": {"type": "string", "maxLength": 120},
+    "specifications": {"type": "string", "maxLength": 1000},
+    "productionDate": {"type": "string", "maxLength": 30},
+    "recommendedCategoryCode": {"type": "string", "maxLength": 50},
+    "recommendedUnit": {"type": "string", "maxLength": 30},
+    "recommendedWarrantyMonths": {"type": "integer", "minimum": 0, "maximum": 120},
+    "rawText": {"type": "string", "maxLength": 10000},
+    "fieldConfidences": {
+      "type": "object",
+      "maxProperties": 32,
+      "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1}
+    }
+  }
+}`
 
 const assetRecognitionOutputSchema = `{
   "type": "object",
@@ -47,16 +75,49 @@ func seedAssetRecognitionPrompt(ctx context.Context) {
 		global.GVA_LOG.Error("资产智能建档 Prompt Schema 不合法", zap.Error(err))
 		return
 	}
-	var count int64
-	if err := global.GVA_DB.WithContext(ctx).Model(&ai.PromptTemplate{}).Where("prompt_key = ?", "asset-draft").Count(&count).Error; err != nil || count > 0 {
-		return
-	}
-	now := time.Now()
-	template := ai.PromptTemplate{
-		PromptKey: "asset-draft", Version: 1, Content: assetRecognitionPrompt,
-		OutputSchema: assetRecognitionOutputSchema, Status: ai.PromptStatusActive, ActivatedAt: &now,
-	}
-	if err := global.GVA_DB.WithContext(ctx).Create(&template).Error; err != nil {
+	if err := global.GVA_DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var templates []ai.PromptTemplate
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("prompt_key = ?", assetRecognitionPromptKey).
+			Order("version ASC").
+			Find(&templates).Error; err != nil {
+			return err
+		}
+		if len(templates) == 0 {
+			now := time.Now()
+			return tx.Create(&ai.PromptTemplate{
+				PromptKey: assetRecognitionPromptKey, Version: 1, Content: assetRecognitionPrompt,
+				OutputSchema: assetRecognitionOutputSchema, Status: ai.PromptStatusActive, ActivatedAt: &now,
+			}).Error
+		}
+
+		activeIndex := -1
+		for index := range templates {
+			if templates[index].Status != ai.PromptStatusActive {
+				continue
+			}
+			if activeIndex >= 0 {
+				return nil
+			}
+			activeIndex = index
+		}
+		if activeIndex < 0 || strings.TrimSpace(templates[activeIndex].OutputSchema) != strings.TrimSpace(legacyAssetRecognitionOutputSchema) {
+			return nil
+		}
+
+		now := time.Now()
+		latestVersion := templates[len(templates)-1].Version
+		upgraded := ai.PromptTemplate{
+			PromptKey: assetRecognitionPromptKey, Version: latestVersion + 1, Content: assetRecognitionPrompt,
+			OutputSchema: assetRecognitionOutputSchema, Status: ai.PromptStatusActive, ActivatedAt: &now,
+		}
+		if err := tx.Create(&upgraded).Error; err != nil {
+			return err
+		}
+		return tx.Model(&ai.PromptTemplate{}).
+			Where("prompt_key = ? AND id = ? AND status = ?", assetRecognitionPromptKey, templates[activeIndex].ID, ai.PromptStatusActive).
+			Updates(map[string]any{"status": ai.PromptStatusRetired, "activated_at": nil}).Error
+	}); err != nil {
 		global.GVA_LOG.Warn("预置资产智能建档 Prompt 失败", zap.Error(err))
 	}
 }
