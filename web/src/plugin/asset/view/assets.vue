@@ -280,7 +280,8 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Edit, Picture, Plus, Refresh, Search } from '@element-plus/icons-vue'
 import { assetPhotoUrl } from '@/plugin/asset/utils/photo'
@@ -298,6 +299,8 @@ import AppPageHeader from '@/components/page/AppPageHeader.vue'
 import { usePagedList } from '@/hooks/usePagedList'
 
 defineOptions({ name: 'AssetInventory' })
+
+const route = useRoute()
 
 const statusOptions = [
   { value: 'pending_inbound', label: '待入库', type: 'primary', color: 'var(--na-info)' },
@@ -480,8 +483,16 @@ const previewPhoto = (file) => { previewUrl.value = photoUrl(file); previewVisib
 const photoExceed = () => ElMessage.warning('每项资产最多上传 6 张照片')
 
 onMounted(async () => {
+  if (typeof route.query.keyword === 'string') search.keyword = route.query.keyword.trim()
   await loadCategories()
   await refreshAssets()
+})
+watch(() => route.query.keyword, (keyword) => {
+  const value = typeof keyword === 'string' ? keyword.trim() : ''
+  if (search.keyword === value) return
+  search.keyword = value
+  search.page = 1
+  refreshAssets()
 })
 </script>
 

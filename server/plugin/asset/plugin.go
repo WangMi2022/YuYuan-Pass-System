@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/plugin/asset/initialize"
+	"github.com/flipped-aurora/gin-vue-admin/server/plugin/asset/service"
 	interfaces "github.com/flipped-aurora/gin-vue-admin/server/utils/plugin/v2"
 	"github.com/gin-gonic/gin"
 )
@@ -23,4 +24,5 @@ func (p *plugin) Register(engine *gin.Engine) {
 	initialize.Gorm(ctx)
 	initialize.Permission(ctx)
 	initialize.Router(engine)
+	service.Service.Risk.StartWorker()
 }

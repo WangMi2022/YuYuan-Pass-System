@@ -8,6 +8,7 @@ var (
 	apiCategory  = api.Api.Category
 	apiLocation  = api.Api.Location
 	apiOperation = api.Api.Operation
+	apiRisk      = api.Api.Risk
 )
 
 type routerGroup struct {
@@ -15,4 +16,5 @@ type routerGroup struct {
 	Category  categoryRouter
 	Location  locationRouter
 	Operation operationRouter
+	Risk      riskRouter
 }

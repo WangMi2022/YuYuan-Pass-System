@@ -1,0 +1,14 @@
+import service from '@/utils/request'
+
+export const getAssetRiskDashboard = () => service({ url: '/assetRisk/dashboard', method: 'get' })
+export const getAssetRiskList = (params) => service({ url: '/assetRisk/list', method: 'get', params })
+export const getAssetRiskDetail = (params) => service({ url: '/assetRisk/detail', method: 'get', params })
+export const startAssetRiskScan = (data = {}) => service({ url: '/assetRisk/scan', method: 'post', data })
+export const getAssetRiskScans = (params) => service({ url: '/assetRisk/scans', method: 'get', params })
+export const acknowledgeAssetRisk = (data) => service({ url: '/assetRisk/acknowledge', method: 'put', data })
+export const resolveAssetRisk = (data) => service({ url: '/assetRisk/resolve', method: 'put', data })
+export const ignoreAssetRisk = (data) => service({ url: '/assetRisk/ignore', method: 'put', data })
+export const reopenAssetRisk = (data) => service({ url: '/assetRisk/reopen', method: 'put', data })
+export const assignAssetRisk = (data) => service({ url: '/assetRisk/assign', method: 'put', data })
+export const getAssetRiskRules = () => service({ url: '/assetRisk/rules', method: 'get' })
+export const updateAssetRiskRule = (data) => service({ url: '/assetRisk/rules', method: 'put', data })

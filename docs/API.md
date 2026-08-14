@@ -193,6 +193,71 @@ JWT 无效或过期通常返回 HTTP `401`。部分文件接口直接返回文�
 
 业务类型：`inbound`、`issue`、`transfer`、`return`、`maintenance`、`scrap`。单张业务单最多选择 100 项资产。
 
+### 3.4 资产风险中心
+
+所有风险接口均位于 JWT + Casbin 私有路由；写接口额外挂载 `OperationRecord()`。
+
+| 方法 | 路径 | 主要参数 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/assetRisk/dashboard` | - | 风险指标、分布、30 天趋势、最近事件和最近扫描 |
+| GET | `/assetRisk/list` | 分页、`status/severity/category/ruleCode/assetId/assignedTo/keyword` | 风险事件列表 |
+| GET | `/assetRisk/detail` | query `id` | 风险事件、证据、关联资产和处理日志 |
+| GET | `/assetRisk/rules` | - | 17 条风险规则及当前版本 |
+| PUT | `/assetRisk/rules` | 规则更新 JSON | 修改等级、阈值和启用状态，版本自动递增 |
+| POST | `/assetRisk/scan` | 可选 `{"runId": 12}` | 启动新扫描，或从失败任务游标续扫；允许空请求体 |
+| GET | `/assetRisk/scans` | 分页、`status/triggerType` | 扫描运行记录 |
+| PUT | `/assetRisk/acknowledge` | 风险动作 JSON | 确认已接手风险 |
+| PUT | `/assetRisk/resolve` | 风险动作 JSON | 标记解决，必须填写处理说明 |
+| PUT | `/assetRisk/ignore` | 风险动作 JSON | 忽略风险，必须填写原因且只能单条操作 |
+| PUT | `/assetRisk/reopen` | 风险动作 JSON | 重新打开已解决或已忽略风险，必须填写说明 |
+| PUT | `/assetRisk/assign` | 分配 JSON | 批量分配处理人，`assignedTo=0` 表示取消分配 |
+
+风险动作请求：
+
+```json
+{
+  "ids": [21, 22],
+  "note": "已核对实物和流转记录"
+}
+```
+
+确认、解决、重新打开最多可处理 100 条；忽略操作必须逐条提交。分配请求为：
+
+```json
+{
+  "ids": [21, 22],
+  "assignedTo": 8
+}
+```
+
+规则更新请求：
+
+```json
+{
+  "ID": 3,
+  "severity": "high",
+  "parameters": {
+    "days": 30,
+    "minValue": 10000
+  },
+  "enabled": true
+}
+```
+
+不同规则允许的参数不同，未知参数和不安全阈值会被服务端拒绝。风险等级为 `low/medium/high/critical`；事件状态为 `open/acknowledged/resolved/ignored`；扫描状态为 `running/success/failed`，触发方式为 `manual/scheduled`。
+
+总览响应的主要字段为：
+
+- `totalOpen`：待处理和已确认风险总数。
+- `highOpen`：其中高风险和严重风险数量。
+- `todayNew`：当天首次命中的事件数。
+- `overdue`：首次命中已超过 7 天且仍未关闭的事件数。
+- `byCategory/bySeverity/byStatus/byCustodian`：分组指标。
+- `trend`：最近 30 天新增和解决数量。
+- `recentEvents/latestScan/generatedAt`：最近风险、最近扫描和统计时间。
+
+扫描按每批 200 项资产执行，同一进程和数据库中仍有新鲜心跳的扫描会阻止并发启动。失败任务保存游标、心跳、计数和错误，可通过 `runId` 续扫；同一风险使用稳定指纹幂等更新。
+
 ## 4. 发票接口
 
 ### 4.1 发票主流程

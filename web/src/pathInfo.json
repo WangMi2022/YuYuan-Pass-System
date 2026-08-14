@@ -82,6 +82,7 @@
   "/src/plugin/asset/view/categories.vue": "AssetCategories",
   "/src/plugin/asset/view/dashboard.vue": "AssetDashboard",
   "/src/plugin/asset/view/operations.vue": "AssetOperations",
+  "/src/plugin/asset/view/risk.vue": "AssetRiskCenter",
   "/src/plugin/auto/view/aiWorkflow/index.vue": "Index",
   "/src/plugin/auto/view/autoCode/index.vue": "Index",
   "/src/plugin/auto/view/autoCode/mcp.vue": "Mcp",

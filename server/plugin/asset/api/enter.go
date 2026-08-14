@@ -8,6 +8,7 @@ var (
 	serviceCategory  = service.Service.Category
 	serviceLocation  = service.Service.Location
 	serviceOperation = service.Service.Operation
+	serviceRisk      = service.Service.Risk
 )
 
 type apiGroup struct {
@@ -15,4 +16,5 @@ type apiGroup struct {
 	Category  categoryAPI
 	Location  locationAPI
 	Operation operationAPI
+	Risk      riskAPI
 }

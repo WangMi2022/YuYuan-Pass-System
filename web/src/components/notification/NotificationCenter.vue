@@ -157,7 +157,7 @@ const formatFullTime = (value) => value ? new Date(value).toLocaleString('zh-CN'
 
 const notificationTime = (item) => item.occurrenceAt || item.publishedAt || item.CreatedAt
 
-const notificationKind = (item) => item.kind === 'schedule' ? '日程' : '公告'
+const notificationKind = (item) => item.kind === 'schedule' ? '日程' : item.kind === 'asset-risk' ? '资产风险' : '公告'
 
 const normalizeNotification = (item, kind) => ({
   ...item,
@@ -255,13 +255,18 @@ const handleStreamBlock = async (block) => {
   const data = lines.filter((line) => line.startsWith('data:')).map((line) => line.slice(5).trim()).join('')
   let event = {}
   try { event = JSON.parse(data) } catch { return }
-  await loadNotifications()
+  if (event.kind !== 'asset-risk') await loadNotifications()
   ElNotification({
-    title: event.kind === 'schedule' ? '日程提醒' : '新公告提醒',
-    message: event.title || (event.kind === 'schedule' ? '有一条日程已到时间，请及时处理' : '有一条新公告，请及时查看'),
-    type: 'info',
-    duration: 5000,
-    position: 'top-right'
+    title: event.kind === 'schedule' ? '日程提醒' : event.kind === 'asset-risk' ? '资产风险提醒' : '新公告提醒',
+    message: event.title || (event.kind === 'schedule' ? '有一条日程已到时间，请及时处理' : event.kind === 'asset-risk' ? '发现一条高风险资产事件，请及时处理' : '有一条新公告，请及时查看'),
+    type: event.kind === 'asset-risk' ? 'warning' : 'info',
+    duration: event.kind === 'asset-risk' ? 6500 : 5000,
+    position: 'top-right',
+    onClick: () => {
+      if (event.kind === 'asset-risk' && router.hasRoute('assetRiskCenter')) {
+        router.push({ name: 'assetRiskCenter', query: event.id ? { riskId: event.id } : undefined })
+      }
+    }
   })
 }
 
@@ -372,6 +377,7 @@ onBeforeUnmount(() => {
 .notification-meta > span:not(.notification-kind) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .notification-kind { display: inline-flex; flex: 0 0 auto; align-items: center; min-height: 18px; padding: 0 5px; border-radius: 4px; color: var(--el-color-primary); background: var(--el-color-primary-light-9); font-size: 10px; font-weight: 650; }
 .notification-kind.is-schedule { color: var(--el-color-warning); background: var(--el-color-warning-light-9); }
+.notification-kind.is-asset-risk { color: var(--el-color-danger); background: var(--el-color-danger-light-9); }
 .announcement-detail { min-height: 180px; }
 .announcement-detail-meta { display: flex; gap: 14px; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid var(--el-border-color-lighter); color: var(--el-text-color-secondary); font-size: 12px; }
 .announcement-rich-content { overflow-wrap: anywhere; color: var(--el-text-color-primary); font-size: 14px; line-height: 1.75; }

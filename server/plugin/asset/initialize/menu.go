@@ -9,7 +9,7 @@ import (
 )
 
 var menuNames = []string{
-	"assetCenter", "assetDashboard", "assetInventory", "assetCategories",
+	"assetCenter", "assetDashboard", "assetRiskCenter", "assetInventory", "assetCategories",
 	"assetInbound", "assetIssue", "assetTransfer", "assetReturn", "assetMaintenance", "assetScrap",
 }
 
@@ -26,21 +26,26 @@ func Menu(_ context.Context) {
 			Meta: system.Meta{Title: "资产大屏", Icon: "data-analysis", KeepAlive: true},
 		},
 		{
+			Path: "assetRiskCenter", Name: "assetRiskCenter", Hidden: false,
+			Component: "plugin/asset/view/risk.vue", Sort: 1,
+			Meta: system.Meta{Title: "风险中心", Icon: "warning", KeepAlive: true},
+		},
+		{
 			Path: "assetInventory", Name: "assetInventory", Hidden: false,
-			Component: "plugin/asset/view/assets.vue", Sort: 1,
+			Component: "plugin/asset/view/assets.vue", Sort: 2,
 			Meta: system.Meta{Title: "资产档案", Icon: "list", KeepAlive: true},
 		},
 		{
 			Path: "assetCategories", Name: "assetCategories", Hidden: false,
-			Component: "plugin/asset/view/categories.vue", Sort: 2,
+			Component: "plugin/asset/view/categories.vue", Sort: 3,
 			Meta: system.Meta{Title: "分类管理", Icon: "collection-tag", KeepAlive: true},
 		},
-		{Path: "assetInbound", Name: "assetInbound", Component: "plugin/asset/view/operations.vue", Sort: 3, Meta: system.Meta{Title: "入库管理", Icon: "box"}},
-		{Path: "assetIssue", Name: "assetIssue", Component: "plugin/asset/view/operations.vue", Sort: 4, Meta: system.Meta{Title: "领用管理", Icon: "user"}},
-		{Path: "assetTransfer", Name: "assetTransfer", Component: "plugin/asset/view/operations.vue", Sort: 5, Meta: system.Meta{Title: "调拨管理", Icon: "switch"}},
-		{Path: "assetReturn", Name: "assetReturn", Component: "plugin/asset/view/operations.vue", Sort: 6, Meta: system.Meta{Title: "归还管理", Icon: "refresh-left"}},
-		{Path: "assetMaintenance", Name: "assetMaintenance", Component: "plugin/asset/view/operations.vue", Sort: 7, Meta: system.Meta{Title: "维修管理", Icon: "tools"}},
-		{Path: "assetScrap", Name: "assetScrap", Component: "plugin/asset/view/operations.vue", Sort: 8, Meta: system.Meta{Title: "报废管理", Icon: "delete"}},
+		{Path: "assetInbound", Name: "assetInbound", Component: "plugin/asset/view/operations.vue", Sort: 4, Meta: system.Meta{Title: "入库管理", Icon: "box"}},
+		{Path: "assetIssue", Name: "assetIssue", Component: "plugin/asset/view/operations.vue", Sort: 5, Meta: system.Meta{Title: "领用管理", Icon: "user"}},
+		{Path: "assetTransfer", Name: "assetTransfer", Component: "plugin/asset/view/operations.vue", Sort: 6, Meta: system.Meta{Title: "调拨管理", Icon: "switch"}},
+		{Path: "assetReturn", Name: "assetReturn", Component: "plugin/asset/view/operations.vue", Sort: 7, Meta: system.Meta{Title: "归还管理", Icon: "refresh-left"}},
+		{Path: "assetMaintenance", Name: "assetMaintenance", Component: "plugin/asset/view/operations.vue", Sort: 8, Meta: system.Meta{Title: "维修管理", Icon: "tools"}},
+		{Path: "assetScrap", Name: "assetScrap", Component: "plugin/asset/view/operations.vue", Sort: 9, Meta: system.Meta{Title: "报废管理", Icon: "delete"}},
 	}
 	utils.RegisterMenus(menus...)
 

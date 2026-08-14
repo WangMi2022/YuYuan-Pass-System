@@ -7,4 +7,5 @@ type serviceGroup struct {
 	Category  categoryService
 	Location  locationService
 	Operation operationService
+	Risk      riskService
 }

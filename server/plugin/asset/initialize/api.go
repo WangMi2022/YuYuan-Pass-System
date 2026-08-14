@@ -33,6 +33,18 @@ var apiRules = []system.SysApi{
 	{Path: "/assetOperation/detail", Description: "资产业务单详情", ApiGroup: "资产流转", Method: "GET"},
 	{Path: "/assetOperation/list", Description: "资产业务单列表", ApiGroup: "资产流转", Method: "GET"},
 	{Path: "/assetOperation/assetOptions", Description: "可流转资产选项", ApiGroup: "资产流转", Method: "GET"},
+	{Path: "/assetRisk/dashboard", Description: "资产风险总览", ApiGroup: "资产风险", Method: "GET"},
+	{Path: "/assetRisk/list", Description: "资产风险列表", ApiGroup: "资产风险", Method: "GET"},
+	{Path: "/assetRisk/detail", Description: "资产风险详情", ApiGroup: "资产风险", Method: "GET"},
+	{Path: "/assetRisk/scan", Description: "启动资产风险扫描", ApiGroup: "资产风险", Method: "POST"},
+	{Path: "/assetRisk/scans", Description: "资产风险扫描记录", ApiGroup: "资产风险", Method: "GET"},
+	{Path: "/assetRisk/acknowledge", Description: "确认资产风险", ApiGroup: "资产风险", Method: "PUT"},
+	{Path: "/assetRisk/resolve", Description: "解决资产风险", ApiGroup: "资产风险", Method: "PUT"},
+	{Path: "/assetRisk/ignore", Description: "忽略资产风险", ApiGroup: "资产风险", Method: "PUT"},
+	{Path: "/assetRisk/reopen", Description: "重新打开资产风险", ApiGroup: "资产风险", Method: "PUT"},
+	{Path: "/assetRisk/assign", Description: "分配资产风险", ApiGroup: "资产风险", Method: "PUT"},
+	{Path: "/assetRisk/rules", Description: "资产风险规则列表", ApiGroup: "资产风险", Method: "GET"},
+	{Path: "/assetRisk/rules", Description: "更新资产风险规则", ApiGroup: "资产风险", Method: "PUT"},
 }
 
 func Api(_ context.Context) { utils.RegisterApis(apiRules...) }

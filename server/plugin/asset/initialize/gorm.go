@@ -5,8 +5,11 @@ import (
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/plugin/asset/model"
+	"github.com/flipped-aurora/gin-vue-admin/server/plugin/asset/service"
 	"go.uber.org/zap"
 )
+
+func seedRiskRules(ctx context.Context) { service.Service.Risk.SeedRules(ctx) }
 
 func Gorm(ctx context.Context) {
 	if err := global.GVA_DB.WithContext(ctx).AutoMigrate(
@@ -16,12 +19,17 @@ func Gorm(ctx context.Context) {
 		&model.AssetOperationOrder{},
 		&model.AssetOperationItem{},
 		&model.AssetOperationRecord{},
+		&model.AssetRiskRule{},
+		&model.AssetRiskEvent{},
+		&model.AssetRiskEventLog{},
+		&model.AssetRiskScanRun{},
 	); err != nil {
 		global.GVA_LOG.Error("资产模块数据表迁移失败", zap.Error(err))
 		return
 	}
 	seedCategories(ctx)
 	seedLocations(ctx)
+	seedRiskRules(ctx)
 }
 
 func seedCategories(ctx context.Context) {

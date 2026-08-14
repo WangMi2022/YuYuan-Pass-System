@@ -25,6 +25,8 @@ erDiagram
     ASSET ||--o{ ASSET_OPERATION_ITEM : included_in
     ASSET_OPERATION_ORDER ||--o{ ASSET_OPERATION_ITEM : contains
     ASSET_OPERATION_ORDER ||--o{ ASSET_OPERATION_RECORD : produces
+    ASSET ||--o{ ASSET_RISK_EVENT : triggers
+    ASSET_RISK_EVENT ||--o{ ASSET_RISK_EVENT_LOG : records
     INVOICE_CATEGORY ||--o{ INVOICE : classifies
     INVOICE ||--o{ INVOICE_ITEM : contains
     INVOICE ||--o{ RECOGNITION_JOB : recognizes
@@ -113,6 +115,68 @@ erDiagram
 ### 3.6 `asset_operation_records`
 
 保存每次正式流转的不可变审计记录，包括资产在流转前后的状态、位置、保管人和价值等快照。审计查询不应只依赖当前 `assets` 主表。
+
+### 3.7 `asset_risk_rules`
+
+| 字段 | 说明 |
+| --- | --- |
+| `code` | 稳定规则编码，唯一 |
+| `name` | 规则名称 |
+| `category` | `status/value/return/maintenance/warranty/duplicate` |
+| `severity` | `low/medium/high/critical` |
+| `description` / `recommendation` | 规则说明和默认处置建议 |
+| `parameters` | JSONB 阈值，只接受规则白名单参数 |
+| `enabled` | 是否参与扫描 |
+| `version` | 规则版本；等级、参数或启停更新时递增 |
+
+### 3.8 `asset_risk_events`
+
+| 字段 | 说明 |
+| --- | --- |
+| `fingerprint` | 资产、规则编码、规则版本和关键证据组成的 SHA-256 唯一指纹 |
+| `asset_id` | 关联资产 ID |
+| `rule_code` / `rule_version` | 命中规则及版本快照 |
+| `category` / `severity` | 风险类别和等级 |
+| `status` | `open/acknowledged/resolved/ignored` |
+| `title` / `description` | 风险标题和说明 |
+| `evidence` | JSONB 证据快照 |
+| `recommendation` | 建议动作 |
+| `first_detected_at` / `last_detected_at` | 首次与最近命中时间 |
+| `last_scan_run_id` | 最近命中的扫描运行 ID |
+| `assigned_to` / `assigned_to_name` | 当前处理人 |
+| `handled_by` / `handled_by_name` / `handled_at` | 最终处理主体与时间 |
+| `resolution_note` | 解决或忽略说明 |
+
+`resolved` 事件再次命中同一指纹时自动重开；`ignored` 保持人工忽略状态。规则版本进入指纹，因此升级规则不会覆盖旧版本证据。
+
+### 3.9 `asset_risk_event_logs`
+
+| 字段 | 说明 |
+| --- | --- |
+| `event_id` | 风险事件 ID |
+| `action` | 检出、确认、解决、忽略、重开、分配或系统自动动作 |
+| `from_state` / `to_state` | 动作前后状态 |
+| `actor_id` / `actor_name` | 操作主体，系统动作 ID 为 0 |
+| `note` | 处理说明或系统原因 |
+
+该表是风险处理时间线，不随事件当前状态改变而覆盖。
+
+### 3.10 `asset_risk_scan_runs`
+
+| 字段 | 说明 |
+| --- | --- |
+| `trigger_type` | `manual` 或 `scheduled` |
+| `status` | `running/success/failed` |
+| `started_at` / `finished_at` | 开始与完成时间 |
+| `heartbeat_at` | 最近批次心跳，用于并发保护和僵死识别 |
+| `resume_count` | 已续扫次数，自动恢复最多 3 次 |
+| `cursor_asset_id` | 最近完成批次的资产游标 |
+| `scanned_assets` | 已扫描资产数 |
+| `new_events` / `updated_events` / `closed_events` | 新增、更新和自动关闭风险数 |
+| `error_message` | 失败摘要，最大保留 2000 字符 |
+| `triggered_by` / `triggered_by_name` | 手动触发用户或系统任务 |
+
+数据库使用条件唯一索引确保同一时刻最多一条 `running` 记录；心跳超过 15 分钟的任务会标记失败，后续按续扫策略恢复。
 
 ## 4. 发票域
 
