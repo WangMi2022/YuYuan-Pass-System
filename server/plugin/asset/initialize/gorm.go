@@ -3,6 +3,7 @@ package initialize
 import (
 	"context"
 
+	"github.com/flipped-aurora/gin-vue-admin/server/ai"
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/plugin/asset/model"
 	"github.com/flipped-aurora/gin-vue-admin/server/plugin/asset/service"
@@ -16,6 +17,8 @@ func Gorm(ctx context.Context) {
 		&model.Category{},
 		&model.Location{},
 		&model.Asset{},
+		&model.AssetRecognitionJob{},
+		&ai.PromptTemplate{},
 		&model.AssetOperationOrder{},
 		&model.AssetOperationItem{},
 		&model.AssetOperationRecord{},
@@ -30,6 +33,7 @@ func Gorm(ctx context.Context) {
 	seedCategories(ctx)
 	seedLocations(ctx)
 	seedRiskRules(ctx)
+	seedAssetRecognitionPrompt(ctx)
 }
 
 func seedCategories(ctx context.Context) {

@@ -122,6 +122,8 @@ JWT 无效或过期通常返回 HTTP `401`。部分文件接口直接返回文�
   "brand": "Example",
   "model": "Pro 14",
   "serialNumber": "SN0001",
+  "specifications": "32GB RAM / 1TB SSD",
+  "productionDate": "2026-06-01T00:00:00+08:00",
   "quantity": 1,
   "unit": "台",
   "unitPrice": 8999,
@@ -258,6 +260,61 @@ JWT 无效或过期通常返回 HTTP `401`。部分文件接口直接返回文�
 
 扫描按每批 200 项资产执行，同一进程和数据库中仍有新鲜心跳的扫描会阻止并发启动。失败任务保存游标、心跳、计数和错误，可通过 `runId` 续扫；同一风险使用稳定指纹幂等更新。
 
+### 3.5 智能资产建档
+
+所有接口均位于 JWT + Casbin 私有路由。默认管理员可查看全部任务，普通用户只能访问自己创建的任务；读取权限从资产列表权限继承，写权限从资产新增权限继承。
+
+| 方法 | 路径 | 主要参数 | 说明 |
+| --- | --- | --- | --- |
+| POST | `/assetRecognition/create` | multipart `files` 或 `file` | 上传 1-6 张图片并创建异步识别任务 |
+| GET | `/assetRecognition/list` | `page/pageSize/status` | 识别任务分页列表 |
+| GET | `/assetRecognition/detail?id=<id>` | query `id` | 任务、草稿、置信度、警告和重复候选 |
+| POST | `/assetRecognition/retry` | `{"id": 12}` | 仅将未确认的失败任务重新排队 |
+| PUT | `/assetRecognition/draft` | `id` 和完整 `draft` | 保存人工修正草稿并重新执行确定性校验 |
+| POST | `/assetRecognition/confirm` | `{"id": 12}` | 事务创建正式资产并建立不可变关联 |
+| DELETE | `/assetRecognition/delete?id=<id>` | query `id` | 删除未确认任务和临时图片 |
+
+上传只接受 JPG、PNG、WebP、GIF，单张最大 10 MB，每批请求最大 61 MB。任务状态：
+
+| 状态 | 含义 |
+| --- | --- |
+| `pending` | 等待 Worker 领取 |
+| `processing` | 正在读取图片和调用 Vision 模型 |
+| `reviewing` | 识别完成，等待人工修正和确认 |
+| `completed` | 已创建正式资产，任务不可删除或再次确认 |
+| `failed` | 识别或 Schema 校验失败，可重新识别 |
+| `deleting` | 临时图片尚未完全清理，只允许重试删除 |
+
+草稿保存示例：
+
+```json
+{
+  "id": 12,
+  "draft": {
+    "assetCode": "ASSET-2026-0008",
+    "name": "研发笔记本",
+    "categoryId": 1,
+    "brand": "Example",
+    "model": "Pro 14",
+    "serialNumber": "SN-UNIQUE-008",
+    "specifications": "32GB RAM / 1TB SSD",
+    "productionDate": "2026-06-01T00:00:00+08:00",
+    "quantity": 1,
+    "unit": "台",
+    "unitPrice": 8999,
+    "currentValue": 8999,
+    "supplier": "示例供应商",
+    "purchaseDate": "2026-08-01T00:00:00+08:00",
+    "warrantyEndDate": "2028-08-01T00:00:00+08:00",
+    "recommendedWarrantyMonths": 24,
+    "photos": [],
+    "remarks": "人工核对铭牌完成"
+  }
+}
+```
+
+服务端忽略客户端提交的 `photos`，始终使用任务原始图片。模型不会生成资产编号、采购单价或当前估值。分类必须存在且启用；序列号完全匹配或去除大小写、空格及分隔符后的标准化匹配都会形成重复候选，并阻止确认。
+
 ## 4. 发票接口
 
 ### 4.1 发票主流程
@@ -314,6 +371,20 @@ JWT 无效或过期通常返回 HTTP `401`。部分文件接口直接返回文�
 | PUT | `/invoiceRule/update` | 更新分类规则 |
 | DELETE | `/invoiceRule/delete?id=<id>` | 删除分类规则 |
 | GET | `/invoiceRule/list` | 规则列表 |
+
+### 4.3 发票识别质量
+
+五个接口使用统一查询参数：`startDate/endDate/provider/model/fileType`；失败明细额外支持 `page/pageSize`。默认统计最近 30 天，结束日期包含当天，时间范围不能超过 366 天。数据范围与发票台账一致。
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/invoiceQuality/dashboard` | 总识别量、成功/失败率、平均耗时/尝试、回退率、复核量、修正字段、历史缺口和估算费用 |
+| GET | `/invoiceQuality/providerMetrics` | 按 Provider、模型和 MIME 分组的成功率、置信度、耗时、尝试与修正数 |
+| GET | `/invoiceQuality/fieldMetrics` | 字段复核量、修改量、修改率、准确率和平均置信度 |
+| GET | `/invoiceQuality/failures` | 失败发票、Provider、模型、尝试次数和错误摘要分页明细 |
+| GET | `/invoiceQuality/classificationMetrics` | 分类建议、接受、推翻、待决数量和比例 |
+
+字段准确率口径为“已采集复核数据且未被人工修改的字段占比”，不是第三方权威验真准确率。`legacyWithoutFieldData` 单独统计系统启用字段级差异采集前的历史发票。税号和校验码修正记录只保存 SHA-256 摘要，接口不返回对应明文。
 
 ## 5. 文档接口
 

@@ -7,6 +7,7 @@ var (
 	apiInvoice  = api.Api.Invoice
 	apiCategory = api.Api.Category
 	apiRule     = api.Api.Rule
+	apiQuality  = api.Api.Quality
 )
 
 type routerGroup struct {

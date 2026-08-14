@@ -20,3 +20,18 @@ export const uploadAssetPhoto = (file) => {
 }
 
 export const deleteAssetPhoto = (params) => service({ url: '/asset/deletePhoto', method: 'delete', params })
+
+export const createAssetRecognition = (files) => {
+  const data = new FormData()
+  files.forEach((file) => data.append('files', file))
+  return service({
+    url: '/assetRecognition/create', method: 'post', data,
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+export const getAssetRecognitionList = (params) => service({ url: '/assetRecognition/list', method: 'get', params })
+export const getAssetRecognitionDetail = (params) => service({ url: '/assetRecognition/detail', method: 'get', params })
+export const retryAssetRecognition = (data) => service({ url: '/assetRecognition/retry', method: 'post', data })
+export const saveAssetRecognitionDraft = (data) => service({ url: '/assetRecognition/draft', method: 'put', data })
+export const confirmAssetRecognition = (data) => service({ url: '/assetRecognition/confirm', method: 'post', data })
+export const deleteAssetRecognition = (params) => service({ url: '/assetRecognition/delete', method: 'delete', params })

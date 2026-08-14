@@ -18,6 +18,7 @@ func Gorm(ctx context.Context) {
 		&model.InvoiceItem{},
 		&model.ClassificationRule{},
 		&model.RecognitionJob{},
+		&model.InvoiceReviewCorrection{},
 		&model.InvoiceFileCleanupJob{},
 	); err != nil {
 		global.GVA_LOG.Error("流水管理数据表迁移失败", zap.Error(err))

@@ -27,10 +27,12 @@ erDiagram
     ASSET_OPERATION_ORDER ||--o{ ASSET_OPERATION_RECORD : produces
     ASSET ||--o{ ASSET_RISK_EVENT : triggers
     ASSET_RISK_EVENT ||--o{ ASSET_RISK_EVENT_LOG : records
+    ASSET_RECOGNITION_JOB o|--o| ASSET : confirms
     INVOICE_CATEGORY ||--o{ INVOICE : classifies
     INVOICE ||--o{ INVOICE_ITEM : contains
     INVOICE ||--o{ RECOGNITION_JOB : recognizes
     INVOICE ||--o{ INVOICE_VERIFICATION : verifies
+    INVOICE ||--o{ INVOICE_REVIEW_CORRECTION : corrected_by
     USER ||--o{ WORK_SCHEDULE : owns
     WORK_SCHEDULE ||--o{ WORK_SCHEDULE_NOTIFICATION : generates
     ANNOUNCEMENT ||--o{ ANNOUNCEMENT_READ : read_by
@@ -58,6 +60,8 @@ erDiagram
 | `category_id` | 分类外键 |
 | `brand` / `model` | 品牌和规格型号 |
 | `serial_number` | 序列号 |
+| `specifications` | 规格参数，最长 1000 字符 |
+| `production_date` | 铭牌生产日期 |
 | `quantity` / `unit` | 数量和计量单位 |
 | `unit_price` | 采购单价 |
 | `original_value` | 原值，数量 × 单价 |
@@ -178,6 +182,30 @@ erDiagram
 
 数据库使用条件唯一索引确保同一时刻最多一条 `running` 记录；心跳超过 15 分钟的任务会标记失败，后续按续扫策略恢复。
 
+### 3.11 `asset_recognition_jobs`
+
+| 字段 | 说明 |
+| --- | --- |
+| `status` | `pending/processing/reviewing/completed/failed/deleting` |
+| `attempts` / `max_attempts` | 当前与最大识别尝试次数 |
+| `provider` / `model` / `prompt_version` | 实际模型与 Prompt 版本 |
+| `file_keys` | JSONB 输入图片元数据；响应字段为 `fileKeys` |
+| `result` | JSONB 模型合并后的结构化结果 |
+| `draft` | JSONB 人工可修正资产草稿 |
+| `field_confidences` | JSONB 字段置信度映射 |
+| `warnings` | JSONB 低置信、分类、日期和重复警告 |
+| `duplicate_candidates` | JSONB 完全或标准化序列号重复候选 |
+| `storage_*` | 创建任务时固化的 local/MinIO 存储位置 |
+| `next_run_at` / `locked_at` / `lock_token` | Worker 或删除清理租约 |
+| `last_error` | 最近识别或临时图片清理错误 |
+| `created_by` / `authority_id` | 创建用户和主角色，用于数据范围 |
+| `draft_updated_by/at` | 最近人工草稿修改人和时间 |
+| `completed_at` | 识别完成或正式确认时间 |
+| `confirmed_asset_id` | 正式资产唯一关联，唯一索引 |
+| `confirmed_by/at` | 确认建档用户和时间 |
+
+`completed` 任务不能删除或再次确认。`deleting` 仅用于图片部分清理失败，不能进入识别 Worker；缺失对象按已删除处理，允许幂等重试清理。
+
 ## 4. 发票域
 
 ### 4.1 `invoice_categories`
@@ -203,7 +231,13 @@ erDiagram
 | `currency` | 币种，默认 CNY |
 | `category_id` | 分类外键 |
 | `classification_source` | `auto` 或 `manual` |
+| `suggested_category_id` | 识别/规则建议分类，用于接受率统计 |
 | `status` | 发票处理状态 |
+| `recognition_provider/model/prompt_version` | 实际识别来源和 Prompt 版本 |
+| `recognition_confidence/duration_ms` | 总体置信度与识别耗时 |
+| `field_confidences` | JSON 字段置信度映射 |
+| `recognition_error` | 最近识别失败摘要 |
+| `review_captured_at` | 已开始采集字段级人工修正数据的时间 |
 | `verification_status` | 验真状态 |
 | `file_key` 等 | 原始证据对象信息 |
 | `confirmed_by/at` | 确认人和确认时间 |
@@ -226,7 +260,7 @@ erDiagram
 
 ### 4.4 `invoice_recognition_jobs`
 
-持久化识别任务：provider、状态、尝试次数、开始/结束时间和失败详情。状态包括 `pending`、`processing`、`completed`、`failed`。
+持久化识别任务：Provider、模型、Prompt 版本、状态、尝试次数、租约、耗时、多模态回退标记、完成时间和失败详情。状态包括 `pending`、`processing`、`completed`、`failed`。
 
 ### 4.5 `invoice_verifications`
 
@@ -239,6 +273,22 @@ erDiagram
 ### 4.7 `invoice_file_cleanup_jobs`
 
 发票删除后的对象清理任务。通过租约和重试实现幂等，避免数据库已删除但对象文件永久残留。
+
+### 4.8 `invoice_review_corrections`
+
+| 字段 | 说明 |
+| --- | --- |
+| `invoice_id` | 发票 ID，与 `field_name` 组成唯一索引 |
+| `recognition_job_id` / `invocation_id` | 可选识别任务与 AI 调用审计关联 |
+| `field_name` | 被人工修改的字段名 |
+| `recognized_value` | 原始识别值；敏感字段保存 SHA-256 摘要 |
+| `corrected_value` | 当前人工值；敏感字段保存 SHA-256 摘要 |
+| `confidence` | 原字段识别置信度 |
+| `provider` / `model` / `prompt_version` | 识别来源快照 |
+| `corrected_by/at` | 最近修正人和时间 |
+| `confirmed` | 修正是否已进入正式确认结果 |
+
+一张发票同一字段只保留一条当前差异。后续人工修改仍使用原识别值作为基线；改回原识别值时删除差异，确认时只更新 `confirmed`，不覆盖差异来源。
 
 ## 5. 文档域
 

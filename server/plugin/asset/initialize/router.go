@@ -16,4 +16,5 @@ func Router(engine *gin.Engine) {
 	router.Router.Location.Init(public, private)
 	router.Router.Operation.Init(public, private)
 	router.Router.Risk.Init(public, private)
+	router.Router.Recognition.Init(private)
 }

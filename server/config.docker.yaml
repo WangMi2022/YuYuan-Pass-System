@@ -293,7 +293,8 @@ ai:
     enabled: false
     allow-private-endpoints: false
     sensitive-words: []
-    allow-vision-modules: []
+    allow-vision-modules:
+        - asset
     openai-compatible:
         enabled: false
         base-url: ""

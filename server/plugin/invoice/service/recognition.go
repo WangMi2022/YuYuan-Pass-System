@@ -378,6 +378,18 @@ func saveRecognitionResult(invoice model.Invoice, job model.RecognitionJob, resu
 	if err != nil {
 		return fmt.Errorf("序列化字段置信度失败: %w", err)
 	}
+	recognitionModel := ""
+	if result.Provider == "multimodal-ai" {
+		recognitionModel = strings.TrimSpace(global.GVA_CONFIG.InvoiceRecognition.Multimodal.Model)
+	}
+	durationMS := int64(0)
+	if job.LockedAt != nil {
+		durationMS = time.Since(*job.LockedAt).Milliseconds()
+	}
+	job.Provider = result.Provider
+	job.Model = recognitionModel
+	job.DurationMS = durationMS
+	job.FallbackUsed = result.Provider == "multimodal-ai"
 	return global.GVA_DB.Transaction(func(tx *gorm.DB) error {
 		now := time.Now()
 		lease := tx.Model(&model.RecognitionJob{}).
@@ -398,7 +410,9 @@ func saveRecognitionResult(invoice model.Invoice, job model.RecognitionJob, resu
 			"seller_name": result.SellerName, "seller_tax_no": result.SellerTaxNo,
 			"amount_cents": invoice.AmountCents, "tax_cents": result.TaxCents,
 			"total_cents": result.TotalCents, "recognition_provider": result.Provider,
-			"recognition_confidence": result.Confidence, "field_confidences": string(fieldConfidences),
+			"recognition_model": recognitionModel, "recognition_prompt_version": 0,
+			"recognition_duration_ms": durationMS,
+			"recognition_confidence":  result.Confidence, "field_confidences": string(fieldConfidences),
 			"recognition_error": "", "raw_text": result.RawText, "raw_payload": result.RawPayload,
 			"classification_confidence": classification.Confidence,
 			"classification_reason":     classification.Reason,
@@ -408,6 +422,7 @@ func saveRecognitionResult(invoice model.Invoice, job model.RecognitionJob, resu
 			"verification_message":      "",
 			"verification_invalid_sign": "",
 			"verification_checked_at":   nil,
+			"review_captured_at":        nil,
 		}
 		if classification.CandidateID > 0 {
 			candidateID := classification.CandidateID
@@ -447,6 +462,9 @@ func saveRecognitionResult(invoice model.Invoice, job model.RecognitionJob, resu
 			if err := tx.Create(&items).Error; err != nil {
 				return err
 			}
+		}
+		if err := tx.Where("invoice_id = ?", invoice.ID).Delete(&model.InvoiceReviewCorrection{}).Error; err != nil {
+			return err
 		}
 		return completeOwnedRecognitionJob(tx, job)
 	})
@@ -530,12 +548,21 @@ func truncateUTF8(value string, maxBytes int) string {
 }
 
 func completeOwnedRecognitionJob(tx *gorm.DB, job model.RecognitionJob) error {
+	now := time.Now()
+	updates := map[string]any{
+		"status": model.RecognitionJobCompleted, "locked_at": nil, "lock_token": "",
+		"next_run_at": nil, "last_error": "", "completed_at": &now,
+	}
+	if job.Provider != "" {
+		updates["provider"] = job.Provider
+		updates["model"] = job.Model
+		updates["prompt_version"] = job.PromptVersion
+		updates["duration_ms"] = job.DurationMS
+		updates["fallback_used"] = job.FallbackUsed
+	}
 	result := tx.Model(&model.RecognitionJob{}).
 		Where("id = ? AND status = ? AND lock_token = ?", job.ID, model.RecognitionJobProcessing, job.LockToken).
-		Updates(map[string]any{
-			"status": model.RecognitionJobCompleted, "locked_at": nil, "lock_token": "",
-			"next_run_at": nil, "last_error": "",
-		})
+		Updates(updates)
 	if result.Error != nil {
 		return result.Error
 	}
@@ -568,12 +595,22 @@ func finishRecognitionFailure(job model.RecognitionJob, jobErr error) {
 		next := time.Now().Add(delay)
 		nextRunAt = &next
 	}
+	var completedAt *time.Time
+	if jobStatus == model.RecognitionJobFailed {
+		now := time.Now()
+		completedAt = &now
+	}
+	durationMS := int64(0)
+	if job.LockedAt != nil {
+		durationMS = time.Since(*job.LockedAt).Milliseconds()
+	}
 	if err := global.GVA_DB.Transaction(func(tx *gorm.DB) error {
 		jobUpdate := tx.Model(&model.RecognitionJob{}).
 			Where("id = ? AND status = ? AND lock_token = ?", job.ID, model.RecognitionJobProcessing, job.LockToken).
 			Updates(map[string]any{
 				"status": jobStatus, "locked_at": nil, "lock_token": "",
 				"next_run_at": nextRunAt, "last_error": message,
+				"duration_ms": durationMS, "completed_at": completedAt,
 			})
 		if jobUpdate.Error != nil {
 			return jobUpdate.Error
@@ -602,6 +639,8 @@ func (RecognitionService) Retry(id uint, scope AccessScope) error {
 		updates := map[string]any{
 			"status": model.RecognitionJobPending, "attempts": 0, "max_attempts": 3,
 			"next_run_at": time.Now(), "locked_at": nil, "lock_token": "", "last_error": "",
+			"provider": "", "model": "", "prompt_version": 0, "duration_ms": 0,
+			"fallback_used": false, "completed_at": nil,
 		}
 		result := tx.Model(&model.RecognitionJob{}).Where("invoice_id = ?", invoice.ID).Updates(updates)
 		if result.Error != nil {
@@ -614,8 +653,13 @@ func (RecognitionService) Retry(id uint, scope AccessScope) error {
 				return err
 			}
 		}
+		if err := tx.Where("invoice_id = ?", invoice.ID).Delete(&model.InvoiceReviewCorrection{}).Error; err != nil {
+			return err
+		}
 		return tx.Model(&model.Invoice{}).Where("id = ?", invoice.ID).Updates(map[string]any{
 			"status": model.InvoiceStatusUploaded, "recognition_error": "",
+			"recognition_model": "", "recognition_prompt_version": 0, "recognition_duration_ms": 0,
+			"review_captured_at":       nil,
 			"verification_status":      model.InvoiceVerificationUnverified,
 			"verification_fingerprint": "", "verification_message": "重新识别后需要重新查验",
 			"verification_invalid_sign": "", "verification_checked_at": nil,

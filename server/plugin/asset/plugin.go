@@ -25,4 +25,5 @@ func (p *plugin) Register(engine *gin.Engine) {
 	initialize.Permission(ctx)
 	initialize.Router(engine)
 	service.Service.Risk.StartWorker()
+	service.Service.Recognition.StartWorker()
 }

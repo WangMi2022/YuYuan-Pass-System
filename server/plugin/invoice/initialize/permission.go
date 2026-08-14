@@ -27,6 +27,14 @@ var inheritedCapabilityRules = []inheritedPermissionRule{
 	{path: "/invoice/capabilities", method: "GET"},
 }
 
+var inheritedQualityRules = []inheritedPermissionRule{
+	{path: "/invoiceQuality/dashboard", method: "GET"},
+	{path: "/invoiceQuality/providerMetrics", method: "GET"},
+	{path: "/invoiceQuality/fieldMetrics", method: "GET"},
+	{path: "/invoiceQuality/failures", method: "GET"},
+	{path: "/invoiceQuality/classificationMetrics", method: "GET"},
+}
+
 func Permission(ctx context.Context) {
 	if err := utils.RegisterPermissions(ctx, defaultAdminRoleID, menuNames, apiRules); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -38,6 +46,22 @@ func Permission(ctx context.Context) {
 	if err := migrateVerificationPermissions(ctx); err != nil {
 		global.GVA_LOG.Error("发票验真权限迁移失败", zap.Error(err))
 	}
+	if err := migrateQualityPermissions(ctx); err != nil {
+		global.GVA_LOG.Error("发票识别质量权限迁移失败", zap.Error(err))
+	}
+}
+
+func migrateQualityPermissions(ctx context.Context) error {
+	return global.GVA_DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var sourceRules []gormadapter.CasbinRule
+		if err := tx.Where(
+			"ptype = ? AND ((v1 = ? AND v2 = ?) OR (v1 = ? AND v2 = ?))",
+			"p", "/invoice/dashboard", "GET", "/invoice/list", "GET",
+		).Find(&sourceRules).Error; err != nil {
+			return err
+		}
+		return inheritPermissionRules(tx, authorityIDs(sourceRules), inheritedQualityRules)
+	})
 }
 
 func migrateVerificationPermissions(ctx context.Context) error {

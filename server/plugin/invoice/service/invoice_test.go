@@ -57,7 +57,7 @@ func setupInvoiceServiceTestDB(t *testing.T) {
 	}
 	if err = db.AutoMigrate(
 		&model.InvoiceCategory{}, &model.Invoice{}, &model.InvoiceItem{},
-		&model.InvoiceVerification{}, &model.ClassificationRule{}, &model.RecognitionJob{}, &model.InvoiceFileCleanupJob{},
+		&model.InvoiceVerification{}, &model.ClassificationRule{}, &model.RecognitionJob{}, &model.InvoiceReviewCorrection{}, &model.InvoiceFileCleanupJob{},
 	); err != nil {
 		t.Fatalf("migrate invoice tables: %v", err)
 	}
@@ -502,6 +502,64 @@ func TestUpdateConfirmedInvoiceRequiresExplicitReopen(t *testing.T) {
 	var persisted model.Invoice
 	if err = global.GVA_DB.First(&persisted, invoice.ID).Error; err != nil || persisted.Status != model.InvoiceStatusConfirmed || persisted.SellerName == confirmed.SellerName {
 		t.Fatalf("rejected confirmed update changed invoice: invoice=%#v err=%v", persisted, err)
+	}
+}
+
+func TestReviewStoresOnlyChangedFieldsAndConfirmsCorrections(t *testing.T) {
+	setupInvoiceServiceTestDB(t)
+	setInvoiceVerificationEnabledForTest(false)
+	category := createInvoiceTestCategory(t)
+	invoice := createReviewableInvoice(t, 27, 100, category.ID, "QUALITY-001")
+	if err := global.GVA_DB.Model(&invoice).Updates(map[string]any{
+		"recognition_provider": "multimodal-ai", "recognition_model": "vision-test",
+		"field_confidences": `{"sellerName":0.72,"sellerTaxNo":0.61,"invoiceNumber":0.99}`,
+	}).Error; err != nil {
+		t.Fatalf("prepare recognized invoice: %v", err)
+	}
+	job := model.RecognitionJob{
+		InvoiceID: invoice.ID, Status: model.RecognitionJobCompleted, Attempts: 1,
+		MaxAttempts: 3, Provider: "multimodal-ai", Model: "vision-test",
+	}
+	if err := global.GVA_DB.Create(&job).Error; err != nil {
+		t.Fatalf("create recognition job: %v", err)
+	}
+	updated, err := (InvoiceService{}).Update(invoiceRequest.InvoiceUpdate{
+		ID: invoice.ID, Direction: invoice.Direction, InvoiceType: invoice.InvoiceType,
+		VerificationType: invoice.VerificationType, InvoiceCode: invoice.InvoiceCode,
+		InvoiceNumber: invoice.InvoiceNumber, IssueDate: invoice.IssueDate,
+		BuyerName: invoice.BuyerName, BuyerTaxNo: invoice.BuyerTaxNo,
+		SellerName: "人工修正销售方", SellerTaxNo: "91440000CORRECTED",
+		AmountCents: invoice.AmountCents, TaxCents: invoice.TaxCents, TotalCents: invoice.TotalCents,
+		CategoryID: invoice.CategoryID,
+	}, AccessScope{UserID: 27, AuthorityID: 100})
+	if err != nil {
+		t.Fatalf("save invoice review: %v", err)
+	}
+	if updated.ReviewCapturedAt == nil {
+		t.Fatal("review capture marker was not persisted")
+	}
+	var corrections []model.InvoiceReviewCorrection
+	if err = global.GVA_DB.Order("field_name ASC").Find(&corrections).Error; err != nil {
+		t.Fatalf("load review corrections: %v", err)
+	}
+	if len(corrections) != 2 {
+		t.Fatalf("expected only two changed fields, got %#v", corrections)
+	}
+	if corrections[0].FieldName != "sellerName" || corrections[1].FieldName != "sellerTaxNo" {
+		t.Fatalf("unexpected corrected fields: %#v", corrections)
+	}
+	if strings.Contains(corrections[1].RecognizedValue, "91440000") || strings.Contains(corrections[1].CorrectedValue, "91440000") {
+		t.Fatalf("sensitive tax number was stored in plaintext: %#v", corrections[1])
+	}
+	if _, err = (InvoiceService{}).Confirm(invoice.ID, AccessScope{UserID: 27, AuthorityID: 100}); err != nil {
+		t.Fatalf("confirm reviewed invoice: %v", err)
+	}
+	var unconfirmed int64
+	if err = global.GVA_DB.Model(&model.InvoiceReviewCorrection{}).Where("invoice_id = ? AND confirmed = ?", invoice.ID, false).Count(&unconfirmed).Error; err != nil {
+		t.Fatalf("count confirmed corrections: %v", err)
+	}
+	if unconfirmed != 0 {
+		t.Fatalf("expected all corrections confirmed, got %d pending", unconfirmed)
 	}
 }
 

@@ -44,4 +44,12 @@ func (invoiceRouter) Init(private *gin.RouterGroup) {
 		ruleWrite.DELETE("delete", apiRule.Delete)
 	}
 	private.GET("invoiceRule/list", apiRule.List)
+	quality := private.Group("invoiceQuality")
+	{
+		quality.GET("dashboard", apiQuality.Dashboard)
+		quality.GET("providerMetrics", apiQuality.ProviderMetrics)
+		quality.GET("fieldMetrics", apiQuality.FieldMetrics)
+		quality.GET("failures", apiQuality.Failures)
+		quality.GET("classificationMetrics", apiQuality.ClassificationMetrics)
+	}
 }

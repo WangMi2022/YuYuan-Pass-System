@@ -82,6 +82,7 @@
   "/src/plugin/asset/view/categories.vue": "AssetCategories",
   "/src/plugin/asset/view/dashboard.vue": "AssetDashboard",
   "/src/plugin/asset/view/operations.vue": "AssetOperations",
+  "/src/plugin/asset/view/recognition.vue": "AssetRecognition",
   "/src/plugin/asset/view/risk.vue": "AssetRiskCenter",
   "/src/plugin/auto/view/aiWorkflow/index.vue": "Index",
   "/src/plugin/auto/view/autoCode/index.vue": "Index",
@@ -101,6 +102,7 @@
   "/src/plugin/invoice/view/categories.vue": "InvoiceCategories",
   "/src/plugin/invoice/view/dashboard.vue": "InvoiceDashboard",
   "/src/plugin/invoice/view/ledger.vue": "InvoiceLedger",
+  "/src/plugin/invoice/view/quality.vue": "InvoiceQuality",
   "/src/plugin/invoice/view/recognition.vue": "InvoiceRecognition",
   "/src/plugin/site/view/bookmarks.vue": "Bookmarks"
 }

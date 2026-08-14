@@ -32,6 +32,11 @@ var apiRules = []system.SysApi{
 	{Path: "/invoiceRule/update", Description: "更新分类规则", ApiGroup: "流水分类", Method: "PUT"},
 	{Path: "/invoiceRule/delete", Description: "删除分类规则", ApiGroup: "流水分类", Method: "DELETE"},
 	{Path: "/invoiceRule/list", Description: "分类规则列表", ApiGroup: "流水分类", Method: "GET"},
+	{Path: "/invoiceQuality/dashboard", Description: "发票识别质量总览", ApiGroup: "识别质量", Method: "GET"},
+	{Path: "/invoiceQuality/providerMetrics", Description: "发票识别 Provider 指标", ApiGroup: "识别质量", Method: "GET"},
+	{Path: "/invoiceQuality/fieldMetrics", Description: "发票识别字段指标", ApiGroup: "识别质量", Method: "GET"},
+	{Path: "/invoiceQuality/failures", Description: "发票识别失败明细", ApiGroup: "识别质量", Method: "GET"},
+	{Path: "/invoiceQuality/classificationMetrics", Description: "发票分类推荐指标", ApiGroup: "识别质量", Method: "GET"},
 }
 
 func Api(_ context.Context) { utils.RegisterApis(apiRules...) }

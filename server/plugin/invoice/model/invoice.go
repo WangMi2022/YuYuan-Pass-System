@@ -80,7 +80,10 @@ type Invoice struct {
 	SuggestedCategory              *InvoiceCategory   `json:"suggestedCategory,omitempty" gorm:"foreignKey:SuggestedCategoryID"`
 	Status                         string             `json:"status" form:"status" gorm:"size:30;not null;default:uploaded;index;index:idx_invoice_status_issue_date;index:idx_invoices_created_status_date,priority:2;index:idx_invoices_authority_status_date,priority:2;comment:处理状态"`
 	RecognitionProvider            string             `json:"recognitionProvider" gorm:"size:50;comment:识别提供方"`
+	RecognitionModel               string             `json:"recognitionModel" gorm:"size:200;index;comment:识别模型"`
+	RecognitionPromptVersion       int                `json:"recognitionPromptVersion" gorm:"not null;default:0;comment:识别Prompt版本"`
 	RecognitionConfidence          float64            `json:"recognitionConfidence" gorm:"type:numeric(5,4);default:0;comment:识别置信度"`
+	RecognitionDurationMS          int64              `json:"recognitionDurationMs" gorm:"not null;default:0;comment:识别耗时毫秒"`
 	FieldConfidences               map[string]float64 `json:"fieldConfidences" gorm:"serializer:json;type:text;comment:字段识别置信度"`
 	RecognitionError               string             `json:"recognitionError" gorm:"size:1000;comment:识别错误"`
 	VerificationStatus             string             `json:"verificationStatus" gorm:"size:30;not null;default:unverified;index;comment:权威查验状态"`
@@ -115,6 +118,7 @@ type Invoice struct {
 	VerificationBypassedAt         *time.Time         `json:"verificationBypassedAt" gorm:"index;comment:绕过权威查验时间"`
 	ConfirmationVerificationStatus string             `json:"confirmationVerificationStatus" gorm:"size:30;comment:确认时权威查验状态"`
 	ReviewNotes                    string             `json:"reviewNotes" form:"reviewNotes" gorm:"size:1000;comment:核对备注"`
+	ReviewCapturedAt               *time.Time         `json:"reviewCapturedAt" gorm:"index;comment:字段级复核数据采集时间"`
 	Items                          []InvoiceItem      `json:"items,omitempty" gorm:"foreignKey:InvoiceID;constraint:OnDelete:CASCADE"`
 }
 
@@ -182,14 +186,20 @@ func (ClassificationRule) TableName() string { return "invoice_classification_ru
 
 type RecognitionJob struct {
 	global.GVA_MODEL
-	InvoiceID   uint       `json:"invoiceId" gorm:"not null;uniqueIndex;comment:发票ID"`
-	Status      string     `json:"status" gorm:"size:30;not null;default:pending;index;comment:任务状态"`
-	Attempts    int        `json:"attempts" gorm:"not null;default:0;comment:执行次数"`
-	MaxAttempts int        `json:"maxAttempts" gorm:"not null;default:3;comment:最大执行次数"`
-	NextRunAt   *time.Time `json:"nextRunAt" gorm:"index;comment:下次执行时间"`
-	LockedAt    *time.Time `json:"lockedAt" gorm:"index;comment:领取时间"`
-	LockToken   string     `json:"-" gorm:"size:36;not null;default:'';index;comment:任务租约令牌"`
-	LastError   string     `json:"lastError" gorm:"size:1000;comment:最后错误"`
+	InvoiceID     uint       `json:"invoiceId" gorm:"not null;uniqueIndex;comment:发票ID"`
+	Status        string     `json:"status" gorm:"size:30;not null;default:pending;index;comment:任务状态"`
+	Attempts      int        `json:"attempts" gorm:"not null;default:0;comment:执行次数"`
+	MaxAttempts   int        `json:"maxAttempts" gorm:"not null;default:3;comment:最大执行次数"`
+	Provider      string     `json:"provider" gorm:"size:50;index;comment:识别提供方"`
+	Model         string     `json:"model" gorm:"size:200;index;comment:识别模型"`
+	PromptVersion int        `json:"promptVersion" gorm:"not null;default:0;comment:Prompt版本"`
+	DurationMS    int64      `json:"durationMs" gorm:"not null;default:0;comment:识别耗时毫秒"`
+	FallbackUsed  bool       `json:"fallbackUsed" gorm:"not null;default:false;index;comment:是否回退到多模态识别"`
+	NextRunAt     *time.Time `json:"nextRunAt" gorm:"index;comment:下次执行时间"`
+	LockedAt      *time.Time `json:"lockedAt" gorm:"index;comment:领取时间"`
+	LockToken     string     `json:"-" gorm:"size:36;not null;default:'';index;comment:任务租约令牌"`
+	LastError     string     `json:"lastError" gorm:"size:1000;comment:最后错误"`
+	CompletedAt   *time.Time `json:"completedAt" gorm:"index;comment:完成时间"`
 }
 
 func (RecognitionJob) TableName() string { return "invoice_recognition_jobs" }

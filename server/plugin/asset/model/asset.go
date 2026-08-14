@@ -44,6 +44,8 @@ type Asset struct {
 	Brand           string     `json:"brand" form:"brand" gorm:"size:100;comment:品牌"`
 	Model           string     `json:"model" form:"model" gorm:"size:120;comment:规格型号"`
 	SerialNumber    string     `json:"serialNumber" form:"serialNumber" gorm:"size:120;index;comment:序列号"`
+	Specifications  string     `json:"specifications" form:"specifications" gorm:"size:1000;comment:规格参数"`
+	ProductionDate  *time.Time `json:"productionDate" form:"productionDate" gorm:"type:date;comment:生产日期"`
 	Quantity        int        `json:"quantity" form:"quantity" gorm:"not null;default:1;comment:数量"`
 	Unit            string     `json:"unit" form:"unit" gorm:"size:30;default:件;comment:计量单位"`
 	UnitPrice       float64    `json:"unitPrice" form:"unitPrice" gorm:"type:numeric(16,2);not null;default:0;comment:采购单价"`

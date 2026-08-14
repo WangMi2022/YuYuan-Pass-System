@@ -9,10 +9,12 @@ var (
 	serviceRule         = service.Services.RuleService
 	serviceRecognition  = service.Services.RecognitionService
 	serviceVerification = service.Services.VerificationService
+	serviceQuality      = service.Services.QualityService
 )
 
 type apiGroup struct {
 	Invoice  invoiceAPI
 	Category categoryAPI
 	Rule     ruleAPI
+	Quality  qualityAPI
 }

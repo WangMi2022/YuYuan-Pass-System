@@ -355,6 +355,8 @@ func (InvoiceService) Update(req invoiceRequest.InvoiceUpdate, scope AccessScope
 		if current.Status == model.InvoiceStatusConfirmed {
 			return errors.New("发票已确认，请先重新打开后再编辑")
 		}
+		reviewBaseline := current
+		reviewBaseline.Items = append([]model.InvoiceItem(nil), current.Items...)
 		if req.CategoryID != nil {
 			var count int64
 			if err := tx.Model(&model.InvoiceCategory{}).Where("id = ? AND enabled = ?", *req.CategoryID, true).Count(&count).Error; err != nil {
@@ -383,6 +385,7 @@ func (InvoiceService) Update(req invoiceRequest.InvoiceUpdate, scope AccessScope
 		candidate.Items = req.Items
 		verificationChanged := invoiceVerificationFingerprint(candidate) != invoiceVerificationFingerprint(current)
 
+		reviewedAt := time.Now()
 		updates := map[string]any{
 			"direction": req.Direction, "invoice_type": req.InvoiceType, "invoice_code": req.InvoiceCode,
 			"verification_type": req.VerificationType, "verification_amount_mode": req.VerificationAmountMode,
@@ -393,6 +396,7 @@ func (InvoiceService) Update(req invoiceRequest.InvoiceUpdate, scope AccessScope
 			"category_id": req.CategoryID, "classification_source": model.ClassificationManual,
 			"review_notes": req.ReviewNotes, "status": model.InvoiceStatusPendingReview,
 			"confirmed_by": 0, "confirmed_at": nil, "duplicate_key": nil,
+			"review_captured_at": &reviewedAt,
 		}
 		if verificationChanged {
 			updates["verification_fingerprint"] = ""
@@ -427,7 +431,7 @@ func (InvoiceService) Update(req invoiceRequest.InvoiceUpdate, scope AccessScope
 				return err
 			}
 		}
-		return nil
+		return syncInvoiceReviewCorrections(tx, reviewBaseline, req, scope.UserID, reviewedAt)
 	})
 	if err != nil {
 		return model.Invoice{}, err
@@ -555,6 +559,7 @@ func (InvoiceService) ConfirmWithOptions(request invoiceRequest.InvoiceConfirm, 
 			"duplicate_key": &duplicateKey, "confirmation_verification_status": confirmed.VerificationStatus,
 			"verification_bypassed": false, "verification_bypass_reason": "",
 			"verification_bypassed_by": 0, "verification_bypassed_at": nil,
+			"review_captured_at": &now,
 		}
 		if verificationBypassed {
 			updates["verification_bypassed"] = true
@@ -572,7 +577,8 @@ func (InvoiceService) ConfirmWithOptions(request invoiceRequest.InvoiceConfirm, 
 			}
 			return errors.New("发票字段或查验状态已变更，请刷新后重新查验")
 		}
-		return nil
+		return tx.Model(&model.InvoiceReviewCorrection{}).Where("invoice_id = ?", confirmed.ID).
+			Updates(map[string]any{"confirmed": true, "updated_at": now}).Error
 	})
 	if err != nil {
 		if isUniqueConstraintError(err) {
@@ -590,16 +596,27 @@ func (InvoiceService) Reopen(id uint, scope AccessScope) (model.Invoice, error) 
 	if !scope.All {
 		return model.Invoice{}, errors.New("已确认发票只能由管理员重新打开")
 	}
-	result := applyInvoiceScope(global.GVA_DB.Model(&model.Invoice{}), scope).
-		Where("id = ? AND status = ?", id, model.InvoiceStatusConfirmed).
-		Updates(map[string]any{
-			"status": model.InvoiceStatusPendingReview, "confirmed_by": 0,
-			"confirmed_at": nil, "duplicate_key": nil,
-		})
-	if result.Error != nil {
-		return model.Invoice{}, result.Error
+	var rowsAffected int64
+	err := global.GVA_DB.Transaction(func(tx *gorm.DB) error {
+		result := applyInvoiceScope(tx.Model(&model.Invoice{}), scope).
+			Where("id = ? AND status = ?", id, model.InvoiceStatusConfirmed).
+			Updates(map[string]any{
+				"status": model.InvoiceStatusPendingReview, "confirmed_by": 0,
+				"confirmed_at": nil, "duplicate_key": nil,
+			})
+		if result.Error != nil {
+			return result.Error
+		}
+		rowsAffected = result.RowsAffected
+		if rowsAffected == 0 {
+			return nil
+		}
+		return tx.Model(&model.InvoiceReviewCorrection{}).Where("invoice_id = ?", id).Update("confirmed", false).Error
+	})
+	if err != nil {
+		return model.Invoice{}, err
 	}
-	if result.RowsAffected == 0 {
+	if rowsAffected == 0 {
 		var invoice model.Invoice
 		if err := applyInvoiceScope(global.GVA_DB.Model(&model.Invoice{}), scope).First(&invoice, id).Error; err != nil {
 			return model.Invoice{}, err
@@ -640,6 +657,9 @@ func (InvoiceService) Delete(id uint, scope AccessScope) error {
 			return err
 		}
 		if err := tx.Where("invoice_id = ?", id).Delete(&model.RecognitionJob{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("invoice_id = ?", id).Delete(&model.InvoiceReviewCorrection{}).Error; err != nil {
 			return err
 		}
 		return tx.Delete(&model.Invoice{}, id).Error

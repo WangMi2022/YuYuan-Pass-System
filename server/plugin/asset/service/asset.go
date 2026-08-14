@@ -29,6 +29,10 @@ func money(value float64) float64 { return math.Round(value*100) / 100 }
 func prepareAsset(asset *model.Asset, creating bool) error {
 	asset.AssetCode = strings.ToUpper(strings.TrimSpace(asset.AssetCode))
 	asset.Name = strings.TrimSpace(asset.Name)
+	asset.Brand = strings.TrimSpace(asset.Brand)
+	asset.Model = strings.TrimSpace(asset.Model)
+	asset.SerialNumber = strings.TrimSpace(asset.SerialNumber)
+	asset.Specifications = strings.TrimSpace(asset.Specifications)
 	asset.Unit = strings.TrimSpace(asset.Unit)
 	if asset.AssetCode == "" || asset.Name == "" {
 		return errors.New("资产编号和资产名称不能为空")
@@ -68,18 +72,23 @@ func prepareAsset(asset *model.Asset, creating bool) error {
 }
 
 func (s *assetService) Create(asset *model.Asset) error {
+	return s.createWithDB(global.GVA_DB, asset)
+}
+
+func (s *assetService) createWithDB(db *gorm.DB, asset *model.Asset) error {
 	if err := prepareAsset(asset, true); err != nil {
 		return err
 	}
 	var count int64
-	if err := global.GVA_DB.Model(&model.Category{}).Where("id = ? AND enabled = ?", asset.CategoryID, true).Count(&count).Error; err != nil {
+	if err := db.Model(&model.Category{}).Where("id = ? AND enabled = ?", asset.CategoryID, true).Count(&count).Error; err != nil {
 		return err
 	}
 	if count == 0 {
 		return errors.New("资产分类不存在或已停用")
 	}
-	if err := global.GVA_DB.Create(asset).Error; err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "duplicate") {
+	if err := db.Create(asset).Error; err != nil {
+		message := strings.ToLower(err.Error())
+		if strings.Contains(message, "duplicate") || strings.Contains(message, "unique constraint") || strings.Contains(message, "sqlstate 23505") {
 			return errors.New("资产编号已存在")
 		}
 		return err
@@ -95,7 +104,7 @@ func (s *assetService) Update(asset *model.Asset) error {
 		return err
 	}
 	fields := []string{
-		"AssetCode", "Name", "CategoryID", "Brand", "Model", "SerialNumber",
+		"AssetCode", "Name", "CategoryID", "Brand", "Model", "SerialNumber", "Specifications", "ProductionDate",
 		"Quantity", "Unit", "UnitPrice", "OriginalValue", "CurrentValue",
 		"Supplier", "PurchaseDate", "WarrantyEndDate", "Photos", "Remarks",
 	}

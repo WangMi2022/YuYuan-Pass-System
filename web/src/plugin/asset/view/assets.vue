@@ -192,10 +192,16 @@
           <el-form-item label="序列号">
             <el-input v-model="formData.serialNumber" maxlength="120" placeholder="设备 SN，可选" />
           </el-form-item>
+          <el-form-item label="生产日期">
+            <el-date-picker v-model="formData.productionDate" type="date" placeholder="选择生产日期" />
+          </el-form-item>
           <el-form-item label="计量单位">
             <el-input v-model="formData.unit" maxlength="30" placeholder="件 / 台 / 套" />
           </el-form-item>
         </div>
+        <el-form-item label="规格参数">
+          <el-input v-model="formData.specifications" type="textarea" :rows="2" maxlength="1000" show-word-limit placeholder="内存、容量、功率、尺寸等铭牌参数" />
+        </el-form-item>
 
         <h3>数量与计价</h3>
         <div class="valuation-box">
@@ -318,6 +324,8 @@ const emptyForm = () => ({
   brand: '',
   model: '',
   serialNumber: '',
+  specifications: '',
+  productionDate: null,
   quantity: 1,
   unit: '件',
   unitPrice: 0,
@@ -405,6 +413,7 @@ const openEdit = (row) => {
     ...emptyForm(),
     ...JSON.parse(JSON.stringify(row)),
     purchaseDate: row.purchaseDate ? new Date(row.purchaseDate) : null,
+    productionDate: row.productionDate ? new Date(row.productionDate) : null,
     warrantyEndDate: row.warrantyEndDate ? new Date(row.warrantyEndDate) : null,
     photos: (row.photos || []).map((item, index) => ({ ...item, url: photoUrl(item), uid: item.key || index, status: 'success' }))
   }

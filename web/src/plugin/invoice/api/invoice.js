@@ -50,6 +50,11 @@ export const getInvoiceVerificationHistory = (params) => service({ url: '/invoic
 export const deleteInvoice = (params) => service({ url: '/invoice/delete', method: 'delete', params })
 export const getInvoiceDashboard = () => service({ url: '/invoice/dashboard', method: 'get' })
 export const getInvoiceCategoryOptions = () => service({ url: '/invoice/categoryOptions', method: 'get' })
+export const getInvoiceQualityDashboard = (params) => service({ url: '/invoiceQuality/dashboard', method: 'get', params: withoutEmptyParams(params) })
+export const getInvoiceQualityProviderMetrics = (params) => service({ url: '/invoiceQuality/providerMetrics', method: 'get', params: withoutEmptyParams(params) })
+export const getInvoiceQualityFieldMetrics = (params) => service({ url: '/invoiceQuality/fieldMetrics', method: 'get', params: withoutEmptyParams(params) })
+export const getInvoiceQualityFailures = (params) => service({ url: '/invoiceQuality/failures', method: 'get', params: withoutEmptyParams(params) })
+export const getInvoiceQualityClassificationMetrics = (params) => service({ url: '/invoiceQuality/classificationMetrics', method: 'get', params: withoutEmptyParams(params) })
 
 export const createInvoiceCategory = (data) => service({ url: '/invoiceCategory/create', method: 'post', data })
 export const updateInvoiceCategory = (data) => service({ url: '/invoiceCategory/update', method: 'put', data })

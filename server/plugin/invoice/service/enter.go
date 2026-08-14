@@ -6,6 +6,7 @@ type ServiceGroup struct {
 	RuleService
 	RecognitionService
 	VerificationService
+	QualityService
 }
 
 var Services = new(ServiceGroup)
