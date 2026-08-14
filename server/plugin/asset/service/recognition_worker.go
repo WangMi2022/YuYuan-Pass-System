@@ -131,7 +131,9 @@ func parseAssetVisionOutput(content string) (assetVisionOutput, error) {
 		return output, fmt.Errorf("资产识别结果不是合法 JSON: %w", err)
 	}
 	output.Name = strings.TrimSpace(output.Name)
+	output.ProductName = strings.TrimSpace(output.ProductName)
 	output.Brand = strings.TrimSpace(output.Brand)
+	output.Manufacturer = strings.TrimSpace(output.Manufacturer)
 	output.Model = strings.TrimSpace(output.Model)
 	output.SerialNumber = strings.TrimSpace(output.SerialNumber)
 	output.Specifications = strings.TrimSpace(output.Specifications)
@@ -139,6 +141,24 @@ func parseAssetVisionOutput(content string) (assetVisionOutput, error) {
 	output.RecommendedCategoryCode = strings.TrimSpace(output.RecommendedCategoryCode)
 	output.RecommendedUnit = strings.TrimSpace(output.RecommendedUnit)
 	output.RawText = strings.TrimSpace(output.RawText)
+	useProductName := output.Name == "" && output.ProductName != ""
+	useManufacturer := output.Brand == "" && output.Manufacturer != ""
+	useWarrantyMonths := output.RecommendedWarrantyMonths == 0 && output.WarrantyMonths > 0
+	if useProductName {
+		output.Name = output.ProductName
+	}
+	if useManufacturer {
+		output.Brand = output.Manufacturer
+	}
+	if useWarrantyMonths {
+		output.RecommendedWarrantyMonths = output.WarrantyMonths
+	}
+	output.ProductName = ""
+	output.Manufacturer = ""
+	output.WarrantyMonths = 0
+	normalizeAssetRecognitionConfidenceAlias(output.FieldConfidences, "name", "productName", useProductName)
+	normalizeAssetRecognitionConfidenceAlias(output.FieldConfidences, "brand", "manufacturer", useManufacturer)
+	normalizeAssetRecognitionConfidenceAlias(output.FieldConfidences, "recommendedWarrantyMonths", "warrantyMonths", useWarrantyMonths)
 	if utf8.RuneCountInString(output.Name) > 150 || utf8.RuneCountInString(output.Brand) > 100 ||
 		utf8.RuneCountInString(output.Model) > 120 || utf8.RuneCountInString(output.SerialNumber) > 120 ||
 		utf8.RuneCountInString(output.Specifications) > 1000 || utf8.RuneCountInString(output.RawText) > maxAssetRecognitionRawText {
@@ -156,6 +176,18 @@ func parseAssetVisionOutput(content string) (assetVisionOutput, error) {
 		}
 	}
 	return output, nil
+}
+
+func normalizeAssetRecognitionConfidenceAlias(confidences map[string]float64, field, alias string, aliasUsed bool) {
+	if confidences == nil {
+		return
+	}
+	if confidence, aliasExists := confidences[alias]; aliasExists {
+		if _, fieldExists := confidences[field]; aliasUsed || !fieldExists {
+			confidences[field] = confidence
+		}
+	}
+	delete(confidences, alias)
 }
 
 func parseAssetProductionDate(value string) (*time.Time, error) {

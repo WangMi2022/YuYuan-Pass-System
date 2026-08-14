@@ -46,7 +46,9 @@ var assetRecognitionStorage = func() upload.OSS { return upload.NewOss() }
 
 type assetVisionOutput struct {
 	Name                      string             `json:"name"`
+	ProductName               string             `json:"productName"`
 	Brand                     string             `json:"brand"`
+	Manufacturer              string             `json:"manufacturer"`
 	Model                     string             `json:"model"`
 	SerialNumber              string             `json:"serialNumber"`
 	Specifications            string             `json:"specifications"`
@@ -54,6 +56,7 @@ type assetVisionOutput struct {
 	RecommendedCategoryCode   string             `json:"recommendedCategoryCode"`
 	RecommendedUnit           string             `json:"recommendedUnit"`
 	RecommendedWarrantyMonths int                `json:"recommendedWarrantyMonths"`
+	WarrantyMonths            int                `json:"warrantyMonths"`
 	RawText                   string             `json:"rawText"`
 	FieldConfidences          map[string]float64 `json:"fieldConfidences"`
 }

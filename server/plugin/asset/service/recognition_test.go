@@ -165,6 +165,53 @@ func TestAssetRecognitionBuildsReviewDraftAndCreatesAssetOnce(t *testing.T) {
 	}
 }
 
+func TestParseAssetVisionOutputNormalizesControlledAliases(t *testing.T) {
+	output, err := parseAssetVisionOutput(`{
+		"productName":"  研发终端  ",
+		"manufacturer":" Codex Lab ",
+		"warrantyMonths":36,
+		"fieldConfidences":{"name":0.1,"productName":0.96,"brand":0.2,"manufacturer":0.92,"recommendedWarrantyMonths":0.3,"warrantyMonths":0.81}
+	}`)
+	if err != nil {
+		t.Fatalf("parse controlled aliases: %v", err)
+	}
+	if output.Name != "研发终端" || output.Brand != "Codex Lab" || output.RecommendedWarrantyMonths != 36 {
+		t.Fatalf("aliases were not normalized: %#v", output)
+	}
+	if output.ProductName != "" || output.Manufacturer != "" || output.WarrantyMonths != 0 {
+		t.Fatalf("aliases leaked after normalization: %#v", output)
+	}
+	if output.FieldConfidences["name"] != 0.96 || output.FieldConfidences["brand"] != 0.92 || output.FieldConfidences["recommendedWarrantyMonths"] != 0.81 {
+		t.Fatalf("alias confidences were not normalized: %#v", output.FieldConfidences)
+	}
+	for _, alias := range []string{"productName", "manufacturer", "warrantyMonths"} {
+		if _, exists := output.FieldConfidences[alias]; exists {
+			t.Fatalf("alias confidence leaked after normalization: %s", alias)
+		}
+	}
+}
+
+func TestParseAssetVisionOutputPrefersCanonicalFields(t *testing.T) {
+	output, err := parseAssetVisionOutput(`{
+		"name":"标准名称",
+		"productName":"别名名称",
+		"brand":"标准品牌",
+		"manufacturer":"别名厂商",
+		"recommendedWarrantyMonths":24,
+		"warrantyMonths":36,
+		"fieldConfidences":{"name":0.91,"productName":0.99,"brand":0.88,"manufacturer":0.97,"recommendedWarrantyMonths":0.74,"warrantyMonths":0.95}
+	}`)
+	if err != nil {
+		t.Fatalf("parse canonical and alias fields: %v", err)
+	}
+	if output.Name != "标准名称" || output.Brand != "标准品牌" || output.RecommendedWarrantyMonths != 24 {
+		t.Fatalf("canonical fields should win: %#v", output)
+	}
+	if output.FieldConfidences["name"] != 0.91 || output.FieldConfidences["brand"] != 0.88 || output.FieldConfidences["recommendedWarrantyMonths"] != 0.74 {
+		t.Fatalf("canonical confidences should win: %#v", output.FieldConfidences)
+	}
+}
+
 func TestAssetRecognitionBlocksNormalizedDuplicateSerial(t *testing.T) {
 	setupAssetRecognitionTestDB(t)
 	category := createAssetRecognitionCategory(t)

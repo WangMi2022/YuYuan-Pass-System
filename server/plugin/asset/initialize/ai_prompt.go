@@ -14,10 +14,33 @@ import (
 
 const assetRecognitionPromptKey = "asset-draft"
 
-const legacyAssetRecognitionOutputSchema = `{
+const assetRecognitionOutputSchemaV1 = `{
   "type": "object",
   "additionalProperties": false,
   "required": ["name", "brand", "model", "serialNumber", "specifications", "productionDate", "recommendedCategoryCode", "recommendedUnit", "recommendedWarrantyMonths", "rawText", "fieldConfidences"],
+  "properties": {
+    "name": {"type": "string", "maxLength": 150},
+    "brand": {"type": "string", "maxLength": 100},
+    "model": {"type": "string", "maxLength": 120},
+    "serialNumber": {"type": "string", "maxLength": 120},
+    "specifications": {"type": "string", "maxLength": 1000},
+    "productionDate": {"type": "string", "maxLength": 30},
+    "recommendedCategoryCode": {"type": "string", "maxLength": 50},
+    "recommendedUnit": {"type": "string", "maxLength": 30},
+    "recommendedWarrantyMonths": {"type": "integer", "minimum": 0, "maximum": 120},
+    "rawText": {"type": "string", "maxLength": 10000},
+    "fieldConfidences": {
+      "type": "object",
+      "maxProperties": 32,
+      "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1}
+    }
+  }
+}`
+
+const assetRecognitionOutputSchemaV2 = `{
+  "type": "object",
+  "additionalProperties": false,
+  "minProperties": 1,
   "properties": {
     "name": {"type": "string", "maxLength": 150},
     "brand": {"type": "string", "maxLength": 100},
@@ -43,7 +66,9 @@ const assetRecognitionOutputSchema = `{
   "minProperties": 1,
   "properties": {
     "name": {"type": "string", "maxLength": 150},
+    "productName": {"type": "string", "maxLength": 150},
     "brand": {"type": "string", "maxLength": 100},
+    "manufacturer": {"type": "string", "maxLength": 100},
     "model": {"type": "string", "maxLength": 120},
     "serialNumber": {"type": "string", "maxLength": 120},
     "specifications": {"type": "string", "maxLength": 1000},
@@ -51,6 +76,7 @@ const assetRecognitionOutputSchema = `{
     "recommendedCategoryCode": {"type": "string", "maxLength": 50},
     "recommendedUnit": {"type": "string", "maxLength": 30},
     "recommendedWarrantyMonths": {"type": "integer", "minimum": 0, "maximum": 120},
+    "warrantyMonths": {"type": "integer", "minimum": 0, "maximum": 120},
     "rawText": {"type": "string", "maxLength": 10000},
     "fieldConfidences": {
       "type": "object",
@@ -63,7 +89,7 @@ const assetRecognitionOutputSchema = `{
 const assetRecognitionPrompt = `你是企业资产铭牌识别助手。请只根据图片中可见内容和本次提供的分类选项提取资产草稿。
 要求：
 1. 只输出符合 JSON Schema 的 JSON，不要输出 Markdown 或解释文字。
-2. 尽量输出全部字段；无法确认的字符串返回空字符串，无法确认的建议质保月数返回 0，不得编造。部分字段缺失时服务端按空值处理并交给人工补充。
+2. 优先使用 name、brand、recommendedWarrantyMonths 字段；兼容字段 productName、manufacturer、warrantyMonths 仅在无法按标准字段输出时使用。无法确认的字符串返回空字符串，无法确认的建议质保月数返回 0，不得编造。部分字段缺失时服务端按空值处理并交给人工补充。
 3. productionDate 使用 YYYY-MM-DD；只有年月时可使用该月第一天；完全无法确认则返回空字符串。
 4. recommendedCategoryCode 必须从本次提供的 categories.code 中选择，无法匹配则返回空字符串。
 5. fieldConfidences 使用 0 到 1，至少覆盖所有非空识别字段。
@@ -101,7 +127,15 @@ func seedAssetRecognitionPrompt(ctx context.Context) {
 			}
 			activeIndex = index
 		}
-		if activeIndex < 0 || strings.TrimSpace(templates[activeIndex].OutputSchema) != strings.TrimSpace(legacyAssetRecognitionOutputSchema) {
+		if activeIndex < 0 {
+			return nil
+		}
+		activeSchema := strings.TrimSpace(templates[activeIndex].OutputSchema)
+		if activeSchema == strings.TrimSpace(assetRecognitionOutputSchema) {
+			return nil
+		}
+		if activeSchema != strings.TrimSpace(assetRecognitionOutputSchemaV1) &&
+			activeSchema != strings.TrimSpace(assetRecognitionOutputSchemaV2) {
 			return nil
 		}
 

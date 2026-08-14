@@ -69,6 +69,18 @@ func TestAssetRecognitionOutputSchemaAcceptsPartialResult(t *testing.T) {
 	}
 }
 
+func TestAssetRecognitionOutputSchemaAcceptsControlledAliases(t *testing.T) {
+	output := decodeAssetRecognitionOutput(t, `{
+		"productName":"研发终端",
+		"manufacturer":"Codex Lab",
+		"warrantyMonths":36,
+		"fieldConfidences":{"productName":0.96,"manufacturer":0.92,"warrantyMonths":0.81}
+	}`)
+	if err := compileAssetRecognitionOutputSchema(t).Validate(output); err != nil {
+		t.Fatalf("controlled aliases should remain reviewable: %v", err)
+	}
+}
+
 func TestAssetRecognitionOutputSchemaRejectsUnknownField(t *testing.T) {
 	output := decodeAssetRecognitionOutput(t, `{"unexpected":"value"}`)
 	if err := compileAssetRecognitionOutputSchema(t).Validate(output); err == nil {
@@ -80,7 +92,7 @@ func TestSeedAssetRecognitionPromptUpgradesLegacyActiveVersion(t *testing.T) {
 	database := useAssetPromptTestDatabase(t)
 	legacy := ai.PromptTemplate{
 		PromptKey: assetRecognitionPromptKey, Version: 1, Content: "legacy prompt",
-		OutputSchema: legacyAssetRecognitionOutputSchema, Status: ai.PromptStatusActive,
+		OutputSchema: assetRecognitionOutputSchemaV1, Status: ai.PromptStatusActive,
 	}
 	if err := database.Create(&legacy).Error; err != nil {
 		t.Fatalf("create legacy prompt: %v", err)
@@ -110,7 +122,7 @@ func TestSeedAssetRecognitionPromptUpgradeIsIdempotent(t *testing.T) {
 	database := useAssetPromptTestDatabase(t)
 	legacy := ai.PromptTemplate{
 		PromptKey: assetRecognitionPromptKey, Version: 1, Content: "legacy prompt",
-		OutputSchema: legacyAssetRecognitionOutputSchema, Status: ai.PromptStatusActive,
+		OutputSchema: assetRecognitionOutputSchemaV1, Status: ai.PromptStatusActive,
 	}
 	if err := database.Create(&legacy).Error; err != nil {
 		t.Fatalf("create legacy prompt: %v", err)
@@ -132,6 +144,41 @@ func TestSeedAssetRecognitionPromptUpgradeIsIdempotent(t *testing.T) {
 	}
 	if active.Version != 2 {
 		t.Fatalf("unexpected active prompt version after repeated migration: %d", active.Version)
+	}
+}
+
+func TestSeedAssetRecognitionPromptUpgradesV2ActiveVersionToV3(t *testing.T) {
+	database := useAssetPromptTestDatabase(t)
+	retired := ai.PromptTemplate{
+		PromptKey: assetRecognitionPromptKey, Version: 1, Content: "legacy prompt",
+		OutputSchema: assetRecognitionOutputSchemaV1, Status: ai.PromptStatusRetired,
+	}
+	active := ai.PromptTemplate{
+		PromptKey: assetRecognitionPromptKey, Version: 2, Content: "partial result prompt",
+		OutputSchema: assetRecognitionOutputSchemaV2, Status: ai.PromptStatusActive,
+	}
+	if err := database.Create(&retired).Error; err != nil {
+		t.Fatalf("create retired V1 prompt: %v", err)
+	}
+	if err := database.Create(&active).Error; err != nil {
+		t.Fatalf("create active V2 prompt: %v", err)
+	}
+
+	seedAssetRecognitionPrompt(context.Background())
+	seedAssetRecognitionPrompt(context.Background())
+
+	var templates []ai.PromptTemplate
+	if err := database.Where("prompt_key = ?", assetRecognitionPromptKey).Order("version ASC").Find(&templates).Error; err != nil {
+		t.Fatalf("load upgraded prompts: %v", err)
+	}
+	if len(templates) != 3 {
+		t.Fatalf("expected three prompt versions after idempotent V3 migration, got %d", len(templates))
+	}
+	if templates[1].Status != ai.PromptStatusRetired || templates[1].ActivatedAt != nil {
+		t.Fatalf("V2 prompt was not retired: %#v", templates[1])
+	}
+	if templates[2].Version != 3 || templates[2].Status != ai.PromptStatusActive || templates[2].OutputSchema != assetRecognitionOutputSchema {
+		t.Fatalf("V3 prompt was not activated: %#v", templates[2])
 	}
 }
 
