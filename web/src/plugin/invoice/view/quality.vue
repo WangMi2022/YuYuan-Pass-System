@@ -2,7 +2,7 @@
   <main class="na-page na-page--list quality-page">
     <AppPageHeader title-id="invoice-quality-title" title="发票识别质量" description="按识别任务、字段修正和分类采纳情况查看质量闭环。">
       <template #actions>
-        <el-date-picker v-model="dateRange" type="daterange" value-format="YYYY-MM-DD" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" />
+        <el-date-picker v-model="dateRange" class="date-filter" type="daterange" value-format="YYYY-MM-DD" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" />
         <el-input v-model="filters.provider" clearable placeholder="Provider" class="filter-input" />
         <el-input v-model="filters.model" clearable placeholder="模型版本" class="filter-input" />
         <el-button :icon="Refresh" :loading="loading" @click="loadQuality">刷新</el-button>
@@ -164,6 +164,9 @@ onMounted(loadQuality)
 <style scoped lang="scss">
 .quality-page { min-width: 0; }
 .filter-input { width: 150px; }
+.quality-page :deep(.na-page-header > :first-child), .quality-page :deep(.na-page-actions) { min-width: 0; }
+.quality-page :deep(.na-page-actions) { flex-wrap: wrap; justify-content: flex-end; max-width: 100%; }
+.date-filter { width: 430px; max-width: 100%; }
 .load-warning { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; padding: 9px 12px; border-radius: 8px; background: var(--na-warning-soft); color: var(--na-foreground); font-size: 12px; }
 .metric-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
 .metric-card { display: flex; min-width: 0; flex-direction: column; gap: 7px; padding: 16px; border: 1px solid var(--na-border); border-radius: 10px; background: var(--na-card); box-shadow: var(--na-shadow-sm); }
@@ -189,6 +192,20 @@ onMounted(loadQuality)
 .is-medium { color: var(--na-warning); }.is-low { color: var(--na-danger); }
 .field-panel, .failure-panel { margin-bottom: 14px; }
 .failure-panel :deep(.el-pagination) { justify-content: flex-end; margin-top: 14px; }
-@media (max-width: 1200px) { .metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .quality-grid { grid-template-columns: 1fr; } }
-@media (max-width: 767px) { .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .filter-input { width: 100%; } .quality-panel { padding: 12px; } }
+.quality-grid > .na-panel + .na-panel { margin-top: 0; }
+@media (max-width: 1600px) {
+  .quality-page :deep(.na-page-header) { align-items: stretch; flex-direction: column; gap: 14px; }
+  .quality-page :deep(.na-page-actions) { justify-content: flex-start; }
+  .metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .quality-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 767px) {
+  .quality-page :deep(.na-page-actions) { align-items: stretch; }
+  .date-filter, .filter-input { flex: 1 1 100%; width: 100%; }
+  .quality-page :deep(.na-page-actions > .el-button) { width: 100%; margin-left: 0; }
+  .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .quality-panel { padding: 12px; }
+  .panel-heading { align-items: flex-start; flex-direction: column; }
+}
+@media (max-width: 420px) { .metric-grid { grid-template-columns: 1fr; } }
 </style>
