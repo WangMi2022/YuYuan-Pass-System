@@ -1,5 +1,5 @@
 <template>
-  <main class="na-page asset-risk-page">
+  <main class="na-page na-page--list asset-risk-page">
     <AppPageHeader
       title-id="asset-risk-title"
       title="资产风险中心"
@@ -9,8 +9,8 @@
         <span class="scan-state" :class="`is-${latestScan.status || 'idle'}`">
           <i />{{ latestScanText }}
         </span>
-        <el-button :icon="Refresh" :loading="refreshing" @click="refreshAll">刷新</el-button>
-        <el-button type="primary" :icon="Search" :loading="latestScan.status === 'running'" @click="startScan()">立即扫描</el-button>
+        <el-button :icon="Refresh" :loading="refreshing" :disabled="scanInProgress" @click="refreshAll">刷新</el-button>
+        <el-button type="primary" :icon="Search" :loading="scanInProgress" @click="startScan()">立即扫描</el-button>
       </template>
     </AppPageHeader>
 
@@ -126,7 +126,7 @@
             </el-table-column>
             <template #empty>
               <el-empty description="当前筛选条件下没有风险事件">
-                <el-button type="primary" :icon="Search" @click="startScan()">运行风险扫描</el-button>
+                <el-button type="primary" :icon="Search" :loading="scanInProgress" @click="startScan()">运行风险扫描</el-button>
               </el-empty>
             </template>
           </el-table>
@@ -302,6 +302,7 @@ import { chartPalette, chartTheme } from '@/components/charts/theme'
 import { useAppStore } from '@/pinia'
 import { getUserList } from '@/api/user'
 import { formatCurrency, formatDate, formatNumber } from '@/utils/format'
+import { createRiskScanPoller } from '@/plugin/asset/utils/riskScan'
 import {
   acknowledgeAssetRisk, assignAssetRisk, getAssetRiskDashboard, getAssetRiskDetail,
   getAssetRiskList, getAssetRiskRules, getAssetRiskScans, ignoreAssetRisk,
@@ -315,6 +316,8 @@ const route = useRoute()
 const appStore = useAppStore()
 const activeTab = ref('events')
 const refreshing = ref(false)
+const scanStarting = ref(false)
+const activeScan = ref(null)
 const dashboardLoading = ref(false)
 const eventsLoading = ref(false)
 const rulesLoading = ref(false)
@@ -330,7 +333,7 @@ const detailVisible = ref(false)
 const detail = ref({ event: null, logs: [] })
 const userOptions = ref([])
 const searchForm = reactive({ page: 1, pageSize: 20, keyword: '', status: '', severity: '', category: '' })
-let scanPollTimer
+let scanPollErrorShown = false
 
 const severityOptions = [
   { value: 'critical', label: '严重风险', type: 'danger' },
@@ -352,7 +355,8 @@ const categoryFilters = [
 const assetStatusLabels = { pending_inbound: '待入库', idle: '闲置', in_use: '使用中', maintenance: '维修中', retired: '已处置' }
 const actionLabels = { detected: '首次发现', auto_reopen: '自动重新打开', auto_resolve: '自动解决', acknowledge: '确认风险', resolve: '标记解决', ignore: '忽略风险', reopen: '重新打开', assign: '分配处理人' }
 
-const latestScan = computed(() => dashboard.value.latestScan || {})
+const latestScan = computed(() => activeScan.value || dashboard.value.latestScan || {})
+const scanInProgress = computed(() => scanStarting.value || latestScan.value.status === 'running')
 const latestScanText = computed(() => {
   const scan = latestScan.value
   if (!scan.ID) return '尚未扫描'
@@ -411,7 +415,6 @@ const loadDashboard = async () => {
   try {
     const res = await getAssetRiskDashboard()
     if (res.code === 0) dashboard.value = { ...dashboard.value, ...res.data }
-    updateScanPolling()
   } finally {
     dashboardLoading.value = false
   }
@@ -446,10 +449,49 @@ const loadScans = async () => {
     scansLoading.value = false
   }
 }
+const requestScanStatus = async (runId) => {
+  const res = await getAssetRiskScans({ page: 1, pageSize: 50 })
+  if (res.code !== 0) throw new Error(res.msg || '无法读取扫描状态')
+  return (res.data?.list || []).find((item) => Number(item.ID) === Number(runId))
+}
+const refreshAfterScan = async (run) => {
+  try {
+    await Promise.all([loadDashboard(), loadEvents(), loadScans()])
+    if (run.status === 'success') ElMessage.success('资产风险扫描完成，列表已更新')
+    else ElMessage.error(run.errorMessage || '资产风险扫描失败，请查看扫描记录')
+  } finally {
+    activeScan.value = null
+  }
+}
+const scanPoller = createRiskScanPoller({
+  requestStatus: requestScanStatus,
+  onProgress(run) {
+    scanPollErrorShown = false
+    activeScan.value = run
+    dashboard.value = { ...dashboard.value, latestScan: run }
+  },
+  onComplete: refreshAfterScan,
+  onError() {
+    if (scanPollErrorShown) return
+    scanPollErrorShown = true
+    ElMessage.warning('扫描状态暂时无法读取，系统将继续重试')
+  }
+})
+const startScanPolling = (scan) => {
+  if (!scan?.ID || scan.status !== 'running') {
+    scanPoller.stop()
+    activeScan.value = null
+    return
+  }
+  scanPollErrorShown = false
+  activeScan.value = scan
+  scanPoller.start(scan.ID)
+}
 const refreshAll = async () => {
   refreshing.value = true
   try {
     await Promise.all([loadDashboard(), loadEvents(), loadRules(), loadScans()])
+    startScanPolling(dashboard.value.latestScan)
   } finally {
     refreshing.value = false
   }
@@ -460,26 +502,18 @@ const handlePageSize = () => { searchForm.page = 1; loadEvents() }
 const handleTabChange = (name) => { if (name === 'rules' && !rules.value.length) loadRules(); if (name === 'scans') loadScans() }
 
 const startScan = async (runId = 0) => {
-  const res = await startAssetRiskScan({ runId })
-  if (res.code !== 0) return
-  dashboard.value.latestScan = res.data
-  ElMessage.success(runId ? '扫描任务已从上次游标继续' : '资产风险扫描已启动')
-  updateScanPolling()
-  if (activeTab.value === 'scans') loadScans()
+  if (scanInProgress.value) return
+  scanStarting.value = true
+  try {
+    const res = await startAssetRiskScan({ runId })
+    if (res.code !== 0) return
+    dashboard.value = { ...dashboard.value, latestScan: res.data }
+    startScanPolling(res.data)
+    ElMessage.success(runId ? '扫描任务已从上次游标继续' : '资产风险扫描已启动')
+  } finally {
+    scanStarting.value = false
+  }
 }
-const updateScanPolling = () => {
-  const running = latestScan.value.status === 'running'
-  if (running && !scanPollTimer) {
-    scanPollTimer = window.setInterval(async () => {
-      await Promise.all([loadDashboard(), loadScans()])
-      if (latestScan.value.status !== 'running') {
-        stopScanPolling()
-        await loadEvents()
-      }
-    }, 2500)
-  } else if (!running) stopScanPolling()
-}
-const stopScanPolling = () => { if (scanPollTimer) window.clearInterval(scanPollTimer); scanPollTimer = undefined }
 
 const openDetail = async (row) => {
   detailVisible.value = true
@@ -632,7 +666,7 @@ onMounted(async () => {
   await syncRiskDetailFromRoute(route.query.riskId)
 })
 watch(() => route.query.riskId, syncRiskDetailFromRoute)
-onBeforeUnmount(stopScanPolling)
+onBeforeUnmount(scanPoller.stop)
 </script>
 
 <style scoped lang="scss">
