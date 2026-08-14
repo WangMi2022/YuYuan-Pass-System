@@ -206,6 +206,8 @@ erDiagram
 
 `completed` 任务不能删除或再次确认。`deleting` 仅用于图片部分清理失败，不能进入识别 Worker；缺失对象按已删除处理，允许幂等重试清理。
 
+`result` 和 `draft` 只保存标准字段。Prompt V3 允许模型临时返回 `productName`、`manufacturer`、`warrantyMonths`，服务端按“标准字段优先、标准字段为空或为 0 时才用别名补位”的规则归一为 `name`、`brand`、`recommendedWarrantyMonths`，并同步归一字段置信度；别名本身不持久化。除这三组别名外的未知字段仍被 JSON Schema 拒绝。
+
 ## 4. 发票域
 
 ### 4.1 `invoice_categories`
@@ -289,6 +291,8 @@ erDiagram
 | `confirmed` | 修正是否已进入正式确认结果 |
 
 一张发票同一字段只保留一条当前差异。后续人工修改仍使用原识别值作为基线；改回原识别值时删除差异，确认时只更新 `confirmed`，不覆盖差异来源。
+
+`invoices.review_captured_at` 用于标识该发票何时开始具备字段级复核来源。该值为空的历史发票不会补造 `invoice_review_corrections`，质量聚合将其单独计入历史缺口；字段修改率只基于功能上线后的真实复核数据计算。
 
 ## 5. 文档域
 

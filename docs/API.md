@@ -315,6 +315,8 @@ JWT 无效或过期通常返回 HTTP `401`。部分文件接口直接返回文�
 
 服务端忽略客户端提交的 `photos`，始终使用任务原始图片。模型不会生成资产编号、采购单价或当前估值。分类必须存在且启用；序列号完全匹配或去除大小写、空格及分隔符后的标准化匹配都会形成重复候选，并阻止确认。
 
+生产 `asset-draft` Prompt V3 接受部分字段，并受控兼容三组模型输出别名：`productName` → `name`、`manufacturer` → `brand`、`warrantyMonths` → `recommendedWarrantyMonths`。标准字段非空或质保月数大于 0 时优先使用标准字段；使用别名补位时对应置信度也归一到标准字段。API、任务结果和草稿只对外暴露标准字段，Schema 保持 `additionalProperties: false`，其他未知字段返回 `schema` 错误。
+
 ## 4. 发票接口
 
 ### 4.1 发票主流程
@@ -385,6 +387,8 @@ JWT 无效或过期通常返回 HTTP `401`。部分文件接口直接返回文�
 | GET | `/invoiceQuality/classificationMetrics` | 分类建议、接受、推翻、待决数量和比例 |
 
 字段准确率口径为“已采集复核数据且未被人工修改的字段占比”，不是第三方权威验真准确率。`legacyWithoutFieldData` 单独统计系统启用字段级差异采集前的历史发票。税号和校验码修正记录只保存 SHA-256 摘要，接口不返回对应明文。
+
+生产只读验收已于 2026-08-14 完成：修正表和关键质量字段存在，五个接口均返回 HTTP 2xx 且业务码为 `0`。当筛选范围内尚无字段级人工复核时，`fieldMetrics` 返回空数组、修正数为 0 属于合法结果，不得根据历史发票反推字段正确或错误。
 
 ## 5. 文档接口
 
@@ -508,7 +512,7 @@ Provider 更新示例：
   "enabled": true,
   "allow-private-endpoints": false,
   "sensitive-words": ["内部项目代号"],
-  "allow-vision-modules": ["asset-recognition"],
+  "allow-vision-modules": ["asset"],
   "openai-compatible": {
     "enabled": true,
     "base-url": "https://api.example.com/v1",
@@ -551,7 +555,7 @@ Prompt 创建示例：
 
 ```json
 {
-  "promptKey": "asset-recognition",
+  "promptKey": "asset-draft",
   "content": "识别资产铭牌并返回结构化字段。",
   "outputSchema": "{\"type\":\"object\",\"required\":[\"name\"]}"
 }
