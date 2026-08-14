@@ -723,6 +723,8 @@ dd { margin: 0; color: var(--na-foreground); font-size: 13px; overflow-wrap: any
 .rule-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 
 @media (max-width: 1100px) {
+  .asset-risk-page :deep(.na-page-header) { align-items: stretch; flex-direction: column; gap: 12px; }
+  .asset-risk-page :deep(.na-page-actions) { flex-wrap: wrap; justify-content: flex-start; }
   .event-toolbar { grid-template-columns: minmax(240px, 1fr) repeat(2, minmax(130px, 1fr)) auto; }
   .event-toolbar > :nth-child(4) { grid-column: 1 / 2; }
 }
@@ -736,6 +738,8 @@ dd { margin: 0; color: var(--na-foreground); font-size: 13px; overflow-wrap: any
   .event-toolbar > * { width: 100%; }
 }
 @media (max-width: 560px) {
+  .asset-risk-page :deep(.na-page-actions) { gap: 8px; }
+  .asset-risk-page :deep(.na-page-actions) .scan-state { flex: 1 0 100%; }
   .risk-kpis { grid-template-columns: 1fr; }
   .risk-kpis > div { border-right: 0; border-bottom: 1px solid var(--na-border); }
   .risk-kpis > div:last-child { border-bottom: 0; }
