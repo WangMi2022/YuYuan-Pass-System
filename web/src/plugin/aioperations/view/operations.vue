@@ -34,8 +34,17 @@
                 <header><div><h3>{{ provider.label }}</h3><span>{{ provider.hint }}</span></div><el-switch v-model="providers[provider.key].enabled" /></header>
                 <el-form-item label="Base URL"><el-input v-model="providers[provider.key]['base-url']" placeholder="https://api.example.com/v1" /></el-form-item>
                 <el-form-item label="模型"><el-input v-model="providers[provider.key].model" placeholder="模型名称" /></el-form-item>
-                <el-form-item :label="providers[provider.key]['api-key-configured'] ? '替换 API Key' : 'API Key'"><el-input v-model="providers[provider.key]['api-key']" type="password" show-password :disabled="providers[provider.key]['clear-api-key']" placeholder="留空不变" /></el-form-item>
-                <p v-if="providers[provider.key]['api-key-configured']" class="secret-state">API Key 已安全保存，明文不会回显。</p>
+                <el-form-item :label="providers[provider.key]['api-key-configured'] ? '替换或查看 API Key' : 'API Key'">
+                  <SecretInput
+                    v-model.trim="providers[provider.key]['api-key']"
+                    :secret-path="providerSecretPath(provider.key)"
+                    :configured="providers[provider.key]['api-key-configured']"
+                    :can-reveal="canRevealProviderKeys"
+                    :disabled="providers[provider.key]['clear-api-key']"
+                    placeholder="输入 API Key"
+                  />
+                </el-form-item>
+                <p v-if="providers[provider.key]['api-key-configured']" class="secret-state">API Key 已安全保存，超级管理员可点击眼睛查看。</p>
                 <el-checkbox v-if="providers[provider.key]['api-key-configured']" v-model="providers[provider.key]['clear-api-key']" class="clear-key-control">清除已配置 API Key</el-checkbox>
                 <div class="cost-grid">
                   <el-form-item label="超时（秒）"><el-input-number v-model="providers[provider.key]['timeout-seconds']" :min="1" :max="120" controls-position="right" /></el-form-item>
@@ -88,18 +97,22 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { Check, Edit, Plus, Refresh, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
+import SecretInput from '@/components/secretInput/index.vue'
+import { useUserStore } from '@/pinia/modules/user'
 import { activateAIPrompt, createAIPrompt, getAIInvocations, getAIProviders, getAIPrompts, getAIQuotas, getAIUsageSummary, saveAIQuota, updateAIProviders } from '@/plugin/aioperations/api/operations'
-import { providerFormValue, providerPayloadValue } from '@/plugin/aioperations/utils/provider'
+import { providerFormValue, providerPayloadValue, providerSecretPath } from '@/plugin/aioperations/utils/provider'
 
 defineOptions({ name: 'AIOperations' })
 
 const loading = ref(false)
 const savingProviders = ref(false)
 const lastProviderSaveTime = ref('')
+const userStore = useUserStore()
+const canRevealProviderKeys = computed(() => Number(userStore.userInfo.authorityId) === 888)
 const activeTab = ref('providers')
 const usage = ref({})
 const invocations = ref([])

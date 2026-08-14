@@ -3,7 +3,8 @@ import test from 'node:test'
 
 import {
   providerFormValue,
-  providerPayloadValue
+  providerPayloadValue,
+  providerSecretPath
 } from './provider.js'
 
 test('provider cost fields round-trip between yuan and integer micros', () => {
@@ -34,4 +35,9 @@ test('provider decimal costs are rounded to the nearest micro unit', () => {
 
   assert.equal(payload['input-cost-micros-per-million'], 1)
   assert.equal(payload['output-cost-micros-per-million'], 2)
+})
+
+test('provider secret paths stay within the system secret allowlist', () => {
+  assert.equal(providerSecretPath('openai-compatible'), 'ai.openai-compatible.api-key')
+  assert.equal(providerSecretPath('anthropic'), 'ai.anthropic.api-key')
 })

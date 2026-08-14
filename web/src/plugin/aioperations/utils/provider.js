@@ -8,6 +8,8 @@ const finiteNumber = (value) => {
 const microsToUnit = (value) => finiteNumber(value) / MICROS_PER_UNIT
 const unitToMicros = (value) => Math.max(0, Math.round(finiteNumber(value) * MICROS_PER_UNIT))
 
+export const providerSecretPath = (providerKey) => `ai.${providerKey}.api-key`
+
 export const providerFormValue = (value = {}, defaults = {}) => ({
   ...defaults,
   ...value,
