@@ -71,13 +71,19 @@
               <el-image
                 v-if="row.photos?.length"
                 class="asset-thumb"
-                :src="row.photos[0].url"
-                :preview-src-list="row.photos.map((item) => item.url)"
+                :src="photoUrl(row.photos[0])"
+                :preview-src-list="row.photos.map(photoUrl)"
                 preview-teleported
                 fit="cover"
                 lazy
                 :alt="`${row.name}实物照片`"
-              />
+              >
+                <template #error>
+                  <div class="asset-thumb asset-thumb--empty" aria-label="资产照片无法加载">
+                    <el-icon><Picture /></el-icon>
+                  </div>
+                </template>
+              </el-image>
               <div v-else class="asset-thumb asset-thumb--empty" aria-hidden="true">
                 <el-icon><Picture /></el-icon>
               </div>
@@ -266,7 +272,9 @@
     </el-drawer>
 
     <el-dialog v-model="previewVisible" title="资产照片" width="min(92vw, 900px)" append-to-body>
-      <img class="preview-image" :src="previewUrl" alt="资产实物大图" />
+      <el-image class="preview-image" :src="previewUrl" fit="contain" alt="资产实物大图">
+        <template #error><div class="preview-image--error"><el-icon><Picture /></el-icon><span>图片文件不存在或暂时无法读取</span></div></template>
+      </el-image>
     </el-dialog>
   </main>
 </template>
@@ -275,6 +283,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Edit, Picture, Plus, Refresh, Search } from '@element-plus/icons-vue'
+import { assetPhotoUrl } from '@/plugin/asset/utils/photo'
 import {
   createAsset,
   deleteAsset,
@@ -394,7 +403,7 @@ const openEdit = (row) => {
     ...JSON.parse(JSON.stringify(row)),
     purchaseDate: row.purchaseDate ? new Date(row.purchaseDate) : null,
     warrantyEndDate: row.warrantyEndDate ? new Date(row.warrantyEndDate) : null,
-    photos: (row.photos || []).map((item, index) => ({ ...item, uid: item.key || index, status: 'success' }))
+    photos: (row.photos || []).map((item, index) => ({ ...item, url: photoUrl(item), uid: item.key || index, status: 'success' }))
   }
   drawerVisible.value = true
 }
@@ -450,7 +459,7 @@ const uploadPhoto = async (options) => {
   try {
     const res = await uploadAssetPhoto(options.file)
     if (res.code === 0) {
-      const photo = { ...res.data, uid: res.data.key, status: 'success' }
+      const photo = { ...res.data, url: photoUrl(res.data), uid: res.data.key, status: 'success' }
       formData.value.photos.push(photo)
       options.onSuccess(photo)
       ElMessage.success('照片已保存到 RustFS')
@@ -466,7 +475,8 @@ const removePhoto = (file) => {
   const key = file.key || file.response?.key
   formData.value.photos = formData.value.photos.filter((item) => item.key !== key)
 }
-const previewPhoto = (file) => { previewUrl.value = file.url; previewVisible.value = true }
+const photoUrl = (photo) => assetPhotoUrl(photo, import.meta.env.VITE_BASE_API)
+const previewPhoto = (file) => { previewUrl.value = photoUrl(file); previewVisible.value = true }
 const photoExceed = () => ElMessage.warning('每项资产最多上传 6 张照片')
 
 onMounted(async () => {
@@ -525,7 +535,10 @@ onMounted(async () => {
 .computed-value span { color: var(--asset-muted); font-size: 13px; }
 .computed-value strong { color: var(--na-primary); font-size: 22px; font-variant-numeric: tabular-nums; }
 .drawer-actions { display: flex; justify-content: flex-end; gap: 10px; }
-.preview-image { display: block; width: 100%; max-height: 70vh; object-fit: contain; border-radius: 10px; background: #09090b; }
+.preview-image { display: block; width: 100%; height: min(70vh, 620px); border-radius: 8px; background: var(--na-muted); }
+.preview-image :deep(.el-image__inner) { object-fit: contain; }
+.preview-image--error { display: flex; height: 100%; min-height: 280px; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--asset-muted); font-size: 13px; }
+.preview-image--error .el-icon { font-size: 32px; }
 :deep(.el-form-item__label) { color: var(--asset-text); font-weight: 600; }
 :deep(.el-upload-list--picture-card .el-upload-list__item), :deep(.el-upload--picture-card) { width: 112px; height: 112px; }
 

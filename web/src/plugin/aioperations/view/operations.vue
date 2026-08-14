@@ -17,7 +17,7 @@
     <el-tabs v-model="activeTab" class="operation-tabs">
       <el-tab-pane label="Provider" name="providers">
         <section class="na-panel config-panel">
-          <div class="na-panel-header"><div><h2>统一模型 Provider</h2><p>密钥为写入即隐藏字段；留空会保留当前密钥。</p></div><el-switch v-model="providers.enabled" active-text="启用 Gateway" /></div>
+          <div class="na-panel-header"><div><h2>统一模型 Provider</h2><p>密钥为写入即隐藏字段；留空会保留当前密钥。</p><small v-if="lastProviderSaveTime" class="save-state">已从服务端回读 · {{ lastProviderSaveTime }}</small></div><el-switch v-model="providers.enabled" active-text="启用 Gateway" /></div>
           <el-alert v-if="!providers.enabled" type="info" :closable="false" title="Gateway 当前关闭，现有自动代码兼容接口不受影响。" />
           <el-form label-position="top" class="provider-form">
             <el-form-item label="允许内网端点"><el-switch v-model="providers['allow-private-endpoints']" active-text="允许" inactive-text="拒绝" /></el-form-item>
@@ -34,12 +34,13 @@
                 <header><div><h3>{{ provider.label }}</h3><span>{{ provider.hint }}</span></div><el-switch v-model="providers[provider.key].enabled" /></header>
                 <el-form-item label="Base URL"><el-input v-model="providers[provider.key]['base-url']" placeholder="https://api.example.com/v1" /></el-form-item>
                 <el-form-item label="模型"><el-input v-model="providers[provider.key].model" placeholder="模型名称" /></el-form-item>
-                <el-form-item :label="providers[provider.key]['api-key-configured'] ? '替换 API Key（已配置）' : 'API Key'"><el-input v-model="providers[provider.key]['api-key']" type="password" show-password :disabled="providers[provider.key]['clear-api-key']" placeholder="留空不变" /></el-form-item>
+                <el-form-item :label="providers[provider.key]['api-key-configured'] ? '替换 API Key' : 'API Key'"><el-input v-model="providers[provider.key]['api-key']" type="password" show-password :disabled="providers[provider.key]['clear-api-key']" placeholder="留空不变" /></el-form-item>
+                <p v-if="providers[provider.key]['api-key-configured']" class="secret-state">API Key 已安全保存，明文不会回显。</p>
                 <el-checkbox v-if="providers[provider.key]['api-key-configured']" v-model="providers[provider.key]['clear-api-key']" class="clear-key-control">清除已配置 API Key</el-checkbox>
                 <div class="cost-grid">
                   <el-form-item label="超时（秒）"><el-input-number v-model="providers[provider.key]['timeout-seconds']" :min="1" :max="120" controls-position="right" /></el-form-item>
-                  <el-form-item label="输入费用（微单位）/ 百万 Token"><el-input-number v-model="providers[provider.key]['input-cost-micros-per-million']" :min="0" controls-position="right" /></el-form-item>
-                  <el-form-item label="输出费用（微单位）/ 百万 Token"><el-input-number v-model="providers[provider.key]['output-cost-micros-per-million']" :min="0" controls-position="right" /></el-form-item>
+                  <el-form-item label="输入费用（元）/ 百万 Token"><el-input-number v-model="providers[provider.key]['input-cost-per-million']" :min="0" :step="0.000001" :precision="6" controls-position="right" /></el-form-item>
+                  <el-form-item label="输出费用（元）/ 百万 Token"><el-input-number v-model="providers[provider.key]['output-cost-per-million']" :min="0" :step="0.000001" :precision="6" controls-position="right" /></el-form-item>
                 </div>
               </section>
             </div>
@@ -92,11 +93,13 @@ import { Check, Edit, Plus, Refresh, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
 import { activateAIPrompt, createAIPrompt, getAIInvocations, getAIProviders, getAIPrompts, getAIQuotas, getAIUsageSummary, saveAIQuota, updateAIProviders } from '@/plugin/aioperations/api/operations'
+import { providerFormValue, providerPayloadValue } from '@/plugin/aioperations/utils/provider'
 
 defineOptions({ name: 'AIOperations' })
 
 const loading = ref(false)
 const savingProviders = ref(false)
+const lastProviderSaveTime = ref('')
 const activeTab = ref('providers')
 const usage = ref({})
 const invocations = ref([])
@@ -116,10 +119,27 @@ const invocationSearch = reactive({ page: 1, pageSize: 20, status: '', module: '
 const quotaForm = reactive(defaultQuota())
 const promptForm = reactive({ promptKey: '', content: '', outputSchema: '' })
 
-function defaultProvider() { return { enabled: false, 'base-url': '', 'api-key': '', 'api-key-configured': false, 'clear-api-key': false, model: '', 'timeout-seconds': 60, 'input-cost-micros-per-million': 0, 'output-cost-micros-per-million': 0 } }
+function defaultProvider() { return { enabled: false, 'base-url': '', 'api-key': '', 'api-key-configured': false, 'clear-api-key': false, model: '', 'timeout-seconds': 60, 'input-cost-per-million': 0, 'output-cost-per-million': 0 } }
 function defaultProviders() { return { enabled: false, 'allow-private-endpoints': false, 'sensitive-words': [], 'allow-vision-modules': [], 'openai-compatible': defaultProvider(), anthropic: { ...defaultProvider(), 'base-url': 'https://api.anthropic.com' } } }
 function defaultQuota() { return { ID: 0, scopeType: 'global', scopeId: 'global', dailyRequests: 0, dailyTokens: 0, monthlyCostMicros: 0, maxConcurrency: 0, enabled: true } }
-function applyProviders(value = {}) { const source = { ...defaultProviders(), ...value }; Object.assign(providers, source); for (const key of providerList.map((item) => item.key)) Object.assign(providers[key], defaultProvider(), source[key] || {}) }
+function applyProviders(value = {}) {
+  const defaults = defaultProviders()
+  providers.enabled = Boolean(value.enabled)
+  providers['allow-private-endpoints'] = Boolean(value['allow-private-endpoints'])
+  providers['sensitive-words'] = Array.isArray(value['sensitive-words']) ? [...value['sensitive-words']] : []
+  providers['allow-vision-modules'] = Array.isArray(value['allow-vision-modules']) ? [...value['allow-vision-modules']] : []
+  for (const { key } of providerList) Object.assign(providers[key], providerFormValue(value[key], defaults[key]))
+}
+function providerPayload() {
+  const payload = {
+    enabled: providers.enabled,
+    'allow-private-endpoints': providers['allow-private-endpoints'],
+    'sensitive-words': [...providers['sensitive-words']],
+    'allow-vision-modules': [...providers['allow-vision-modules']]
+  }
+  for (const { key } of providerList) payload[key] = providerPayloadValue(providers[key])
+  return payload
+}
 function number(value) { return new Intl.NumberFormat('zh-CN').format(Number(value || 0)) }
 function money(value) { return `¥${(Number(value || 0) / 1000000).toFixed(4)}` }
 function dateTime(value) { return value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '—' }
@@ -141,9 +161,10 @@ async function loadAll() { loading.value = true; try { await Promise.all([loadPr
 async function saveProviders() {
   savingProviders.value = true
   try {
-    const res = await updateAIProviders(providers)
+    const res = await updateAIProviders(providerPayload())
     if (res.code === 0) {
-      applyProviders(res.data)
+      await loadProviders()
+      lastProviderSaveTime.value = new Date().toLocaleTimeString('zh-CN', { hour12: false })
       ElMessage.success(res.msg || 'Provider 配置已保存')
     } else {
       ElMessage.error(res.msg || '保存失败')
@@ -166,7 +187,7 @@ onMounted(loadAll)
 .summary-band > div { display: flex; min-width: 0; flex-direction: column; gap: 5px; padding: 18px 20px; border-right: 1px solid var(--na-border); }
 .summary-band > div:last-child { border-right: 0; }.summary-band span, .summary-band small { color: var(--na-muted-foreground); font-size: .75rem; }.summary-band strong { overflow: hidden; color: var(--na-foreground); font-size: 1.35rem; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
 .operation-tabs :deep(.el-tabs__header) { margin-bottom: 14px; }.config-panel, .table-panel { padding: 18px; }.na-panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }.na-panel-header h2 { margin: 0; color: var(--na-foreground); font-size: 1rem; }.na-panel-header p { margin: 5px 0 0; color: var(--na-muted-foreground); font-size: .78rem; }
-.provider-form { margin-top: 16px; }.policy-grid, .provider-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }.policy-grid :deep(.el-select) { width: 100%; }.provider-section { min-width: 0; padding: 16px; border: 1px solid var(--na-border); border-radius: 8px; background: var(--na-surface-muted); }.provider-section header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }.provider-section h3 { margin: 0 0 4px; color: var(--na-foreground); font-size: .92rem; }.provider-section header span { color: var(--na-muted-foreground); font-size: .74rem; line-height: 1.45; }.clear-key-control { margin: -6px 0 14px; }.cost-grid, .dialog-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }.cost-grid :deep(.el-form-item:last-child) { grid-column: span 2; }
+.provider-form { margin-top: 16px; }.policy-grid, .provider-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }.policy-grid :deep(.el-select) { width: 100%; }.provider-section { min-width: 0; padding: 16px; border: 1px solid var(--na-border); border-radius: 8px; background: var(--na-surface-muted); }.provider-section header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }.provider-section h3 { margin: 0 0 4px; color: var(--na-foreground); font-size: .92rem; }.provider-section header span { color: var(--na-muted-foreground); font-size: .74rem; line-height: 1.45; }.save-state, .secret-state { display: block; margin-top: 7px; color: var(--el-color-success); font-size: .75rem; }.secret-state { margin: -8px 0 12px; }.clear-key-control { margin: -6px 0 14px; }.cost-grid, .dialog-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }.cost-grid :deep(.el-form-item:last-child) { grid-column: span 2; }
 .filter-row { display: grid; grid-template-columns: 150px repeat(2, minmax(0, 1fr)) 150px; gap: 10px; margin-bottom: 14px; }.filter-row :deep(.el-input-number) { width: 100%; }.na-pagination { display: flex; justify-content: flex-end; margin-top: 14px; }
 @media (max-width: 800px) { .summary-band, .policy-grid, .provider-grid { grid-template-columns: 1fr; }.summary-band > div { border-right: 0; border-bottom: 1px solid var(--na-border); }.summary-band > div:last-child { border-bottom: 0; }.filter-row, .cost-grid, .dialog-grid { grid-template-columns: 1fr; }.cost-grid :deep(.el-form-item:last-child) { grid-column: auto; } }
 </style>
