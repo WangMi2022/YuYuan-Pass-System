@@ -12,7 +12,7 @@ import (
 const assetRecognitionOutputSchema = `{
   "type": "object",
   "additionalProperties": false,
-  "required": ["name", "brand", "model", "serialNumber", "specifications", "productionDate", "recommendedCategoryCode", "recommendedUnit", "recommendedWarrantyMonths", "rawText", "fieldConfidences"],
+  "minProperties": 1,
   "properties": {
     "name": {"type": "string", "maxLength": 150},
     "brand": {"type": "string", "maxLength": 100},
@@ -35,7 +35,7 @@ const assetRecognitionOutputSchema = `{
 const assetRecognitionPrompt = `你是企业资产铭牌识别助手。请只根据图片中可见内容和本次提供的分类选项提取资产草稿。
 要求：
 1. 只输出符合 JSON Schema 的 JSON，不要输出 Markdown 或解释文字。
-2. 无法确认的字符串返回空字符串，无法确认的建议质保月数返回 0，不得编造。
+2. 尽量输出全部字段；无法确认的字符串返回空字符串，无法确认的建议质保月数返回 0，不得编造。部分字段缺失时服务端按空值处理并交给人工补充。
 3. productionDate 使用 YYYY-MM-DD；只有年月时可使用该月第一天；完全无法确认则返回空字符串。
 4. recommendedCategoryCode 必须从本次提供的 categories.code 中选择，无法匹配则返回空字符串。
 5. fieldConfidences 使用 0 到 1，至少覆盖所有非空识别字段。
