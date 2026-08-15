@@ -44,14 +44,16 @@
           <span>{{ formatDate(dashboard.generatedAt) }}</span>
         </header>
         <Chart v-if="hasTrend" :options="trendOptions" height="250px" />
-        <el-empty v-else description="完成首次扫描后显示趋势" :image-size="64" />
+        <AppEmptyState v-else compact title="暂无风险趋势" description="完成风险扫描后，这里将显示新增与关闭变化。">
+          <template #actions><el-button type="primary" :icon="Search" :loading="scanInProgress" @click="startScan()">立即扫描</el-button></template>
+        </AppEmptyState>
       </div>
       <div class="chart-region distribution-region">
         <header>
           <div><h2>风险类型分布</h2><p>当前未关闭事件</p></div>
         </header>
         <Chart v-if="dashboard.byCategory.length" :options="categoryOptions" height="250px" />
-        <el-empty v-else description="当前没有待处理风险" :image-size="64" />
+        <AppEmptyState v-else compact title="当前没有待处理风险" description="当前扫描结果未发现开放状态的风险事件。" :highlights="['开放风险为 0']" />
       </div>
     </section>
 
@@ -125,9 +127,9 @@
               <template #default="{ row }"><el-button type="primary" link :icon="View" @click="openDetail(row)">查看</el-button></template>
             </el-table-column>
             <template #empty>
-              <el-empty description="当前筛选条件下没有风险事件">
-                <el-button type="primary" :icon="Search" :loading="scanInProgress" @click="startScan()">运行风险扫描</el-button>
-              </el-empty>
+              <AppEmptyState compact title="当前筛选下没有风险事件" description="调整筛选条件，或重新运行风险扫描。">
+                <template #actions><el-button type="primary" :icon="Search" :loading="scanInProgress" @click="startScan()">运行风险扫描</el-button></template>
+              </AppEmptyState>
             </template>
           </el-table>
           <div class="na-pagination risk-pagination">
@@ -297,6 +299,7 @@ import {
   RefreshRight, Search, Setting, User, View, Warning
 } from '@element-plus/icons-vue'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
+import AppEmptyState from '@/components/page/AppEmptyState.vue'
 import Chart from '@/components/charts/index.vue'
 import { chartPalette, chartTheme } from '@/components/charts/theme'
 import { useAppStore } from '@/pinia'

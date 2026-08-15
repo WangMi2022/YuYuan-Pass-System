@@ -64,11 +64,13 @@
             <el-button type="danger" link :icon="Delete" class="doc-delete" @click.stop="removeDocument(row)">删除</el-button>
           </div>
 
-          <el-empty v-if="!loading && !tableData.length" description="暂无文档">
-            <el-upload :show-file-list="false" :http-request="uploadFile" :before-upload="beforeUpload">
-              <el-button type="primary">上传第一个文档</el-button>
-            </el-upload>
-          </el-empty>
+          <AppEmptyState v-if="!loading && !tableData.length" compact title="文档库为空" description="上传第一份业务文档后，可在右侧查看原文件和在线版本。">
+            <template #actions>
+              <el-upload :show-file-list="false" :http-request="uploadFile" :before-upload="beforeUpload">
+                <el-button type="primary" :icon="UploadFilled">上传文档</el-button>
+              </el-upload>
+            </template>
+          </AppEmptyState>
         </div>
 
         <footer class="na-pagination pagination-wrap">
@@ -258,11 +260,19 @@
           </el-tabs>
         </template>
 
-        <el-empty v-else class="editor-empty" description="请从左侧点击文档名进入预览或在线编辑">
-          <el-upload :show-file-list="false" :http-request="uploadFile" :before-upload="beforeUpload">
-            <el-button type="primary" :icon="UploadFilled">上传文档</el-button>
-          </el-upload>
-        </el-empty>
+        <AppEmptyState
+          v-else
+          class="editor-empty"
+          title="选择一份文档"
+          description="从左侧文档列表选择记录，右侧将显示原文件预览、在线内容和版本操作。"
+          :highlights="total ? [`当前共有 ${total} 份文档`] : ['当前文档库为空']"
+        >
+          <template #actions>
+            <el-upload :show-file-list="false" :http-request="uploadFile" :before-upload="beforeUpload">
+              <el-button type="primary" :icon="UploadFilled">上传文档</el-button>
+            </el-upload>
+          </template>
+        </AppEmptyState>
       </section>
     </section>
 
@@ -317,6 +327,7 @@ import '@vue-office/docx/lib/index.css'
 import { deleteDocument, downloadDocumentFile, getDocumentDetail, getDocumentList, updateDocumentContent, uploadDocument } from '@/plugin/document/api/document'
 import { formatDateText } from '@/utils/format'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
+import AppEmptyState from '@/components/page/AppEmptyState.vue'
 import PdfPreview from '@/components/office/PdfPreview.vue'
 import { usePagedList } from '@/hooks/usePagedList'
 
@@ -1565,7 +1576,7 @@ onBeforeUnmount(() => {
 }
 
 .editor-empty {
-  min-height: 520px;
+  min-height: clamp(280px, calc(100vh - 370px), 420px);
 }
 
 @media (max-width: 1280px) {

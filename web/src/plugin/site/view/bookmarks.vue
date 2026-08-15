@@ -83,9 +83,9 @@
           </footer>
         </article>
 
-        <el-empty v-if="!loading && !tableData.length" class="site-empty" description="暂无收藏站点">
-          <el-button type="primary" :icon="Plus" @click="openCreate">新增第一个站点</el-button>
-        </el-empty>
+        <AppEmptyState v-if="!loading && !tableData.length" class="site-empty" title="还没有收藏站点" description="添加常用业务系统、文档站或运维入口后，可从这里统一访问。">
+          <template #actions><el-button type="primary" :icon="Plus" @click="openCreate">新增站点</el-button></template>
+        </AppEmptyState>
       </div>
 
       <footer class="na-pagination pagination-wrap">
@@ -145,6 +145,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Edit, Link, Plus, Position, Refresh, Search } from '@element-plus/icons-vue'
 import { createSite, deleteSite, getSiteCategories, getSiteList, updateSite, visitSite } from '@/plugin/site/api/site'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
+import AppEmptyState from '@/components/page/AppEmptyState.vue'
 import { usePagedList } from '@/hooks/usePagedList'
 
 const saving = ref(false)

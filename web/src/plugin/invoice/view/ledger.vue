@@ -77,7 +77,13 @@
             </div>
           </article>
         </div>
-        <el-empty v-else description="没有符合条件的发票记录" />
+        <AppEmptyState
+          v-else
+          compact
+          title="没有符合条件的发票"
+          description="调整关键词、状态、分类或开票日期后重新查询。"
+          :highlights="['当前筛选结果为 0 条']"
+        />
         <div v-if="total > 0" class="na-pagination">
           <el-pagination
             v-model:current-page="search.page"
@@ -100,6 +106,7 @@ import { computed, onMounted, ref } from 'vue'
 import { Delete, EditPen, Refresh, RefreshLeft, RefreshRight, Search, View } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
+import AppEmptyState from '@/components/page/AppEmptyState.vue'
 import InvoiceReviewDrawer from '@/plugin/invoice/components/InvoiceReviewDrawer.vue'
 import InvoiceStatusTag from '@/plugin/invoice/components/InvoiceStatusTag.vue'
 import InvoiceVerificationTag from '@/plugin/invoice/components/InvoiceVerificationTag.vue'

@@ -112,9 +112,17 @@
           </template>
         </el-table-column>
         <template #empty>
-          <el-empty :description="`暂无${currentMeta.shortLabel}单据`">
-            <el-button type="primary" @click="openCreate">新建第一张单据</el-button>
-          </el-empty>
+          <AppEmptyState
+            compact
+            :title="hasOperationFilters ? '没有符合条件的单据' : `还没有${currentMeta.shortLabel}单据`"
+            :description="hasOperationFilters ? '调整关键词、状态或日期范围后重新查询。' : currentMeta.description"
+            :highlights="['草稿可继续编辑', '提交后形成只读审计记录', '资产状态同步更新']"
+          >
+            <template #actions>
+              <el-button v-if="hasOperationFilters" :icon="Refresh" @click="resetSearch">清除筛选</el-button>
+              <el-button v-else type="primary" :icon="Plus" @click="openCreate">新建第一张单据</el-button>
+            </template>
+          </AppEmptyState>
         </template>
       </el-table>
 
@@ -293,6 +301,7 @@ import {
 } from '@/plugin/asset/api/operation'
 import { getLocationOptions } from '@/plugin/asset/api/location'
 import { formatDateText } from '@/utils/format'
+import AppEmptyState from '@/components/page/AppEmptyState.vue'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
 import { usePagedList } from '@/hooks/usePagedList'
 
@@ -422,6 +431,9 @@ const {
     })
   }
 })
+const hasOperationFilters = computed(() => Boolean(
+  search.keyword || search.status || search.dateRange?.length
+))
 
 const loadAssetOptions = async (extraAssets = []) => {
   optionsLoading.value = true

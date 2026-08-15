@@ -24,7 +24,7 @@
       <div class="quality-grid">
         <section class="na-panel quality-panel">
           <div class="panel-heading"><div><h2>Provider 与模型</h2><p>按文件类型拆分识别成功率和修正量</p></div></div>
-          <el-table :data="providerMetrics" stripe size="small" empty-text="暂无识别数据">
+          <el-table :data="providerMetrics" stripe size="small">
             <el-table-column prop="provider" label="Provider" min-width="145" />
             <el-table-column prop="model" label="模型" min-width="130" show-overflow-tooltip />
             <el-table-column prop="fileType" label="文件类型" width="112" />
@@ -32,6 +32,11 @@
             <el-table-column label="成功率" width="98" align="right"><template #default="{ row }">{{ percent(row.successRate) }}</template></el-table-column>
             <el-table-column label="平均置信度" width="112" align="right"><template #default="{ row }">{{ confidencePercent(row.averageConfidence) }}</template></el-table-column>
             <el-table-column prop="correctedFields" label="修正字段" width="92" align="right" />
+            <template #empty>
+              <AppEmptyState compact :title="hasFilters ? '当前筛选范围没有识别数据' : '暂无识别质量数据'" description="完成发票识别后，将按 Provider、模型和文件类型形成质量统计。">
+                <template v-if="hasFilters" #actions><el-button :icon="Refresh" @click="clearQualityFilters">清除筛选</el-button></template>
+              </AppEmptyState>
+            </template>
           </el-table>
         </section>
 
@@ -49,25 +54,27 @@
 
       <section class="na-panel quality-panel field-panel">
         <div class="panel-heading"><div><h2>字段准确率与人工修改率</h2><p>只统计已完成字段级复核采集的发票</p></div><el-tag v-if="dashboard.legacyWithoutFieldData" type="warning">历史无字段数据 {{ dashboard.legacyWithoutFieldData }}</el-tag></div>
-        <el-table :data="fieldMetrics" stripe size="small" empty-text="完成复核后生成字段指标">
+        <el-table :data="fieldMetrics" stripe size="small">
           <el-table-column prop="label" label="字段" min-width="150" />
           <el-table-column prop="reviewed" label="复核量" width="100" align="right" />
           <el-table-column prop="modified" label="人工修改" width="100" align="right" />
           <el-table-column label="修改率" width="120" align="right"><template #default="{ row }">{{ percent(row.modificationRate) }}</template></el-table-column>
           <el-table-column label="准确率" width="120" align="right"><template #default="{ row }"><strong :class="accuracyTone(row.accuracyRate)">{{ percent(row.accuracyRate) }}</strong></template></el-table-column>
           <el-table-column label="平均置信度" width="130" align="right"><template #default="{ row }">{{ confidencePercent(row.averageConfidence) }}</template></el-table-column>
+          <template #empty><AppEmptyState compact title="尚无字段级复核指标" description="人工复核并保存字段修正后，这里会统计修改率、准确率和平均置信度。" /></template>
         </el-table>
       </section>
 
       <section class="na-panel quality-panel failure-panel">
         <div class="panel-heading"><div><h2>失败原因</h2><p>展示当前筛选范围内已结束的失败任务</p></div><span class="muted">{{ failuresTotal }} 条</span></div>
-        <el-table :data="failures" stripe size="small" empty-text="暂无失败任务">
+        <el-table :data="failures" stripe size="small">
           <el-table-column prop="fileName" label="文件" min-width="190" show-overflow-tooltip />
           <el-table-column prop="provider" label="Provider" min-width="120" />
           <el-table-column prop="model" label="模型" min-width="120" show-overflow-tooltip />
           <el-table-column label="尝试" width="90" align="right"><template #default="{ row }">{{ row.attempts }} / {{ row.maxAttempts }}</template></el-table-column>
           <el-table-column prop="error" label="失败原因" min-width="280" show-overflow-tooltip />
           <el-table-column label="时间" width="165"><template #default="{ row }">{{ dateText(row.updatedAt || row.createdAt) }}</template></el-table-column>
+          <template #empty><AppEmptyState compact title="当前范围没有失败任务" description="识别任务运行正常，或当前筛选条件下没有已结束的失败记录。" :highlights="['可继续按日期、Provider 和模型筛选', '失败任务会保留错误原因与尝试次数']" /></template>
         </el-table>
         <el-pagination v-if="failuresTotal > pageSize" v-model:current-page="failurePage" :page-size="pageSize" :total="failuresTotal" layout="prev, pager, next" @current-change="loadFailures" />
       </section>
@@ -79,6 +86,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
+import AppEmptyState from '@/components/page/AppEmptyState.vue'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
 import {
   getInvoiceQualityClassificationMetrics,
@@ -108,6 +116,14 @@ const query = computed(() => ({
   startDate: dateRange.value?.[0], endDate: dateRange.value?.[1],
   provider: filters.provider, model: filters.model
 }))
+const hasFilters = computed(() => Boolean(
+  dateRange.value?.length || filters.provider || filters.model
+))
+const clearQualityFilters = () => {
+  dateRange.value = []
+  filters.provider = ''
+  filters.model = ''
+}
 const percent = (value) => `${Number(value || 0).toFixed(2)}%`
 const confidencePercent = (value) => percent(Number(value || 0) * 100)
 const dateText = (value) => value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '—'

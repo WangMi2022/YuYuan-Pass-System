@@ -31,9 +31,21 @@
         </template>
       </AppPageHeader>
 
-      <Transition name="dashboard-mode" mode="out-in">
+      <AppEmptyState
+        v-if="!loading && !hasAssetData"
+        title="资产全景尚无可汇总数据"
+        description="登记首批资产后，这里会自动形成价值、状态、分类、空间分布和最近登记视图。"
+        :highlights="['基于正式资产台账实时汇总', '支持全景与模块矩阵两种布局', '不创建任何演示数据']"
+      >
+        <template #actions>
+          <el-button type="primary" :icon="Box" @click="openInventory">前往资产台账</el-button>
+          <el-button :icon="Refresh" :loading="loading" @click="loadDashboard">重新加载</el-button>
+        </template>
+      </AppEmptyState>
+
+      <Transition v-else name="dashboard-mode" mode="out-in">
         <section
-          v-if="viewMode === 'panorama'"
+          v-if="hasAssetData && viewMode === 'panorama'"
           key="panorama"
           class="panorama-board"
           aria-label="全景指挥舱"
@@ -180,7 +192,7 @@
         </section>
 
         <section
-          v-else
+          v-else-if="hasAssetData"
           key="matrix"
           class="matrix-board"
           aria-label="业务模块矩阵"
@@ -286,6 +298,7 @@ import { computed, defineComponent, h, markRaw, onMounted, ref, watch } from 'vu
 import { useRoute, useRouter } from 'vue-router'
 import { Box, DataAnalysis, DataBoard, FullScreen, Grid, Refresh } from '@element-plus/icons-vue'
 import Chart from '@/components/charts/index.vue'
+import AppEmptyState from '@/components/page/AppEmptyState.vue'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
 import { chartPalette } from '@/components/charts/theme'
 import { formatCompactCurrency, formatNumber, formatPercent } from '@/utils/format'
@@ -349,6 +362,14 @@ const dashboard = ref({
   locationSummary: [],
   recentAssets: []
 })
+const hasAssetData = computed(() => Boolean(
+  Number(dashboard.value.assetKinds) ||
+  Number(dashboard.value.totalQuantity) ||
+  dashboard.value.recentAssets?.length
+))
+const openInventory = () => {
+  if (router.hasRoute('assetInventory')) router.push({ name: 'assetInventory' })
+}
 
 const selectViewMode = (mode) => {
   if (!isValidViewMode(mode)) return

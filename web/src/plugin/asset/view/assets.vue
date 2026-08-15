@@ -138,9 +138,13 @@
           </template>
         </el-table-column>
         <template #empty>
-          <el-empty description="暂时没有资产档案">
-            <el-button type="primary" @click="openCreate">登记第一项资产</el-button>
-          </el-empty>
+          <AppEmptyState
+            title="还没有资产档案"
+            description="登记第一项资产后，可继续维护分类、责任人、位置、价值和实物照片。"
+            :highlights="['正式资产需人工确认']"
+          >
+            <template #actions><el-button type="primary" :icon="Plus" @click="openCreate">新增资产</el-button></template>
+          </AppEmptyState>
         </template>
       </el-table>
 
@@ -302,6 +306,7 @@ import {
 } from '@/plugin/asset/api/asset'
 import { formatCurrency, formatDateText } from '@/utils/format'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
+import AppEmptyState from '@/components/page/AppEmptyState.vue'
 import { usePagedList } from '@/hooks/usePagedList'
 
 defineOptions({ name: 'AssetInventory' })

@@ -135,9 +135,16 @@
           </template>
         </el-table-column>
         <template #empty>
-          <el-empty description="暂无公告">
-            <el-button type="primary" @click="openDialog">发布第一条公告</el-button>
-          </el-empty>
+          <AppEmptyState
+            compact
+            title="公告列表为空"
+            description="发布第一条公告后，系统会保留草稿与已发布状态，并向用户展示未读提醒。"
+            :highlights="['支持公告草稿', '可附加业务文件', '已发布公告可提取日程草稿']"
+          >
+            <template #actions>
+              <el-button type="primary" icon="plus" @click="openDialog">发布第一条公告</el-button>
+            </template>
+          </AppEmptyState>
         </template>
       </el-table>
 
@@ -226,6 +233,7 @@
   import { formatDate, filterDataSource } from '@/utils/format'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import { ref, reactive } from 'vue'
+  import AppEmptyState from '@/components/page/AppEmptyState.vue'
   import AppPageHeader from '@/components/page/AppPageHeader.vue'
 
   defineOptions({

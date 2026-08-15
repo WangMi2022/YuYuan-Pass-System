@@ -71,7 +71,11 @@
             <el-button size="small" type="danger" link :icon="Delete" :disabled="row.assetKinds > 0" @click="removeCategory(row)">删除</el-button>
           </template>
         </el-table-column>
-        <template #empty><el-empty description="暂无资产分类" /></template>
+        <template #empty>
+          <AppEmptyState compact title="暂无资产分类" description="新增分类后，可用于资产登记、统计和风险规则。">
+            <template #actions><el-button type="primary" :icon="Plus" @click="openCreate">新增分类</el-button></template>
+          </AppEmptyState>
+        </template>
       </el-table>
 
       <el-table v-else v-loading="loading" :data="tableData" row-key="ID" stripe size="small" class="manage-table">
@@ -101,7 +105,11 @@
             <el-button size="small" type="danger" link :icon="Delete" @click="removeLocation(row)">删除</el-button>
           </template>
         </el-table-column>
-        <template #empty><el-empty :description="`暂无${activeLocation.label}`" /></template>
+        <template #empty>
+          <AppEmptyState compact :title="`暂无${activeLocation.label}`" :description="`新增${activeLocation.label}后，可在对应资产业务中直接选择。`">
+            <template #actions><el-button type="primary" :icon="Plus" @click="openCreate">新增{{ activeLocation.label }}</el-button></template>
+          </AppEmptyState>
+        </template>
       </el-table>
 
       <footer class="na-pagination pagination-wrap">
@@ -186,6 +194,7 @@ import { createCategory, deleteCategory, getCategoryList, updateCategory } from 
 import { createLocation, deleteLocation, getLocationList, updateLocation } from '@/plugin/asset/api/location'
 import { usePagedList } from '@/hooks/usePagedList'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
+import AppEmptyState from '@/components/page/AppEmptyState.vue'
 
 defineOptions({ name: 'AssetCategories' })
 

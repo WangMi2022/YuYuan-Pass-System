@@ -1933,7 +1933,6 @@
     flex-direction: column;
     overflow: hidden;
     min-width: 0;
-    min-height: 660px;
     border-radius: 12px;
   }
 
@@ -1952,7 +1951,6 @@
     flex-direction: column;
     overflow: hidden;
     min-width: 0;
-    min-height: 660px;
   }
 
   .config-editor-header {
@@ -2080,7 +2078,6 @@
     justify-content: start;
     gap: 2px 16px;
     width: 100%;
-    min-height: 360px;
     margin-top: 0 !important;
     padding: 16px 16px 24px;
   }
@@ -2136,7 +2133,7 @@
     justify-content: center;
     flex-direction: column;
     gap: 12px;
-    min-height: 360px;
+    min-height: 220px;
     padding: 32px;
     color: var(--na-danger);
     text-align: center;
@@ -2153,7 +2150,7 @@
   }
 
   .config-loading-state {
-    min-height: 360px;
+    min-height: 220px;
     padding: 20px;
   }
 

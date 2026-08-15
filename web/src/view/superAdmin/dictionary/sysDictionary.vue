@@ -137,11 +137,17 @@
                 </div>
               </div>
             </div>
-            <el-empty
+            <AppEmptyState
               v-else
-              :image-size="72"
-              description="暂无字典"
-            />
+              compact
+              title="字典列表为空"
+              description="先创建基础字典，或导入已有 JSON；后续业务表单即可复用统一枚举值。"
+              :highlights="['支持父子字典', '支持 JSON 导入导出', '可使用 AI 生成草稿']"
+            >
+              <template #actions>
+                <el-button type="primary" :icon="Plus" @click="openDrawer">新建字典</el-button>
+              </template>
+            </AppEmptyState>
           </el-scrollbar>
         </aside>
       </el-splitter-panel>
@@ -379,6 +385,7 @@
   } from '@/api/sysDictionary' // 此处请自行替换地址
   import { llmAuto } from '@/api/autoCode'
   import WarningBar from '@/components/warningBar/warningBar.vue'
+  import AppEmptyState from '@/components/page/AppEmptyState.vue'
   import { ref, watch } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
 

@@ -44,7 +44,15 @@
           </div>
         </div>
       </div>
-      <el-empty v-else description="暂无发票分类" />
+      <AppEmptyState
+        v-else
+        compact
+        title="还没有发票分类"
+        description="先建立正式统计口径，再为识别结果配置可解释的分类规则。"
+        :highlights="['分类编码保持唯一', '停用分类不影响历史记录']"
+      >
+        <template #actions><el-button type="primary" :icon="Plus" @click="openCreate">新增分类</el-button></template>
+      </AppEmptyState>
       <div v-if="categoryTotal > 0" class="na-pagination">
         <el-pagination v-model:current-page="categorySearch.page" :page-size="categorySearch.pageSize" :total="categoryTotal" layout="total, prev, pager, next" @current-change="categoryChangePage" />
       </div>
@@ -85,7 +93,15 @@
           </div>
         </div>
       </div>
-      <el-empty v-else description="暂无分类规则" />
+      <AppEmptyState
+        v-else
+        compact
+        title="还没有分类规则"
+        description="新增关键词或字段匹配规则，命中分值达到阈值后生成分类建议。"
+        :highlights="['规则保留命中原因', '最终分类仍由人工确认']"
+      >
+        <template #actions><el-button type="primary" :icon="Plus" @click="openCreate">新增规则</el-button></template>
+      </AppEmptyState>
       <div v-if="ruleTotal > 0" class="na-pagination">
         <el-pagination v-model:current-page="ruleSearch.page" :page-size="ruleSearch.pageSize" :total="ruleTotal" layout="total, prev, pager, next" @current-change="ruleChangePage" />
       </div>
@@ -145,6 +161,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { Delete, Edit, Plus, Refresh, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
+import AppEmptyState from '@/components/page/AppEmptyState.vue'
 import {
   createInvoiceCategory, createInvoiceRule, deleteInvoiceCategory, deleteInvoiceRule,
   getInvoiceCategoryList, getInvoiceCategoryOptions, getInvoiceRuleList,
@@ -300,7 +317,7 @@ onMounted(categoryLoad)
 <style scoped lang="scss">
 .view-switch { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 14px; }
 .view-switch p { margin: 0; color: var(--na-muted-foreground); font-size: .75rem; text-align: right; }
-.collection-panel { min-height: 480px; overflow: hidden; }
+.collection-panel { overflow: hidden; }
 .collection-toolbar { display: grid; grid-template-columns: minmax(220px, 1fr) 160px auto; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--na-border); }
 .collection-toolbar--rules { grid-template-columns: minmax(220px, 1fr) 180px 140px auto; }
 .collection-warning { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 14px; border-bottom: 1px solid var(--na-border); background: var(--na-warning-soft); font-size: .75rem; }

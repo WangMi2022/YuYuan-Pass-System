@@ -63,7 +63,17 @@
           <span>{{ history.length }} / 30 个采样点</span>
         </header>
         <Chart v-if="history.length" :options="trendOption" height="330px" />
-        <el-empty v-else description="等待首次采样" :image-size="72" />
+        <AppEmptyState
+          v-else
+          compact
+          title="等待首次负载采样"
+          :description="errorMessage || '采集完成后，这里将连续展示 CPU、内存和磁盘使用率趋势。'"
+          :highlights="[`当前采集周期 ${refreshSeconds} 秒`, '最多保留 30 个采样点']"
+        >
+          <template #actions>
+            <el-button type="primary" :icon="Refresh" :loading="loading" @click="reload(true)">立即采集</el-button>
+          </template>
+        </AppEmptyState>
       </article>
 
       <article class="na-panel monitor-card runtime-card">
@@ -96,7 +106,13 @@
             <el-progress :percentage="safePercent(usage)" :stroke-width="7" :color="progressColors" />
           </div>
         </div>
-        <el-empty v-else description="暂无 CPU 数据" :image-size="64" />
+        <AppEmptyState
+          v-else
+          compact
+          title="尚未取得 CPU 核心数据"
+          description="采集成功后，将按逻辑核心展示当前使用率。"
+          :highlights="['自动随采集周期刷新', '高负载区间使用颜色提示']"
+        />
       </article>
 
       <article class="na-panel monitor-card">
@@ -110,7 +126,13 @@
             <el-progress :percentage="safePercent(disk.usedPercent)" :stroke-width="8" :color="progressColors" />
           </div>
         </div>
-        <el-empty v-else description="暂无磁盘数据" :image-size="64" />
+        <AppEmptyState
+          v-else
+          compact
+          title="尚未取得磁盘数据"
+          description="服务器返回挂载点信息后，将展示各磁盘容量与占用比例。"
+          :highlights="['展示已用与总容量', '自动标记高占用挂载点']"
+        />
       </article>
     </section>
   </main>
@@ -120,6 +142,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Coin, Cpu, DataLine, FolderOpened, Refresh, VideoPause, VideoPlay } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import AppEmptyState from '@/components/page/AppEmptyState.vue'
 import Chart from '@/components/charts/index.vue'
 import { getSystemState } from '@/api/system'
 import { useAppStore } from '@/pinia'

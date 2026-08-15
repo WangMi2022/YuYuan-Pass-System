@@ -44,7 +44,6 @@
           :tree-props="{ children: 'children'}"
           row-key="ID"
           default-expand-all
-          :empty-text="emptyDescription"
         >
           <el-table-column type="selection" width="52" />
 
@@ -127,6 +126,26 @@
               </div>
           </template>
         </el-table-column>
+          <template #empty>
+            <AppEmptyState
+              compact
+              :title="detailEmptyTitle"
+              :description="detailEmptyDescription"
+              :highlights="['支持父子层级', '可配置排序与启停状态']"
+            >
+              <template #actions>
+                <el-button v-if="searchName" @click="clearSearchInput">清除筛选</el-button>
+                <el-button
+                  v-else-if="props.sysDictionaryID"
+                  type="primary"
+                  :icon="Plus"
+                  @click="openDrawer"
+                >
+                  新增字典项
+                </el-button>
+              </template>
+            </AppEmptyState>
+          </template>
       </el-table>
       </div>
     </section>
@@ -221,6 +240,7 @@
   import { formatBoolean } from '@/utils/format'
   import { useAppStore } from '@/pinia'
   import { Delete, Edit, Plus, Search } from '@element-plus/icons-vue'
+  import AppEmptyState from '@/components/page/AppEmptyState.vue'
 
   defineOptions({
     name: 'SysDictionaryDetail'
@@ -271,9 +291,15 @@
   const treeData = ref([])
   const displayTreeData = ref([])
   const detailCount = computed(() => displayTreeData.value.length)
-  const emptyDescription = computed(() => (
-    props.sysDictionaryID ? '暂无字典项' : '请先选择左侧字典'
-  ))
+  const detailEmptyTitle = computed(() => {
+    if (searchName.value) return '未找到匹配的字典项'
+    return props.sysDictionaryID ? '当前字典还没有条目' : '尚未选择字典'
+  })
+  const detailEmptyDescription = computed(() => {
+    if (searchName.value) return `没有包含“${searchName.value}”的展示值，可清除筛选查看全部条目。`
+    if (props.sysDictionaryID) return '新增根级条目后，可继续建立子项并设置排序与启用状态。'
+    return '从左侧选择一个字典后，这里会显示对应的层级条目。'
+  })
 
   // 级联选择器配置
   const cascadeProps = {

@@ -3,7 +3,7 @@
     :src="excel"
     @rendered="renderedHandler"
     @error="errorHandler"
-    style="height: 100vh; width: 100vh"
+    style="height: 100vh; width: 100%"
   />
 </template>
 <script>

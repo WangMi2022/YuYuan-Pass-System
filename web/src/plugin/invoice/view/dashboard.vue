@@ -38,7 +38,9 @@
             <span>{{ money(dashboard.totalCents) }}</span>
           </div>
           <div v-if="hasTrend" class="chart-wrap"><Chart :options="trendOption" height="310px" /></div>
-          <el-empty v-else description="确认发票后将生成月度趋势" :image-size="82" />
+          <AppEmptyState v-else compact title="暂无月度趋势" description="确认发票后，这里将按开票月份汇总正式流水。">
+            <template #actions><el-button type="primary" :icon="Upload" @click="router.push({ name: 'invoiceRecognition' })">上传发票</el-button></template>
+          </AppEmptyState>
         </section>
 
         <section class="na-panel category-panel">
@@ -55,7 +57,7 @@
               </div>
             </div>
           </div>
-          <el-empty v-else description="暂无分类统计" :image-size="76" />
+          <AppEmptyState v-else compact title="暂无分类统计" description="已确认发票完成分类后，这里将显示金额构成。" />
         </section>
       </div>
 
@@ -71,7 +73,7 @@
               <b>{{ money(item.totalCents) }}</b>
             </div>
           </div>
-          <el-empty v-else description="暂无供应商统计" :image-size="72" />
+          <AppEmptyState v-else compact title="暂无供应商统计" description="确认包含销售方信息的发票后，这里将形成支出排行。" />
         </section>
 
         <section class="na-panel recent-panel">
@@ -89,7 +91,9 @@
               <InvoiceStatusTag :status="item.status" />
             </button>
           </div>
-          <el-empty v-else description="上传第一张发票开始处理" :image-size="72" />
+          <AppEmptyState v-else compact title="暂无最近处理记录" description="上传或核对发票后，最新状态会显示在这里。">
+            <template #actions><el-button type="primary" :icon="Upload" @click="router.push({ name: 'invoiceRecognition' })">上传发票</el-button></template>
+          </AppEmptyState>
         </section>
       </div>
     </template>
@@ -103,6 +107,7 @@ import { computed, onMounted, ref } from 'vue'
 import { Refresh, Upload } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
+import AppEmptyState from '@/components/page/AppEmptyState.vue'
 import Chart from '@/components/charts/index.vue'
 import { chartPalette, chartTheme } from '@/components/charts/theme'
 import InvoiceReviewDrawer from '@/plugin/invoice/components/InvoiceReviewDrawer.vue'
@@ -208,7 +213,7 @@ onMounted(loadDashboard)
 </script>
 
 <style scoped lang="scss">
-.dashboard-error { min-height: 420px; }
+.dashboard-error { min-height: 240px; }
 .load-warning { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; padding: 9px 12px; border-radius: 9px; background: var(--na-warning-soft); color: var(--na-foreground); font-size: .75rem; }
 .load-warning span { min-width: 0; overflow-wrap: anywhere; }
 .refresh-time { color: var(--na-muted-foreground); font-size: .75rem; }

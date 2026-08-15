@@ -3,14 +3,22 @@
     <AppPageHeader title-id="smart-report-title" title="智能日报" description="按日汇总异常、待办、趋势和系统健康指标；模型不可用时仍保留结构化数据。">
       <template #actions><el-button :icon="Refresh" :loading="loading" @click="load">刷新</el-button><el-button type="primary" :icon="MagicStick" :loading="generating" @click="generate">生成今日日报</el-button></template>
     </AppPageHeader>
+    <AppEmptyState
+      v-if="!loading && !report"
+      title="今日尚未生成智能日报"
+      description="生成后会汇总资产、风险、发票、协作和 AI 运营指标；模型不可用时仍保留确定性统计。"
+      :highlights="['异常与待办集中汇总', '业务指标可追溯跳转', '支持应用内订阅提醒']"
+    >
+      <template #actions><el-button type="primary" :icon="MagicStick" :loading="generating" @click="generate">生成今日日报</el-button></template>
+    </AppEmptyState>
     <section v-if="report" class="na-panel report-hero"><div><span class="eyebrow">{{ report.reportDate?.slice?.(0, 10) || '今日' }}</span><h2>{{ report.summary || '日报暂无摘要' }}</h2><small>生成方式：{{ report.generatedBy }} · {{ formatTime(report.generatedAt) }}</small></div><el-tag type="success" effect="plain">已生成</el-tag></section>
     <section v-if="report" class="metric-grid"><article v-for="item in metricCards" :key="item.key" class="na-panel metric-card" role="button" tabindex="0" @click="openMetric(item)" @keydown.enter.space.prevent="openMetric(item)"><span>{{ item.label }}</span><strong>{{ item.value }}</strong><small>{{ item.hint }}</small></article></section>
     <section v-if="report" class="na-panel detail-panel"><header class="panel-header"><div><h2>详细指标</h2><p>指标来自业务表确定性统计，模型仅负责摘要。</p></div></header><div class="detail-grid"><div v-for="item in detailMetrics" :key="item.key" class="detail-item"><span>{{ item.label }}</span><strong>{{ item.value }}</strong></div></div></section>
     <div class="report-grid">
-      <section class="na-panel history-panel"><header class="panel-header"><div><h2>历史日报</h2><p>每位用户只读取自己的日报。</p></div></header><el-table v-loading="loading" :data="reports" row-key="ID" @row-click="openReport"><el-table-column prop="reportDate" label="日期" min-width="120"><template #default="{ row }">{{ row.reportDate?.slice?.(0, 10) }}</template></el-table-column><el-table-column prop="generatedBy" label="生成方式" width="150" /><el-table-column prop="summary" label="摘要" min-width="280" show-overflow-tooltip /></el-table><div class="pagination"><el-pagination v-model:current-page="page" v-model:page-size="pageSize" :total="total" layout="total, prev, pager, next" @current-change="loadHistory" /></div></section>
+      <section class="na-panel history-panel"><header class="panel-header"><div><h2>历史日报</h2><p>每位用户只读取自己的日报。</p></div></header><el-table v-loading="loading" :data="reports" row-key="ID" @row-click="openReport"><el-table-column prop="reportDate" label="日期" min-width="120"><template #default="{ row }">{{ row.reportDate?.slice?.(0, 10) }}</template></el-table-column><el-table-column prop="generatedBy" label="生成方式" width="150" /><el-table-column prop="summary" label="摘要" min-width="280" show-overflow-tooltip /><template #empty><AppEmptyState compact title="暂无历史日报" description="生成第一份日报后，可在这里按日期回看业务摘要。" /></template></el-table><div class="pagination"><el-pagination v-model:current-page="page" v-model:page-size="pageSize" :total="total" layout="total, prev, pager, next" @current-change="loadHistory" /></div></section>
       <section class="na-panel subscription-panel"><header class="panel-header"><div><h2>日报订阅</h2><p>保留应用内提醒，发送时间可按用户调整。</p></div><el-switch v-model="subscription.enabled" active-text="启用" /></header><el-form label-position="top"><el-form-item label="发送时间"><el-time-picker v-model="deliveryTime" format="HH:mm" value-format="HH:mm" placeholder="选择时间" /></el-form-item><el-form-item label="渠道"><el-checkbox-group v-model="channels"><el-checkbox label="in_app">应用内</el-checkbox><el-checkbox label="email">邮件</el-checkbox></el-checkbox-group></el-form-item><el-button type="primary" :loading="saving" @click="saveSubscription">保存订阅</el-button></el-form></section>
     </div>
-    <section class="na-panel deliveries-panel"><header class="panel-header"><div><h2>发送记录</h2><p>仅显示当前用户最近 30 条投递结果。</p></div></header><el-table :data="deliveries" size="small"><el-table-column prop="channel" label="渠道" width="100" /><el-table-column prop="status" label="状态" width="100" /><el-table-column prop="retryCount" label="尝试次数" width="100" /><el-table-column prop="error" label="失败原因" min-width="220" show-overflow-tooltip /><el-table-column prop="sentAt" label="发送时间" min-width="170"><template #default="{ row }">{{ formatTime(row.sentAt || row.lastAttempt) }}</template></el-table-column></el-table></section>
+    <section class="na-panel deliveries-panel"><header class="panel-header"><div><h2>发送记录</h2><p>仅显示当前用户最近 30 条投递结果。</p></div></header><el-table :data="deliveries" size="small"><el-table-column prop="channel" label="渠道" width="100" /><el-table-column prop="status" label="状态" width="100" /><el-table-column prop="retryCount" label="尝试次数" width="100" /><el-table-column prop="error" label="失败原因" min-width="220" show-overflow-tooltip /><el-table-column prop="sentAt" label="发送时间" min-width="170"><template #default="{ row }">{{ formatTime(row.sentAt || row.lastAttempt) }}</template></el-table-column><template #empty><AppEmptyState compact title="暂无日报发送记录" description="启用订阅并生成日报后，投递结果会显示在这里。" /></template></el-table></section>
   </main>
 </template>
 
@@ -19,6 +27,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { MagicStick, Refresh } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import AppEmptyState from '@/components/page/AppEmptyState.vue'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
 import { generateSmartReport, getSmartReport, getSmartReportDeliveries, getSmartReportSubscription, getSmartReports, getTodaySmartReport, saveSmartReportSubscription } from '@/plugin/smart/api/smart'
 

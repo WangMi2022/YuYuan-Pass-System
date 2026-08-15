@@ -77,7 +77,16 @@
         <el-card shadow="never" class="skills-panel h-full flex flex-col">
           <template v-if="!activeSkill">
             <div class="h-full flex items-center justify-center">
-              <el-empty description="请选择或新建一个技能" />
+              <AppEmptyState
+                class="w-full"
+                title="选择或新建一个 Skill"
+                description="选择左侧 Skill 后可维护配置、脚本、资源、参考和模板；新建时会生成基础目录结构。"
+                :highlights="['配置与附件统一维护', '支持打包当前 Skill', '仅用于开发阶段']"
+              >
+                <template #actions>
+                  <el-button type="primary" icon="Plus" @click="openCreateDialog">新建 Skill</el-button>
+                </template>
+              </AppEmptyState>
             </div>
           </template>
           <template v-else>
@@ -225,8 +234,12 @@
                       <el-button type="primary" link @click="insertFileSnippet('script', scope.row.name)">调用</el-button>
                     </template>
                   </el-table-column>
+                  <template #empty>
+                    <AppEmptyState compact title="当前 Skill 没有脚本" description="创建可执行逻辑或校验流程，并在正文中引用脚本路径。">
+                      <template #actions><el-button type="primary" icon="Plus" @click="openScriptDialog">创建脚本</el-button></template>
+                    </AppEmptyState>
+                  </template>
                 </el-table>
-                <el-empty v-if="scriptRows.length === 0" description="暂无脚本" />
               </el-tab-pane>
 
               <el-tab-pane label="资源" name="resources">
@@ -252,8 +265,12 @@
                       <el-button type="primary" link @click="insertFileSnippet('resource', scope.row.name)">引用</el-button>
                     </template>
                   </el-table-column>
+                  <template #empty>
+                    <AppEmptyState compact title="当前 Skill 没有资源" description="添加背景资料或术语表，供模型按需查阅。">
+                      <template #actions><el-button type="primary" icon="Plus" @click="openResourceDialog">创建资源</el-button></template>
+                    </AppEmptyState>
+                  </template>
                 </el-table>
-                <el-empty v-if="resourceRows.length === 0" description="暂无资源" />
               </el-tab-pane>
 
               <el-tab-pane label="References" name="references">
@@ -279,8 +296,12 @@
                       <el-button type="primary" link @click="insertFileSnippet('reference', scope.row.name)">引用</el-button>
                     </template>
                   </el-table-column>
+                  <template #empty>
+                    <AppEmptyState compact title="当前 Skill 没有参考资料" description="添加规范、规则或权威资料，并在正文中指定引用路径。">
+                      <template #actions><el-button type="primary" icon="Plus" @click="openReferenceDialog">创建参考</el-button></template>
+                    </AppEmptyState>
+                  </template>
                 </el-table>
-                <el-empty v-if="referenceRows.length === 0" description="暂无参考" />
               </el-tab-pane>
 
               <el-tab-pane label="Templates" name="templates">
@@ -306,8 +327,12 @@
                       <el-button type="primary" link @click="insertFileSnippet('template', scope.row.name)">引用</el-button>
                     </template>
                   </el-table-column>
+                  <template #empty>
+                    <AppEmptyState compact title="当前 Skill 没有模板" description="添加输出结构或代码骨架，作为 Skill 的稳定格式约束。">
+                      <template #actions><el-button type="primary" icon="Plus" @click="openTemplateDialog">创建模板</el-button></template>
+                    </AppEmptyState>
+                  </template>
                 </el-table>
-                <el-empty v-if="templateRows.length === 0" description="暂无模板" />
               </el-tab-pane>
             </el-tabs>
           </template>
@@ -423,6 +448,7 @@
   import { ElMessage, ElMessageBox } from 'element-plus'
   import { QuestionFilled, Document, Edit } from '@element-plus/icons-vue'
   import WarningBar from '@/components/warningBar/warningBar.vue'
+  import AppEmptyState from '@/components/page/AppEmptyState.vue'
   import {
     getSkillTools,
     getSkillList,

@@ -59,7 +59,15 @@
             <el-icon class="task-arrow"><ArrowRight /></el-icon>
           </button>
         </div>
-        <el-empty v-else :image-size="64" description="暂无待提交资产业务单" />
+        <AppEmptyState
+          v-else
+          compact
+          title="暂无待提交资产业务单"
+          description="当前没有停留在草稿状态的入库、领用、调拨、归还、维修或报废单。"
+          :highlights="['资产流程已清空']"
+        >
+          <template #actions><el-button type="primary" @click="openAssetDraft">新建业务单</el-button></template>
+        </AppEmptyState>
       </article>
 
       <article v-if="canAccessInvoices" class="na-panel pending-panel">
@@ -93,7 +101,15 @@
             <el-icon class="task-arrow"><ArrowRight /></el-icon>
           </button>
         </div>
-        <el-empty v-else :image-size="64" description="暂无待处理发票" />
+        <AppEmptyState
+          v-else
+          compact
+          title="暂无待处理发票"
+          description="当前没有待核对或识别失败的发票任务。"
+          :highlights="['发票队列已清空']"
+        >
+          <template #actions><el-button type="primary" @click="openInvoiceQueue">进入识别队列</el-button></template>
+        </AppEmptyState>
       </article>
     </section>
 
@@ -113,6 +129,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, ArrowRight, Refresh } from '@element-plus/icons-vue'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
+import AppEmptyState from '@/components/page/AppEmptyState.vue'
 import InvoiceStatusTag from '@/plugin/invoice/components/InvoiceStatusTag.vue'
 import { getInvoiceList } from '@/plugin/invoice/api/invoice'
 import { getAssetOperationList } from '@/plugin/asset/api/operation'
@@ -206,6 +223,10 @@ function openAssetOperation(order) {
 }
 function openInvoiceQueue() {
   if (router.hasRoute('invoiceRecognition')) router.push({ name: 'invoiceRecognition' })
+}
+function openAssetDraft() {
+  const routeName = Object.values(operationRoutes).find((name) => router.hasRoute(name))
+  if (routeName) router.push({ name: routeName })
 }
 
 onMounted(loadPendingTasks)

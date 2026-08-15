@@ -27,13 +27,25 @@
 
     <section class="na-panel task-panel">
       <div class="section-heading"><div><h2>我的识别任务</h2><p>任务完成后进入人工复核，确认后与正式资产建立不可变关联。</p></div><el-select v-model="statusFilter" clearable placeholder="全部状态" class="status-filter" @change="loadJobs"><el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" /></el-select></div>
-      <el-table :data="jobs" stripe class="task-table" empty-text="还没有智能建档任务">
+      <el-table :data="jobs" stripe class="task-table">
         <el-table-column label="任务" min-width="180"><template #default="{ row }"><div class="task-identity"><strong>#{{ row.ID }}</strong><span>{{ (row.fileKeys || []).length }} 张图片</span></div></template></el-table-column>
         <el-table-column label="识别结果" min-width="220"><template #default="{ row }"><div class="task-result"><strong>{{ row.draft?.name || row.result?.name || '等待识别' }}</strong><span>{{ row.draft?.serialNumber || row.result?.serialNumber || '序列号待确认' }}</span></div></template></el-table-column>
         <el-table-column label="状态" width="120"><template #default="{ row }"><el-tag :type="statusMeta(row.status).type">{{ statusMeta(row.status).label }}</el-tag></template></el-table-column>
         <el-table-column label="尝试" width="82" align="right"><template #default="{ row }">{{ row.attempts || 0 }} / {{ row.maxAttempts || 3 }}</template></el-table-column>
         <el-table-column label="更新时间" width="170"><template #default="{ row }">{{ dateText(row.updatedAt || row.createdAt) }}</template></el-table-column>
         <el-table-column label="操作" width="190" fixed="right"><template #default="{ row }"><el-button link type="primary" @click="openJob(row)">查看任务</el-button><el-button v-if="row.status === 'failed'" link type="warning" @click="retryJob(row)">重试</el-button><el-button v-if="!['completed', 'processing'].includes(row.status)" link type="danger" @click="deleteJob(row)">{{ row.status === 'deleting' ? '重试删除' : '删除' }}</el-button></template></el-table-column>
+        <template #empty>
+          <AppEmptyState
+            compact
+            :title="statusFilter ? '当前状态没有识别任务' : '还没有智能建档任务'"
+            description="在上方上传资产照片或铭牌后，系统会生成待人工确认的资产草稿。"
+            :highlights="['最多上传 6 张图片', '确认前不写入正式资产', '任务保留识别与修正状态']"
+          >
+            <template v-if="statusFilter" #actions>
+              <el-button :icon="Refresh" @click="statusFilter = ''; loadJobs()">查看全部任务</el-button>
+            </template>
+          </AppEmptyState>
+        </template>
       </el-table>
       <el-pagination v-if="total > pageSize" v-model:current-page="page" :page-size="pageSize" :total="total" layout="prev, pager, next" @current-change="loadJobs" />
     </section>
@@ -91,6 +103,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useWindowSize } from '@vueuse/core'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { MagicStick, Refresh, UploadFilled, WarningFilled } from '@element-plus/icons-vue'
+import AppEmptyState from '@/components/page/AppEmptyState.vue'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
 import { assetPhotoUrl } from '@/plugin/asset/utils/photo'
 import {

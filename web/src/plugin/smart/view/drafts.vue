@@ -17,6 +17,19 @@
           <el-table-column prop="CreatedAt" label="创建时间" width="170"><template #default="{ row }">{{ formatTime(row.CreatedAt) }}</template></el-table-column>
           <el-table-column label="内容" min-width="260" show-overflow-tooltip><template #default="{ row }">{{ draftTitle(row) }}</template></el-table-column>
           <el-table-column label="操作" width="110" fixed="right"><template #default="{ row }"><el-button v-if="row.status === 'draft' && !isExpired(row)" text type="primary" @click="accept(row)">确认写入</el-button><el-tag v-else :type="draftStatusType(row)" size="small">{{ draftStatusLabel(row) }}</el-tag></template></el-table-column>
+          <template #empty>
+            <AppEmptyState
+              compact
+              :title="draftType ? '当前类型没有待确认草稿' : '还没有智能草稿'"
+              description="可从已发布公告提取日程，或根据资产业务说明生成待确认业务单。"
+              :highlights="['生成结果需人工确认', '高风险业务不会自动提交', '草稿保留来源与有效期']"
+            >
+              <template #actions>
+                <el-button @click="activeTab = 'schedule'">公告转日程</el-button>
+                <el-button type="primary" @click="activeTab = 'operation'">生成业务草稿</el-button>
+              </template>
+            </AppEmptyState>
+          </template>
         </el-table>
       </section>
     </div>
@@ -27,6 +40,7 @@
 import { onMounted, reactive, ref, watch } from 'vue'
 import { MagicStick, Refresh } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import AppEmptyState from '@/components/page/AppEmptyState.vue'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
 import { acceptSmartDraft, createOperationDraft, extractAnnouncementSchedule, getOperationAssetCandidates, getSmartDrafts } from '@/plugin/smart/api/smart'
 

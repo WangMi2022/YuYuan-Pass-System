@@ -72,9 +72,13 @@
           <el-icon class="open-icon"><ArrowRight /></el-icon>
         </button>
       </div>
-      <el-empty v-else description="当前没有待处理发票">
-        <span class="empty-note">上传发票后，识别任务会自动出现在这里。</span>
-      </el-empty>
+      <AppEmptyState
+        v-else
+        compact
+        title="识别队列为空"
+        description="当前没有上传中、识别中、待核对或识别失败的发票。"
+        :highlights="['队列已处理完毕']"
+      />
     </section>
 
     <InvoiceReviewDrawer v-model="reviewVisible" :invoice-id="selectedId" @saved="loadQueue" @confirmed="loadQueue" />
@@ -86,6 +90,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { ArrowRight, Document, Refresh, UploadFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
+import AppEmptyState from '@/components/page/AppEmptyState.vue'
 import InvoiceReviewDrawer from '@/plugin/invoice/components/InvoiceReviewDrawer.vue'
 import InvoiceStatusTag from '@/plugin/invoice/components/InvoiceStatusTag.vue'
 import { getInvoiceList, uploadInvoices } from '@/plugin/invoice/api/invoice'

@@ -80,6 +80,18 @@
             </div>
           </template>
         </el-table-column>
+        <template #empty>
+          <AppEmptyState
+            compact
+            title="还没有可管理的角色"
+            description="创建首个角色后，可继续配置菜单、API、资源权限和用户归属。"
+            :highlights="['角色支持父子层级', '权限按菜单、API 与资源拆分', '可批量分配用户']"
+          >
+            <template #actions>
+              <el-button type="primary" icon="plus" @click="addAuthority(0)">新增角色</el-button>
+            </template>
+          </AppEmptyState>
+        </template>
       </el-table>
     </div>
     <!-- 新增角色弹窗 -->
@@ -233,6 +245,7 @@
   import Apis from '@/view/superAdmin/authority/components/apis.vue'
   import Datas from '@/view/superAdmin/authority/components/datas.vue'
   import WarningBar from '@/components/warningBar/warningBar.vue'
+  import AppEmptyState from '@/components/page/AppEmptyState.vue'
   import AppPageHeader from '@/components/page/AppPageHeader.vue'
 
   import { ref, nextTick } from 'vue'
