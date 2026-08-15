@@ -190,6 +190,15 @@ npm run build
 
 智能插件启动时自动迁移 `ai_copilot_sessions`、`ai_copilot_messages`、`smart_daily_reports`、`smart_report_subscriptions`、`smart_report_deliveries` 和 `smart_drafts`。新增 `smart_report_deliveries` 唯一投递索引前必须检查历史重复数据；生产升级前先备份并执行重复清理方案。
 
+### 生产业务验收
+
+```bash
+cd deploy/docker-dev
+./m5-m7-production-acceptance.sh --execute
+```
+
+该脚本是可变更的生产验收，只能在已备份的受控发布窗口执行。它使用临时隔离用户和带前缀的业务数据，临时扩展普通角色验收权限，完成 M5-M7 接口、权限、指标对账、定时投递、降级和并发确认后，无条件恢复原权限并清理测试数据。详细检查项见 [部署运维手册](DEPLOYMENT.md#171-m5-m7-生产业务验收)。
+
 ## 11. Git 与发布
 
 - 从 `main` 发布。

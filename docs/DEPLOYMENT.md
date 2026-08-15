@@ -655,3 +655,21 @@ docker compose --env-file .env -f docker-compose.yml up -d --force-recreate web
 - [ ] M6 手动生成、历史详情、订阅保存、站内通知和邮件失败记录完成验证。
 - [ ] M7 公告编辑器提取、资产候选、草稿过期、并发确认和原 `/assetOperation/*`、`/workSchedule/create` 二次权限完成验证。
 - [ ] 关闭 AI Provider 后 M5/M6 确定性降级仍正常；验收测试数据和临时图片已删除。
+
+### 17.1 M5-M7 生产业务验收
+
+M5-M7 验收会临时创建隔离用户、发布公告、待入库资产、日报订阅和草稿，并在普通角色 `8881` 上临时增加最小验收权限。脚本会在成功或失败后恢复原权限并物理清理测试数据；仍必须在已备份的受控发布窗口执行。
+
+```bash
+cd /data/gin-vue-admin/deploy/docker-dev
+./m5-m7-production-acceptance.sh --execute
+```
+
+脚本从 `.env` 读取 `GVA_ADMIN_PASSWORD` 和 PostgreSQL 连接参数，不回显密码、Token 或数据库密钥。验收覆盖：
+
+- M5：管理员 12 个只读 Tool、普通角色 Tool 过滤、数据权限拒绝、写意图拒绝、无空会话、引用、SSE 和会话删除。
+- M5/M6 降级：临时关闭 AI Gateway 后确定性回答和结构化日报仍成功，随后立即恢复原 Provider 配置。
+- M6：手动日报、指标组、独立 SQL 口径对账、历史详情、订阅 Upsert、真定时站内投递和邮件成功/失败审计终态。
+- M7：公告日期/时间/地点/待办提取、过期原位刷新、资产候选、底层权限二次校验、日程确认、并发唯一成功和 `submit=false` 业务单草稿。
+
+2026-08-15 生产记录：业务功能基线 `283cac6f546e06671602eb640f43152d8472048b` 全量通过；验收数据残留、孤儿 Smart/日程记录和 `8881` 临时 Smart 权限均为 `0`，通用发布门禁 8/8 通过。
