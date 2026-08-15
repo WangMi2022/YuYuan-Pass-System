@@ -590,7 +590,8 @@ const submitAction = async () => {
     if (res.code === 0) {
       ElMessage.success('风险状态已更新')
       actionVisible.value = false
-      await Promise.all([refreshDetail(), loadEvents(), loadDashboard()])
+      actionSaving.value = false
+      void Promise.allSettled([refreshDetail(), loadEvents(), loadDashboard()])
     }
   } finally {
     actionSaving.value = false

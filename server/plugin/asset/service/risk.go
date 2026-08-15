@@ -23,6 +23,25 @@ var Risk = new(riskService)
 
 type riskService struct{}
 
+const riskWriteTimeout = 5 * time.Second
+
+var errRiskWriteBusy = errors.New("风险数据正在被扫描更新，请稍后重试")
+
+func withRiskWriteTransaction(ctx context.Context, transaction func(*gorm.DB) error) error {
+	return withRiskWriteTransactionTimeout(ctx, riskWriteTimeout, transaction)
+}
+
+func withRiskWriteTransactionTimeout(ctx context.Context, timeout time.Duration, transaction func(*gorm.DB) error) error {
+	writeCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	err := global.GVA_DB.WithContext(writeCtx).Transaction(transaction)
+	if err != nil && ctx.Err() == nil && errors.Is(writeCtx.Err(), context.DeadlineExceeded) {
+		return errRiskWriteBusy
+	}
+	return err
+}
+
 func (s *riskService) SeedRules(ctx context.Context) {
 	for _, rule := range defaultRiskRules() {
 		if err := global.GVA_DB.WithContext(ctx).Where("code = ?", rule.Code).FirstOrCreate(&rule).Error; err != nil && global.GVA_LOG != nil {
@@ -47,7 +66,7 @@ func (s *riskService) UpdateRule(ctx context.Context, input assetRequest.RiskRul
 		input.Parameters = map[string]any{}
 	}
 	var rule model.AssetRiskRule
-	err := global.GVA_DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := withRiskWriteTransaction(ctx, func(tx *gorm.DB) error {
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&rule, input.ID).Error; err != nil {
 			return errors.New("风险规则不存在")
 		}
@@ -264,7 +283,7 @@ func (s *riskService) transition(ctx context.Context, input assetRequest.RiskAct
 	if (action == "resolve" || action == "ignore" || action == "reopen") && note == "" {
 		return errors.New("请填写风险处理说明")
 	}
-	return global.GVA_DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return withRiskWriteTransaction(ctx, func(tx *gorm.DB) error {
 		var events []model.AssetRiskEvent
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id IN ?", ids).Order("id ASC").Find(&events).Error; err != nil {
 			return err
@@ -318,7 +337,7 @@ func (s *riskService) Assign(ctx context.Context, input assetRequest.RiskAssignm
 		}
 	}
 	var notifyEvents []model.AssetRiskEvent
-	err = global.GVA_DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err = withRiskWriteTransaction(ctx, func(tx *gorm.DB) error {
 		var events []model.AssetRiskEvent
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id IN ?", ids).Order("id ASC").Find(&events).Error; err != nil {
 			return err

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -274,6 +275,21 @@ func TestRiskTransitionsCreateAuditLogs(t *testing.T) {
 	}
 	if logCount != 3 {
 		t.Fatalf("transition log count = %d, want 3", logCount)
+	}
+}
+
+func TestRiskWriteTransactionReturnsBusyAfterTimeout(t *testing.T) {
+	setupRiskTestDB(t)
+	startedAt := time.Now()
+	err := withRiskWriteTransactionTimeout(context.Background(), 20*time.Millisecond, func(tx *gorm.DB) error {
+		<-tx.Statement.Context.Done()
+		return tx.Statement.Context.Err()
+	})
+	if !errors.Is(err, errRiskWriteBusy) {
+		t.Fatalf("write timeout error = %v, want %v", err, errRiskWriteBusy)
+	}
+	if elapsed := time.Since(startedAt); elapsed > time.Second {
+		t.Fatalf("write timeout took %s, want under 1s", elapsed)
 	}
 }
 

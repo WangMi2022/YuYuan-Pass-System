@@ -192,12 +192,12 @@ func (s *riskService) runScan(ctx context.Context, runID uint) (err error) {
 				matches = append(matches, evaluateRiskRule(rule, asset, evaluation)...)
 			}
 		}
-		result, batchErr := s.persistRiskBatch(ctx, runID, assets[len(assets)-1].ID, int64(len(assets)), matches)
-		if batchErr != nil {
-			return batchErr
-		}
+		result, batchErr := s.persistRiskBatch(ctx, runID, assets, matches)
 		for _, event := range result.notifications {
 			announcementService.NotificationHub.Publish(announcementService.NotificationEvent{ID: event.ID, Title: event.Title, Kind: "asset-risk"})
+		}
+		if batchErr != nil {
+			return batchErr
 		}
 		cursor = assets[len(assets)-1].ID
 	}
@@ -213,7 +213,26 @@ func (s *riskService) runScan(ctx context.Context, runID uint) (err error) {
 	}).Error
 }
 
-func (s *riskService) persistRiskBatch(ctx context.Context, runID, cursor uint, scanned int64, matches []riskMatch) (riskBatchResult, error) {
+func (s *riskService) persistRiskBatch(ctx context.Context, runID uint, assets []model.Asset, matches []riskMatch) (riskBatchResult, error) {
+	result := riskBatchResult{notifications: make([]model.AssetRiskEvent, 0)}
+	matchesByAsset := make(map[uint][]riskMatch, len(assets))
+	for _, match := range matches {
+		matchesByAsset[match.asset.ID] = append(matchesByAsset[match.asset.ID], match)
+	}
+
+	for _, asset := range assets {
+		assetResult, err := s.persistRiskAsset(ctx, runID, asset.ID, matchesByAsset[asset.ID])
+		result.newEvents += assetResult.newEvents
+		result.updatedEvents += assetResult.updatedEvents
+		result.notifications = append(result.notifications, assetResult.notifications...)
+		if err != nil {
+			return result, err
+		}
+	}
+	return result, nil
+}
+
+func (s *riskService) persistRiskAsset(ctx context.Context, runID, assetID uint, matches []riskMatch) (riskBatchResult, error) {
 	result := riskBatchResult{notifications: make([]model.AssetRiskEvent, 0)}
 	now := time.Now()
 	err := global.GVA_DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -233,7 +252,7 @@ func (s *riskService) persistRiskBatch(ctx context.Context, runID, cursor uint, 
 			}
 		}
 		return tx.Model(&model.AssetRiskScanRun{}).Where("id = ?", runID).Updates(map[string]any{
-			"cursor_asset_id": cursor, "scanned_assets": gorm.Expr("scanned_assets + ?", scanned),
+			"cursor_asset_id": assetID, "scanned_assets": gorm.Expr("scanned_assets + 1"),
 			"new_events":     gorm.Expr("new_events + ?", result.newEvents),
 			"updated_events": gorm.Expr("updated_events + ?", result.updatedEvents), "heartbeat_at": now,
 		}).Error
@@ -303,13 +322,14 @@ func (s *riskService) closeStaleRisks(ctx context.Context, runID uint) (int64, e
 		if len(events) == 0 {
 			return total, nil
 		}
-		now := time.Now()
-		if err := global.GVA_DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			for _, candidate := range events {
+		for _, candidate := range events {
+			now := time.Now()
+			resolved := false
+			if err := global.GVA_DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 				var event model.AssetRiskEvent
 				err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ? AND status IN ?", candidate.ID, []string{model.RiskStatusOpen, model.RiskStatusAcknowledged}).First(&event).Error
 				if errors.Is(err, gorm.ErrRecordNotFound) {
-					continue
+					return nil
 				}
 				if err != nil {
 					return err
@@ -322,16 +342,19 @@ func (s *riskService) closeStaleRisks(ctx context.Context, runID uint) (int64, e
 					return result.Error
 				}
 				if result.RowsAffected != 1 {
-					continue
+					return nil
 				}
 				if err := createRiskLog(tx, event.ID, "auto_resolve", event.Status, model.RiskStatusResolved, 0, "系统扫描", "本次扫描已不再命中该风险"); err != nil {
 					return err
 				}
+				resolved = true
+				return nil
+			}); err != nil {
+				return total, err
+			}
+			if resolved {
 				total++
 			}
-			return nil
-		}); err != nil {
-			return total, err
 		}
 	}
 }
