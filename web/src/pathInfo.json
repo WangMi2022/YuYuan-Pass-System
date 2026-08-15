@@ -104,5 +104,8 @@
   "/src/plugin/invoice/view/ledger.vue": "InvoiceLedger",
   "/src/plugin/invoice/view/quality.vue": "InvoiceQuality",
   "/src/plugin/invoice/view/recognition.vue": "InvoiceRecognition",
-  "/src/plugin/site/view/bookmarks.vue": "Bookmarks"
+  "/src/plugin/site/view/bookmarks.vue": "Bookmarks",
+  "/src/plugin/smart/view/copilot.vue": "SmartCopilot",
+  "/src/plugin/smart/view/drafts.vue": "SmartDrafts",
+  "/src/plugin/smart/view/report.vue": "SmartReport"
 }

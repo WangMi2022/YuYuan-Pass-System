@@ -6,7 +6,7 @@
       description="发布与管理系统公告，在线用户实时提醒，离线用户登录后可见未读标记。"
     >
       <template #actions>
-        <el-button type="primary" icon="plus" size="large" @click="openDialog">发布公告</el-button>
+        <el-button type="primary" icon="plus" @click="openDialog">发布公告</el-button>
       </template>
     </AppPageHeader>
 
@@ -15,7 +15,8 @@
         ref="elSearchFormRef"
         :model="searchInfo"
         :rules="searchRule"
-        label-position="top"
+        label-position="left"
+        label-width="72px"
         @keyup.enter="onSubmit"
       >
         <div class="filter-grid">
@@ -54,7 +55,7 @@
               />
             </div>
           </el-form-item>
-          <el-form-item label="发布状态">
+          <el-form-item label="发布状态" class="status-filter">
             <el-select v-model="searchInfo.status" clearable placeholder="全部状态">
               <el-option label="已发布" value="published" />
               <el-option label="草稿" value="draft" />
@@ -70,7 +71,7 @@
 
     <section class="na-panel table-panel">
       <header class="na-panel-header panel-header">
-        <div>
+        <div class="panel-title-line">
           <h2>公告列表</h2>
           <span>共 {{ total }} 条公告</span>
         </div>
@@ -142,7 +143,8 @@
 
       <div class="na-pagination pagination-wrap">
         <el-pagination
-          layout="total, sizes, prev, pager, next, jumper"
+          small
+          layout="total, sizes, prev, pager, next"
           :current-page="page"
           :page-size="pageSize"
           :page-sizes="[10, 30, 50, 100]"
@@ -167,6 +169,10 @@
             <small>公告发布后，在线用户会立即收到顶部提醒</small>
           </div>
           <div class="drawer-actions">
+            <el-button
+              v-if="formData.ID && formData.status === 'published'"
+              @click="extractScheduleDraft"
+            >提取日程草稿</el-button>
             <el-button @click="enterDialog('draft')">{{ formData.status === 'published' ? '转为草稿' : '保存草稿' }}</el-button>
             <el-button type="primary" @click="enterDialog('published')">{{ formData.status === 'published' ? '保存修改' : '发布公告' }}</el-button>
             <el-button @click="closeDialog"> 取 消 </el-button>
@@ -209,6 +215,7 @@
     findInfo,
     getInfoList
   } from '@/plugin/announcement/api/info'
+  import { extractAnnouncementSchedule } from '@/plugin/smart/api/smart'
   import { getUrl } from '@/utils/image'
   // 富文本组件
   import RichEdit from '@/components/richtext/rich-edit.vue'
@@ -463,24 +470,105 @@
     })
   }
 
+  const extractScheduleDraft = async () => {
+    if (!formData.value.ID) return
+    const res = await extractAnnouncementSchedule({ announcementId: formData.value.ID })
+    if (res.code === 0) {
+      ElMessage({ type: 'success', message: '日程草稿已生成，请到智能中心确认' })
+    } else {
+      ElMessage({ type: 'error', message: res.msg || '日程提取失败' })
+    }
+  }
+
   const downloadFile = (url) => {
     window.open(getUrl(url), '_blank')
   }
 </script>
 
 <style scoped lang="scss">
-  .filter-panel { padding: 14px 16px 0; }
-  .filter-grid { display: grid; grid-template-columns: minmax(320px, 1.6fr) minmax(160px, 1fr) auto; gap: 14px; align-items: end; }
-  .date-range { display: flex; align-items: center; gap: 8px; }
+  .announcement-page {
+    padding-top: 22px;
+  }
+
+  .announcement-page :deep(.na-page-header) {
+    margin-bottom: 16px;
+  }
+
+  .announcement-page :deep(.na-page-title) {
+    font-size: 23px;
+  }
+
+  .announcement-page :deep(.na-page-description) {
+    margin-top: 4px;
+    font-size: 12.5px;
+  }
+
+  .filter-panel { padding: 10px 16px; }
+  .filter-panel :deep(.el-form-item) { margin-bottom: 0; }
+  .filter-panel :deep(.el-form-item__label) {
+    align-items: center;
+    height: 32px;
+    color: var(--na-muted-foreground);
+    font-size: 12px;
+    line-height: 32px;
+  }
+  .filter-grid {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 12px;
+  }
+  .date-range { display: flex; align-items: center; gap: 6px; }
+  .date-range :deep(.el-date-editor.el-input) { width: 166px; }
   .date-sep { color: var(--na-muted-foreground); }
-  .filter-actions { display: flex; gap: 8px; padding-bottom: 18px; }
+  .status-filter { flex: 0 0 330px; margin-left: auto; }
+  .filter-actions { display: flex; flex: 0 0 auto; gap: 8px; }
+  .filter-actions :deep(.el-button) {
+    min-height: 32px;
+    padding: 5px 13px;
+  }
 
   .table-panel { overflow: hidden; }
-  .panel-header h2 { margin: 0 0 3px; font-size: 17px; }
-  .panel-header span { color: var(--na-muted-foreground); font-size: 13px; }
+  .panel-header {
+    min-height: 48px;
+    padding: 10px 16px;
+  }
+  .panel-title-line {
+    display: flex;
+    align-items: baseline;
+    gap: 9px;
+  }
+  .panel-header h2 { margin: 0; font-size: 15px; line-height: 1.2; }
+  .panel-header span { color: var(--na-muted-foreground); font-size: 12px; }
+  .panel-header :deep(.el-button.is-text) {
+    min-height: 28px;
+    padding: 4px 6px;
+  }
 
-  .file-list { display: flex; flex-wrap: wrap; gap: 4px; }
-  .file-tag { cursor: pointer; }
+  .table-panel :deep(.el-table) {
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+    font-size: 12px;
+  }
+
+  .table-panel :deep(.el-table th.el-table__cell) {
+    height: 38px;
+    padding: 3px 0;
+    font-size: 11.5px;
+  }
+
+  .table-panel :deep(.el-table td.el-table__cell) {
+    height: 42px;
+    padding: 3px 0;
+  }
+
+  .table-panel :deep(.el-table .cell) {
+    line-height: 1.35;
+  }
+
+  .file-list { display: flex; align-items: center; flex-wrap: nowrap; gap: 4px; min-width: 0; }
+  .file-tag { max-width: 170px; overflow: hidden; cursor: pointer; text-overflow: ellipsis; white-space: nowrap; }
   .file-empty { color: var(--na-muted-foreground); }
   .announcement-actions {
     display: flex;
@@ -499,14 +587,31 @@
   }
   .announcement-actions :deep(.el-button + .el-button) { margin-left: 0; }
 
+  .pagination-wrap {
+    min-height: 42px;
+    padding: 8px 14px;
+  }
+  .pagination-wrap :deep(.el-pagination) { margin-top: 0; }
+  .pagination-wrap :deep(.el-select .el-input) { width: 92px; }
+
   .drawer-head { display: flex; flex: 1; align-items: center; justify-content: space-between; gap: 16px; }
   .drawer-title { display: flex; flex-direction: column; gap: 4px; }
   .drawer-title span { color: var(--na-foreground); font-size: 20px; font-weight: 700; }
   .drawer-title small { color: var(--na-muted-foreground); font-weight: 400; }
   .drawer-actions { display: flex; flex: 0 0 auto; gap: 8px; }
 
-  @media (max-width: 1000px) { .filter-grid { grid-template-columns: 1fr; } .date-range { flex-wrap: wrap; } }
+  @media (max-width: 1100px) {
+    .filter-grid { align-items: flex-end; flex-wrap: wrap; }
+    .status-filter { flex-basis: 260px; margin-left: 0; }
+  }
+
   @media (max-width: 767px) {
+    .announcement-page { padding-top: 14px; }
+    .filter-panel :deep(.el-form-item) { width: 100%; }
+    .date-range { flex-wrap: wrap; }
+    .date-range :deep(.el-date-editor.el-input) { width: 100%; }
+    .status-filter { flex-basis: 100%; }
+    .filter-actions { justify-content: flex-end; width: 100%; }
     .drawer-head { align-items: flex-start; flex-direction: column; }
   }
 </style>

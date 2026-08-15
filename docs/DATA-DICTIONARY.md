@@ -406,11 +406,61 @@ erDiagram
 
 `prompt_key + version` 唯一。同一 `prompt_key` 仅保留一个 `active` 版本；新建版本发生并发冲突时服务层重新分配版本号。
 
-## 10. 系统表
+## 10. 智能中心
+
+### 10.1 `ai_copilot_sessions`
+
+保存业务助手会话标题和最后活动时间。`user_id + authority_id` 是强制归属范围，查询、详情和删除都必须同时带用户与当前角色条件。
+
+### 10.2 `ai_copilot_messages`
+
+| 字段 | 说明 |
+| --- | --- |
+| `session_id` / `user_id` / `authority_id` | 会话、用户和角色归属，不能只按会话 ID 查询 |
+| `role` | `user` 或 `assistant` |
+| `content` | 面向用户的文本摘要，不保存未经处理的模型原始响应 |
+| `intent` / `tool` | 确定性意图和注册 Tool 名称 |
+| `citations` | 查询范围、业务对象和前端跳转引用 JSON |
+
+### 10.3 `smart_daily_reports`
+
+以 `user_id + authority_id + report_date` 唯一保存日报指标快照、摘要、生成方式和时间，并使用数据库 Upsert 处理并发生成。角色切换后不会读取另一个角色生成的历史快照。`metrics` 是确定性 JSON，包含资产流转/质保、风险、发票处理和确认金额、协同待办以及 AI 失败率、耗时和费用；模型摘要失败时不会为空。`generated_by` 为 `deterministic` 或 `deterministic+model`。
+
+### 10.4 `smart_report_subscriptions`
+
+以 `user_id` 唯一保存 `enabled`、本地 `delivery_time`（`HH:MM`）和逗号分隔的 `channels`。渠道只允许 `in_app`、`email`。
+
+### 10.5 `smart_report_deliveries`
+
+| 字段 | 说明 |
+| --- | --- |
+| `user_id` / `report_id` / `channel` | 唯一投递键，避免定时任务重复发送 |
+| `status` | `sending`、`sent`、`failed`；发送前原子抢占，活跃 `sending` 不会重复发送 |
+| `retry_count` | 当前投递尝试次数，最多 3 次 |
+| `last_attempt` / `sent_at` | 最近尝试和成功时间 |
+| `error` | 最近失败原因，不保存邮件正文 |
+
+### 10.6 `smart_drafts`
+
+| 字段 | 说明 |
+| --- | --- |
+| `user_id` | 草稿所属用户 |
+| `dedup_key` | 公告日程草稿的唯一幂等键；普通业务草稿为 `NULL` |
+| `draft_type` | `schedule` 或 `operation` |
+| `source_id` | 公告日程草稿的公告 ID，业务草稿为 0 |
+| `status` | `draft`、`processing`、`accepted`、`discarded` |
+| `payload` | 经校验的日期、资产、位置、保管人、原因和证据 JSON |
+| `confidence` | 0-1 置信度 |
+| `expires_at` | 过期后禁止确认 |
+| `last_error` | 最近一次确认失败原因 |
+
+智能草稿确认不直接写资产主表：日程调用个人日程 Service；业务草稿调用资产流转 Service 且 `submit=false`。因此资产状态变化仍只由人工提交既有流转单产生。公告草稿过期后再次提取会更新同一记录，不创建重复草稿。
+
+## 11. 系统表
 
 系统用户、角色、菜单、API、Casbin、字典、参数、操作记录、登录日志、JWT 黑名单等表继承 Gin-Vue-Admin 模型。维护时优先通过系统模块 API 和迁移逻辑修改，不直接手工破坏权限关联表。
 
-## 11. 迁移与备份原则
+## 12. 迁移与备份原则
 
 1. 生产升级前备份 PostgreSQL 与对象存储。
 2. 自动迁移只解决兼容性建表/加字段，不等同于数据修复方案。

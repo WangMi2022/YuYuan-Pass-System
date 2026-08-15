@@ -155,7 +155,42 @@ Swagger 生成文件位于 `server/docs/`。API 变更时：
 
 当前插件覆盖仍不完整，新增接口不得继续扩大差距。
 
-## 10. Git 与发布
+## 10. M5-M7 开发与验收
+
+### 后端
+
+```bash
+cd server
+go test ./plugin/smart/...
+go test ./plugin/asset/... ./plugin/invoice/... ./plugin/schedule/...
+```
+
+重点检查 `server/plugin/smart/service/`：Tool 只能通过注册表进入并按底层 Casbin 权限过滤；权限失败不得创建空会话；会话、日报、订阅、草稿必须带 `user_id`；日报每个口径使用独立查询并通过数据库 Upsert 保证同日幂等；业务草稿确认必须二次校验原业务权限并调用既有 Asset/Schedule Service，不能直接更新资产状态。
+
+### 前端
+
+```bash
+cd web
+npm run lint -- src/plugin/smart src/plugin/announcement/view/info.vue
+npm run build
+```
+
+页面验收覆盖 `1440×1000`、`900×900`、`390×844`，检查智能助手会话、日报详情、订阅、草稿候选选择和公告编辑器提取按钮；必须同时验证加载、空数据、API 失败、无权限和移动端无横向溢出。
+
+### 接口安全验收
+
+1. 未携带 JWT 请求 `/smart/copilot/query`、`/smartReport/today`、`/smart/drafts` 返回 `401`。
+2. 普通角色缺少 `/smart/*` API 时不能通过动态菜单或直接请求访问。
+3. 用户 A 请求用户 B 的会话、日报、投递或草稿 ID 时返回无权/不存在。
+4. 关闭 AI Provider 后，业务助手和日报仍返回确定性结果。
+5. 同一公告重复提取、同一草稿并发确认、同一日报定时任务重复运行均保持幂等。
+6. `/smart/copilot/tools` 不返回角色无权访问的资产、发票、日程或公告 Tool；智能草稿权限不能绕过 `/assetOperation/*` 和 `/workSchedule/create`。
+
+### 数据迁移
+
+智能插件启动时自动迁移 `ai_copilot_sessions`、`ai_copilot_messages`、`smart_daily_reports`、`smart_report_subscriptions`、`smart_report_deliveries` 和 `smart_drafts`。新增 `smart_report_deliveries` 唯一投递索引前必须检查历史重复数据；生产升级前先备份并执行重复清理方案。
+
+## 11. Git 与发布
 
 - 从 `main` 发布。
 - 先检查 `git status -sb` 和完整 diff。
@@ -164,7 +199,7 @@ Swagger 生成文件位于 `server/docs/`。API 变更时：
 - 推送后以该 commit 构建部署，生产记录完整 commit hash。
 - 运行时变更必须通过发布验收；纯文档变更不要求重建运行容器。
 
-## 11. 文档 Definition of Done
+## 12. 文档 Definition of Done
 
 | 变更类型 | 必须更新 |
 | --- | --- |
@@ -174,7 +209,7 @@ Swagger 生成文件位于 `server/docs/`。API 变更时：
 | 新环境变量/端口 | README、部署运维手册、`.env.example` |
 | 架构或目录变化 | 架构说明、开发指南 |
 
-## 12. 常见维护误区
+## 13. 常见维护误区
 
 - 不要直接使用 `server/config.docker.yaml` 作为当前生产配置；当前 Compose 方案从 `deploy/docker-dev/config.init.yaml` 和 `.env` 生成运行配置。
 - 不要只给角色菜单权限而遗漏 API 权限。

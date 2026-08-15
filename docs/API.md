@@ -612,3 +612,70 @@ curl 'http://localhost:8888/asset/list?page=1&pageSize=20' \
 3. 新增写接口必须明确是否使用 `OperationRecord()`。
 4. 文件接口必须说明认证、Content-Type、大小限制和删除补偿。
 5. 修改路由后同步更新 Router、前端 API 封装、权限初始化、Swagger 和本文。
+
+## 15. 智能中心接口（M5-M7）
+
+智能中心所有接口均要求 JWT + Casbin。会话和日报按认证用户与当前角色双重隔离，订阅和草稿按认证用户隔离；客户端传入的 `x-user-id` 不参与授权。资产类查询沿用资产模块的组织可见范围，发票查询透传发票 `AccessScope`，日程和公告只返回当前用户数据。切换角色后不会看到另一个角色生成的历史会话或日报快照。
+
+### 15.1 M5 只读业务助手
+
+| 方法 | 路径 | 请求 | 说明 |
+| --- | --- | --- | --- |
+| POST | `/smart/copilot/query` | `question/sessionId` | 执行受控只读查询并保存会话消息 |
+| POST | `/smart/copilot/queryStream` | `question/sessionId` | SSE 返回一个完整结果事件 |
+| GET | `/smart/copilot/sessions` | - | 当前用户最近 50 个会话 |
+| GET | `/smart/copilot/session?id=<id>` | query `id` | 当前用户会话和消息 |
+| DELETE | `/smart/copilot/session?id=<id>` | query `id` | 删除本人的会话及消息 |
+| GET | `/smart/copilot/tools` | - | 当前角色有底层业务读取权限的只读 Tool |
+
+首批 Tool：`asset.search`、`asset.detail`、`asset.risk.list`、`asset.warranty.expiring`、`asset.custodian.summary`、`asset.operation.summary`、`invoice.summary`、`invoice.pending_reviews`、`invoice.failed_recognitions`、`invoice.provider_quality`、`schedule.today`、`announcement.unread`。
+
+查询示例：
+
+```json
+{
+  "question": "查看发票识别质量",
+  "sessionId": 0
+}
+```
+
+响应中的 `readOnly` 必须为 `true`，`citations` 至少包含查询范围、Tool、命中数量或业务对象、前端 `path` 和 `params`。引用可从当前结果和历史会话跳转到对应业务页。服务在创建会话前先校验 Tool 对应的原业务 Casbin 权限，无权限请求不会留下空会话。模型不可用时仍返回确定性 `answer` 和 `data`；第一版不会执行模型生成的未注册 Tool 或任何写操作。
+
+### 15.2 M6 智能日报
+
+| 方法 | 路径 | 请求 | 说明 |
+| --- | --- | --- | --- |
+| GET | `/smartReport/today` | - | 生成或读取当前用户今日日报 |
+| GET | `/smartReport/list` | `page/pageSize` | 当前用户历史日报 |
+| GET | `/smartReport/detail?id=<id>` | query `id` | 日报详情和指标快照 |
+| POST | `/smartReport/generate` | - | 当前用户手动生成/刷新日报 |
+| GET | `/smartReport/subscription` | - | 当前用户订阅设置 |
+| PUT | `/smartReport/subscription` | `enabled/deliveryTime/channels` | 保存订阅，时间格式 `HH:MM` |
+| GET | `/smartReport/deliveries` | - | 最近 30 条渠道发送记录 |
+
+`channels` 使用逗号分隔，仅支持 `in_app` 和 `email`。日报指标由相互独立的确定性查询生成，包含资产新增和六类流转、待入库、长期在用、维修超期、30/60/90 天质保，风险新增/开放/处理，发票上传/识别/复核/确认、低置信度、积压、确认金额和 Provider 失败率，以及个人日程、未读公告、AI 失败率、平均耗时和估算费用。相同用户、角色和日期使用数据库原子 Upsert；服务启动后注册每分钟订阅任务，在用户本地配置时间生成日报。投递记录以用户、日报和渠道唯一并通过原子状态抢占防止重复发送，站内通知通过公告 SSE 收件箱发送，邮件未配置或失败时会记录失败原因并最多重试 3 次。
+
+### 15.3 M7 智能草稿
+
+| 方法 | 路径 | 请求 | 说明 |
+| --- | --- | --- | --- |
+| POST | `/smart/announcement/extract` | `announcementId` | 从已发布公告提取日程草稿 |
+| POST | `/smart/announcement/draft-schedule` | `announcementId` | 兼容入口，行为相同 |
+| GET | `/smart/operation/assets` | `operationType/keyword` | 查询业务类型对应的资产候选 |
+| POST | `/smart/operation/draft` | 业务类型、资产 ID、说明等 | 创建资产运营业务草稿 |
+| GET | `/smart/drafts` | `draftType` | 当前用户草稿列表 |
+| POST | `/smart/draft/accept` | `id` | 人工确认后写入个人日程或创建资产流转草稿 |
+
+公告提取结果包含 `date/time/location/todos/note/confidence`，同一用户和公告通过数据库唯一幂等键复用已有有效草稿；草稿过期后再次提取会原位刷新内容和有效期。确认后地点、待办和公告原文写入日程备注。业务草稿支持 `inbound/issue/transfer/return/maintenance/scrap`，资产 ID 必须存在且最多 100 项。候选查询、业务草稿生成和最终确认除智能 API 权限外，还会二次校验 `/assetOperation/assetOptions`、`/assetOperation/create` 或 `/workSchedule/create` 原业务权限。确认接口使用 `draft → processing → accepted` 状态保护并发，资产流转只调用既有 Service 创建草稿，`submit` 永远为 `false`，不会自动提交报废、领用或其他高风险动作。草稿过期后不能确认。
+
+### 15.4 智能中心验收请求
+
+```bash
+curl -X POST 'http://localhost:8888/smart/copilot/query' \
+  -H 'Content-Type: application/json' \
+  -H 'x-token: <token>' -H 'x-user-id: <user-id>' \
+  -d '{"question":"查询未来质保到期的资产"}'
+
+curl 'http://localhost:8888/smart/operation/assets?operationType=issue&keyword=ThinkPad' \
+  -H 'x-token: <token>' -H 'x-user-id: <user-id>'
+```

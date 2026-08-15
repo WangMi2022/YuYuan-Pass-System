@@ -209,6 +209,18 @@ chmod 600 .env
 | `GVA_RUSTFS_BASE_PATH` | 对象前缀 |
 | `GVA_RUSTFS_USE_SSL` | S3 API 是否使用 HTTPS |
 
+### 7.5 智能中心运行配置
+
+M5-M7 不从 `.env` 接收模型密钥。部署完成后使用管理员进入 `AI 管理` 页面配置 Provider、模型、超时、费用、配额、Prompt 和图片外发白名单；API 响应只显示 `api-key-configured`，不会回显密钥。
+
+启用智能建档 Vision 前至少确认：
+
+- AI Gateway 已启用且 Provider 已配置有效 Base URL、模型和 API Key。
+- `allow-vision-modules` 包含 `asset`；未配置时只影响新识别任务，不影响普通资产业务。
+- 已设置用户/角色/模块配额和月度预算。
+- 若启用日报邮件，系统 SMTP 配置完整且用户资料填写邮箱；未配置时应先只启用 `in_app`。
+- 多 Server 实例部署前将 Gateway 配额计数迁移到 Redis 或数据库原子计数；当前实现的预占边界是单实例。
+
 ## 8. 首次部署
 
 ### 8.1 设置脚本权限
@@ -638,3 +650,8 @@ docker compose --env-file .env -f docker-compose.yml up -d --force-recreate web
 - [ ] `./release-acceptance.sh` 全部检查通过并返回退出码 `0`。
 - [ ] 登录、资产、文档、图片、公告和系统设置完成验收。
 - [ ] 登录图标上传、恢复默认以及登录背景切换均已验证。
+- [ ] 智能中心数据库六张表迁移成功，`smart_report_deliveries` 唯一投递索引创建成功。
+- [ ] M5 业务助手用管理员和普通角色分别验证 Tool 过滤、引用跳转、数据范围以及无权限请求不创建空会话。
+- [ ] M6 手动生成、历史详情、订阅保存、站内通知和邮件失败记录完成验证。
+- [ ] M7 公告编辑器提取、资产候选、草稿过期、并发确认和原 `/assetOperation/*`、`/workSchedule/create` 二次权限完成验证。
+- [ ] 关闭 AI Provider 后 M5/M6 确定性降级仍正常；验收测试数据和临时图片已删除。
