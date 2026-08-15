@@ -1,5 +1,5 @@
 <template>
-  <main class="na-page smart-drafts-page">
+  <main class="na-page na-page--list smart-drafts-page">
     <AppPageHeader title-id="smart-drafts-title" title="智能草稿" description="从公告提取日程，或生成资产业务单草稿；确认后才写入正式业务记录。">
       <template #actions><el-button :icon="Refresh" :loading="loading" @click="loadDrafts">刷新</el-button></template>
     </AppPageHeader>

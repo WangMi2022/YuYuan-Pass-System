@@ -1,5 +1,5 @@
 <template>
-  <main class="na-page smart-copilot-page">
+  <main class="na-page na-page--list smart-copilot-page">
     <AppPageHeader title-id="smart-copilot-title" title="业务助手" description="只读查询资产、风险、发票、日程和公告；每条回答都保留数据引用。">
       <template #actions><el-button :icon="Refresh" :loading="loading" @click="loadSessions">刷新</el-button></template>
     </AppPageHeader>

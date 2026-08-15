@@ -1,5 +1,5 @@
 <template>
-  <main class="na-page smart-report-page">
+  <main class="na-page na-page--list smart-report-page">
     <AppPageHeader title-id="smart-report-title" title="智能日报" description="按日汇总异常、待办、趋势和系统健康指标；模型不可用时仍保留结构化数据。">
       <template #actions><el-button :icon="Refresh" :loading="loading" @click="load">刷新</el-button><el-button type="primary" :icon="MagicStick" :loading="generating" @click="generate">生成今日日报</el-button></template>
     </AppPageHeader>
