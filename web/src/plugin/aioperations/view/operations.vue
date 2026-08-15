@@ -1,6 +1,6 @@
 <template>
   <main class="na-page na-page--list ai-operations-page">
-    <AppPageHeader title-id="ai-operations-title" title="AI 运营" description="统一管理模型供应商、调用配额、Prompt 版本及不含原文内容的调用审计。">
+    <AppPageHeader title-id="ai-operations-title" title="AI 服务管理" description="集中管理 AI 服务接入、安全策略、用量配额、Prompt 版本和调用审计。">
       <template #actions>
         <el-button :icon="Refresh" :loading="loading" @click="loadAll">刷新</el-button>
         <el-button type="primary" :icon="Check" :loading="savingProviders" @click="saveProviders">保存配置</el-button>

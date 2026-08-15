@@ -489,9 +489,9 @@ SSE 连接应保持代理正确支持流式传输；断线后客户端仍应通�
 | PUT | `/appearance/login-background/activate` | API 权限 | 激活 `{id}` |
 | DELETE | `/appearance/login-background?id=<id>` | API 权限 | 删除非当前背景 |
 
-## 10. AI Gateway 与运营接口
+## 10. AI Gateway 与服务管理接口
 
-所有 AI 运营接口都位于 JWT + Casbin 私有路由。写接口额外挂载 `OperationRecord()`。默认管理员角色 `888` 在插件初始化时获得菜单和 API 权限，其他角色需单独授权。
+所有 AI 服务管理接口都位于 JWT + Casbin 私有路由。写接口额外挂载 `OperationRecord()`。默认管理员角色 `888` 在插件初始化时获得菜单和 API 权限，其他角色需单独授权。
 
 | 方法 | 路径 | 主要参数 | 说明 |
 | --- | --- | --- | --- |

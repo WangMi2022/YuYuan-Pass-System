@@ -6,7 +6,7 @@
     <AppEmptyState
       v-if="!loading && !report"
       title="今日尚未生成智能日报"
-      description="生成后会汇总资产、风险、发票、协作和 AI 运营指标；模型不可用时仍保留确定性统计。"
+      description="生成后会汇总资产、风险、发票、协作和 AI 服务指标；模型不可用时仍保留确定性统计。"
       :highlights="['异常与待办集中汇总', '业务指标可追溯跳转', '支持应用内订阅提醒']"
     >
       <template #actions><el-button type="primary" :icon="MagicStick" :loading="generating" @click="generate">生成今日日报</el-button></template>
