@@ -341,7 +341,6 @@ func TestConnection(ctx context.Context, target string, configuration config.Inv
 		return ConnectionInfo{Provider: config.OCRProviderBaidu, Protocol: config.OCRProtocolBaiduVATV1}, err
 	case "public-ocr":
 		configuration.Baidu.Enabled = false
-		configuration.Baidu.VerificationEnabled = false
 		configuration.Verification.Enabled = false
 		configuration.Multimodal.Enabled = false
 		configuration.PublicOCR.Provider = config.OCRProviderHTTPCompatible
@@ -361,13 +360,11 @@ func TestConnection(ctx context.Context, target string, configuration config.Inv
 		}).Detect(ctx)
 	case "verification":
 		configuration.Baidu.Enabled = false
-		configuration.Baidu.VerificationEnabled = false
 		configuration.PublicOCR.Enabled = false
 		configuration.Multimodal.Enabled = false
 		return DetectVerificationAdapter(ctx, configuration)
 	case "multimodal":
 		configuration.Baidu.Enabled = false
-		configuration.Baidu.VerificationEnabled = false
 		configuration.PublicOCR.Enabled = false
 		configuration.Verification.Enabled = false
 		if err := configuration.Validate(); err != nil {

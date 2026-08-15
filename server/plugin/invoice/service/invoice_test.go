@@ -43,10 +43,10 @@ func testVerificationAdapter(verifier provider.Verifier) provider.VerificationAd
 func setupInvoiceServiceTestDB(t *testing.T) {
 	t.Helper()
 	previous := global.GVA_DB
-	previousInvoiceRecognition := global.GVA_CONFIG.InvoiceRecognition
+	previousInvoiceRecognition := global.GVA_CONFIG.AI.Invoice
 	previousRuntimeInvoiceRecognition := provider.RuntimeInvoiceRecognition()
-	global.GVA_CONFIG.InvoiceRecognition.Verification.Enabled = true
-	provider.SetRuntimeInvoiceRecognition(global.GVA_CONFIG.InvoiceRecognition)
+	global.GVA_CONFIG.AI.Invoice.Verification.Enabled = true
+	provider.SetRuntimeInvoiceRecognition(global.GVA_CONFIG.AI.Invoice)
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "_"))
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{
 		TranslateError: true,
@@ -64,7 +64,7 @@ func setupInvoiceServiceTestDB(t *testing.T) {
 	global.GVA_DB = db
 	t.Cleanup(func() {
 		global.GVA_DB = previous
-		global.GVA_CONFIG.InvoiceRecognition = previousInvoiceRecognition
+		global.GVA_CONFIG.AI.Invoice = previousInvoiceRecognition
 		provider.SetRuntimeInvoiceRecognition(previousRuntimeInvoiceRecognition)
 		if sqlDB, dbErr := db.DB(); dbErr == nil {
 			_ = sqlDB.Close()
@@ -76,7 +76,7 @@ func setInvoiceVerificationEnabledForTest(enabled bool) {
 	configuration := provider.RuntimeInvoiceRecognition()
 	configuration.Verification.Enabled = enabled
 	provider.SetRuntimeInvoiceRecognition(configuration)
-	global.GVA_CONFIG.InvoiceRecognition.Verification.Enabled = enabled
+	global.GVA_CONFIG.AI.Invoice.Verification.Enabled = enabled
 }
 
 func createInvoiceTestCategory(t *testing.T) model.InvoiceCategory {

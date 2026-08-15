@@ -247,24 +247,6 @@ func (invoiceAPI) VerificationHistory(c *gin.Context) {
 	commonResponse.OkWithData(history, c)
 }
 
-func (invoiceAPI) TestProviderConnection(c *gin.Context) {
-	if utils.GetUserAuthorityId(c) != 888 {
-		commonResponse.FailWithMessage("仅超级管理员可测试识别服务连接", c)
-		return
-	}
-	var request invoiceRequest.ProviderConnectionTest
-	if err := c.ShouldBindJSON(&request); err != nil {
-		commonResponse.FailWithMessage("连接测试参数不正确", c)
-		return
-	}
-	detection, err := serviceRecognition.TestProviderConnection(c.Request.Context(), request.Target, request.Config)
-	if err != nil {
-		commonResponse.FailWithMessage(err.Error(), c)
-		return
-	}
-	commonResponse.OkWithDetailed(detection, "连接测试成功", c)
-}
-
 func (invoiceAPI) Dashboard(c *gin.Context) {
 	dashboard, err := serviceInvoice.Dashboard(currentScope(c))
 	if err != nil {

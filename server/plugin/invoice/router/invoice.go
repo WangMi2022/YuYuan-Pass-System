@@ -17,7 +17,6 @@ func (invoiceRouter) Init(private *gin.RouterGroup) {
 		write.PUT("retry", apiInvoice.Retry)
 		write.POST("recheck", apiInvoice.Recheck)
 		write.POST("verify", apiInvoice.Verify)
-		write.POST("provider/test", apiInvoice.TestProviderConnection)
 		write.DELETE("delete", apiInvoice.Delete)
 	}
 	read := private.Group("invoice")

@@ -335,7 +335,6 @@ JWT 无效或过期通常返回 HTTP `401`。部分文件接口直接返回文�
 | POST | `/invoice/recheck?id=<id>` | query `id` | 重新检查识别结果 |
 | POST | `/invoice/verify?id=<id>` | query `id` | 发起验真 |
 | GET | `/invoice/verificationHistory?id=<id>` | query `id` | 验真历史 |
-| POST | `/invoice/provider/test` | provider 配置 JSON | 测试提供方连通性 |
 | DELETE | `/invoice/delete?id=<id>` | query `id` | 删除发票并创建文件清理任务 |
 | GET | `/invoice/dashboard` | - | 发票与流水统计 |
 
@@ -497,6 +496,9 @@ SSE 连接应保持代理正确支持流式传输；断线后客户端仍应通�
 | --- | --- | --- | --- |
 | GET | `/ai/providers` | - | 获取脱敏后的 Gateway 与 Provider 配置 |
 | PUT | `/ai/providers` | Provider 配置 JSON | 更新 Gateway、模型、费用、脱敏和图片策略 |
+| GET | `/ai/invoice-recognition` | - | 获取脱敏后的发票智能识别配置 |
+| PUT | `/ai/invoice-recognition` | 智能识别配置 JSON | 更新 OCR、验真、模型兜底和安全策略 |
+| POST | `/ai/invoice-recognition/test` | `{target,config}` | 测试单个 OCR、验真或多模态服务并识别协议 |
 | GET | `/ai/usage/summary` | - | 当前用户今日请求、Token、本月费用和累计请求 |
 | GET | `/ai/invocations` | `page/pageSize/status/module/provider/userId` | 分页查询调用审计 |
 | GET | `/ai/quotas` | - | 查询所有配额 |
@@ -534,6 +536,8 @@ Provider 更新示例：
 ```
 
 读取配置时不返回任何密钥，只返回 `api-key-configured`。更新时省略或留空 `api-key` 会保留原密钥；`clear-api-key: true` 才会清空。内网、回环、链路本地和私有地址默认禁止作为 Provider Endpoint。
+
+发票智能识别使用独立配置根 `ai.invoice`，不再读取旧的根级 `invoice-recognition`。`PUT /ai/invoice-recognition` 只更新发票智能配置，不会覆盖数据库、Redis、对象存储或其他运行参数。`target` 可选 `baidu`、`public-ocr`、`verification`、`multimodal`。
 
 配额示例：
 

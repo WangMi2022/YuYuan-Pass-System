@@ -16,12 +16,13 @@ const (
 // AI contains the centrally managed model-provider configuration. Credentials
 // are write-only in browser responses and never included in normal JSON output.
 type AI struct {
-	Enabled               bool       `mapstructure:"enabled" json:"enabled" yaml:"enabled"`
-	AllowPrivateEndpoints bool       `mapstructure:"allow-private-endpoints" json:"allow-private-endpoints" yaml:"allow-private-endpoints"`
-	SensitiveWords        []string   `mapstructure:"sensitive-words" json:"sensitive-words" yaml:"sensitive-words"`
-	AllowVisionModules    []string   `mapstructure:"allow-vision-modules" json:"allow-vision-modules" yaml:"allow-vision-modules"`
-	OpenAICompatible      AIProvider `mapstructure:"openai-compatible" json:"openai-compatible" yaml:"openai-compatible"`
-	Anthropic             AIProvider `mapstructure:"anthropic" json:"anthropic" yaml:"anthropic"`
+	Enabled               bool               `mapstructure:"enabled" json:"enabled" yaml:"enabled"`
+	AllowPrivateEndpoints bool               `mapstructure:"allow-private-endpoints" json:"allow-private-endpoints" yaml:"allow-private-endpoints"`
+	SensitiveWords        []string           `mapstructure:"sensitive-words" json:"sensitive-words" yaml:"sensitive-words"`
+	AllowVisionModules    []string           `mapstructure:"allow-vision-modules" json:"allow-vision-modules" yaml:"allow-vision-modules"`
+	OpenAICompatible      AIProvider         `mapstructure:"openai-compatible" json:"openai-compatible" yaml:"openai-compatible"`
+	Anthropic             AIProvider         `mapstructure:"anthropic" json:"anthropic" yaml:"anthropic"`
+	Invoice               InvoiceRecognition `mapstructure:"invoice" json:"invoice" yaml:"invoice"`
 }
 
 type AIProvider struct {
@@ -42,6 +43,7 @@ func (c *AI) Normalize() {
 	c.AllowVisionModules = normalizeAIList(c.AllowVisionModules)
 	c.OpenAICompatible.normalize()
 	c.Anthropic.normalize()
+	c.Invoice.Normalize()
 }
 
 func (p *AIProvider) normalize() {
@@ -117,6 +119,7 @@ func (p AIProvider) validate(providerName string) error {
 func (c AI) Redacted() AI {
 	c.OpenAICompatible = c.OpenAICompatible.redacted()
 	c.Anthropic = c.Anthropic.redacted()
+	c.Invoice = c.Invoice.Redacted()
 	return c
 }
 
@@ -135,6 +138,7 @@ func (c AI) MergeSecrets(current AI, allow bool) AI {
 	}
 	c.OpenAICompatible = c.OpenAICompatible.mergeSecrets(current.OpenAICompatible)
 	c.Anthropic = c.Anthropic.mergeSecrets(current.Anthropic)
+	c.Invoice = current.Invoice
 	return c
 }
 

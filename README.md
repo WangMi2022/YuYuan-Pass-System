@@ -68,7 +68,7 @@ YuYuan Pass System 以资产全生命周期为核心，整合发票识别与流�
 | 协同办公 | 站点收藏、公告草稿/发布、SSE 实时通知、媒体库 |
 | 系统外观 | 登录图标、背景图库、激活与恢复默认 |
 | 权限审计 | JWT、Casbin、菜单/API/按钮权限、操作记录、登录日志和错误日志 |
-| AI 安全底座 | 统一 AI Gateway、OpenAI Compatible/Anthropic、调用审计、配额、脱敏、Prompt 版本和 JSON Schema 校验 |
+| AI 安全底座 | 统一 AI Gateway、智能识别配置、OpenAI Compatible/Anthropic、调用审计、配额、脱敏、Prompt 版本和 JSON Schema 校验 |
 | 智能中心 | M5 只读业务助手、12 个受控查询 Tool、权限范围与数据引用、用户会话 |
 | 智能日报 | M6 今日/历史日报、资产风险发票日程公告指标、订阅和结构化降级 |
 | 智能草稿 | M7 公告转日程、资产运营业务单草稿、人工确认和现有 Service 写入边界 |

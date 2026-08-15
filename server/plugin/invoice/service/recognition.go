@@ -221,7 +221,7 @@ func processRecognitionJob(job model.RecognitionJob) {
 		finishRecognitionFailure(job, readErr)
 		return
 	}
-	result, err := recognizeInvoiceEvidence(ctx, provider.New(global.GVA_CONFIG.InvoiceRecognition), provider.Input{
+	result, err := recognizeInvoiceEvidence(ctx, provider.New(provider.RuntimeInvoiceRecognition()), provider.Input{
 		FileName: invoice.FileName, ContentType: invoice.MimeType, Data: data,
 	})
 	if err != nil {
@@ -231,16 +231,6 @@ func processRecognitionJob(job model.RecognitionJob) {
 	if err = saveRecognitionResult(invoice, job, result); err != nil {
 		finishRecognitionFailure(job, err)
 	}
-}
-
-func (RecognitionService) TestProviderConnection(
-	ctx context.Context,
-	target string,
-	configuration config.InvoiceRecognition,
-) (provider.ConnectionInfo, error) {
-	configuration = configuration.MergeSecrets(global.GVA_CONFIG.InvoiceRecognition, true)
-	configuration.Normalize()
-	return provider.TestConnection(ctx, target, configuration)
 }
 
 // Recheck preserves the original model-only behavior for existing callers.
@@ -265,7 +255,7 @@ func (RecognitionService) RecheckWithMode(ctx context.Context, id uint, scope Ac
 	if invoice.Status == model.InvoiceStatusConfirmed {
 		return provider.Result{}, errors.New("已确认发票不能重新核对")
 	}
-	configuration := global.GVA_CONFIG.InvoiceRecognition
+	configuration := provider.RuntimeInvoiceRecognition()
 	configuration.Normalize()
 	providerTimeoutSeconds := configuration.Multimodal.TimeoutSeconds
 	if mode == RecheckModeOCR {
@@ -380,7 +370,7 @@ func saveRecognitionResult(invoice model.Invoice, job model.RecognitionJob, resu
 	}
 	recognitionModel := ""
 	if result.Provider == "multimodal-ai" {
-		recognitionModel = strings.TrimSpace(global.GVA_CONFIG.InvoiceRecognition.Multimodal.Model)
+		recognitionModel = strings.TrimSpace(provider.RuntimeInvoiceRecognition().Multimodal.Model)
 	}
 	durationMS := int64(0)
 	if job.LockedAt != nil {

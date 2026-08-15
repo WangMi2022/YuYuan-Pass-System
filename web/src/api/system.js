@@ -63,11 +63,3 @@ export const reloadSystem = (data) => {
     data
   })
 }
-
-export const testInvoiceRecognitionProvider = (data) => {
-  return service({
-    url: '/invoice/provider/test',
-    method: 'post',
-    data
-  })
-}

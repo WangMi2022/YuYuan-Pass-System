@@ -43,13 +43,19 @@ type UsageSummary struct {
 type operationsService struct{}
 
 func (operationsService) Providers() config.AI {
+	global.GVA_CONFIG_LOCK.Lock()
 	configuration := global.GVA_CONFIG.AI
+	global.GVA_CONFIG_LOCK.Unlock()
+	configuration.Invoice = config.InvoiceRecognition{}
 	configuration.Normalize()
 	return configuration.Redacted()
 }
 
 func (operationsService) UpdateProviders(ctx context.Context, incoming config.AI) (config.AI, error) {
+	global.GVA_CONFIG_LOCK.Lock()
+	defer global.GVA_CONFIG_LOCK.Unlock()
 	current := global.GVA_CONFIG.AI
+	incoming.Invoice = current.Invoice
 	prepared := incoming.MergeSecrets(current, true)
 	prepared.Normalize()
 	if err := prepared.Validate(); err != nil {
@@ -66,6 +72,7 @@ func (operationsService) UpdateProviders(ctx context.Context, incoming config.AI
 		return config.AI{}, err
 	}
 	global.GVA_CONFIG.AI = prepared
+	prepared.Invoice = config.InvoiceRecognition{}
 	return prepared.Redacted(), nil
 }
 

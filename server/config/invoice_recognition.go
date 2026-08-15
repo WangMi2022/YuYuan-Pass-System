@@ -40,7 +40,6 @@ type InvoiceRecognition struct {
 
 type InvoiceBaiduProvider struct {
 	Enabled             bool   `mapstructure:"enabled" json:"enabled" yaml:"enabled"`
-	VerificationEnabled bool   `mapstructure:"verification-enabled" json:"verification-enabled" yaml:"verification-enabled"`
 	APIKey              string `mapstructure:"api-key" json:"-" yaml:"api-key"`
 	SecretKey           string `mapstructure:"secret-key" json:"-" yaml:"secret-key"`
 	TimeoutSeconds      int    `mapstructure:"timeout-seconds" json:"timeout-seconds" yaml:"timeout-seconds"`
@@ -95,7 +94,6 @@ type InvoiceMultimodalProvider struct {
 }
 
 func (c *InvoiceRecognition) Normalize() {
-	c.migrateLegacyVerification()
 	c.PublicOCR.Provider = strings.TrimSpace(c.PublicOCR.Provider)
 	c.PublicOCR.Protocol = strings.ToLower(strings.TrimSpace(c.PublicOCR.Protocol))
 	c.PublicOCR.Endpoint = strings.TrimSpace(c.PublicOCR.Endpoint)
@@ -141,24 +139,6 @@ func (c *InvoiceRecognition) Normalize() {
 	}
 	if c.FallbackThreshold <= 0 {
 		c.FallbackThreshold = defaultFallbackThreshold
-	}
-}
-
-func (c *InvoiceRecognition) migrateLegacyVerification() {
-	legacy := c.Baidu.VerificationEnabled
-	verificationUnset := !c.Verification.Enabled && c.Verification.Provider == "" &&
-		c.Verification.Protocol == "" && c.Verification.Endpoint == "" &&
-		c.Verification.APIKey == "" && c.Verification.SecretKey == "" &&
-		c.Verification.APIKeyInput == "" && c.Verification.SecretKeyInput == "" &&
-		c.Verification.TimeoutSeconds == 0
-	if !legacy || !verificationUnset {
-		return
-	}
-	c.Verification = InvoiceVerificationProvider{
-		Enabled: true, Provider: VerificationProviderBaidu,
-		Protocol: VerificationProtocolBaiduVATV1,
-		APIKey:   c.Baidu.APIKey, SecretKey: c.Baidu.SecretKey,
-		TimeoutSeconds: c.Baidu.TimeoutSeconds,
 	}
 }
 
@@ -281,34 +261,6 @@ func (c InvoiceRecognition) Redacted() InvoiceRecognition {
 func (c InvoiceRecognition) MergeSecrets(current InvoiceRecognition, allow bool) InvoiceRecognition {
 	if !allow {
 		return current
-	}
-	multimodalConnectionUnchanged := strings.TrimSpace(c.Multimodal.BaseURL) == strings.TrimSpace(current.Multimodal.BaseURL) &&
-		strings.TrimSpace(c.Multimodal.Model) == strings.TrimSpace(current.Multimodal.Model) &&
-		strings.TrimSpace(c.Multimodal.APIKeyInput) == "" && !c.Multimodal.ClearAPIKey
-	if strings.TrimSpace(c.Multimodal.Protocol) == "" && multimodalConnectionUnchanged {
-		// Older clients do not submit the hidden protocol field. Preserve a
-		// previously detected value only while the connection identity is unchanged.
-		c.Multimodal.Protocol = current.Multimodal.Protocol
-	}
-	publicOCRConnectionUnchanged := strings.TrimSpace(c.PublicOCR.Endpoint) == strings.TrimSpace(current.PublicOCR.Endpoint) &&
-		strings.TrimSpace(c.PublicOCR.APIKeyInput) == "" && !c.PublicOCR.ClearAPIKey
-	if strings.TrimSpace(c.PublicOCR.Provider) == "" && strings.TrimSpace(c.PublicOCR.Protocol) == "" && publicOCRConnectionUnchanged {
-		c.PublicOCR.Provider = current.PublicOCR.Provider
-		c.PublicOCR.Protocol = current.PublicOCR.Protocol
-	}
-	verificationConnectionUnchanged := strings.TrimSpace(c.Verification.Endpoint) == strings.TrimSpace(current.Verification.Endpoint) &&
-		strings.TrimSpace(c.Verification.APIKeyInput) == "" && !c.Verification.ClearAPIKey &&
-		strings.TrimSpace(c.Verification.SecretKeyInput) == "" && !c.Verification.ClearSecretKey
-	if strings.TrimSpace(c.Verification.Provider) == "" && strings.TrimSpace(c.Verification.Protocol) == "" && verificationConnectionUnchanged {
-		c.Verification.Provider = current.Verification.Provider
-		c.Verification.Protocol = current.Verification.Protocol
-		// Clients predating the independent verification section omitted the
-		// whole object. Preserve its enabled state while keeping explicit
-		// disable requests (which include detected metadata) authoritative.
-		if !c.Verification.Enabled && strings.TrimSpace(c.Verification.APIKeyInput) == "" &&
-			strings.TrimSpace(c.Verification.SecretKeyInput) == "" {
-			c.Verification.Enabled = current.Verification.Enabled
-		}
 	}
 	if c.PublicOCR.ClearAPIKey {
 		c.PublicOCR.APIKey = ""

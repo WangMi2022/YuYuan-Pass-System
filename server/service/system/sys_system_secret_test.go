@@ -24,9 +24,9 @@ func TestRedactSystemConfigSecrets(t *testing.T) {
 			t.Errorf("redacted secret %q leaked value %q", path, value)
 		}
 	}
-	if !redacted.InvoiceRecognition.Baidu.APIKeyConfigured ||
-		!redacted.InvoiceRecognition.Verification.SecretKeyConfigured ||
-		!redacted.InvoiceRecognition.Multimodal.APIKeyConfigured {
+	if !redacted.AI.Invoice.Baidu.APIKeyConfigured ||
+		!redacted.AI.Invoice.Verification.SecretKeyConfigured ||
+		!redacted.AI.Invoice.Multimodal.APIKeyConfigured {
 		t.Fatal("invoice credential configured flags were not preserved")
 	}
 }
@@ -35,7 +35,7 @@ func TestMergeSystemConfigSecretsPreservesBlankAndAcceptsReplacement(t *testing.
 	current := systemSecretFixture()
 	incoming := config.Server{}
 	incoming.Qiniu.AccessKey = "replacement-access"
-	incoming.InvoiceRecognition = current.InvoiceRecognition.Redacted()
+	incoming.AI.Invoice = current.AI.Invoice.Redacted()
 
 	mergeSystemConfigSecrets(&incoming, current)
 
@@ -49,10 +49,10 @@ func TestMergeSystemConfigSecretsPreservesBlankAndAcceptsReplacement(t *testing.
 		t.Fatalf("blank JWT signing key was not preserved: %q", incoming.JWT.SigningKey)
 	}
 
-	incoming.InvoiceRecognition.Baidu.APIKey = ""
+	incoming.AI.Invoice.Baidu.APIKey = ""
 	mergeSystemConfigSecrets(&incoming, current)
-	if incoming.InvoiceRecognition.Baidu.APIKey != "" {
-		t.Fatalf("cleared invoice key was restored: %q", incoming.InvoiceRecognition.Baidu.APIKey)
+	if incoming.AI.Invoice.Baidu.APIKey != "" {
+		t.Fatalf("cleared invoice key was restored: %q", incoming.AI.Invoice.Baidu.APIKey)
 	}
 }
 
@@ -88,11 +88,15 @@ func systemSecretFixture() config.Server {
 			AccessKeyID: "r2-id", SecretAccessKey: "r2-secret",
 		},
 		Minio: config.Minio{AccessKeyId: "minio-id", AccessKeySecret: "minio-secret"},
-		InvoiceRecognition: config.InvoiceRecognition{
-			Baidu:        config.InvoiceBaiduProvider{APIKey: "baidu-api", SecretKey: "baidu-secret"},
-			PublicOCR:    config.InvoicePublicOCR{APIKey: "public-ocr-api"},
-			Verification: config.InvoiceVerificationProvider{APIKey: "verify-api", SecretKey: "verify-secret"},
-			Multimodal:   config.InvoiceMultimodalProvider{APIKey: "multimodal-api"},
+		AI: config.AI{
+			OpenAICompatible: config.AIProvider{APIKey: "openai-api"},
+			Anthropic:        config.AIProvider{APIKey: "anthropic-api"},
+			Invoice: config.InvoiceRecognition{
+				Baidu:        config.InvoiceBaiduProvider{APIKey: "baidu-api", SecretKey: "baidu-secret"},
+				PublicOCR:    config.InvoicePublicOCR{APIKey: "public-ocr-api"},
+				Verification: config.InvoiceVerificationProvider{APIKey: "verify-api", SecretKey: "verify-secret"},
+				Multimodal:   config.InvoiceMultimodalProvider{APIKey: "multimodal-api"},
+			},
 		},
 	}
 }

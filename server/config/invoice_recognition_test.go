@@ -68,23 +68,22 @@ func TestInvoiceRecognitionMergeSecrets(t *testing.T) {
 	}
 }
 
-func TestInvoiceRecognitionMigratesLegacyBaiduVerification(t *testing.T) {
+func TestInvoiceRecognitionKeepsVerificationExplicit(t *testing.T) {
 	configuration := InvoiceRecognition{Baidu: InvoiceBaiduProvider{
-		Enabled: true, VerificationEnabled: true, APIKey: "legacy-ak", SecretKey: "legacy-sk", TimeoutSeconds: 20,
+		Enabled: true, APIKey: "baidu-ak", SecretKey: "baidu-sk", TimeoutSeconds: 20,
 	}}
 	configuration.Normalize()
-	if !configuration.Verification.Enabled || configuration.Verification.Provider != VerificationProviderBaidu ||
-		configuration.Verification.Protocol != VerificationProtocolBaiduVATV1 ||
-		configuration.Verification.APIKey != "legacy-ak" || configuration.Verification.SecretKey != "legacy-sk" ||
-		configuration.Verification.TimeoutSeconds != 20 {
-		t.Fatalf("legacy verification was not migrated: %#v", configuration.Verification)
+	if configuration.Verification.Enabled || configuration.Verification.Provider != "" ||
+		configuration.Verification.Protocol != "" || configuration.Verification.APIKey != "" ||
+		configuration.Verification.SecretKey != "" {
+		t.Fatalf("verification was enabled without its own configuration: %#v", configuration.Verification)
 	}
 	if err := configuration.Validate(); err != nil {
-		t.Fatalf("migrated legacy configuration is invalid: %v", err)
+		t.Fatalf("new configuration is invalid: %v", err)
 	}
 }
 
-func TestInvoiceRecognitionPreservesDetectedOCRAndVerificationForOlderClients(t *testing.T) {
+func TestInvoiceRecognitionRequiresExplicitDetectedMetadata(t *testing.T) {
 	current := InvoiceRecognition{
 		PublicOCR: InvoicePublicOCR{
 			Endpoint: "https://ocr.example", APIKey: "ocr-key",
@@ -100,28 +99,13 @@ func TestInvoiceRecognitionPreservesDetectedOCRAndVerificationForOlderClients(t 
 		Verification: InvoiceVerificationProvider{Endpoint: current.Verification.Endpoint},
 	}
 	merged := request.MergeSecrets(current, true)
-	if merged.PublicOCR.Provider != OCRProviderHTTPCompatible || merged.PublicOCR.Protocol != OCRProtocolMultipartJSONV1 ||
-		merged.Verification.Provider != VerificationProviderHTTPCompatible || merged.Verification.Protocol != VerificationProtocolHTTPJSONV1 ||
-		!merged.Verification.Enabled {
-		t.Fatalf("detected adapter metadata was not preserved: %#v", merged)
-	}
-	disabled := request
-	disabled.Verification.Provider = current.Verification.Provider
-	disabled.Verification.Protocol = current.Verification.Protocol
-	merged = disabled.MergeSecrets(current, true)
-	if merged.Verification.Enabled {
-		t.Fatalf("explicit verification disable was ignored: %#v", merged.Verification)
-	}
-	request.PublicOCR.Endpoint = "https://new-ocr.example"
-	request.Verification.Endpoint = "https://new-verify.example"
-	merged = request.MergeSecrets(current, true)
 	if merged.PublicOCR.Provider != "" || merged.PublicOCR.Protocol != "" ||
-		merged.Verification.Provider != "" || merged.Verification.Protocol != "" {
-		t.Fatalf("stale adapter metadata survived identity change: %#v", merged)
+		merged.Verification.Provider != "" || merged.Verification.Protocol != "" || merged.Verification.Enabled {
+		t.Fatalf("omitted metadata was restored from the old configuration: %#v", merged)
 	}
 }
 
-func TestInvoiceRecognitionPreservesDetectedProtocolForOlderClients(t *testing.T) {
+func TestInvoiceRecognitionRequiresExplicitMultimodalProtocol(t *testing.T) {
 	current := InvoiceRecognition{Multimodal: InvoiceMultimodalProvider{
 		BaseURL: "https://ai.example/v1", Model: "vision-model",
 		APIKey: "stored-key", Protocol: MultimodalProtocolAnthropic,
@@ -131,8 +115,8 @@ func TestInvoiceRecognitionPreservesDetectedProtocolForOlderClients(t *testing.T
 	}}
 
 	merged := request.MergeSecrets(current, true)
-	if merged.Multimodal.Protocol != MultimodalProtocolAnthropic {
-		t.Fatalf("detected protocol was not preserved: %#v", merged.Multimodal)
+	if merged.Multimodal.Protocol != "" {
+		t.Fatalf("omitted protocol was restored from the old configuration: %#v", merged.Multimodal)
 	}
 
 	request.Multimodal.Model = "new-model"

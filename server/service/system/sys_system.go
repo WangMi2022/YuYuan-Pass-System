@@ -33,12 +33,18 @@ func (systemConfigService *SystemConfigService) GetSystemConfig() (
 	configuredSecrets map[string]bool,
 	err error,
 ) {
-	conf, configuredSecrets = redactSystemConfigSecrets(global.GVA_CONFIG)
+	global.GVA_CONFIG_LOCK.Lock()
+	configuration := global.GVA_CONFIG
+	global.GVA_CONFIG_LOCK.Unlock()
+	conf, configuredSecrets = redactSystemConfigSecrets(configuration)
 	return conf, configuredSecrets, nil
 }
 
 func (systemConfigService *SystemConfigService) GetSystemConfigSecret(path string) (string, error) {
-	value, ok := revealSystemConfigSecret(global.GVA_CONFIG, path)
+	global.GVA_CONFIG_LOCK.Lock()
+	configuration := global.GVA_CONFIG
+	global.GVA_CONFIG_LOCK.Unlock()
+	value, ok := revealSystemConfigSecret(configuration, path)
 	if !ok {
 		return "", errUnknownSystemSecret
 	}
@@ -57,19 +63,14 @@ func (systemConfigService *SystemConfigService) SetSystemConfig(
 	system system.System,
 	allowInvoiceRecognition bool,
 ) (detections InvoiceRecognitionDetections, err error) {
+	global.GVA_CONFIG_LOCK.Lock()
+	defer global.GVA_CONFIG_LOCK.Unlock()
 	system.Config.AI, err = prepareAIConfig(system.Config.AI, global.GVA_CONFIG.AI, allowInvoiceRecognition)
 	if err != nil {
 		return InvoiceRecognitionDetections{}, err
 	}
-	system.Config.InvoiceRecognition, err = prepareInvoiceRecognitionConfig(
-		ctx,
-		system.Config.InvoiceRecognition,
-		global.GVA_CONFIG.InvoiceRecognition,
-		allowInvoiceRecognition,
-	)
-	if err != nil {
-		return InvoiceRecognitionDetections{}, err
-	}
+	// 发票智能配置由 AI 服务管理专用接口维护，不再参与运行配置整体保存。
+	system.Config.AI.Invoice = global.GVA_CONFIG.AI.Invoice
 	mergeSystemConfigSecrets(&system.Config, global.GVA_CONFIG)
 	cs := utils.StructToMap(system.Config)
 	for k, v := range cs {
@@ -80,14 +81,47 @@ func (systemConfigService *SystemConfigService) SetSystemConfig(
 	}
 	// The invoice worker reads this section for every job, so provider changes
 	// take effect immediately without restarting database connections.
-	global.GVA_CONFIG.InvoiceRecognition = system.Config.InvoiceRecognition
 	global.GVA_CONFIG.AI = system.Config.AI
-	invoiceProvider.SetRuntimeInvoiceRecognition(system.Config.InvoiceRecognition)
-	return invoiceRecognitionDetections(system.Config.InvoiceRecognition), nil
+	invoiceProvider.SetRuntimeInvoiceRecognition(system.Config.AI.Invoice)
+	return invoiceRecognitionDetections(system.Config.AI.Invoice), nil
+}
+
+func (systemConfigService *SystemConfigService) GetInvoiceRecognitionConfig() config.InvoiceRecognition {
+	global.GVA_CONFIG_LOCK.Lock()
+	configuration := global.GVA_CONFIG.AI.Invoice
+	global.GVA_CONFIG_LOCK.Unlock()
+	configuration.Normalize()
+	return configuration.Redacted()
+}
+
+func (systemConfigService *SystemConfigService) SetInvoiceRecognitionConfig(ctx context.Context, incoming config.InvoiceRecognition) (InvoiceRecognitionDetections, error) {
+	global.GVA_CONFIG_LOCK.Lock()
+	defer global.GVA_CONFIG_LOCK.Unlock()
+	prepared, err := prepareInvoiceRecognitionConfig(ctx, incoming, global.GVA_CONFIG.AI.Invoice, true)
+	if err != nil {
+		return InvoiceRecognitionDetections{}, err
+	}
+	global.GVA_VP.Set("ai.invoice", prepared)
+	if err := global.GVA_VP.WriteConfig(); err != nil {
+		return InvoiceRecognitionDetections{}, err
+	}
+	global.GVA_CONFIG.AI.Invoice = prepared
+	invoiceProvider.SetRuntimeInvoiceRecognition(prepared)
+	return invoiceRecognitionDetections(prepared), nil
+}
+
+func (systemConfigService *SystemConfigService) TestInvoiceRecognitionProvider(ctx context.Context, target string, incoming config.InvoiceRecognition) (invoiceProvider.ConnectionInfo, error) {
+	global.GVA_CONFIG_LOCK.Lock()
+	current := global.GVA_CONFIG.AI.Invoice
+	global.GVA_CONFIG_LOCK.Unlock()
+	prepared := incoming.MergeSecrets(current, true)
+	prepared.Normalize()
+	return invoiceProvider.TestConnection(ctx, target, prepared)
 }
 
 func prepareAIConfig(incoming, current config.AI, allow bool) (config.AI, error) {
 	prepared := incoming.MergeSecrets(current, allow)
+	prepared.Invoice = current.Invoice
 	prepared.Normalize()
 	if err := prepared.Validate(); err != nil {
 		return config.AI{}, err

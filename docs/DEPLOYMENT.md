@@ -209,9 +209,11 @@ chmod 600 .env
 | `GVA_RUSTFS_BASE_PATH` | 对象前缀 |
 | `GVA_RUSTFS_USE_SSL` | S3 API 是否使用 HTTPS |
 
-### 7.5 智能中心运行配置
+### 7.5 AI 服务管理配置
 
-M5-M7 不从 `.env` 接收模型密钥。部署完成后使用管理员进入 `AI 管理` 页面配置 Provider、模型、超时、费用、配额、Prompt 和图片外发白名单；API 响应只显示 `api-key-configured`，不会回显密钥。
+智能能力不从 `.env` 接收模型密钥。部署完成后使用管理员进入 `系统管理 → AI 服务管理` 配置 Provider、智能识别、模型、超时、费用、配额、Prompt 和图片外发白名单；API 响应只显示 `api-key-configured`，不会回显密钥。
+
+发票智能识别配置位于 `ai.invoice`。这是全新配置结构，不读取根级 `invoice-recognition`；升级部署前应按新结构重新填写 OCR、验真和多模态服务凭据。
 
 启用智能建档 Vision 前至少确认：
 

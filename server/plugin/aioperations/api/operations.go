@@ -5,11 +5,55 @@ import (
 	"github.com/flipped-aurora/gin-vue-admin/server/config"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
 	aiService "github.com/flipped-aurora/gin-vue-admin/server/plugin/aioperations/service"
+	systemService "github.com/flipped-aurora/gin-vue-admin/server/service/system"
 	"github.com/flipped-aurora/gin-vue-admin/server/utils"
 	"github.com/gin-gonic/gin"
 )
 
 type operationsAPI struct{}
+
+func (operationsAPI) InvoiceRecognition(c *gin.Context) {
+	response.OkWithData(systemService.SystemConfigServiceApp.GetInvoiceRecognitionConfig(), c)
+}
+
+func (operationsAPI) UpdateInvoiceRecognition(c *gin.Context) {
+	if utils.GetUserAuthorityId(c) != 888 {
+		response.FailWithMessage("仅超级管理员可维护智能识别配置", c)
+		return
+	}
+	var incoming config.InvoiceRecognition
+	if err := c.ShouldBindJSON(&incoming); err != nil {
+		response.FailWithMessage("智能识别配置参数不正确", c)
+		return
+	}
+	detections, err := systemService.SystemConfigServiceApp.SetInvoiceRecognitionConfig(c.Request.Context(), incoming)
+	if err != nil {
+		response.FailWithMessage(err.Error(), c)
+		return
+	}
+	response.OkWithDetailed(detections, "智能识别配置已保存", c)
+}
+
+func (operationsAPI) TestInvoiceRecognition(c *gin.Context) {
+	if utils.GetUserAuthorityId(c) != 888 {
+		response.FailWithMessage("仅超级管理员可测试智能识别服务", c)
+		return
+	}
+	var request struct {
+		Target string                    `json:"target" binding:"required,oneof=baidu public-ocr verification multimodal"`
+		Config config.InvoiceRecognition `json:"config" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		response.FailWithMessage("连接测试参数不正确", c)
+		return
+	}
+	detection, err := systemService.SystemConfigServiceApp.TestInvoiceRecognitionProvider(c.Request.Context(), request.Target, request.Config)
+	if err != nil {
+		response.FailWithMessage(err.Error(), c)
+		return
+	}
+	response.OkWithDetailed(detection, "连接测试成功", c)
+}
 
 func (operationsAPI) Providers(c *gin.Context) {
 	response.OkWithData(serviceOperations.Providers(), c)

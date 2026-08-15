@@ -79,42 +79,42 @@ var systemSecretAccessors = map[string]systemSecretAccessor{
 		get: func(configuration config.Server) string { return configuration.Minio.AccessKeySecret },
 		set: func(configuration *config.Server, value string) { configuration.Minio.AccessKeySecret = value },
 	},
-	"invoice-recognition.baidu.api-key": {
-		get: func(configuration config.Server) string { return configuration.InvoiceRecognition.Baidu.APIKey },
+	"ai.invoice.baidu.api-key": {
+		get: func(configuration config.Server) string { return configuration.AI.Invoice.Baidu.APIKey },
 		set: func(configuration *config.Server, value string) {
-			configuration.InvoiceRecognition.Baidu.APIKey = value
+			configuration.AI.Invoice.Baidu.APIKey = value
 		},
 	},
-	"invoice-recognition.baidu.secret-key": {
-		get: func(configuration config.Server) string { return configuration.InvoiceRecognition.Baidu.SecretKey },
+	"ai.invoice.baidu.secret-key": {
+		get: func(configuration config.Server) string { return configuration.AI.Invoice.Baidu.SecretKey },
 		set: func(configuration *config.Server, value string) {
-			configuration.InvoiceRecognition.Baidu.SecretKey = value
+			configuration.AI.Invoice.Baidu.SecretKey = value
 		},
 	},
-	"invoice-recognition.public-ocr.api-key": {
-		get: func(configuration config.Server) string { return configuration.InvoiceRecognition.PublicOCR.APIKey },
+	"ai.invoice.public-ocr.api-key": {
+		get: func(configuration config.Server) string { return configuration.AI.Invoice.PublicOCR.APIKey },
 		set: func(configuration *config.Server, value string) {
-			configuration.InvoiceRecognition.PublicOCR.APIKey = value
+			configuration.AI.Invoice.PublicOCR.APIKey = value
 		},
 	},
-	"invoice-recognition.verification.api-key": {
-		get: func(configuration config.Server) string { return configuration.InvoiceRecognition.Verification.APIKey },
+	"ai.invoice.verification.api-key": {
+		get: func(configuration config.Server) string { return configuration.AI.Invoice.Verification.APIKey },
 		set: func(configuration *config.Server, value string) {
-			configuration.InvoiceRecognition.Verification.APIKey = value
+			configuration.AI.Invoice.Verification.APIKey = value
 		},
 	},
-	"invoice-recognition.verification.secret-key": {
+	"ai.invoice.verification.secret-key": {
 		get: func(configuration config.Server) string {
-			return configuration.InvoiceRecognition.Verification.SecretKey
+			return configuration.AI.Invoice.Verification.SecretKey
 		},
 		set: func(configuration *config.Server, value string) {
-			configuration.InvoiceRecognition.Verification.SecretKey = value
+			configuration.AI.Invoice.Verification.SecretKey = value
 		},
 	},
-	"invoice-recognition.multimodal.api-key": {
-		get: func(configuration config.Server) string { return configuration.InvoiceRecognition.Multimodal.APIKey },
+	"ai.invoice.multimodal.api-key": {
+		get: func(configuration config.Server) string { return configuration.AI.Invoice.Multimodal.APIKey },
 		set: func(configuration *config.Server, value string) {
-			configuration.InvoiceRecognition.Multimodal.APIKey = value
+			configuration.AI.Invoice.Multimodal.APIKey = value
 		},
 	},
 	"ai.openai-compatible.api-key": {
@@ -131,8 +131,8 @@ var systemSecretAccessors = map[string]systemSecretAccessor{
 
 func redactSystemConfigSecrets(configuration config.Server) (config.Server, map[string]bool) {
 	configured := make(map[string]bool, len(systemSecretAccessors))
-	configuration.InvoiceRecognition.Normalize()
-	configuration.InvoiceRecognition = configuration.InvoiceRecognition.Redacted()
+	configuration.AI.Invoice.Normalize()
+	configuration.AI.Invoice = configuration.AI.Invoice.Redacted()
 	configuration.AI.Normalize()
 	configuration.AI = configuration.AI.Redacted()
 	for path, accessor := range systemSecretAccessors {
@@ -148,7 +148,7 @@ func mergeSystemConfigSecrets(incoming *config.Server, current config.Server) {
 	for path, accessor := range systemSecretAccessors {
 		// Invoice credentials have explicit clear flags and are merged by
 		// InvoiceRecognition.MergeSecrets before this generic preservation pass.
-		if strings.HasPrefix(path, "invoice-recognition.") {
+		if strings.HasPrefix(path, "ai.invoice.") {
 			continue
 		}
 		if strings.TrimSpace(accessor.get(*incoming)) == "" {

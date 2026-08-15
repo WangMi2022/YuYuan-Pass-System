@@ -21,7 +21,7 @@ func init() { interfaces.Register(Plugin) }
 
 func (*plugin) Register(engine *gin.Engine) {
 	ctx := context.Background()
-	provider.SetRuntimeInvoiceRecognition(global.GVA_CONFIG.InvoiceRecognition)
+	provider.SetRuntimeInvoiceRecognition(global.GVA_CONFIG.AI.Invoice)
 	initialize.Api(ctx)
 	initialize.Menu(ctx)
 	initialize.Gorm(ctx)
