@@ -13,7 +13,7 @@ import (
 
 const aiOperationsMenuName = "aiOperations"
 const systemAdminMenuName = "superAdmin"
-const aiServicesMenuTitle = "AI 服务管理"
+const aiServicesMenuTitle = "智能能力配置"
 
 var menuNames = []string{aiOperationsMenuName}
 
@@ -24,7 +24,7 @@ func Menu(ctx context.Context) {
 	}}
 	utils.RegisterMenus(menus...)
 	if err := syncAIServiceMenu(ctx); err != nil {
-		global.GVA_LOG.Error("AI 服务管理菜单同步失败", zap.Error(err))
+		global.GVA_LOG.Error("智能能力配置菜单同步失败", zap.Error(err))
 	}
 }
 

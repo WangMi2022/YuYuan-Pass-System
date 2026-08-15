@@ -70,7 +70,7 @@ func (operationsAPI) UpdateProviders(c *gin.Context) {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
-	response.OkWithDetailed(updated, "AI Provider 配置已更新", c)
+	response.OkWithDetailed(updated, "模型接入配置已更新", c)
 }
 
 func (operationsAPI) UsageSummary(c *gin.Context) {

@@ -111,7 +111,7 @@ Service 层负责：
 | 插件 | 职责 |
 | --- | --- |
 | `asset` | 资产档案、分类、位置、流转、大屏和风险中心 |
-| `aioperations` | AI Provider、调用审计、用量、配额和 Prompt 运营管理 |
+| `aioperations` | 智能能力配置、模型接入、识别服务、配额和运行监控 |
 | `invoice` | 发票上传、识别、验真、审核、分类与统计 |
 | `document` | 文档上传、预览、编辑和删除 |
 | `announcement` | 公告发布、实时通知和已读状态 |
@@ -251,7 +251,7 @@ flowchart LR
 2. `deploy/docker-dev/config.init.yaml` 提供 PostgreSQL 初始化模板。
 3. `up.sh`/`configure-rustfs.sh` 生成或更新运行时 `config.yaml`。
 4. Compose 将 `config.yaml` 挂载到 `/app/config.yaml`。
-5. AI Provider 密钥保存在运行时配置中；浏览器读取只能看到 `api-key-configured`，更新使用写入即隐藏字段。
+5. 智能服务密钥保存在运行时配置中；浏览器读取只能看到 `api-key-configured`，更新使用写入即隐藏字段。管理入口统一为 `系统管理 → 智能能力配置`。
 
 ### 示例配置
 

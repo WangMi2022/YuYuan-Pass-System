@@ -26,7 +26,7 @@ func TestMigrateAIServiceAPIRegistry(t *testing.T) {
 	legacyRows := []system.SysApi{
 		{Path: "/ai/providers", Method: "GET", ApiGroup: legacyAIServiceAPIGroup, Description: "旧描述"},
 		{Path: "/ai/providers", Method: "PUT", ApiGroup: legacyAIServiceAPIGroup, Description: "重复旧描述"},
-		{Path: "/ai/providers", Method: "PUT", ApiGroup: aiServicesMenuTitle, Description: "新描述"},
+		{Path: "/ai/providers", Method: "PUT", ApiGroup: previousAIServiceAPIGroup, Description: "新描述"},
 		{Path: legacyInvoiceProviderTestAPI.path, Method: legacyInvoiceProviderTestAPI.method, ApiGroup: "运行配置"},
 	}
 	if err = db.Create(&legacyRows).Error; err != nil {
@@ -47,7 +47,7 @@ func TestMigrateAIServiceAPIRegistry(t *testing.T) {
 	if err = db.Where("path = ? AND method = ?", "/ai/providers", "GET").First(&providerGET).Error; err != nil {
 		t.Fatalf("load migrated provider API: %v", err)
 	}
-	if providerGET.ApiGroup != aiServicesMenuTitle || providerGET.Description != "查看 AI Provider 状态" {
+	if providerGET.ApiGroup != aiServicesMenuTitle || providerGET.Description != "查看模型接入状态" {
 		t.Fatalf("unexpected migrated provider API: %#v", providerGET)
 	}
 

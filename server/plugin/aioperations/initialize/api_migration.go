@@ -11,6 +11,7 @@ import (
 )
 
 const legacyAIServiceAPIGroup = "AI 运营"
+const previousAIServiceAPIGroup = "AI 服务管理"
 
 type legacyAPI struct {
 	path   string
@@ -35,7 +36,7 @@ func migrateLegacyAIServiceGroup(tx *gorm.DB) error {
 	}
 
 	var legacyRows []system.SysApi
-	if err := tx.Where("api_group = ? AND path LIKE ?", legacyAIServiceAPIGroup, "/ai/%").Find(&legacyRows).Error; err != nil {
+	if err := tx.Where("api_group IN ? AND path LIKE ?", []string{legacyAIServiceAPIGroup, previousAIServiceAPIGroup}, "/ai/%").Find(&legacyRows).Error; err != nil {
 		return err
 	}
 	for _, legacyRow := range legacyRows {

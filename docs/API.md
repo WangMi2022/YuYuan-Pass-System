@@ -488,16 +488,16 @@ SSE 连接应保持代理正确支持流式传输；断线后客户端仍应通�
 | PUT | `/appearance/login-background/activate` | API 权限 | 激活 `{id}` |
 | DELETE | `/appearance/login-background?id=<id>` | API 权限 | 删除非当前背景 |
 
-## 10. AI Gateway 与服务管理接口
+## 10. AI Gateway 与智能能力配置接口
 
-所有 AI 服务管理接口都位于 JWT + Casbin 私有路由。写接口额外挂载 `OperationRecord()`。默认管理员角色 `888` 在插件初始化时获得菜单和 API 权限，其他角色需单独授权。
+所有智能能力配置接口都位于 JWT + Casbin 私有路由。写接口额外挂载 `OperationRecord()`。默认管理员角色 `888` 在插件初始化时获得菜单和 API 权限，其他角色需单独授权。
 
 | 方法 | 路径 | 主要参数 | 说明 |
 | --- | --- | --- | --- |
-| GET | `/ai/providers` | - | 获取脱敏后的 Gateway 与 Provider 配置 |
-| PUT | `/ai/providers` | Provider 配置 JSON | 更新 Gateway、模型、费用、脱敏和图片策略 |
-| GET | `/ai/invoice-recognition` | - | 获取脱敏后的发票智能识别配置 |
-| PUT | `/ai/invoice-recognition` | 智能识别配置 JSON | 更新 OCR、验真、模型兜底和安全策略 |
+| GET | `/ai/providers` | - | 获取脱敏后的 Gateway 与模型接入配置 |
+| PUT | `/ai/providers` | 模型接入配置 JSON | 更新 Gateway、模型、费用、安全和图片策略 |
+| GET | `/ai/invoice-recognition` | - | 获取脱敏后的智能识别配置 |
+| PUT | `/ai/invoice-recognition` | 智能识别配置 JSON | 更新 OCR、验真和模型兜底配置 |
 | POST | `/ai/invoice-recognition/test` | `{target,config}` | 测试单个 OCR、验真或多模态服务并识别协议 |
 | GET | `/ai/usage/summary` | - | 当前用户今日请求、Token、本月费用和累计请求 |
 | GET | `/ai/invocations` | `page/pageSize/status/module/provider/userId` | 分页查询调用审计 |
@@ -507,7 +507,9 @@ SSE 连接应保持代理正确支持流式传输；断线后客户端仍应通�
 | POST | `/ai/prompts` | Prompt JSON | 创建新的草稿版本 |
 | PUT | `/ai/prompts/activate` | `{promptKey,version}` | 激活指定版本并退役旧版本 |
 
-Provider 更新示例：
+费用字段在页面使用人民币元/百万 Token 录入，服务端 JSON 使用整数微单位；例如页面输入 `0.125`，请求中的 `input-cost-micros-per-million` 为 `125000`。月预算同样使用 `monthlyCostMicros` 保存。
+
+模型接入更新示例：
 
 ```json
 {

@@ -75,7 +75,7 @@
   "/src/view/systemTools/system/system.vue": "Config",
   "/src/view/systemTools/version/version.vue": "SysVersion",
   "/src/view/workCalendar/index.vue": "WorkCalendar",
-  "/src/plugin/aioperations/view/operations.vue": "AIOperations",
+  "/src/plugin/aioperations/view/operations.vue": "SmartCapabilitySettings",
   "/src/plugin/announcement/form/info.vue": "InfoForm",
   "/src/plugin/announcement/view/info.vue": "Info",
   "/src/plugin/asset/view/assets.vue": "AssetInventory",

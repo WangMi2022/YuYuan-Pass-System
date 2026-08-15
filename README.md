@@ -168,7 +168,7 @@ flowchart LR
 ├─ server/                       Go API、系统能力和业务插件
 │  ├─ ai/                        统一 AI Gateway、Provider、配额、脱敏与审计
 │  ├─ plugin/asset/              资产管理、智能建档、流转与风险中心
-│  ├─ plugin/aioperations/       AI Provider、用量、配额和 Prompt 运营管理
+│  ├─ plugin/aioperations/       智能能力配置、识别服务、配额与运行监控
 │  ├─ plugin/smart/              业务助手、智能日报与智能草稿
 │  ├─ plugin/invoice/            发票、流水与识别质量闭环
 │  ├─ plugin/document/           文档管理
