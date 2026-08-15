@@ -46,6 +46,27 @@
       </div>
     </section>
 
+    <section class="settings-section" aria-labelledby="tabs-limit-title">
+      <div class="settings-section__header">
+        <h4 id="tabs-limit-title">分页导航</h4>
+        <p>达到上限后，系统会自动关闭最早打开的非当前标签页。</p>
+      </div>
+      <div class="settings-panel">
+        <SettingItem label="标签页最大数量" description="范围为 1 至 20 个，仅影响顶部已打开页面">
+          <el-input-number
+            v-model="config.tabsMaxCount"
+            :min="1"
+            :max="20"
+            :step="1"
+            :precision="0"
+            controls-position="right"
+            aria-label="标签页最大数量"
+            @change="appStore.toggleTabsMaxCount"
+          />
+        </SettingItem>
+      </div>
+    </section>
+
     <section class="settings-section" aria-labelledby="accessibility-title">
       <div class="settings-section__header">
         <h4 id="accessibility-title">视觉辅助</h4>

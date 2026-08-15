@@ -42,8 +42,7 @@
         aria-label="清理分页导航，保留首页"
         @click="closeAll"
       >
-        <el-icon aria-hidden="true"><CloseBold /></el-icon>
-        <span>清理</span>
+        清理
       </button>
     </el-tooltip>
 
@@ -65,9 +64,9 @@
   import { emitter } from '@/utils/bus.js'
   import { computed, onUnmounted, ref, watch, nextTick } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
+  import { useAppStore } from '@/pinia'
   import { useUserStore } from '@/pinia/modules/user'
   import { fmtTitle } from '@/utils/fmtRouterTitle'
-  import { CloseBold } from '@element-plus/icons-vue'
   import { useEventListener } from '@vueuse/core'
 
   defineOptions({
@@ -85,6 +84,7 @@
   const activeValue = ref('')
   const contextMenuVisible = ref(false)
 
+  const appStore = useAppStore()
   const userStore = useUserStore()
 
   const left = ref(0)
@@ -198,6 +198,24 @@
     }
     return true
   }
+
+  const trimHistorys = () => {
+    const maxTabsCount = Math.min(
+      20,
+      Math.max(1, Number(appStore.config.tabsMaxCount) || 10)
+    )
+
+    while (historys.value.length > maxTabsCount) {
+      const staleTabIndex = historys.value.findIndex(
+        (item) => !isSame(item, route)
+      )
+      if (staleTabIndex === -1) {
+        return
+      }
+      historys.value.splice(staleTabIndex, 1)
+    }
+  }
+
   const setTab = (route) => {
     if (!historys.value.some((item) => isSame(item, route))) {
       const obj = {}
@@ -208,6 +226,7 @@
       obj.params = route.params
       historys.value.push(obj)
     }
+    trimHistorys()
     window.sessionStorage.setItem('activeValue', getFmtString(route))
   }
 
@@ -280,6 +299,11 @@
     }
   )
 
+  watch(
+    () => appStore.config.tabsMaxCount,
+    () => trimHistorys()
+  )
+
   const initPage = () => {
     // 全局监听 关闭当前页面函数
     emitter.on('closeThisPage', () => {
@@ -339,9 +363,10 @@
         params: {}
       }
     ]
-    setTab(route)
     historys.value =
       JSON.parse(sessionStorage.getItem('historys')) || initHistorys
+    setTab(route)
+    trimHistorys()
     if (!window.sessionStorage.getItem('activeValue')) {
       activeValue.value = getFmtString(route)
     } else {

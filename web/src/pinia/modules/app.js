@@ -12,6 +12,7 @@ export const useAppStore = defineStore('app', () => {
     grey: false,
     primaryColor: '#6D5DFB',
     showTabs: false,
+    tabsMaxCount: 10,
     darkMode: 'auto',
     visualStyle: 'bento',
     layout_side_width: 220,
@@ -51,6 +52,10 @@ export const useAppStore = defineStore('app', () => {
 
   const toggleTabs = (e) => {
     config.showTabs = e
+  }
+
+  const toggleTabsMaxCount = (value) => {
+    config.tabsMaxCount = Math.min(20, Math.max(1, Number(value) || 10))
   }
 
   const toggleDevice = (e) => {
@@ -114,6 +119,7 @@ export const useAppStore = defineStore('app', () => {
     grey: false,
     primaryColor: '#6D5DFB',
     showTabs: false,
+    tabsMaxCount: 10,
     darkMode: 'auto',
     visualStyle: 'bento',
     layout_side_width: 220,
@@ -158,6 +164,7 @@ export const useAppStore = defineStore('app', () => {
     toggleGrey,
     togglePrimaryColor,
     toggleTabs,
+    toggleTabsMaxCount,
     toggleDarkMode,
     toggleVisualStyle,
     toggleConfigSideWidth,

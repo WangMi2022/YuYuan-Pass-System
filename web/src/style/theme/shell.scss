@@ -480,16 +480,17 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 64px;
-  gap: 6px;
+  flex: 0 0 52px;
+  min-width: 52px;
   height: 30px;
-  padding: 0 12px;
+  padding: 0 8px;
   border: 0;
   border: 1px solid transparent;
   border-radius: 9px;
   background: transparent;
   color: var(--na-muted-foreground);
   font-size: 12px;
+  white-space: nowrap;
   cursor: pointer;
   transition: color 150ms ease, background-color 150ms ease;
 }
@@ -505,8 +506,6 @@
   color: color-mix(in srgb, var(--na-muted-foreground) 48%, transparent);
   cursor: not-allowed;
 }
-.gva-tabs-clear .el-icon { font-size: 13px; }
-
 /* ---- Page scaffolding (shared by rewritten pages) ---- */
 .na-page {
   min-height: 100%;
@@ -622,6 +621,5 @@
   .na-page { padding: 14px; }
   .na-page-header { align-items: stretch; flex-direction: column; }
   .na-pagination { justify-content: flex-start; }
-  .gva-tabs-clear { flex-basis: 42px; width: 42px; padding: 0; }
-  .gva-tabs-clear span { display: none; }
+  .gva-tabs-clear { flex-basis: 52px; width: 52px; padding: 0 8px; }
 }
