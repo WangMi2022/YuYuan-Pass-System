@@ -1,12 +1,40 @@
 <template>
   <div class="na-workspace na-workspace--tool form-designer-container">
-    <fc-designer ref="designer" :config="config" height="calc(100vh - 160px)">
-      <template #handle>
-        <el-button type="primary" size="small" plain @click="exportVueTemplate">
-          解析为 Vue 原生标签
-        </el-button>
-      </template>
-    </fc-designer>
+    <div class="form-builder-toolbar">
+      <div>
+        <h2>表单结构</h2>
+        <p>字段配置只在本地生成 Vue 模板，不加载第三方富文本设计器。</p>
+      </div>
+      <div class="form-builder-actions">
+        <el-button :icon="Plus" @click="addField">添加字段</el-button>
+        <el-button type="primary" @click="exportVueTemplate">生成 Vue 模板</el-button>
+      </div>
+    </div>
+
+    <el-table :data="fieldRules" height="calc(100vh - 250px)" border>
+      <el-table-column type="index" width="56" label="#" />
+      <el-table-column label="字段标题" min-width="180">
+        <template #default="{ row }"><el-input v-model="row.title" maxlength="40" /></template>
+      </el-table-column>
+      <el-table-column label="字段名" min-width="180">
+        <template #default="{ row }"><el-input v-model="row.field" maxlength="60" /></template>
+      </el-table-column>
+      <el-table-column label="控件类型" min-width="170">
+        <template #default="{ row }">
+          <el-select v-model="row.type" class="w-full">
+            <el-option v-for="option in fieldTypes" :key="option.value" :label="option.label" :value="option.value" />
+          </el-select>
+        </template>
+      </el-table-column>
+      <el-table-column label="必填" width="90" align="center">
+        <template #default="{ row }"><el-switch v-model="row.$required" /></template>
+      </el-table-column>
+      <el-table-column label="操作" width="80" align="center">
+        <template #default="{ $index }">
+          <el-button circle text type="danger" :icon="Delete" title="删除字段" @click="removeField($index)" />
+        </template>
+      </el-table-column>
+    </el-table>
 
     <el-dialog v-model="dialogVisible" title="生成的 Vue 模板代码" width="70%" top="5vh">
       <el-input 
@@ -30,20 +58,38 @@
 <script setup>
   import { ref } from 'vue'
   import { ElMessage } from 'element-plus'
-  import FcDesigner from '@form-create/designer'
+  import { Delete, Plus } from '@element-plus/icons-vue'
 
   defineOptions({
     name: 'FormGenerator'
   })
 
-  const designer = ref(null)
   const dialogVisible = ref(false)
   const vueCode = ref('')
 
-  const config = {
-    fieldReadonly: false,
-    useTemplate: true
+  const fieldTypes = [
+    { label: '单行输入', value: 'input' },
+    { label: '数字输入', value: 'inputNumber' },
+    { label: '下拉选择', value: 'select' },
+    { label: '单选', value: 'radio' },
+    { label: '多选', value: 'checkbox' },
+    { label: '开关', value: 'switch' },
+    { label: '日期', value: 'datePicker' },
+    { label: '时间', value: 'timePicker' },
+    { label: '滑块', value: 'slider' },
+    { label: '颜色', value: 'colorPicker' }
+  ]
+  const fieldRules = ref([
+    { type: 'input', field: 'name', title: '名称', value: '', props: { clearable: true }, $required: true }
+  ])
+  const formOptions = { form: { labelWidth: '120px', size: 'default', labelPosition: 'right' } }
+
+  const addField = () => {
+    const index = fieldRules.value.length + 1
+    fieldRules.value.push({ type: 'input', field: `field${index}`, title: `字段 ${index}`, value: '', props: { clearable: true }, $required: false })
   }
+
+  const removeField = (index) => fieldRules.value.splice(index, 1)
 
   const kebabCase = (str) => {
     return str.replace(/([A-Z])/g, '-$1').toLowerCase()
@@ -184,10 +230,16 @@ const resetForm = () => {
   }
 
   const exportVueTemplate = () => {
-    const rules = designer.value.getRule()
-    const options = designer.value.getOption()
-    
-    vueCode.value = generateVueCode(rules, options)
+    if (!fieldRules.value.length) {
+      ElMessage.warning('请至少添加一个字段')
+      return
+    }
+    const invalid = fieldRules.value.some((rule) => !rule.title?.trim() || !/^[A-Za-z_$][\w$]*$/.test(rule.field || ''))
+    if (invalid) {
+      ElMessage.warning('字段标题不能为空，字段名必须是合法 JavaScript 标识符')
+      return
+    }
+    vueCode.value = generateVueCode(fieldRules.value, formOptions)
     dialogVisible.value = true
   }
 
@@ -203,5 +255,26 @@ const resetForm = () => {
 </script>
 
 <style scoped>
+.form-builder-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
 
+.form-builder-toolbar h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.form-builder-toolbar p {
+  margin: 0;
+  color: var(--el-text-color-secondary);
+}
+
+.form-builder-actions {
+  display: flex;
+  gap: 8px;
+}
 </style>

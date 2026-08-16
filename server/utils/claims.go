@@ -137,11 +137,12 @@ func GetUserName(c *gin.Context) string {
 func LoginToken(user system.Login) (token string, claims systemReq.CustomClaims, err error) {
 	j := NewJWT()
 	claims = j.CreateClaims(systemReq.BaseClaims{
-		UUID:        user.GetUUID(),
-		ID:          user.GetUserId(),
-		NickName:    user.GetNickname(),
-		Username:    user.GetUsername(),
-		AuthorityId: user.GetAuthorityId(),
+		UUID:            user.GetUUID(),
+		ID:              user.GetUserId(),
+		NickName:        user.GetNickname(),
+		Username:        user.GetUsername(),
+		AuthorityId:     user.GetAuthorityId(),
+		SecurityVersion: user.GetSecurityVersion(),
 	})
 	token, err = j.CreateToken(claims)
 	return

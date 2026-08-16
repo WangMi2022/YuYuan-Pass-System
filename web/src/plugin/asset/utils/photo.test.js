@@ -6,7 +6,14 @@ import { assetPhotoUrl } from './photo.js'
 test('asset photo URL uses the configured API prefix and encoded object key', () => {
   assert.equal(
     assetPhotoUrl({ key: 'assets/2026-08-14/设备 01.png' }, '/gateway/'),
-    '/gateway/asset/photo?key=assets%2F2026-08-14%2F%E8%AE%BE%E5%A4%87%2001.png'
+    '/gateway/asset/photo?key=assets%2F2026-08-14%2F%E8%AE%BE%E5%A4%87+01.png'
+  )
+})
+
+test('asset photo URL carries the persisted asset scope', () => {
+  assert.equal(
+    assetPhotoUrl({ key: 'assets/photo.png' }, '/gateway', 42),
+    '/gateway/asset/photo?key=assets%2Fphoto.png&assetId=42'
   )
 })
 

@@ -11,8 +11,13 @@ services:
     environment:
       TZ: Asia/Shanghai
       GIN_MODE: release
+      GVA_JWT_SIGNING_KEY: ${GVA_JWT_SIGNING_KEY:-}
+      GVA_INSTALL_MODE: ${GVA_INSTALL_MODE:-false}
+      GVA_INSTALL_TOKEN: ${GVA_INSTALL_TOKEN:-}
+      GVA_ENABLE_PUBLIC_UPLOADS: ${GVA_ENABLE_PUBLIC_UPLOADS:-false}
+      GVA_ENABLE_SWAGGER: ${GVA_ENABLE_SWAGGER:-false}
     ports:
-      - "${SERVER_PORT:-8888}:8888"
+      - "${SERVER_BIND:-127.0.0.1}:${SERVER_PORT:-8888}:8888"
     volumes:
       - ./config.yaml:/app/config.yaml
       - ../../server/uploads:/app/uploads

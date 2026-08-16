@@ -138,7 +138,9 @@ func isSensitiveOperationField(key string) bool {
 	return strings.Contains(normalized, "password") || strings.Contains(normalized, "secret") ||
 		strings.Contains(normalized, "token") || strings.Contains(normalized, "apikey") ||
 		normalized == "authorization" || normalized == "authheader" || normalized == "signingkey" ||
-		normalized == "accesskey" || normalized == "accesskeyid"
+		normalized == "accesskey" || normalized == "accesskeyid" || normalized == "question" ||
+		normalized == "prompt" || normalized == "answer" || normalized == "response" ||
+		normalized == "content" || normalized == "rawtext"
 }
 
 type responseBodyWriter struct {

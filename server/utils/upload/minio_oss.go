@@ -12,6 +12,7 @@ import (
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/utils"
+	"github.com/google/uuid"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"go.uber.org/zap"
@@ -71,7 +72,7 @@ func (m *Minio) UploadFile(file *multipart.FileHeader) (filePathres, key string,
 
 	// 对文件名进行加密存储
 	ext := filepath.Ext(file.Filename)
-	filename := utils.MD5V([]byte(strings.TrimSuffix(file.Filename, ext))) + ext
+	filename := utils.MD5V([]byte(strings.TrimSuffix(file.Filename, ext))) + "-" + uuid.NewString() + ext
 	if global.GVA_CONFIG.Minio.BasePath == "" {
 		filePathres = "uploads" + "/" + time.Now().Format("2006-01-02") + "/" + filename
 	} else {

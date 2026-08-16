@@ -2,7 +2,7 @@
 # variables:
 #     DOCKER_BUILDKIT: 1
 
-FROM node:20-slim AS base
+FROM node:20.19.4-slim AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
@@ -18,7 +18,7 @@ COPY --from=prod-deps /app/node_modules /app/node_modules
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install && pnpm run build
 
 
-FROM nginx:alpine
+FROM nginx:1.29.1-alpine3.22
 LABEL MAINTAINER="bypanghu@163.com"
 COPY --from=base  /app/.docker-compose/nginx/conf.d/my.conf /etc/nginx/conf.d/my.conf
 COPY --from=build  /app/dist /usr/share/nginx/html

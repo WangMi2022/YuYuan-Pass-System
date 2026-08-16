@@ -12,6 +12,7 @@ import (
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/utils"
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 )
 
@@ -35,7 +36,7 @@ func (*Local) UploadFile(file *multipart.FileHeader) (string, string, error) {
 	name := strings.TrimSuffix(file.Filename, ext)
 	name = utils.MD5V([]byte(name))
 	// 拼接新文件名
-	filename := name + "_" + time.Now().Format("20060102150405") + ext
+	filename := name + "_" + time.Now().Format("20060102150405") + "_" + uuid.NewString() + ext
 	// 尝试创建此路径
 	mkdirErr := os.MkdirAll(global.GVA_CONFIG.Local.StorePath, os.ModePerm)
 	if mkdirErr != nil {

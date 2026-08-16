@@ -394,7 +394,10 @@ func (authorityService *AuthorityService) SetRoleUsers(authorityId uint, userIds
 			for fallbackAuthority, ids := range updatesByAuthority {
 				if err := tx.Model(&system.SysUser{}).
 					Where("id IN ? AND authority_id = ?", ids, authorityId).
-					Update("authority_id", fallbackAuthority).Error; err != nil {
+					Updates(map[string]interface{}{
+						"authority_id":     fallbackAuthority,
+						"security_version": gorm.Expr("security_version + ?", 1),
+					}).Error; err != nil {
 					return err
 				}
 			}

@@ -93,6 +93,15 @@ func (s *assetService) createWithDB(db *gorm.DB, asset *model.Asset) error {
 		}
 		return err
 	}
+	for index := range asset.Photos {
+		asset.Photos[index].AssetID = asset.ID
+		asset.Photos[index].AccessToken = ""
+	}
+	if len(asset.Photos) > 0 {
+		if err := db.Model(&model.Asset{}).Where("id = ?", asset.ID).Select("Photos").Updates(asset).Error; err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -102,6 +111,10 @@ func (s *assetService) Update(asset *model.Asset) error {
 	}
 	if err := prepareAsset(asset, false); err != nil {
 		return err
+	}
+	for index := range asset.Photos {
+		asset.Photos[index].AssetID = asset.ID
+		asset.Photos[index].AccessToken = ""
 	}
 	fields := []string{
 		"AssetCode", "Name", "CategoryID", "Brand", "Model", "SerialNumber", "Specifications", "ProductionDate",

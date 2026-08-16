@@ -1,9 +1,15 @@
 package model
 
 import (
+	"crypto/subtle"
+	"errors"
+	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 const (
@@ -16,9 +22,68 @@ const (
 
 // Photo 保存资产图片在 RustFS/MinIO 中的对象信息。
 type Photo struct {
-	Name string `json:"name"`
-	Key  string `json:"key"`
-	URL  string `json:"url"`
+	Name        string `json:"name"`
+	Key         string `json:"key"`
+	URL         string `json:"url"`
+	AssetID     uint   `json:"assetId,omitempty"`
+	AccessToken string `json:"accessToken,omitempty"`
+}
+
+type photoTokenClaims struct {
+	UserID  uint   `json:"uid"`
+	Key     string `json:"key"`
+	Purpose string `json:"purpose"`
+	jwt.RegisteredClaims
+}
+
+func CreatePhotoAccessToken(userID uint, key string) (string, error) {
+	secret := strings.TrimSpace(global.GVA_CONFIG.JWT.SigningKey)
+	key = strings.TrimSpace(key)
+	if userID == 0 || key == "" || secret == "" {
+		return "", errors.New("图片访问令牌参数不完整")
+	}
+	now := time.Now()
+	claims := photoTokenClaims{
+		UserID:  userID,
+		Key:     key,
+		Purpose: "asset-photo",
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    "asset-photo",
+			Subject:   strconv.FormatUint(uint64(userID), 10),
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(10 * time.Minute)),
+		},
+	}
+	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(secret))
+}
+
+func ValidatePhotoAccessToken(tokenString string, userID uint, key string) bool {
+	secret := strings.TrimSpace(global.GVA_CONFIG.JWT.SigningKey)
+	if secret == "" || tokenString == "" || userID == 0 || key == "" {
+		return false
+	}
+	claims := &photoTokenClaims{}
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (any, error) {
+		if token.Method != jwt.SigningMethodHS256 {
+			return nil, errors.New("图片访问令牌算法不正确")
+		}
+		return []byte(secret), nil
+	})
+	if err != nil || !token.Valid {
+		return false
+	}
+	return claims.UserID == userID && subtle.ConstantTimeCompare([]byte(claims.Key), []byte(key)) == 1 && claims.Purpose == "asset-photo"
+}
+
+func BuildPhotoURL(assetID uint, key, accessToken string) string {
+	query := "?key=" + url.QueryEscape(key)
+	if assetID > 0 {
+		query += "&assetId=" + strconv.FormatUint(uint64(assetID), 10)
+	}
+	if accessToken != "" {
+		query += "&token=" + url.QueryEscape(accessToken)
+	}
+	return "/api/asset/photo" + query
 }
 
 // Category 资产分类。

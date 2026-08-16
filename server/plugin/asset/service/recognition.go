@@ -10,7 +10,6 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"net/url"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -150,8 +149,13 @@ func (assetRecognitionService) Create(files []*multipart.FileHeader, userID, aut
 			cleanupAssetRecognitionPhotos(job)
 			return model.AssetRecognitionJob{}, fmt.Errorf("资产图片保存失败: %w", uploadErr)
 		}
+		accessToken, tokenErr := model.CreatePhotoAccessToken(userID, key)
+		if tokenErr != nil {
+			cleanupAssetRecognitionPhotos(job)
+			return model.AssetRecognitionJob{}, tokenErr
+		}
 		job.InputPhotos = append(job.InputPhotos, model.Photo{
-			Name: originalName, Key: key, URL: "/api/asset/photo?key=" + url.QueryEscape(key),
+			Name: originalName, Key: key, URL: model.BuildPhotoURL(0, key, accessToken), AccessToken: accessToken,
 		})
 	}
 	job.Status = model.AssetRecognitionPending

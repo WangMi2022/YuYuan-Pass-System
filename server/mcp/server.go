@@ -1,7 +1,9 @@
 package mcpTool
 
 import (
+	"crypto/subtle"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
@@ -42,11 +44,27 @@ func NewStreamableHTTPServer() *mcpServer.StreamableHTTPServer {
 		mcpServer.WithHTTPContextFunc(WithHTTPRequestContext),
 		mcpServer.WithStreamableHTTPServer(httpSrv),
 	)
-	mux.Handle(path, handler)
+	mux.Handle(path, http.MaxBytesHandler(requireMCPAuth(handler), 64*1024))
 	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
 
 	return handler
+}
+
+func requireMCPAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		expected := strings.TrimSpace(global.GVA_CONFIG.MCP.AuthToken)
+		if expected == "" {
+			expected = strings.TrimSpace(os.Getenv("GVA_MCP_AUTH_TOKEN"))
+		}
+		provided := extractIncomingAuthToken(r.Header)
+		if expected == "" || len(expected) != len(provided) || subtle.ConstantTimeCompare([]byte(expected), []byte(provided)) != 1 {
+			w.Header().Set("WWW-Authenticate", "Bearer")
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }

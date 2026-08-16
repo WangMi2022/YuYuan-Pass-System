@@ -10,10 +10,10 @@ import (
 // 测试 MCP 客户端连接
 func TestMcpClientConnection(t *testing.T) {
 	c, err := NewClient("http://localhost:8888/sse", "test-client", "1.0.0", "gin-vue-admin MCP服务")
-	defer c.Close()
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatalf("创建 MCP 客户端失败: %v", err)
 	}
+	defer c.Close()
 }
 
 func TestTools(t *testing.T) {

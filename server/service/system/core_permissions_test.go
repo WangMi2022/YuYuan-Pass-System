@@ -21,6 +21,8 @@ func TestEnsureCoreAdminPermissionsRepairsExistingDatabase(t *testing.T) {
 	if err = db.Create(&[]sysModel.SysIgnoreApi{
 		{Path: "/autoCode/llmAuto", Method: "POST"},
 		{Path: "/autoCode/llmAutoSSE", Method: "POST"},
+		{Path: swaggerPath, Method: "GET"},
+		{Path: freshCasbinPath, Method: "GET"},
 	}).Error; err != nil {
 		t.Fatalf("seed obsolete ignored AI routes: %v", err)
 	}
@@ -61,7 +63,7 @@ func TestEnsureCoreAdminPermissionsRepairsExistingDatabase(t *testing.T) {
 	}
 	var ignoredCount int64
 	if err = db.Model(&sysModel.SysIgnoreApi{}).
-		Where("path IN ? AND method = ?", []string{"/autoCode/llmAuto", "/autoCode/llmAutoSSE"}, "POST").
+		Where("(path IN ? AND method = ?) OR (path IN ? AND method = ?)", []string{"/autoCode/llmAuto", "/autoCode/llmAutoSSE"}, "POST", []string{swaggerPath, freshCasbinPath}, "GET").
 		Count(&ignoredCount).Error; err != nil {
 		t.Fatalf("count obsolete ignored AI routes: %v", err)
 	}

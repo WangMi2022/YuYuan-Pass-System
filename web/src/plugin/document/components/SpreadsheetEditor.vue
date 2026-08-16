@@ -1,14 +1,48 @@
 <template>
   <div class="spreadsheet-editor-shell">
-    <div ref="containerRef" class="spreadsheet-editor-host" />
+    <div class="spreadsheet-toolbar">
+      <el-tabs v-model="activeSheetIndex" class="sheet-tabs" @tab-change="emitReady">
+        <el-tab-pane v-for="(sheet, index) in sheets" :key="sheet.id" :label="sheet.name" :name="index" />
+      </el-tabs>
+      <div v-if="!readonly" class="spreadsheet-actions">
+        <el-button :icon="Plus" title="新增工作表" @click="addSheet" />
+        <el-button :icon="Rows3" title="新增行" @click="addRow" />
+        <el-button :icon="Columns3" title="新增列" @click="addColumn" />
+        <el-button :icon="Trash2" title="删除当前工作表" :disabled="sheets.length <= 1" @click="removeSheet" />
+      </div>
+    </div>
+
+    <div class="spreadsheet-grid-wrap">
+      <table v-if="activeSheet" class="spreadsheet-grid">
+        <thead>
+          <tr>
+            <th class="row-number">#</th>
+            <th v-for="columnIndex in activeSheet.columnCount" :key="columnIndex">
+              {{ columnLabel(columnIndex - 1) }}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="rowIndex in activeSheet.rowCount" :key="rowIndex">
+            <th class="row-number">{{ rowIndex }}</th>
+            <td v-for="columnIndex in activeSheet.columnCount" :key="columnIndex">
+              <span v-if="readonly">{{ cellValue(rowIndex - 1, columnIndex - 1) }}</span>
+              <el-input
+                v-else
+                :model-value="cellValue(rowIndex - 1, columnIndex - 1)"
+                @update:model-value="updateCell(rowIndex - 1, columnIndex - 1, $event)"
+              />
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import 'x-data-spreadsheet/dist/xspreadsheet'
-import 'x-data-spreadsheet/dist/locale/zh-cn'
-import 'x-data-spreadsheet/dist/xspreadsheet.css'
+import { computed, onMounted, ref, watch } from 'vue'
+import { Bottom as Rows3, Delete as Trash2, Plus, Right as Columns3 } from '@element-plus/icons-vue'
 
 const props = defineProps({
   modelValue: {
@@ -23,193 +57,151 @@ const props = defineProps({
 
 const emits = defineEmits(['update:modelValue', 'ready'])
 
-const containerRef = ref(null)
-let spreadsheet = null
-let applying = false
-let lastPayload = ''
-let hostHeight = 620
-let resizeObserver = null
-let suppressPropSyncUntil = 0
-let suppressPropSyncTimer = null
+const minimumRows = 30
+const minimumColumns = 12
+const maximumRows = 200
+const maximumColumns = 50
+const sheets = ref([])
+const activeSheetIndex = ref(0)
+let lastEmittedPayload = ''
 
-const clone = (value) => JSON.parse(JSON.stringify(value || []))
+const clone = (value) => JSON.parse(JSON.stringify(value ?? null))
 
-const blankSheet = () => ({
-  name: 'Sheet1',
-  rows: { len: 100 },
-  cols: { len: 26 },
-  merges: [],
-  styles: []
+const createBlankSheet = (name = 'Sheet1') => ({
+  id: crypto.randomUUID(),
+  name,
+  rowCount: minimumRows,
+  columnCount: minimumColumns,
+  values: [],
+  source: { name, rows: { len: 100 }, cols: { len: 26 }, merges: [], styles: [], validations: [], freeze: 'A1' }
 })
 
-const normalizeData = (value) => {
-  const data = Array.isArray(value) && value.length ? value : [blankSheet()]
-  return data.map((sheet, index) => ({
-    name: sheet?.name || `Sheet${index + 1}`,
-    rows: sheet?.rows || { len: 100 },
-    cols: sheet?.cols || { len: 26 },
-    merges: Array.isArray(sheet?.merges) ? sheet.merges : [],
-    styles: Array.isArray(sheet?.styles) ? sheet.styles : [],
-    validations: Array.isArray(sheet?.validations) ? sheet.validations : [],
-    freeze: sheet?.freeze || 'A1'
-  }))
-}
+const countUsedColumns = (rows = {}) => Object.entries(rows).reduce((maximum, [rowKey, row]) => {
+  if (rowKey === 'len' || !row?.cells) return maximum
+  const rowMaximum = Object.keys(row.cells).reduce((value, columnKey) => Math.max(value, Number(columnKey) + 1 || 0), 0)
+  return Math.max(maximum, rowMaximum)
+}, 0)
 
-const canonicalData = (value) => normalizeData(value).map((sheet, index) => {
-  const rows = sheet.rows && typeof sheet.rows === 'object' ? { ...sheet.rows } : { len: 100 }
-  const cols = sheet.cols && typeof sheet.cols === 'object' ? { ...sheet.cols } : { len: 26 }
-  rows.len = Math.max(Number(rows.len || 0), 100)
-  cols.len = Math.max(Number(cols.len || 0), 26)
+const toEditableSheet = (source, index) => {
+  const rows = source?.rows && typeof source.rows === 'object' ? source.rows : {}
+  const usedRows = Object.keys(rows).reduce((maximum, rowKey) => rowKey === 'len' ? maximum : Math.max(maximum, Number(rowKey) + 1 || 0), 0)
+  const rowCount = Math.min(maximumRows, Math.max(minimumRows, usedRows))
+  const columnCount = Math.min(maximumColumns, Math.max(minimumColumns, countUsedColumns(rows)))
+  const values = Array.from({ length: rowCount }, (_, rowIndex) => (
+    Array.from({ length: columnCount }, (_, columnIndex) => {
+      const value = rows?.[rowIndex]?.cells?.[columnIndex]?.text
+      return value == null ? '' : String(value)
+    })
+  ))
   return {
-    name: sheet.name || `Sheet${index + 1}`,
+    id: crypto.randomUUID(),
+    name: String(source?.name || `Sheet${index + 1}`),
+    rowCount,
+    columnCount,
+    values,
+    source: clone(source || createBlankSheet().source)
+  }
+}
+
+const activeSheet = computed(() => sheets.value[Number(activeSheetIndex.value)] || sheets.value[0])
+
+const sheetPayload = (sheet) => {
+  const source = clone(sheet.source || {})
+  const originalRows = source.rows && typeof source.rows === 'object' ? source.rows : {}
+  const rows = { len: Math.max(100, sheet.rowCount) }
+  for (let rowIndex = 0; rowIndex < sheet.rowCount; rowIndex += 1) {
+    const originalRow = originalRows[rowIndex] && typeof originalRows[rowIndex] === 'object' ? clone(originalRows[rowIndex]) : {}
+    const originalCells = originalRow.cells && typeof originalRow.cells === 'object' ? originalRow.cells : {}
+    const cells = {}
+    for (let columnIndex = 0; columnIndex < sheet.columnCount; columnIndex += 1) {
+      const text = String(sheet.values[rowIndex]?.[columnIndex] ?? '')
+      const originalCell = originalCells[columnIndex] && typeof originalCells[columnIndex] === 'object' ? clone(originalCells[columnIndex]) : {}
+      if (text !== '' || Object.keys(originalCell).length > 0) cells[columnIndex] = { ...originalCell, text }
+    }
+    if (Object.keys(cells).length > 0 || Object.keys(originalRow).some((key) => key !== 'cells')) {
+      rows[rowIndex] = { ...originalRow, cells }
+    }
+  }
+  return {
+    ...source,
+    name: sheet.name,
     rows,
-    cols,
-    merges: Array.isArray(sheet.merges) ? sheet.merges : [],
-    styles: Array.isArray(sheet.styles) ? sheet.styles : [],
-    validations: Array.isArray(sheet.validations) ? sheet.validations : [],
-    freeze: sheet.freeze || 'A1'
+    cols: { ...(source.cols || {}), len: Math.max(26, sheet.columnCount) },
+    merges: Array.isArray(source.merges) ? source.merges : [],
+    styles: Array.isArray(source.styles) ? source.styles : [],
+    validations: Array.isArray(source.validations) ? source.validations : [],
+    freeze: source.freeze || 'A1'
   }
-})
-
-const payloadOf = (value) => JSON.stringify(canonicalData(value))
-
-const suppressNextSelfPropSync = () => {
-  suppressPropSyncUntil = Date.now() + 350
-  if (suppressPropSyncTimer) clearTimeout(suppressPropSyncTimer)
-  suppressPropSyncTimer = setTimeout(() => {
-    suppressPropSyncUntil = 0
-    suppressPropSyncTimer = null
-  }, 360)
-}
-
-const calculateSpreadsheetHeight = () => {
-  const top = containerRef.value?.getBoundingClientRect?.().top || 0
-  const viewport = window.innerHeight || document.documentElement.clientHeight || 760
-  // 让表格区域和当前可视区保持自然比例：不再强行拉到很高，
-  // 同时为底部“备注”等表单项预留空间，避免出现一截生硬的空白延伸。
-  return Math.round(Math.min(660, Math.max(520, viewport - top - 128)))
-}
-
-const spreadsheetHeight = () => {
-  // x-data-spreadsheet 的 view.height 必须读取宿主真实高度。
-  // 如果这里再次按 viewport 计算，页面滚动或 Tab 重排后会和外层 CSS 高度不一致，
-  // 底部工具条/网格就会出现“不自然延伸”的视觉错位。
-  return Math.round(containerRef.value?.clientHeight || hostHeight)
-}
-
-const syncHostHeight = () => {
-  if (!containerRef.value) return
-  hostHeight = calculateSpreadsheetHeight()
-  containerRef.value.style.setProperty('--spreadsheet-editor-height', `${hostHeight}px`)
-}
-
-const loadSpreadsheetData = (value) => {
-  if (!spreadsheet) return
-  const data = canonicalData(value)
-  const payload = payloadOf(data)
-  if (payload === lastPayload) return
-  // 用户在单元格中每输入一个字符都会向父组件同步一次数据。
-  // 父组件回写 props 时，如果这里立刻 loadData，会重建表格并把选区重置到 A1。
-  // 因此对“本组件刚刚 emit 出去”的回写只更新快照，不重新加载表格实例。
-  if (Date.now() < suppressPropSyncUntil) {
-    lastPayload = payload
-    return
-  }
-  applying = true
-  lastPayload = payload
-  spreadsheet.loadData(clone(data))
-  requestAnimationFrame(() => spreadsheet?.reRender?.())
-  applying = false
 }
 
 const emitChange = () => {
-  if (!spreadsheet || applying) return
-  const data = canonicalData(spreadsheet.getData ? spreadsheet.getData() : props.modelValue)
-  lastPayload = payloadOf(data)
-  suppressNextSelfPropSync()
-  emits('update:modelValue', clone(data))
+  const payload = sheets.value.map(sheetPayload)
+  lastEmittedPayload = JSON.stringify(payload)
+  emits('update:modelValue', payload)
 }
 
-const resizeSpreadsheet = () => {
-  syncHostHeight()
-  requestAnimationFrame(() => spreadsheet?.reRender?.())
+const syncFromProps = (value) => {
+  const normalized = Array.isArray(value) && value.length ? value : [createBlankSheet().source]
+  const payload = JSON.stringify(normalized)
+  if (payload === lastEmittedPayload) return
+  sheets.value = normalized.map(toEditableSheet)
+  activeSheetIndex.value = Math.min(Number(activeSheetIndex.value) || 0, sheets.value.length - 1)
 }
 
-const initSpreadsheet = async () => {
-  await nextTick()
-  if (!containerRef.value || spreadsheet) return
+const cellValue = (rowIndex, columnIndex) => activeSheet.value?.values?.[rowIndex]?.[columnIndex] ?? ''
 
-  const Spreadsheet = window.x_spreadsheet
-  if (!Spreadsheet) return
-  syncHostHeight()
-  Spreadsheet?.locale?.('zh-cn')
-  spreadsheet = Spreadsheet(containerRef.value, {
-    mode: props.readonly ? 'read' : 'edit',
-    showToolbar: !props.readonly,
-    showContextmenu: !props.readonly,
-    showGrid: true,
-    view: {
-      height: spreadsheetHeight,
-      width: () => containerRef.value?.clientWidth || 960
-    },
-    row: {
-      len: 100,
-      height: 30
-    },
-    col: {
-      len: 26,
-      width: 140,
-      indexWidth: 52,
-      minWidth: 60
-    },
-    style: {
-      bgcolor: '#ffffff',
-      align: 'left',
-      valign: 'middle',
-      textwrap: true,
-      strike: false,
-      underline: false,
-      color: '#111827',
-      font: {
-        name: 'Microsoft YaHei',
-        size: 10,
-        bold: false,
-        italic: false
-      }
-    }
-  })
+const updateCell = (rowIndex, columnIndex, value) => {
+  const sheet = activeSheet.value
+  if (!sheet) return
+  sheet.values[rowIndex][columnIndex] = String(value ?? '')
+  emitChange()
+}
 
-  spreadsheet.change(emitChange)
-  spreadsheet.on?.('cell-edited', emitChange)
-  loadSpreadsheetData(props.modelValue)
-  window.addEventListener('resize', resizeSpreadsheet)
-  if (window.ResizeObserver) {
-    resizeObserver = new ResizeObserver(resizeSpreadsheet)
-    resizeObserver.observe(containerRef.value)
+const addRow = () => {
+  const sheet = activeSheet.value
+  if (!sheet || sheet.rowCount >= maximumRows) return
+  sheet.values.push(Array.from({ length: sheet.columnCount }, () => ''))
+  sheet.rowCount += 1
+  emitChange()
+}
+
+const addColumn = () => {
+  const sheet = activeSheet.value
+  if (!sheet || sheet.columnCount >= maximumColumns) return
+  sheet.values.forEach((row) => row.push(''))
+  sheet.columnCount += 1
+  emitChange()
+}
+
+const addSheet = () => {
+  const sheet = createBlankSheet(`Sheet${sheets.value.length + 1}`)
+  sheets.value.push(sheet)
+  activeSheetIndex.value = sheets.value.length - 1
+  emitChange()
+}
+
+const removeSheet = () => {
+  if (sheets.value.length <= 1) return
+  sheets.value.splice(Number(activeSheetIndex.value), 1)
+  activeSheetIndex.value = Math.max(0, Math.min(Number(activeSheetIndex.value), sheets.value.length - 1))
+  emitChange()
+}
+
+const columnLabel = (index) => {
+  let value = index + 1
+  let label = ''
+  while (value > 0) {
+    value -= 1
+    label = String.fromCharCode(65 + (value % 26)) + label
+    value = Math.floor(value / 26)
   }
-  emits('ready', spreadsheet)
+  return label
 }
 
-watch(
-  () => props.modelValue,
-  (value) => loadSpreadsheetData(value),
-  { deep: false }
-)
+const emitReady = () => emits('ready', { sheetCount: sheets.value.length })
 
-onMounted(initSpreadsheet)
-
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', resizeSpreadsheet)
-  resizeObserver?.disconnect?.()
-  resizeObserver = null
-  if (suppressPropSyncTimer) clearTimeout(suppressPropSyncTimer)
-  suppressPropSyncTimer = null
-  suppressPropSyncUntil = 0
-  if (containerRef.value) {
-    containerRef.value.innerHTML = ''
-  }
-  spreadsheet = null
-})
+watch(() => props.modelValue, syncFromProps, { deep: false, immediate: true })
+onMounted(emitReady)
 </script>
 
 <style scoped lang="scss">
@@ -217,45 +209,94 @@ onBeforeUnmount(() => {
   width: 100%;
   overflow: hidden;
   border: 1px solid var(--el-border-color-light);
-  border-radius: 10px;
-  background: #f8fafc;
+  border-radius: 8px;
+  background: var(--el-bg-color);
 }
 
-.spreadsheet-editor-host {
-  width: 100%;
-  height: var(--spreadsheet-editor-height, 620px);
-  min-height: 520px;
-  max-height: 660px;
+.spreadsheet-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 52px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--el-border-color-light);
 }
 
-.spreadsheet-editor-host :deep(.x-spreadsheet) {
-  width: 100%;
-  height: 100% !important;
+.sheet-tabs {
+  min-width: 0;
+  flex: 1;
+}
+
+.sheet-tabs :deep(.el-tabs__header) {
+  margin: 0;
+}
+
+.spreadsheet-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.spreadsheet-grid-wrap {
+  height: min(620px, calc(100vh - 250px));
+  min-height: 480px;
+  overflow: auto;
+}
+
+.spreadsheet-grid {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.spreadsheet-grid th,
+.spreadsheet-grid td {
+  width: 140px;
+  min-width: 140px;
+  height: 36px;
+  padding: 0;
+  border-right: 1px solid var(--el-border-color-lighter);
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  background: var(--el-bg-color);
+}
+
+.spreadsheet-grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  color: var(--el-text-color-secondary);
+  background: var(--el-fill-color-light);
+}
+
+.spreadsheet-grid .row-number {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  width: 52px;
+  min-width: 52px;
+  text-align: center;
+  color: var(--el-text-color-secondary);
+  background: var(--el-fill-color-light);
+}
+
+.spreadsheet-grid thead .row-number {
+  z-index: 3;
+}
+
+.spreadsheet-grid td > span {
+  display: block;
   overflow: hidden;
-  border-radius: 10px;
-  font-family: "Microsoft YaHei", Arial, sans-serif;
+  padding: 0 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.spreadsheet-editor-host :deep(.x-spreadsheet-toolbar) {
-  border-bottom-color: var(--el-border-color-light);
-  background: #f8fafc;
-}
-
-.spreadsheet-editor-host :deep(.x-spreadsheet-bottombar) {
-  border-top: 1px solid var(--el-border-color-light);
-  background: #f8fafc;
-}
-
-/*
-  x-data-spreadsheet 的工具栏 tooltip 会用 ::before 画一个黑色菱形箭头。
-  在当前后台布局中 tooltip 容易被顶部导航裁切，只剩黑色菱形悬浮在页面上。
-  这里隐藏该组件自带 tooltip，不影响单元格编辑/右键菜单/工具栏功能。
-*/
-:global(.x-spreadsheet-tooltip) {
-  display: none !important;
-}
-
-:global(.x-spreadsheet-tooltip::before) {
-  display: none !important;
+.spreadsheet-grid :deep(.el-input__wrapper) {
+  min-height: 35px;
+  padding: 0 8px;
+  border-radius: 0;
+  box-shadow: none;
 }
 </style>

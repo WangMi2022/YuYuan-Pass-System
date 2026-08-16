@@ -143,14 +143,9 @@
         <el-tabs type="border-card">
           <el-tab-pane label="页面预览">
             <div class="h-[500px] overflow-auto bg-gray-50 p-4 rounded dark:bg-slate-900">
-              <div v-if="!loadedComponents" class="text-gray-500 text-center py-4 dark:text-slate-400">
-                组件加载中...
+              <div class="text-gray-500 text-center py-4 dark:text-slate-400">
+                为防止执行模型生成的代码，管理端实时预览已关闭，请在“源代码”页签检查后复制到隔离开发环境。
               </div>
-              <component
-                v-else
-                :is="loadedComponents" 
-                class="vue-component-container w-full"
-              />
             </div>
           </el-tab-pane>
           <el-tab-pane label="源代码">
@@ -175,8 +170,7 @@
 
 <script setup>
 import { llmAuto } from '@/api/autoCode'
-import { defineAsyncComponent, markRaw, ref } from 'vue'
-import * as Vue from "vue";
+import { ref } from 'vue'
 import WarningBar from '@/components/warningBar/warningBar.vue'
 import { ElMessage } from 'element-plus'
 import { DocumentCopy } from '@element-plus/icons-vue'
@@ -244,127 +238,6 @@ const outPut = ref(false)
 // 容纳llm返回的vue组件代码
 const htmlFromLLM = ref("")
 
-// 存储加载的组件
-const loadedComponents = ref(null)
-
-const loadVueComponent = async (vueCode) => {
-  try {
-    // 使用内存中的虚拟路径
-    const fakePath = `virtual:component-0.vue`
-    
-    const component = defineAsyncComponent({
-      loader: async () => {
-        try {
-          const { loadModule } = await import('vue3-sfc-loader')
-          const options = {
-            moduleCache: {
-              vue: Vue,
-            },
-            getFile(url) {
-              // 处理所有可能的URL格式，包括相对路径、绝对路径等
-              // 提取路径的最后部分，忽略查询参数
-              const fileName = url.split('/').pop().split('?')[0]
-              const componentFileName = fakePath.split('/').pop()
-              
-              // 如果文件名包含我们的组件名称，或者url完全匹配fakePath
-              if (fileName === componentFileName || url === fakePath || 
-                  url === `./component/0.vue`) {
-                return Promise.resolve({
-                  type: '.vue',
-                  getContentData: () => vueCode
-                })
-              }
-              
-              console.warn('请求未知文件:', url)
-              return Promise.reject(new Error(`找不到文件: ${url}`))
-            },
-            addStyle(textContent) {
-              // 不再将样式添加到document.head，而是返回样式内容
-              // 稍后会将样式添加到Shadow DOM中
-              return textContent
-            },
-            handleModule() {
-              // 默认处理器
-              return undefined
-            },
-            log(type, ...args) {
-              console.log(`[vue3-sfc-loader] [${type}]`, ...args)
-            }
-          }
-          
-          // 尝试加载组件
-          const comp = await loadModule(fakePath, options)
-          return comp.default || comp
-        } catch (error) {
-          console.error('组件加载详细错误:', error)
-          throw error
-        }
-      },
-      loadingComponent: {
-        template: '<div>加载中...</div>'
-      },
-      errorComponent: {
-        props: ['error'],
-        template: '<div>组件加载失败: {{ error && error.message }}</div>',
-        setup(props) {
-          console.error('错误组件收到的错误:', props.error)
-          return {}
-        }
-      },
-      // 添加超时和重试选项
-      timeout: 30000,
-      delay: 200,
-      suspensible: false,
-      onError(error, retry, fail) {
-        console.error('加载错误，细节:', error)
-        fail()
-      }
-    })
-
-    // 创建一个包装组件，使用Shadow DOM隔离样式
-    const ShadowWrapper = {
-      name: 'ShadowWrapper',
-      setup() {
-        return {}
-      },
-      render() {
-        return Vue.h('div', { class: 'shadow-wrapper' })
-      },
-      mounted() {
-        // 创建Shadow DOM
-        const shadowRoot = this.$el.attachShadow({ mode: 'open' })
-        
-        // 创建一个容器元素
-        const container = document.createElement('div')
-        container.className = 'shadow-container'
-        shadowRoot.appendChild(container)
-        
-        // 提取组件中的样式
-        const styleContent = vueCode.match(/<style[^>]*>([\s\S]*?)<\/style>/i)?.[1] || ''
-        
-        // 创建样式元素并添加到Shadow DOM
-        if (styleContent) {
-          const style = document.createElement('style')
-          style.textContent = styleContent
-          shadowRoot.appendChild(style)
-        }
-        
-        // 创建Vue应用并挂载到Shadow DOM容器中
-        const app = Vue.createApp({
-          render: () => Vue.h(component)
-        })
-        app.mount(container)
-      }
-    }
-
-    loadedComponents.value = markRaw(ShadowWrapper)
-    return ShadowWrapper
-  } catch (error) {
-    console.error('组件创建总错误:', error)
-    return null
-  }
-}
-
 // 当页面用途改变时，更新内容板块的选择
 const handlePageTypeChange = (value) => {
   if (value !== '其他' && pageTypeContentMap[value]) {
@@ -404,10 +277,7 @@ const llmAutoFunc = async () => {
   const res = await llmAuto({web: fullPrompt, mode: 'createWeb'})
   if (res.code === 0) {
     outPut.value = true
-    // 添加返回的Vue组件代码到数组
     htmlFromLLM.value = res.data.text
-    // 加载新生成的组件
-    await loadVueComponent(res.data.text)
   }
 }
 

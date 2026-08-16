@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
+	"github.com/flipped-aurora/gin-vue-admin/server/model/system"
 	"github.com/flipped-aurora/gin-vue-admin/server/utils"
 	"github.com/golang-jwt/jwt/v5"
 
@@ -43,15 +44,22 @@ func JWTAuth() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+		if global.GVA_DB == nil {
+			response.NoAuth("系统尚未完成数据库初始化", c)
+			c.Abort()
+			return
+		}
+		var user struct {
+			Enable          int
+			SecurityVersion uint64
+		}
+		if err := global.GVA_DB.Model(&system.SysUser{}).Select("enable", "security_version").Where("id = ?", claims.BaseClaims.ID).First(&user).Error; err != nil || user.Enable != 1 || user.SecurityVersion != claims.SecurityVersion {
+			response.NoAuth("用户状态或会话已失效，请重新登录", c)
+			utils.ClearToken(c)
+			c.Abort()
+			return
+		}
 
-		// 已登录用户被管理员禁用 需要使该用户的jwt失效 此处比较消耗性能 如果需要 请自行打开
-		// 用户被删除的逻辑 需要优化 此处比较消耗性能 如果需要 请自行打开
-
-		//if user, err := userService.FindUserByUuid(claims.UUID.String()); err != nil || user.Enable == 2 {
-		//	_ = jwtService.JsonInBlacklist(system.JwtBlacklist{Jwt: token})
-		//	response.FailWithDetailed(gin.H{"reload": true}, err.Error(), c)
-		//	c.Abort()
-		//}
 		c.Set("claims", claims)
 		if claims.ExpiresAt.Unix()-time.Now().Unix() < claims.BufferTime {
 			dr, _ := utils.ParseDuration(global.GVA_CONFIG.JWT.ExpiresTime)

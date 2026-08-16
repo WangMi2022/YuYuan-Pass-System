@@ -80,7 +80,10 @@ func (userService *UserService) ChangePassword(u *system.SysUser, newPassword st
 		return errors.New("原密码错误")
 	}
 	pwd := utils.BcryptHash(newPassword)
-	err = global.GVA_DB.Model(&user).Update("password", pwd).Error
+	err = global.GVA_DB.Model(&user).Updates(map[string]interface{}{
+		"password":         pwd,
+		"security_version": gorm.Expr("security_version + ?", 1),
+	}).Error
 	return err
 }
 
@@ -178,7 +181,10 @@ func (userService *UserService) SetUserAuthority(id uint, authorityId uint) (err
 		return errors.New("找不到默认路由,无法切换本角色")
 	}
 
-	err = global.GVA_DB.Model(&system.SysUser{}).Where("id = ?", id).Update("authority_id", authorityId).Error
+	err = global.GVA_DB.Model(&system.SysUser{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"authority_id":     authorityId,
+		"security_version": gorm.Expr("security_version + ?", 1),
+	}).Error
 	return err
 }
 
@@ -214,7 +220,10 @@ func (userService *UserService) SetUserAuthorities(adminAuthorityID, id uint, au
 		if TxErr != nil {
 			return TxErr
 		}
-		TxErr = tx.Model(&user).Update("authority_id", authorityIds[0]).Error
+		TxErr = tx.Model(&user).Updates(map[string]interface{}{
+			"authority_id":     authorityIds[0],
+			"security_version": gorm.Expr("security_version + ?", 1),
+		}).Error
 		if TxErr != nil {
 			return TxErr
 		}
@@ -249,15 +258,16 @@ func (userService *UserService) DeleteUser(id int) (err error) {
 
 func (userService *UserService) SetUserInfo(req system.SysUser) error {
 	return global.GVA_DB.Model(&system.SysUser{}).
-		Select("updated_at", "nick_name", "header_img", "phone", "email", "enable").
+		Select("updated_at", "nick_name", "header_img", "phone", "email", "enable", "security_version").
 		Where("id=?", req.ID).
 		Updates(map[string]interface{}{
-			"updated_at": time.Now(),
-			"nick_name":  req.NickName,
-			"header_img": req.HeaderImg,
-			"phone":      req.Phone,
-			"email":      req.Email,
-			"enable":     req.Enable,
+			"updated_at":       time.Now(),
+			"nick_name":        req.NickName,
+			"header_img":       req.HeaderImg,
+			"phone":            req.Phone,
+			"email":            req.Email,
+			"enable":           req.Enable,
+			"security_version": gorm.Expr("security_version + ?", 1),
 		}).Error
 }
 
@@ -270,7 +280,12 @@ func (userService *UserService) SetUserInfo(req system.SysUser) error {
 func (userService *UserService) SetSelfInfo(req system.SysUser) error {
 	return global.GVA_DB.Model(&system.SysUser{}).
 		Where("id=?", req.ID).
-		Updates(req).Error
+		Updates(map[string]interface{}{
+			"nick_name":  req.NickName,
+			"header_img": req.HeaderImg,
+			"phone":      req.Phone,
+			"email":      req.Email,
+		}).Error
 }
 
 //@author: [piexlmax](https://github.com/piexlmax)
@@ -333,6 +348,9 @@ func (userService *UserService) FindUserByUuid(uuid string) (user *system.SysUse
 //@return: err error
 
 func (userService *UserService) ResetPassword(ID uint, password string) (err error) {
-	err = global.GVA_DB.Model(&system.SysUser{}).Where("id = ?", ID).Update("password", utils.BcryptHash(password)).Error
+	err = global.GVA_DB.Model(&system.SysUser{}).Where("id = ?", ID).Updates(map[string]interface{}{
+		"password":         utils.BcryptHash(password),
+		"security_version": gorm.Expr("security_version + ?", 1),
+	}).Error
 	return err
 }

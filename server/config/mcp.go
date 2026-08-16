@@ -8,6 +8,7 @@ type MCP struct {
 	BaseURL         string `mapstructure:"base_url" json:"base_url" yaml:"base_url"`
 	UpstreamBaseURL string `mapstructure:"upstream_base_url" json:"upstream_base_url" yaml:"upstream_base_url"`
 	AuthHeader      string `mapstructure:"auth_header" json:"auth_header" yaml:"auth_header"`
+	AuthToken       string `mapstructure:"auth_token" json:"-" yaml:"auth_token"`
 	RequestTimeout  int    `mapstructure:"request_timeout" json:"request_timeout" yaml:"request_timeout"`
 
 	// Deprecated fields kept for backward compatibility with older configs.

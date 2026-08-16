@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"os"
+	"strings"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/core"
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/initialize"
 	systemService "github.com/flipped-aurora/gin-vue-admin/server/service/system"
+	"github.com/flipped-aurora/gin-vue-admin/server/utils"
 	_ "go.uber.org/automaxprocs"
 	"go.uber.org/zap"
 )
@@ -45,6 +48,12 @@ func initializeSystem() {
 	global.GVA_LOG = core.Zap() // 初始化zap日志库
 	zap.ReplaceGlobals(global.GVA_LOG)
 	global.GVA_DB = initialize.Gorm() // gorm连接数据库
+	if signingKey := strings.TrimSpace(os.Getenv("GVA_JWT_SIGNING_KEY")); signingKey != "" {
+		global.GVA_CONFIG.JWT.SigningKey = signingKey
+	}
+	if global.GVA_DB != nil && utils.IsWeakJWTSigningKey(global.GVA_CONFIG.JWT.SigningKey) {
+		panic("生产数据库已初始化，但 JWT signing-key 仍为默认弱密钥；请先通过安全配置注入随机密钥")
+	}
 	initialize.Timer()
 	initialize.DBList()
 	initialize.SetupHandlers() // 注册全局函数

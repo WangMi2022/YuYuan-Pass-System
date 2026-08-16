@@ -21,6 +21,11 @@ import (
 
 type FileUploadAndDownloadApi struct{}
 
+const (
+	maxMediaUploadBytes  int64 = 10 * 1024 * 1024
+	maxMediaRequestBytes int64 = maxMediaUploadBytes + 1024*1024
+)
+
 // UploadFile
 // @Tags      ExaFileUploadAndDownload
 // @Summary   上传文件示例
@@ -31,6 +36,13 @@ type FileUploadAndDownloadApi struct{}
 // @Success   200   {object}  response.Response{data=exampleRes.ExaFileResponse,msg=string}  "上传文件示例,返回包括文件详情"
 // @Router    /fileUploadAndDownload/upload [post]
 func (b *FileUploadAndDownloadApi) UploadFile(c *gin.Context) {
+	if c.Request.ContentLength > maxMediaRequestBytes {
+		response.FailWithMessage("上传请求不能超过 11MB", c)
+		return
+	}
+	if c.Request.Body != nil {
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxMediaRequestBytes)
+	}
 	var file example.ExaFileUploadAndDownload
 	noSave := c.DefaultQuery("noSave", "0")
 	_, header, err := c.Request.FormFile("file")
@@ -38,6 +50,10 @@ func (b *FileUploadAndDownloadApi) UploadFile(c *gin.Context) {
 	if err != nil {
 		global.GVA_LOG.Error("接收文件失败!", zap.Error(err))
 		response.FailWithMessage("接收文件失败", c)
+		return
+	}
+	if header.Size <= 0 || header.Size > maxMediaUploadBytes {
+		response.FailWithMessage("媒体文件大小必须在 10MB 以内", c)
 		return
 	}
 	if err = validateImageUpload(header); err != nil {
@@ -76,9 +92,6 @@ func validateImageUpload(header *multipart.FileHeader) error {
 	if strings.HasPrefix(detected, "image/") {
 		return nil
 	}
-	if ext == ".svg" && bytes.Contains(bytes.ToLower(sniff), []byte("<svg")) {
-		return nil
-	}
 	if ext == ".webp" && len(sniff) >= 12 && bytes.Equal(sniff[:4], []byte("RIFF")) && bytes.Equal(sniff[8:12], []byte("WEBP")) {
 		return nil
 	}
@@ -93,7 +106,7 @@ func validateImageUpload(header *multipart.FileHeader) error {
 
 func isAllowedImageExt(ext string) bool {
 	allowedExt := map[string]struct{}{
-		".jpg": {}, ".jpeg": {}, ".png": {}, ".gif": {}, ".bmp": {}, ".webp": {}, ".svg": {}, ".avif": {},
+		".jpg": {}, ".jpeg": {}, ".png": {}, ".gif": {}, ".bmp": {}, ".webp": {}, ".avif": {},
 	}
 	_, ok := allowedExt[strings.ToLower(ext)]
 	return ok

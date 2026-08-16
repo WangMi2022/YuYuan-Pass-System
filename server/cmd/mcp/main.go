@@ -1,7 +1,10 @@
 package main
 
 import (
-	"fmt"
+	"net"
+	"os"
+	"strconv"
+	"strings"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	mcpTool "github.com/flipped-aurora/gin-vue-admin/server/mcp"
@@ -19,7 +22,18 @@ func main() {
 		panic(err)
 	}
 
-	addr := fmt.Sprintf(":%d", global.GVA_CONFIG.MCP.Addr)
+	authToken := strings.TrimSpace(global.GVA_CONFIG.MCP.AuthToken)
+	if authToken == "" {
+		authToken = strings.TrimSpace(os.Getenv("GVA_MCP_AUTH_TOKEN"))
+	}
+	if authToken == "" {
+		panic("独立 MCP 必须配置 GVA_MCP_AUTH_TOKEN 或 mcp.auth_token")
+	}
+	host := strings.TrimSpace(os.Getenv("GVA_MCP_BIND"))
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	addr := net.JoinHostPort(host, strconv.Itoa(global.GVA_CONFIG.MCP.Addr))
 	server := mcpTool.NewStreamableHTTPServer()
 
 	global.GVA_LOG.Info("mcp独立服务启动",

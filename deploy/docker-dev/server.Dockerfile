@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # 自定义后端 Dockerfile：为二次开发保留，避免依赖项目原始 Dockerfile。
-ARG GO_IMAGE=public.ecr.aws/docker/library/golang:1.24-alpine
-ARG RUNTIME_IMAGE=public.ecr.aws/docker/library/alpine:latest
+ARG GO_IMAGE=public.ecr.aws/docker/library/golang:1.25.13-alpine3.22
+ARG RUNTIME_IMAGE=public.ecr.aws/docker/library/alpine:3.22.1
 
 FROM ${GO_IMAGE} AS builder
 WORKDIR /src

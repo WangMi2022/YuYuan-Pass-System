@@ -71,8 +71,8 @@
               <el-image
                 v-if="row.photos?.length"
                 class="asset-thumb"
-                :src="photoUrl(row.photos[0])"
-                :preview-src-list="row.photos.map(photoUrl)"
+                :src="photoUrl(row.photos[0], row.ID)"
+                :preview-src-list="row.photos.map((photo) => photoUrl(photo, row.ID))"
                 preview-teleported
                 fit="cover"
                 lazy
@@ -420,7 +420,7 @@ const openEdit = (row) => {
     purchaseDate: row.purchaseDate ? new Date(row.purchaseDate) : null,
     productionDate: row.productionDate ? new Date(row.productionDate) : null,
     warrantyEndDate: row.warrantyEndDate ? new Date(row.warrantyEndDate) : null,
-    photos: (row.photos || []).map((item, index) => ({ ...item, url: photoUrl(item), uid: item.key || index, status: 'success' }))
+    photos: (row.photos || []).map((item, index) => ({ ...item, assetId: row.ID, url: photoUrl(item, row.ID), uid: item.key || index, status: 'success' }))
   }
   drawerVisible.value = true
 }
@@ -436,7 +436,7 @@ const saveAsset = async () => {
   try {
     const payload = {
       ...formData.value,
-      photos: (formData.value.photos || []).map(({ name, key, url }) => ({ name, key, url }))
+      photos: (formData.value.photos || []).map(({ name, key, url, assetId, accessToken }) => ({ name, key, url, assetId, accessToken }))
     }
     const res = editing.value ? await updateAsset(payload) : await createAsset(payload)
     if (res.code === 0) {
@@ -474,9 +474,9 @@ const beforePhotoUpload = (file) => {
 
 const uploadPhoto = async (options) => {
   try {
-    const res = await uploadAssetPhoto(options.file)
+    const res = await uploadAssetPhoto(options.file, formData.value.ID || 0)
     if (res.code === 0) {
-      const photo = { ...res.data, url: photoUrl(res.data), uid: res.data.key, status: 'success' }
+      const photo = { ...res.data, url: res.data.url || URL.createObjectURL(options.file), uid: res.data.key, status: 'success' }
       formData.value.photos.push(photo)
       options.onSuccess(photo)
       ElMessage.success('照片已保存到 RustFS')
@@ -492,7 +492,7 @@ const removePhoto = (file) => {
   const key = file.key || file.response?.key
   formData.value.photos = formData.value.photos.filter((item) => item.key !== key)
 }
-const photoUrl = (photo) => assetPhotoUrl(photo, import.meta.env.VITE_BASE_API)
+const photoUrl = (photo, assetId = 0) => assetPhotoUrl(photo, import.meta.env.VITE_BASE_API, assetId)
 const previewPhoto = (file) => { previewUrl.value = photoUrl(file); previewVisible.value = true }
 const photoExceed = () => ElMessage.warning('每项资产最多上传 6 张照片')
 

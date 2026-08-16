@@ -13,10 +13,14 @@ const (
 	coreAdminAuthorityID = "888"
 	reloadSystemPath     = "/system/reloadSystem"
 	reloadSystemMethod   = "POST"
+	swaggerPath          = "/swagger/*any"
+	freshCasbinPath      = "/api/freshCasbin"
 )
 
 var requiredCoreAdminRules = []gormadapter.CasbinRule{
 	{Ptype: "p", V0: coreAdminAuthorityID, V1: reloadSystemPath, V2: reloadSystemMethod},
+	{Ptype: "p", V0: coreAdminAuthorityID, V1: swaggerPath, V2: "GET"},
+	{Ptype: "p", V0: coreAdminAuthorityID, V1: freshCasbinPath, V2: "GET"},
 	{Ptype: "p", V0: coreAdminAuthorityID, V1: "/autoCode/llmAuto", V2: "POST"},
 	{Ptype: "p", V0: coreAdminAuthorityID, V1: "/autoCode/llmAutoSSE", V2: "POST"},
 	{Ptype: "p", V0: coreAdminAuthorityID, V1: "/autoCode/initMenu", V2: "POST"},
@@ -32,9 +36,11 @@ func (casbinService *CasbinService) EnsureCoreAdminPermissions(ctx context.Conte
 	}
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Unscoped().Where(
-			"(path = ? AND method = ?) OR (path = ? AND method = ?)",
+			"(path = ? AND method = ?) OR (path = ? AND method = ?) OR (path = ? AND method = ?) OR (path = ? AND method = ?)",
 			"/autoCode/llmAuto", "POST",
 			"/autoCode/llmAutoSSE", "POST",
+			swaggerPath, "GET",
+			freshCasbinPath, "GET",
 		).Delete(&sysModel.SysIgnoreApi{}).Error; err != nil {
 			return err
 		}

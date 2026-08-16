@@ -8,12 +8,13 @@ export const getAssetList = (params) => service({ url: '/asset/list', method: 'g
 export const getAssetDashboard = () => service({ url: '/asset/dashboard', method: 'get' })
 export const getCategoryOptions = () => service({ url: '/asset/categoryOptions', method: 'get' })
 
-export const uploadAssetPhoto = (file) => {
+export const uploadAssetPhoto = (file, assetId = 0) => {
   const data = new FormData()
   data.append('file', file)
   return service({
     url: '/asset/uploadPhoto',
     method: 'post',
+    params: assetId ? { assetId } : undefined,
     data,
     headers: { 'Content-Type': 'multipart/form-data' }
   })

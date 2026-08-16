@@ -94,10 +94,10 @@ func Test_autoCodePackage_templates(t *testing.T) {
 				return
 			}
 			for key, value := range gotCode {
-				t.Logf("\n")
-				t.Logf(key)
-				t.Logf(value)
-				t.Logf("\n")
+				t.Log("")
+				t.Log(key)
+				t.Log(value)
+				t.Log("")
 			}
 			t.Log(gotCreates)
 			if !reflect.DeepEqual(gotEnter, tt.wantEnter) {

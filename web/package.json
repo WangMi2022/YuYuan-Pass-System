@@ -18,8 +18,6 @@
   "type": "module",
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.1",
-    "@form-create/designer": "^3.2.6",
-    "@form-create/element-ui": "^3.2.10",
     "@iconify/vue": "^5.0.0",
     "@unocss/transformer-directives": "^66.4.2",
     "@vue-office/docx": "^1.6.2",
@@ -29,9 +27,10 @@
     "@wangeditor/editor": "^5.1.23",
     "@wangeditor/editor-for-vue": "^5.1.12",
     "ace-builds": "^1.36.4",
-    "axios": "1.8.2",
-    "echarts": "5.5.1",
+    "axios": "1.19.0",
+    "echarts": "6.1.0",
     "element-plus": "^2.13.6",
+    "exceljs": "4.4.0",
     "highlight.js": "^11.10.0",
     "mammoth": "^1.12.0",
     "marked": "14.1.1",
@@ -50,10 +49,7 @@
     "vue-qr": "^4.0.9",
     "vue-router": "^4.4.3",
     "vue3-ace-editor": "^2.2.4",
-    "vue3-sfc-loader": "^0.9.5",
-    "vuedraggable": "^4.1.0",
-    "x-data-spreadsheet": "^1.1.9",
-    "xlsx": "^0.18.5"
+    "vuedraggable": "^4.1.0"
   },
   "devDependencies": {
     "@babel/eslint-parser": "^7.25.1",

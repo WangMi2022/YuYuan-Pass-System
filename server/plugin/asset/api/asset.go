@@ -1,8 +1,8 @@
 package api
 
 import (
+	"mime"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 
@@ -10,6 +10,7 @@ import (
 	commonResponse "github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
 	"github.com/flipped-aurora/gin-vue-admin/server/plugin/asset/model"
 	assetRequest "github.com/flipped-aurora/gin-vue-admin/server/plugin/asset/model/request"
+	"github.com/flipped-aurora/gin-vue-admin/server/utils"
 	"github.com/flipped-aurora/gin-vue-admin/server/utils/upload"
 	"github.com/gin-gonic/gin"
 	"github.com/minio/minio-go/v7"
@@ -17,6 +18,8 @@ import (
 )
 
 var Asset = new(assetAPI)
+
+const maxAssetPhotoBytes int64 = 10 * 1024 * 1024
 
 type assetAPI struct{}
 
@@ -113,7 +116,7 @@ func (a *assetAPI) UploadPhoto(c *gin.Context) {
 		commonResponse.FailWithMessage("请选择要上传的图片", c)
 		return
 	}
-	if header.Size <= 0 || header.Size > 10*1024*1024 {
+	if header.Size <= 0 || header.Size > maxAssetPhotoBytes {
 		commonResponse.FailWithMessage("图片大小必须在 10MB 以内", c)
 		return
 	}
@@ -130,16 +133,23 @@ func (a *assetAPI) UploadPhoto(c *gin.Context) {
 		commonResponse.FailWithMessage("仅支持 JPG、PNG、WebP、GIF 图片", c)
 		return
 	}
+	header.Header.Set("Content-Type", contentType)
 	_, key, err := upload.NewOss().UploadFile(header)
 	if err != nil {
 		global.GVA_LOG.Error("上传资产图片失败", zap.Error(err))
 		commonResponse.FailWithMessage("上传到 RustFS 失败", c)
 		return
 	}
+	accessToken, err := model.CreatePhotoAccessToken(utils.GetUserID(c), key)
+	if err != nil {
+		commonResponse.FailWithMessage("生成图片访问令牌失败", c)
+		return
+	}
 	photo := model.Photo{
-		Name: header.Filename,
-		Key:  key,
-		URL:  "/api/asset/photo?key=" + url.QueryEscape(key),
+		Name:        header.Filename,
+		Key:         key,
+		URL:         model.BuildPhotoURL(0, key, accessToken),
+		AccessToken: accessToken,
 	}
 	commonResponse.OkWithDetailed(photo, "图片上传成功", c)
 }
@@ -158,6 +168,10 @@ func (a *assetAPI) DeletePhoto(c *gin.Context) {
 		commonResponse.FailWithMessage("对象路径不正确", c)
 		return
 	}
+	if !authorizeAssetPhotoKey(c, key) {
+		c.Status(http.StatusForbidden)
+		return
+	}
 	if err := upload.NewOss().DeleteFile(key); err != nil {
 		commonResponse.FailWithMessage("删除图片失败", c)
 		return
@@ -170,6 +184,10 @@ func (a *assetAPI) Photo(c *gin.Context) {
 	key := c.Query("key")
 	if !validObjectKey(key) {
 		c.Status(http.StatusBadRequest)
+		return
+	}
+	if !authorizeAssetPhotoKey(c, key) {
+		c.Status(http.StatusForbidden)
 		return
 	}
 	client, err := upload.GetMinio(
@@ -194,10 +212,44 @@ func (a *assetAPI) Photo(c *gin.Context) {
 		c.Status(http.StatusNotFound)
 		return
 	}
-	contentType := stat.ContentType
-	if contentType == "" {
-		contentType = "application/octet-stream"
+	if stat.Size <= 0 || stat.Size > maxAssetPhotoBytes || !isAllowedAssetPhotoContentType(stat.ContentType) {
+		c.Status(http.StatusNotFound)
+		return
 	}
+	contentType, _, _ := mime.ParseMediaType(stat.ContentType)
 	c.Header("Cache-Control", "private, max-age=3600")
+	c.Header("Content-Disposition", "inline")
+	c.Header("X-Content-Type-Options", "nosniff")
 	c.DataFromReader(http.StatusOK, stat.Size, contentType, object, nil)
+}
+
+func isAllowedAssetPhotoContentType(value string) bool {
+	contentType, _, err := mime.ParseMediaType(value)
+	if err != nil {
+		return false
+	}
+	switch strings.ToLower(contentType) {
+	case "image/jpeg", "image/png", "image/webp", "image/gif":
+		return true
+	default:
+		return false
+	}
+}
+
+func assetPhotoBelongsToAsset(photos []model.Photo, key string) bool {
+	for _, photo := range photos {
+		if photo.Key == key {
+			return true
+		}
+	}
+	return false
+}
+
+func authorizeAssetPhotoKey(c *gin.Context, key string) bool {
+	assetID, _ := strconv.ParseUint(c.Query("assetId"), 10, 64)
+	if assetID == 0 {
+		return model.ValidatePhotoAccessToken(c.Query("token"), utils.GetUserID(c), key)
+	}
+	asset, err := serviceAsset.Get(uint(assetID))
+	return err == nil && assetPhotoBelongsToAsset(asset.Photos, key)
 }

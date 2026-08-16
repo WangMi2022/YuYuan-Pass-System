@@ -25,5 +25,5 @@ func (r *assetRouter) Init(public, private *gin.RouterGroup) {
 		read.GET("dashboard", apiAsset.Dashboard)
 		read.GET("categoryOptions", apiCategory.Options)
 	}
-	public.GET("asset/photo", apiAsset.Photo)
+	private.GET("asset/photo", apiAsset.Photo)
 }

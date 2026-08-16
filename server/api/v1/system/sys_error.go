@@ -2,17 +2,27 @@ package system
 
 import (
 	"fmt"
+	"net/http"
+	"strings"
+	"sync"
+	"time"
 
 	"github.com/flipped-aurora/gin-vue-admin/server/global"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/common/request"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
 	"github.com/flipped-aurora/gin-vue-admin/server/model/system"
 	systemReq "github.com/flipped-aurora/gin-vue-admin/server/model/system/request"
+	"github.com/flipped-aurora/gin-vue-admin/server/utils"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
 
 type SysErrorApi struct{}
+
+var errorLogRateLimiter = struct {
+	sync.Mutex
+	entries map[string]time.Time
+}{entries: make(map[string]time.Time)}
 
 // CreateSysError 创建错误日志
 // @Tags SysError
@@ -24,6 +34,25 @@ type SysErrorApi struct{}
 // @Success 200 {object} response.Response{msg=string} "创建成功"
 // @Router /sysError/createSysError [post]
 func (sysErrorApi *SysErrorApi) CreateSysError(c *gin.Context) {
+	key := fmt.Sprintf("user:%d", utils.GetUserID(c))
+	now := time.Now()
+	errorLogRateLimiter.Lock()
+	last := errorLogRateLimiter.entries[key]
+	if !last.IsZero() && now.Sub(last) < time.Second {
+		errorLogRateLimiter.Unlock()
+		c.Header("Retry-After", "1")
+		response.FailWithMessage("错误日志上报过于频繁", c)
+		return
+	}
+	errorLogRateLimiter.entries[key] = now
+	errorLogRateLimiter.Unlock()
+	if c.Request.ContentLength > 64*1024 {
+		response.FailWithMessage("错误日志请求过大", c)
+		return
+	}
+	if c.Request.Body != nil {
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 64*1024)
+	}
 	// 创建业务用Context
 	ctx := c.Request.Context()
 
@@ -33,6 +62,24 @@ func (sysErrorApi *SysErrorApi) CreateSysError(c *gin.Context) {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
+	form := truncateErrorText(valueOrEmpty(sysError.Form), 200)
+	info := truncateErrorText(valueOrEmpty(sysError.Info), 4000)
+	if form == "" {
+		response.FailWithMessage("错误来源不能为空", c)
+		return
+	}
+	if len([]rune(form)) > 200 {
+		response.FailWithMessage("错误来源不能超过 200 个字符", c)
+		return
+	}
+	sysError.Form = &form
+	if info != "" {
+		sysError.Info = &info
+	} else {
+		sysError.Info = nil
+	}
+	sysError.Solution = nil
+	sysError.Status = "未处理"
 	err = sysErrorService.CreateSysError(ctx, &sysError)
 	if err != nil {
 		global.GVA_LOG.Error("创建失败!", zap.Error(err))
@@ -40,6 +87,27 @@ func (sysErrorApi *SysErrorApi) CreateSysError(c *gin.Context) {
 		return
 	}
 	response.OkWithMessage("创建成功", c)
+}
+
+func valueOrEmpty(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+func truncateErrorText(value string, maxRunes int) string {
+	clean := strings.Map(func(r rune) rune {
+		if r == '\x00' || r == '\r' || r == '\n' || r == '\t' || r >= 0x20 {
+			return r
+		}
+		return -1
+	}, strings.TrimSpace(value))
+	runes := []rune(clean)
+	if len(runes) > maxRunes {
+		return string(runes[:maxRunes])
+	}
+	return clean
 }
 
 // DeleteSysError 删除错误日志

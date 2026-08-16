@@ -535,57 +535,31 @@ const normalizeSpreadsheetData = (sheets = []) => {
   })
 }
 
-const workbookToSpreadsheetData = (workbook, reader) => {
+const workbookToSpreadsheetData = (workbook) => {
   const sheets = []
-  workbook.SheetNames.forEach((name, sheetIndex) => {
-    const worksheet = workbook.Sheets[name]
-    const sheet = createBlankSpreadsheetSheet(name || `Sheet${sheetIndex + 1}`)
-    if (!worksheet || !worksheet['!ref']) {
-      sheets.push(sheet)
-      return
-    }
-
-    const range = reader.utils.decode_range(worksheet['!ref'])
-    range.s = { r: 0, c: 0 }
-    const aoa = reader.utils.sheet_to_json(worksheet, {
-      raw: false,
-      header: 1,
-      range,
-      defval: ''
-    })
-
-    const rows = { len: Math.max(100, range.e.r + 20) }
-    const cols = { len: Math.max(26, range.e.c + 6) }
+  workbook.worksheets.forEach((worksheet, sheetIndex) => {
+    const sheet = createBlankSpreadsheetSheet(worksheet.name || `Sheet${sheetIndex + 1}`)
+    const rows = { len: Math.max(100, Number(worksheet.rowCount || 0) + 20) }
+    const cols = { len: Math.max(26, Number(worksheet.columnCount || 0) + 6) }
     const styles = []
     const styleIndexMap = new Map()
-    const colorFromXlsx = (color) => {
-      const value = String(color?.rgb || color?.indexed || '').trim()
-      if (!value || value.length < 6 || /^\d+$/.test(value)) return ''
-      return `#${value.slice(-6)}`
-    }
-    const normalizeAlign = (align) => {
-      if (['left', 'center', 'right'].includes(align)) return align
-      return 'left'
-    }
-    const normalizeValign = (align) => {
-      if (align === 'top') return 'top'
-      if (align === 'bottom') return 'bottom'
-      return 'middle'
+    const colorFromExcel = (color) => {
+      const value = String(color?.argb || '').trim()
+      return value.length >= 6 ? `#${value.slice(-6)}` : ''
     }
     const styleOfCell = (cell) => {
-      const rawStyle = cell?.s
-      if (!rawStyle || typeof rawStyle !== 'object') return undefined
+      if (!cell?.font && !cell?.fill && !cell?.alignment) return undefined
       const style = {
-        bgcolor: colorFromXlsx(rawStyle.fill?.fgColor) || '#ffffff',
-        align: normalizeAlign(rawStyle.alignment?.horizontal),
-        valign: normalizeValign(rawStyle.alignment?.vertical),
-        textwrap: !!rawStyle.alignment?.wrapText,
-        color: colorFromXlsx(rawStyle.font?.color) || '#111827',
+        bgcolor: colorFromExcel(cell.fill?.fgColor) || '#ffffff',
+        align: ['left', 'center', 'right'].includes(cell.alignment?.horizontal) ? cell.alignment.horizontal : 'left',
+        valign: ['top', 'bottom'].includes(cell.alignment?.vertical) ? cell.alignment.vertical : 'middle',
+        textwrap: !!cell.alignment?.wrapText,
+        color: colorFromExcel(cell.font?.color) || '#111827',
         font: {
-          name: rawStyle.font?.name || 'Microsoft YaHei',
-          size: Number(rawStyle.font?.sz || 10),
-          bold: !!rawStyle.font?.bold,
-          italic: !!rawStyle.font?.italic
+          name: cell.font?.name || 'Microsoft YaHei',
+          size: Number(cell.font?.size || 10),
+          bold: !!cell.font?.bold,
+          italic: !!cell.font?.italic
         }
       }
       const key = JSON.stringify(style)
@@ -595,49 +569,24 @@ const workbookToSpreadsheetData = (workbook, reader) => {
       }
       return styleIndexMap.get(key)
     }
-    ;(worksheet['!cols'] || []).forEach((col, index) => {
-      const width = Number(col?.wpx || (col?.wch ? col.wch * 8 : 0))
-      if (width > 0) cols[index] = { width: Math.max(60, Math.round(width)) }
+    worksheet.columns.forEach((column, index) => {
+      const width = Number(column?.width || 0)
+      if (width > 0) cols[index] = { width: Math.max(60, Math.round(width * 8)) }
     })
-    ;(worksheet['!rows'] || []).forEach((row, index) => {
-      const height = Number(row?.hpx || (row?.hpt ? row.hpt * 1.33 : 0))
-      if (height > 0) rows[index] = { ...(rows[index] || {}), height: Math.max(24, Math.round(height)) }
-    })
-
-    aoa.forEach((row, rowIndex) => {
+    worksheet.eachRow({ includeEmpty: true }, (row, rowIndex) => {
+      if (row.height) rows[rowIndex - 1] = { height: Math.max(24, Math.round(row.height * 1.33)) }
       const cells = {}
-      row.forEach((cell, colIndex) => {
-        const ref = reader.utils.encode_cell({ r: rowIndex, c: colIndex })
-        const rawCell = worksheet[ref]
-        let text = cell == null ? '' : String(cell)
-        if (rawCell?.f) text = `=${rawCell.f}`
-        const style = styleOfCell(rawCell)
+      row.eachCell({ includeEmpty: true }, (cell, columnIndex) => {
+        const text = cell.text == null ? '' : String(cell.text)
+        const style = styleOfCell(cell)
         if (text !== '' || style !== undefined) {
-          cells[colIndex] = { text }
-          if (style !== undefined) cells[colIndex].style = style
+          cells[columnIndex - 1] = { text }
+          if (style !== undefined) cells[columnIndex - 1].style = style
         }
       })
-      if (Object.keys(cells).length) {
-        rows[rowIndex] = { ...(rows[rowIndex] || {}), cells }
-      }
+      if (Object.keys(cells).length) rows[rowIndex - 1] = { ...(rows[rowIndex - 1] || {}), cells }
     })
-
-    sheet.merges = []
-    ;(worksheet['!merges'] || []).forEach((merge) => {
-      const rowIndex = merge.s.r
-      const colIndex = merge.s.c
-      rows[rowIndex] = rows[rowIndex] || { cells: {} }
-      rows[rowIndex].cells = rows[rowIndex].cells || {}
-      rows[rowIndex].cells[colIndex] = rows[rowIndex].cells[colIndex] || { text: '' }
-      rows[rowIndex].cells[colIndex].merge = [
-        merge.e.r - merge.s.r,
-        merge.e.c - merge.s.c
-      ]
-      sheet.merges.push(reader.utils.encode_range(merge))
-      rows.len = Math.max(rows.len, merge.e.r + 20)
-      cols.len = Math.max(cols.len, merge.e.c + 6)
-    })
-
+    sheet.merges = Array.isArray(worksheet.model?.merges) ? worksheet.model.merges : []
     sheet.rows = rows
     sheet.cols = cols
     sheet.styles = styles
@@ -715,10 +664,13 @@ const parseExcelArrayBuffer = async (arrayBuffer, force = false) => {
   excelLoading.value = true
   excelParseError.value = ''
   try {
-    const XLSX = await import('xlsx')
-    const reader = XLSX.default || XLSX
-    const workbook = reader.read(arrayBuffer, { type: 'array', cellDates: true, cellStyles: true })
-    const sheets = workbookToSpreadsheetData(workbook, reader)
+    if (extFromDoc(current.value) === 'xls') {
+      throw new Error('浏览器端不解析旧版 xls 文件')
+    }
+    const ExcelJS = await import('exceljs')
+    const workbook = new (ExcelJS.default || ExcelJS).Workbook()
+    await workbook.xlsx.load(arrayBuffer)
+    const sheets = workbookToSpreadsheetData(workbook)
     if (!sheets.length) {
       excelParseError.value = '原 Excel 文件没有可解析的数据，已创建空白在线表格。'
       applyExcelSheets([createBlankSpreadsheetSheet()])
@@ -877,10 +829,11 @@ const loadPreviewSource = async (doc = current.value) => {
     }
     if (isExcelPreview.value) {
       try {
-        const XLSX = await import('xlsx')
-        const reader = XLSX.default || XLSX
-        const workbook = reader.read(data, { type: 'array', cellDates: true, cellStyles: true })
-        previewSpreadsheetData.value = workbookToSpreadsheetData(workbook, reader)
+        if (extFromDoc(doc) === 'xls') throw new Error('浏览器端不解析旧版 xls 文件')
+        const ExcelJS = await import('exceljs')
+        const workbook = new (ExcelJS.default || ExcelJS).Workbook()
+        await workbook.xlsx.load(data)
+        previewSpreadsheetData.value = workbookToSpreadsheetData(workbook)
       } catch {
         previewError.value = 'Excel 原文件预览解析失败，可下载原文件查看，或点击开始编辑维护在线版本。'
       }

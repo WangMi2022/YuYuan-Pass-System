@@ -1,11 +1,20 @@
 package router
 
 import (
+	"time"
+
 	"github.com/flipped-aurora/gin-vue-admin/server/middleware"
 	"github.com/gin-gonic/gin"
 )
 
 type smartRouter struct{}
+
+var smartAIPolicy = middleware.AIRequestPolicy{
+	Window:      time.Minute,
+	MaxRequests: 30,
+	BodyLimit:   64 * 1024,
+	Timeout:     90 * time.Second,
+}
 
 func (smartRouter) Init(private *gin.RouterGroup) {
 	smartRead := private.Group("smart")
@@ -22,14 +31,17 @@ func (smartRouter) Init(private *gin.RouterGroup) {
 	reportRead.GET("deliveries", apiSmart.Deliveries)
 
 	smartWrite := private.Group("smart").Use(middleware.OperationRecord())
-	smartWrite.POST("copilot/query", apiSmart.Query)
-	smartWrite.POST("copilot/queryStream", apiSmart.QueryStream)
 	smartWrite.DELETE("copilot/session", apiSmart.DeleteSession)
-	smartWrite.POST("announcement/extract", apiSmart.ExtractAnnouncement)
-	smartWrite.POST("announcement/draft-schedule", apiSmart.ExtractAnnouncement)
-	smartWrite.POST("operation/draft", apiSmart.OperationDraft)
 	smartWrite.POST("draft/accept", apiSmart.AcceptDraft)
+	smartAIWrite := private.Group("smart").Use(middleware.AISecurity(smartAIPolicy), middleware.AIOperationRecord())
+	smartAIWrite.POST("copilot/query", apiSmart.Query)
+	smartAIWrite.POST("announcement/extract", apiSmart.ExtractAnnouncement)
+	smartAIWrite.POST("announcement/draft-schedule", apiSmart.ExtractAnnouncement)
+	smartAIWrite.POST("operation/draft", apiSmart.OperationDraft)
+	smartAIStreamWrite := private.Group("smart").Use(middleware.AISecurity(smartAIPolicy), middleware.AISSEConcurrency(2), middleware.AIOperationRecord())
+	smartAIStreamWrite.POST("copilot/queryStream", apiSmart.QueryStream)
 	reportWrite := private.Group("smartReport").Use(middleware.OperationRecord())
-	reportWrite.POST("generate", apiSmart.GenerateReport)
 	reportWrite.PUT("subscription", apiSmart.SaveSubscription)
+	reportAIWrite := private.Group("smartReport").Use(middleware.AISecurity(smartAIPolicy), middleware.AIOperationRecord())
+	reportAIWrite.POST("generate", apiSmart.GenerateReport)
 }

@@ -48,6 +48,7 @@ func setupAssetRecognitionTestDB(t *testing.T) {
 	previousOssType := global.GVA_CONFIG.System.OssType
 	previousStorePath := global.GVA_CONFIG.Local.StorePath
 	previousLocalPath := global.GVA_CONFIG.Local.Path
+	previousJWTSigningKey := global.GVA_CONFIG.JWT.SigningKey
 	previousGateway := assetRecognitionGateway
 	database, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{TranslateError: true})
 	if err != nil {
@@ -62,12 +63,14 @@ func setupAssetRecognitionTestDB(t *testing.T) {
 	global.GVA_CONFIG.System.OssType = "local"
 	global.GVA_CONFIG.Local.StorePath = t.TempDir()
 	global.GVA_CONFIG.Local.Path = "/uploads/file"
+	global.GVA_CONFIG.JWT.SigningKey = "asset-recognition-test-signing-key-32-bytes"
 	t.Cleanup(func() {
 		assetRecognitionGateway = previousGateway
 		global.GVA_DB = previousDB
 		global.GVA_CONFIG.System.OssType = previousOssType
 		global.GVA_CONFIG.Local.StorePath = previousStorePath
 		global.GVA_CONFIG.Local.Path = previousLocalPath
+		global.GVA_CONFIG.JWT.SigningKey = previousJWTSigningKey
 	})
 }
 
