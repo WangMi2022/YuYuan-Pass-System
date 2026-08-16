@@ -158,7 +158,7 @@
 2. 评估 `echarts 5.5.1 → 6.1.0` 的主版本迁移，重点测试图表、富文本 tooltip 和导出。
 3. 隔离/替换无修复的 `x-data-spreadsheet`、`xlsx`、`wangeditor` 链路；过渡期加入 sanitizer、Worker、文件复杂度上限和页面隔离。
 4. 禁止 `vue3-sfc-loader` 加载不可信 SFC，升级 compiler/PostCSS 链并加入 CSP/沙箱。
-5. 提交 lockfile，CI 使用 `npm ci --ignore-scripts`（按项目构建需要评估脚本白名单），固定 Node 镜像。
+5. 提交 `web/package-lock.json` lockfile，CI/镜像使用 `npm ci --ignore-scripts`（按项目构建需要评估脚本白名单），固定 Node 镜像。
 
 **验收**：`npm audit --omit=dev` 的 critical/high 为 0，或每个例外都有书面风险接受、影响路径和到期日；XSS fixture、恶意表格和富文本回归通过。
 
