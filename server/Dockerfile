@@ -1,16 +1,17 @@
-FROM golang:1.25.13-alpine3.22 as builder
+FROM public.ecr.aws/docker/library/golang@sha256:8bee1901f1e530bfb4a7850aa7a479d17ae3a18beb6e09064ed54cfd245b7191 as builder
 
 WORKDIR /go/src/github.com/flipped-aurora/gin-vue-admin/server
 COPY . .
 
 RUN go env -w GO111MODULE=on \
     && go env -w GOPROXY=https://goproxy.cn,direct \
+    && go env -w GOTOOLCHAIN=auto \
     && go env -w CGO_ENABLED=0 \
     && go env \
     && go mod download \
     && go build -o server .
 
-FROM alpine:3.22.1
+FROM public.ecr.aws/docker/library/alpine@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
 
 LABEL MAINTAINER="SliverHorn@sliver_horn@qq.com"
 # 设置时区
