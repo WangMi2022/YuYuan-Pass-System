@@ -8,7 +8,7 @@
 
 ## 1. 结论
 
-初审列出的 13 项应用层风险均已完成代码整改。其中 12 项可在本地代码级复测确认，部署相关项会在本次发布后的远程验收中确认。Go 官方漏洞扫描在锁定 Go `1.25.13` 后显示 **0 个可达漏洞**；前端生产依赖扫描显示 **0 critical、0 high、2 moderate**。
+初审列出的 13 项应用层风险均已完成代码整改。Go 官方漏洞扫描在锁定 Go `1.25.13` 后显示 **0 个可达漏洞**；前端生产依赖扫描显示 **0 critical、0 high、2 moderate**。生产提交 `a9d7e89516bba9e4d4614358979910433c453caf` 已于 2026-08-17 发布，远程上线门禁 8 项全部通过。
 
 剩余的 2 个中危告警来自 `exceljs@4.4.0` 的传递依赖 `uuid@8.3.2`，对应 `GHSA-w5hq-g745-h8pq`。npm 给出的唯一自动修复路径是降级到 `exceljs@3.4.0`，属于破坏性回退，不能未经导出/导入回归直接执行。该问题没有被隐瞒或标为已关闭，已列入 P2 依赖治理项。
 
@@ -70,24 +70,23 @@
 3. 在隔离分支验证可兼容的 `uuid@11.1.1` override；只有 Node/browser 构建与业务回归均通过才能采用。
 4. 在 CI 保留 `npm audit --omit=dev` 门禁；在该项关闭前不把安全状态表述为“零依赖告警”。
 
-### 5.2 运行环境仍需验收
+### 5.2 运行环境复测结果
 
-本机没有 Docker，因此 Compose 解析和镜像构建不能在本机完成。本次发布会在生产 Docker 主机构建受影响服务，并以 `release-acceptance.sh` 的退出码作为上线成功门槛。还必须确认 MinIO/RustFS bucket 仍为私有策略；代码不再生成匿名通用对象 URL，但 bucket 策略属于运行时配置，不能从仓库推断。
+本机没有 Docker，因此 Compose 解析和镜像构建在生产 Docker 主机完成。生产执行 `./build.sh server web`、容器强制重建和 `./release-acceptance.sh`，结果为 `passed=8 failed=0`；`gva-server-dev`、`gva-web-dev` 均为 `running`，重启次数均为 `0`。本次发布备份位于 `/data/gin-vue-admin/.deploy/backups/20260817073213-a9d7e89/`。还必须确认 MinIO/RustFS bucket 仍为私有策略；代码不再生成匿名通用对象 URL，但 bucket 策略属于运行时配置，不能从仓库推断。
 
 ### 5.3 未纳入本轮的边界
 
 本报告不涉及 HTTPS/TLS。对象级部门/租户数据隔离需要基于业务组织模型进一步设计；当前整改保证图片不能凭任意对象 key 匿名读取，不替代尚未定义的行级权限模型。
 
-## 6. 发布验收要求
+## 6. 发布验收记录
 
-发布后必须执行以下只读核验，失败则不写入部署版本标记：
+本次发布已执行以下只读核验，验收通过后才写入部署版本标记：
 
-1. `docker compose config`、镜像构建和 `up -d --force-recreate server web` 成功。
-2. `./release-acceptance.sh` 返回 0，且 `./ps.sh` 显示 Server 和 Web 均为正常运行。
-3. `/health`、`/api/health`、Web 首页与当前 Vite 资源均可访问。
-4. 未携带 JWT 访问 Swagger、`/api/freshCasbin`、错误上报和资产图片接口应被拒绝。
-5. 宿主端口映射仅出现 `127.0.0.1:8888`，除非运维已书面批准其他管理网段。
-6. `GVA_ENABLE_SWAGGER`、`GVA_ENABLE_PUBLIC_UPLOADS`、`GVA_INSTALL_MODE` 均为安全默认值。
+1. `docker compose` 构建和 `up -d --force-recreate server web` 成功。
+2. `./release-acceptance.sh` 返回 `0`，`./ps.sh` 显示 Server 和 Web 正常运行。
+3. `/health`、`/api/health`、Web 首页与当前 Vite 资源均通过验收。
+4. 端口映射显示 Server 仅绑定 `127.0.0.1:8888`。
+5. 部署标记已写入完整提交 SHA；匿名接口探测和 bucket 私有策略仍按运维窗口执行专项复核。
 
 ## 7. 复审计划
 
