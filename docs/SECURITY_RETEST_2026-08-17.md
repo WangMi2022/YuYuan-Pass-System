@@ -10,6 +10,8 @@
 
 初审列出的 13 项应用层风险均已完成代码整改。Go 官方漏洞扫描在锁定 Go `1.25.13` 后显示 **0 个可达漏洞**；前端生产依赖扫描显示 **0 critical、0 high、2 moderate**。生产提交 `a9d7e89516bba9e4d4614358979910433c453caf` 已于 2026-08-17 发布，远程上线门禁 8 项全部通过。
 
+同日继续发布导航功能与根目录 `.dockerignore`，生产最终标记为 `f046f13b2dc146a04edf896150abb010f38c309e`。Docker 构建上下文降至 `2.665MB`，Server/Web 重建后上线门禁仍为 `passed=8 failed=0`。生产匿名负向权限探测全部符合预期；现场发现 RustFS/MinIO bucket 存在匿名读取策略后已立即删除，最终真实对象匿名读取为 HTTP `403`，授权后端代理为 HTTP `200`，过期 presigned URL 为 HTTP `403`。
+
 剩余的 2 个中危告警来自 `exceljs@4.4.0` 的传递依赖 `uuid@8.3.2`，对应 `GHSA-w5hq-g745-h8pq`。npm 给出的唯一自动修复路径是降级到 `exceljs@3.4.0`，属于破坏性回退，不能未经导出/导入回归直接执行。该问题没有被隐瞒或标为已关闭，已列入 P2 依赖治理项。
 
 ## 2. 整改状态
@@ -56,6 +58,7 @@
 - 全新安装必须同时设置 `GVA_INSTALL_MODE=true` 和一次性 `GVA_INSTALL_TOKEN`，完成后应删除或轮换该令牌，并将安装模式改回 `false`。
 - 独立 MCP 默认监听 `127.0.0.1`，要求 `GVA_MCP_AUTH_TOKEN` 或 `mcp.auth_token`，请求体限制为 64KB。
 - Server/Web 构建镜像固定到具体版本；前端构建使用 `npm ci`。
+- 根目录 `.dockerignore` 排除 Git、部署归档、运行配置、依赖、构建产物、日志和上传目录；生产实测构建上下文为 `2.665MB`。
 
 ## 5. 剩余风险与处置
 
@@ -72,11 +75,13 @@
 
 ### 5.2 运行环境复测结果
 
-本机没有 Docker，因此 Compose 解析和镜像构建在生产 Docker 主机完成。生产执行 `./build.sh server web`、容器强制重建和 `./release-acceptance.sh`，结果为 `passed=8 failed=0`；`gva-server-dev`、`gva-web-dev` 均为 `running`，重启次数均为 `0`。本次发布备份位于 `/data/gin-vue-admin/.deploy/backups/20260817073213-a9d7e89/`。还必须确认 MinIO/RustFS bucket 仍为私有策略；代码不再生成匿名通用对象 URL，但 bucket 策略属于运行时配置，不能从仓库推断。
+本机没有 Docker，因此 Compose 解析和镜像构建在生产 Docker 主机完成。最终生产发布执行 `./build.sh server web`、容器强制重建和 `./release-acceptance.sh`，结果为 `passed=8 failed=0`；`gva-server-dev`、`gva-web-dev` 均为 `running`，重启次数均为 `0`，Server 仅映射到 `127.0.0.1:8888`。`f046f13` 发布备份位于 `/data/gin-vue-admin/.deploy/backups/20260817101346-f046f13/`。
+
+RustFS/MinIO 运行时复测使用已存在的非空对象，不创建或删除业务对象。整改前 bucket policy hash 为 `ade2bfedaa8d98917f6fb6eec8738f852b4b9531f4b771db4470a0398180e1c7`，真实对象匿名 Range 读取返回 HTTP `206`，证明 bucket 并非私有。随后通过 MinIO SDK 删除 bucket policy；最终策略为空私有状态，授权 SDK 读取通过，匿名读取返回 `403`，1 秒 presigned URL 有效期内返回 `206`、过期后返回 `403`，应用 `/invoice/file` 鉴权代理返回 `200 application/pdf`。现场证据保存在生产主机 `/data/gin-vue-admin/.deploy/security-retests/`，文件不包含 access key、secret、JWT 或对象 key。
 
 ### 5.3 未纳入本轮的边界
 
-本报告不涉及 HTTPS/TLS。对象级部门/租户数据隔离需要基于业务组织模型进一步设计；当前整改保证图片不能凭任意对象 key 匿名读取，不替代尚未定义的行级权限模型。
+本报告不涉及 HTTPS/TLS。部门/租户级数据隔离模型已经明确为“Tenant 最高边界 + Tenant 内 Department 树 + 角色 Data Scope + Service/Repository 统一过滤”，见 [实施规格](TENANT-DEPARTMENT-DATA-ISOLATION.md) 和 [ADR-0001](adr/0001-tenant-department-data-isolation.md)。当前生产尚未完成字段迁移和全模块强制过滤；对象存储私有化不能替代行级权限，因此该实施项继续作为独立安全工程推进。
 
 ## 6. 发布验收记录
 
@@ -86,7 +91,25 @@
 2. `./release-acceptance.sh` 返回 `0`，`./ps.sh` 显示 Server 和 Web 正常运行。
 3. `/health`、`/api/health`、Web 首页与当前 Vite 资源均通过验收。
 4. 端口映射显示 Server 仅绑定 `127.0.0.1:8888`。
-5. 部署标记已写入完整提交 SHA；匿名接口探测和 bucket 私有策略仍按运维窗口执行专项复核。
+5. 部署标记已写入完整提交 SHA；匿名接口探测和 bucket 私有策略专项复核已经完成。
+
+### 6.1 生产负向权限结果
+
+生产探测通过 Web/Nginx 对外 `/api` 反代路径执行，不写入业务数据：
+
+| 请求 | 结果 | 判定 |
+| --- | --- | --- |
+| `GET /api/swagger/index.html` | HTTP `404` | 生产 Swagger 未注册 |
+| `GET /api/api/freshCasbin` | HTTP `401`，业务码 `7` | 匿名不能刷新 Casbin |
+| `POST /api/sysError/createSysError` | HTTP `401`，业务码 `7` | 匿名不能灌入错误日志 |
+| `GET /api/asset/photo` | HTTP `401`，业务码 `7` | 无 JWT 不能读取资产图片 |
+| `GET /api/ai/providers` | HTTP `401`，业务码 `7` | AI 管理接口受保护 |
+| `POST /api/autoCode/llmAuto` | HTTP `401`，业务码 `7` | LLM 自动代码接口受保护 |
+| `POST /api/autoCode/llmAutoSSE` | HTTP `401`，业务码 `7` | LLM SSE 接口受保护 |
+| `POST /api/init/initdb` | HTTP `200`，业务码 `7`，`已存在数据库配置` | 已安装实例拒绝重新初始化 |
+| 外部连接 `192.166.20.103:8888` | 连接失败 | Server 仅绑定 loopback |
+
+原始记录：`/data/gin-vue-admin/.deploy/security-retests/negative-permissions-20260817T023339Z.tsv`。
 
 ## 7. 复审计划
 

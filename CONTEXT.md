@@ -35,3 +35,26 @@ An Evidence File is the private RustFS or MinIO object backing an Invoice. Acces
 ## Evidence Cleanup Job
 
 An Evidence Cleanup Job is a transactional outbox record created when an Invoice is deleted. It retains the original storage location and retries idempotent object deletion under a lease, so database deletion and private-file cleanup remain recoverable across process or storage failures.
+
+## Tenant
+
+A Tenant is the highest business-data ownership boundary. Users, departments, and tenant-owned records never cross this boundary during normal operations.
+_Avoid_: Organization, company, customer account
+
+## Department
+
+A Department is a hierarchical organizational unit inside one Tenant. A Department cannot move to another Tenant while retaining its identity.
+_Avoid_: Group, team, role
+
+## Department Membership
+
+A Department Membership associates a User with a Department as a primary or additional membership. Membership expresses organizational belonging, not API permission.
+
+## Data Scope
+
+A Data Scope is the business-record visibility granted by a Role, limited to self, department, department subtree, tenant, or platform-wide administration. It is distinct from Casbin API permission.
+_Avoid_: Data authority, menu permission
+
+## Platform Administrator
+
+A Platform Administrator is the only actor allowed to operate across Tenant boundaries. Tenant administrators remain restricted to their own Tenant.

@@ -331,4 +331,6 @@ M3 当前 11 张历史/存量发票尚未产生字段级复核样本，因此字
 4. 为正式业务账号配置收件邮箱，持续验证 M6 SMTP 成功到达率；站内成功投递和邮件失败审计链路已通过验收。
 5. 推进 M7 多用户公告关联、业务插件 Swagger 全覆盖、CI 发布门禁、资产盘点与标签/二维码。
 
+安全整改的生产负向权限和 RustFS/MinIO 私有策略复测已完成；部门/租户级行权限采用“Tenant 最高边界 + Department 树 + 角色 Data Scope”的正式决策，当前进入结构迁移和分模块实施阶段。详见 [安全复测报告](docs/SECURITY_RETEST_2026-08-17.md) 与 [租户和部门数据隔离实施规格](docs/TENANT-DEPARTMENT-DATA-ISOLATION.md)。
+
 详细结论见 [项目审计报告](docs/PROJECT-AUDIT.md)。
