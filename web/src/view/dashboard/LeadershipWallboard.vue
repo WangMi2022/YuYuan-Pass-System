@@ -32,8 +32,8 @@
       <main class="wallboard-content" :aria-busy="loading">
         <section class="wallboard-kpis" aria-label="经营关键指标">
           <p v-if="!kpis.length" class="wallboard-kpis-empty">当前账号的统计数据暂不可用</p>
-          <article v-for="item in kpis" :key="item.label" :class="`tone-${item.tone}`">
-            <span>{{ item.label }}</span>
+          <article v-for="item in kpis" :key="item.label" class="wallboard-kpi" :class="`wallboard-kpi--${item.tone}`">
+            <span class="wallboard-kpi-label"><i aria-hidden="true" />{{ item.label }}</span>
             <strong>{{ item.value }}</strong>
             <small>{{ item.hint }}</small>
           </article>
@@ -319,18 +319,20 @@ onBeforeUnmount(deactivateWallboard)
 .wallboard-controls button:disabled { cursor: wait; opacity: .55; }
 
 .wallboard-content { display: grid; min-height: calc(100dvh - 88px); grid-template-rows: auto minmax(0, 1fr); gap: 24px; padding: 24px 32px 32px; }
-.wallboard-kpis { display: flex; min-height: 128px; border-block: 1px solid var(--wb-border); }
-.wallboard-kpis article { display: flex; min-width: 0; flex: 1; flex-direction: column; justify-content: center; gap: 7px; padding: 18px 28px; border-right: 1px solid var(--wb-border); }
-.wallboard-kpis article:first-child { flex: 1.25; padding-left: 0; }
-.wallboard-kpis article:last-child { border-right: 0; }
+.wallboard-kpis { display: flex; min-height: 136px; overflow: hidden; border: 1px solid var(--wb-border); border-radius: 12px; background: var(--wb-surface); }
+.wallboard-kpi { --kpi-accent: var(--wb-primary); display: flex; min-width: 0; flex: 1; flex-direction: column; justify-content: center; gap: 8px; padding: 22px 28px; border-right: 1px solid var(--wb-border); }
+.wallboard-kpi:last-child { border-right: 0; }
 .wallboard-kpis-empty { display: grid; flex: 1; place-items: center; margin: 0; color: var(--wb-muted); font-size: 1rem; }
-.wallboard-kpis span, .wallboard-kpis small { color: var(--wb-muted); font-size: 1rem; line-height: 1.4; }
-.wallboard-kpis strong { overflow: hidden; font-size: 2.5rem; font-variant-numeric: tabular-nums; font-weight: 700; line-height: 1.15; text-overflow: ellipsis; white-space: nowrap; }
-.wallboard-kpis .tone-danger strong { color: var(--na-danger); }
-.wallboard-kpis .tone-warning strong { color: var(--na-warning); }
-.wallboard-kpis .tone-success strong { color: var(--na-success); }
-.wallboard-kpis .tone-info strong { color: var(--na-info); }
-.wallboard-kpis .tone-primary strong { color: var(--wb-primary); }
+.wallboard-kpi-label { display: inline-flex; align-items: center; gap: 9px; color: var(--wb-muted); font-size: .9375rem; font-weight: 600; line-height: 1.4; }
+.wallboard-kpi-label i { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: var(--kpi-accent); }
+.wallboard-kpi strong { overflow: hidden; color: var(--wb-text); font-size: 2.5rem; font-variant-numeric: tabular-nums; font-weight: 700; letter-spacing: -.02em; line-height: 1.08; text-overflow: ellipsis; white-space: nowrap; }
+.wallboard-kpi small { overflow: hidden; color: var(--wb-muted); font-size: .875rem; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+.wallboard-kpi--success { --kpi-accent: var(--na-success); }
+.wallboard-kpi--warning { --kpi-accent: var(--na-warning); }
+.wallboard-kpi--danger { --kpi-accent: var(--na-danger); }
+.wallboard-kpi--info { --kpi-accent: var(--na-info); }
+.wallboard-kpi--danger strong,
+.wallboard-kpi--warning strong { color: var(--kpi-accent); }
 
 .wallboard-grid { display: grid; min-height: 620px; grid-template-areas: "asset risk focus" "invoice invoice focus"; grid-template-columns: minmax(0, 1.28fr) minmax(360px, .92fr) minmax(330px, .72fr); grid-template-rows: minmax(300px, 1.08fr) minmax(260px, .92fr); gap: 16px; }
 .wallboard-panel { min-width: 0; overflow: hidden; border: 1px solid var(--wb-border); border-radius: 12px; background: var(--wb-surface); }
@@ -448,12 +450,12 @@ onBeforeUnmount(deactivateWallboard)
   .wallboard-heading p { font-size: .875rem; }
   .wallboard-content { gap: 16px; padding: 16px; }
   .wallboard-kpis { display: grid; min-height: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .wallboard-kpis article, .wallboard-kpis article:first-child { min-height: 112px; padding: 16px; border-right: 0; border-bottom: 1px solid var(--wb-border); }
-  .wallboard-kpis article:nth-child(odd) { border-right: 1px solid var(--wb-border); }
-  .wallboard-kpis article:last-child,
-  .wallboard-kpis article:nth-last-child(2):nth-child(odd) { border-bottom: 0; }
-  .wallboard-kpis article:only-child,
-  .wallboard-kpis article:last-child:nth-child(odd) { border-right: 0; }
+  .wallboard-kpi { min-height: 112px; padding: 16px; border-right: 0; border-bottom: 1px solid var(--wb-border); }
+  .wallboard-kpi:nth-child(odd) { border-right: 1px solid var(--wb-border); }
+  .wallboard-kpi:last-child,
+  .wallboard-kpi:nth-last-child(2):nth-child(odd) { border-bottom: 0; }
+  .wallboard-kpi:only-child,
+  .wallboard-kpi:last-child:nth-child(odd) { border-right: 0; }
   .wallboard-kpis strong { font-size: 1.75rem; }
   .wallboard-grid { min-height: 0; grid-template-areas: "asset" "risk" "invoice" "focus"; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; }
   .wallboard-grid.wallboard-grid--flexible { grid-template-areas: none; grid-template-columns: minmax(0, 1fr); }
