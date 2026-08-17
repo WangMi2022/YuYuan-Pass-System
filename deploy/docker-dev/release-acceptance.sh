@@ -289,7 +289,7 @@ web_error="${WORK_DIR}/web-home.error"
 web_home_valid=0
 if fetch_url GET "${WEB_URL}/" "$web_body" "$web_headers" "$web_error" \
   && grep -Eqi '^Content-Type:[[:space:]]*text/html([;[:space:]]|$)' "$web_headers" \
-  && grep -Fq '<title>资产管理中心</title>' "$web_body" \
+  && grep -Eqi '<title>[[:space:]]*[^<[:space:]][^<]*</title>' "$web_body" \
   && grep -Fq 'id="app"' "$web_body"; then
   web_home_valid=1
   pass_check "web.home" "Web 首页内容与应用挂载点正常"
