@@ -10,6 +10,8 @@ type ActivateBackground struct {
 }
 
 type SaveLoginLogo struct {
-	Name string `json:"name" binding:"required"`
-	URL  string `json:"url" binding:"required"`
+	Name       string `json:"name"`
+	URL        string `json:"url"`
+	SystemName string `json:"systemName"`
+	Subtitle   string `json:"subtitle"`
 }

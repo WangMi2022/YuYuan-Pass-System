@@ -3,17 +3,10 @@
     id="userLayout"
     class="na-auth-page"
   >
-    <section class="na-auth-visual" :style="loginPageStyle" aria-label="系统登录背景">
-      <a class="na-auth-brand" href="#/login" aria-label="资产管理系统登录页">
-        <img
-          v-if="loginLogoUrl"
-          class="na-auth-brand-image"
-          :src="loginLogoUrl"
-          :alt="`${$MIT_ASSETS_ADMIN.appName}图标`"
-          @error="handleLogoError"
-        />
-        <Logo v-else :size="2" />
-        <span>{{ $MIT_ASSETS_ADMIN.appName }}</span>
+    <section class="na-auth-visual" :style="loginPageStyle" :aria-label="`${brandingStore.systemName}登录背景`">
+      <a class="na-auth-brand" href="#/login" :aria-label="`${brandingStore.systemName}登录页`">
+        <Logo :size="2" />
+        <span>{{ brandingStore.systemName }}</span>
       </a>
     </section>
 
@@ -22,15 +15,10 @@
           <div>
             <div class="na-auth-heading">
               <span class="na-auth-logo">
-                <img
-                  v-if="loginLogoUrl"
-                  :src="loginLogoUrl"
-                  :alt="`${$MIT_ASSETS_ADMIN.appName}登录图标`"
-                  @error="handleLogoError"
-                />
-                <Logo v-else :size="2.5" />
+                <Logo :size="2.5" />
               </span>
-              <h1 id="login-title">登录资产管理系统</h1>
+              <h1 id="login-title">登录{{ brandingStore.systemName }}</h1>
+              <p v-if="brandingStore.subtitle" class="na-auth-subtitle">{{ brandingStore.subtitle }}</p>
               <p>使用管理员或有效账号继续访问工作台</p>
             </div>
             <el-form
@@ -117,9 +105,10 @@
   import { ElMessage } from 'element-plus'
   import { useRouter } from 'vue-router'
   import { useUserStore } from '@/pinia/modules/user'
+  import { useBrandingStore } from '@/pinia'
   import Logo from '@/components/logo/index.vue'
   import { isDev } from '@/utils/env.js'
-  import { getCurrentLoginBackground, getCurrentLoginLogo } from '@/api/systemSettings'
+  import { getCurrentLoginBackground } from '@/api/systemSettings'
   import defaultBackground from '@/assets/login_background.jpg'
 
   defineOptions({
@@ -127,8 +116,8 @@
   })
 
   const router = useRouter()
+  const brandingStore = useBrandingStore()
   const loginBackgroundUrl = ref('')
-  const loginLogoUrl = ref('')
   const backgroundUrl = computed(() => loginBackgroundUrl.value || defaultBackground)
   const loginPageStyle = computed(() => ({
     '--na-login-background-image': `url(${JSON.stringify(backgroundUrl.value)})`
@@ -155,23 +144,9 @@
     }
   }
 
-  const loadLoginLogo = async () => {
-    try {
-      const res = await getCurrentLoginLogo()
-      const url = res.code === 0 ? (res.data?.url || '') : ''
-      loginLogoUrl.value = await isImageReachable(url) ? url : ''
-    } catch {
-      loginLogoUrl.value = ''
-    }
-  }
-
-  const handleLogoError = () => {
-    loginLogoUrl.value = ''
-  }
-
   onMounted(() => {
     loadLoginBackground()
-    loadLoginLogo()
+    brandingStore.loadBranding()
   })
   const captchaRequiredLength = ref(6)
   // 验证函数

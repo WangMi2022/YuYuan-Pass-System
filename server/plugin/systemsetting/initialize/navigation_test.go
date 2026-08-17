@@ -246,7 +246,7 @@ func TestSyncBusinessNavigationGroupsSystemManagementMenusAndPreservesAuthoritie
 		},
 		{
 			name: systemConfigurationMenuName, title: "平台设置", icon: "setting", sort: 2,
-			children: []navigationItem{{name: "systemSettings", title: "登录外观", icon: "picture", sort: 1}, {name: "system", title: "运行配置", icon: "operation", sort: 2}},
+			children: []navigationItem{{name: "systemSettings", title: "品牌外观", icon: "picture", sort: 1}, {name: "system", title: "运行配置", icon: "operation", sort: 2}},
 			authors:  []string{"200", "300"},
 		},
 		{

@@ -234,20 +234,20 @@ onMounted(loadPendingTasks)
 
 <style scoped lang="scss">
 .pending-tasks-page { min-height: 100%; }
-.pending-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
+.pending-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--na-space-md); margin-bottom: var(--na-space-lg); }
 .summary-item { min-width: 0; padding: 16px 18px; border: 1px solid var(--na-border); border-radius: var(--na-radius); background: var(--na-card); box-shadow: var(--na-shadow-sm); }
 .summary-item > span, .summary-item p { display: block; overflow: hidden; color: var(--na-muted-foreground); font-size: .75rem; text-overflow: ellipsis; white-space: nowrap; }
-.summary-item strong { display: flex; align-items: baseline; gap: 4px; margin: 7px 0 4px; color: var(--na-foreground); font-size: 1.35rem; font-variant-numeric: tabular-nums; font-weight: 700; }
+.summary-item strong { display: flex; align-items: baseline; gap: 4px; margin: 7px 0 4px; color: var(--na-foreground); font-size: 1.375rem; font-variant-numeric: tabular-nums; font-weight: 700; }
 .summary-item strong small { color: var(--na-muted-foreground); font-size: .75rem; font-weight: 600; }
 .summary-item p { margin: 0; font-size: .6875rem; }
 .summary-item--asset strong { color: var(--na-primary); }
 .summary-item--invoice strong { color: var(--na-warning); }
 .summary-item--failed strong { color: var(--na-danger); }
-.pending-workspace { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+.pending-workspace { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--na-space-md); align-items: start; }
 .pending-panel { min-width: 0; overflow: hidden; }
 .pending-panel-heading > div { min-width: 0; }
 .pending-panel-heading span { display: block; color: var(--na-muted-foreground); font-size: .6875rem; }
-.pending-panel-heading h2 { margin: 3px 0 0; color: var(--na-foreground); font-size: .9375rem; font-weight: 660; }
+.pending-panel-heading h2 { margin: 3px 0 0; color: var(--na-foreground); font-size: .9375rem; font-weight: 600; }
 .pending-panel-heading > small { color: var(--na-muted-foreground); font-size: .6875rem; white-space: nowrap; }
 .pending-error { padding: 10px 14px; border-bottom: 1px solid var(--na-border); background: var(--na-danger-soft); color: var(--na-danger); font-size: .75rem; }
 .pending-list { display: grid; }
@@ -255,14 +255,14 @@ onMounted(loadPendingTasks)
 .pending-row:last-child { border-bottom: 0; }
 .pending-row:hover { background: var(--na-table-hover); cursor: pointer; }
 .pending-row:focus-visible { position: relative; z-index: 1; outline: 2px solid var(--na-primary); outline-offset: -3px; }
-.task-kind { display: inline-grid; min-width: 46px; height: 24px; place-items: center; border-radius: 6px; font-size: .625rem; font-weight: 650; white-space: nowrap; }
+.task-kind { display: inline-grid; min-width: 46px; height: 24px; place-items: center; border-radius: 6px; font-size: .6875rem; font-weight: 600; white-space: nowrap; }
 .task-kind--asset { color: var(--na-primary); background: var(--na-primary-soft); }
 .task-kind--invoice { color: var(--na-warning); background: var(--na-warning-soft); }
 .task-kind--failed { color: var(--na-danger); background: var(--na-danger-soft); }
 .task-main { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
 .task-main strong, .task-main small, .task-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.task-main strong { font-size: .75rem; font-weight: 620; }
-.task-main small, .task-detail { color: var(--na-muted-foreground); font-size: .625rem; }
+.task-main strong { font-size: .75rem; font-weight: 600; }
+.task-main small, .task-detail { color: var(--na-muted-foreground); font-size: .6875rem; }
 .task-detail { text-align: right; }
 .task-arrow { color: var(--na-muted-foreground); font-size: .75rem; }
 

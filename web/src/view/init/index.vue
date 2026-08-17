@@ -16,7 +16,7 @@
           <div
             class="font-sans text-4xl font-bold text-center mb-4 dark:text-white"
           >
-            资产管理中心
+            {{ brandingStore.systemName }}
           </div>
           <p class="text-gray-600 dark:text-gray-300 mb-2">初始化须知</p>
           <p class="text-gray-600 dark:text-gray-300 mb-2">
@@ -116,7 +116,7 @@
     </div>
 
     <div class="!hidden">
-      <img class="h-full" src="@/assets/login_right_banner.webp" alt="Gin Vue Admin 技术展示" />
+      <img class="h-full" src="@/assets/login_right_banner.webp" :alt="`${brandingStore.systemName} 技术展示`" />
     </div>
   </div>
 </template>
@@ -127,12 +127,14 @@
   import { reactive, ref } from 'vue'
   import { ElLoading, ElMessage, ElMessageBox } from 'element-plus'
   import { useRouter } from 'vue-router'
+  import { useBrandingStore } from '@/pinia'
 
   defineOptions({
     name: 'Init'
   })
 
   const router = useRouter()
+  const brandingStore = useBrandingStore()
 
   const page = reactive({
     showReadme: false,

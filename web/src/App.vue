@@ -11,11 +11,14 @@
 </template>
 
 <script setup>
+  import { onMounted } from 'vue'
   import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
   import Application from '@/components/application/index.vue'
-  import { useAppStore } from '@/pinia'
+  import { useAppStore, useBrandingStore } from '@/pinia'
 
   const appStore = useAppStore()
+  const brandingStore = useBrandingStore()
+  onMounted(() => brandingStore.loadBranding())
   defineOptions({
     name: 'App'
   })

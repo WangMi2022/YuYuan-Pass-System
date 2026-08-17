@@ -25,15 +25,33 @@ func (a *loginLogoAPI) Current(c *gin.Context) {
 func (a *loginLogoAPI) Save(c *gin.Context) {
 	var req request.SaveLoginLogo
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.FailWithMessage("图标信息不完整", c)
+		response.FailWithMessage("品牌信息不完整", c)
 		return
 	}
-	item := model.LoginLogo{Name: req.Name, URL: req.URL, UpdatedBy: utils.GetUserID(c)}
-	if err := service.LoginLogo.Save(&item); err != nil {
-		response.FailWithMessage(err.Error(), c)
+	updatedBy := utils.GetUserID(c)
+	hasLogo := req.Name != "" || req.URL != ""
+	hasBranding := req.SystemName != "" || req.Subtitle != ""
+	if !hasLogo && !hasBranding {
+		response.FailWithMessage("品牌信息不完整", c)
 		return
 	}
-	response.OkWithMessage("登录图标已更新", c)
+	if hasLogo && hasBranding {
+		response.FailWithMessage("系统标识与Logo请分别保存", c)
+		return
+	}
+	if hasBranding {
+		if err := service.LoginLogo.SaveBranding(req.SystemName, req.Subtitle, updatedBy); err != nil {
+			response.FailWithMessage(err.Error(), c)
+			return
+		}
+	} else {
+		item := model.LoginLogo{Name: req.Name, URL: req.URL, UpdatedBy: updatedBy}
+		if err := service.LoginLogo.Save(&item); err != nil {
+			response.FailWithMessage(err.Error(), c)
+			return
+		}
+	}
+	response.OkWithMessage("品牌外观已更新", c)
 }
 
 func (a *loginLogoAPI) Reset(c *gin.Context) {
@@ -41,5 +59,5 @@ func (a *loginLogoAPI) Reset(c *gin.Context) {
 		response.FailWithMessage("恢复默认登录图标失败", c)
 		return
 	}
-	response.OkWithMessage("已恢复默认登录图标", c)
+	response.OkWithMessage("已恢复默认系统Logo", c)
 }

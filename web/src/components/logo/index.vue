@@ -1,79 +1,70 @@
 <script setup>
-import { ref, watchEffect } from 'vue';
-import { useAppStore } from '@/pinia/modules/app.js';
-import { storeToRefs } from 'pinia';
+import { computed, onMounted, ref, watch } from 'vue'
+import { useBrandingStore } from '@/pinia'
 
 const props = defineProps({
-  // logo 尺寸，单位为:rem
   size: {
     type: Number,
     default: 2
   }
 })
 
-const darkLogoPath = "/asset-logo.svg";
-const lightLogoPath = "/asset-logo.svg";
+const brandingStore = useBrandingStore()
+const showTextPlaceholder = ref(false)
+const initial = computed(() => brandingStore.systemName.trim().slice(0, 1).toUpperCase() || 'M')
+const logoStyle = computed(() => {
+  const pixels = props.size * 16
+  return { width: `${pixels}px`, height: `${pixels}px` }
+})
 
-const appStore = useAppStore();
-const { isDark } = storeToRefs(appStore);
-
-const logoSrc = ref('');
-const showTextPlaceholder = ref(false);
-
-// 检查图片是否存在
-function checkImageExists(url) {
-  return new Promise((resolve) => {
-    const tryToLoad = new Image();
-    tryToLoad.onload = () => resolve(true);
-    tryToLoad.onerror = () => resolve(false);
-    tryToLoad.src = url;
-  });
-}
-
-watchEffect(async () => {
-  showTextPlaceholder.value = false; // 重置占位符状态
-
-  // 暗色模式直接 load，可以省一次亮色的 load
-  if (isDark.value && await checkImageExists(darkLogoPath)) {
-    logoSrc.value = darkLogoPath;
-    return;
-  }
-
-  if (await checkImageExists(lightLogoPath)) {
-    logoSrc.value = lightLogoPath;
+const handleLogoError = () => {
+  if (brandingStore.customLogoUrl) {
+    brandingStore.useDefaultLogo()
     return
   }
-
-  // 到这里就包没有提供两种 logo 了
-  showTextPlaceholder.value = true;
-  console.error(
-    '错误: 在公共目录中找不到logo.png（或logo-dark.png）。'
-  );
-  console.warn(
-    '解决方案: 请在您的公共目录(/public)中放置logo.png和/或logo-dark.png文件，或确保路径正确。'
-  );
-});
-
-// 直接用 16px 作为默认的基准大小
-const SPACING = 16
-function getSize() {
-  return {
-    width: `${props.size * SPACING}px`,
-    height: `${props.size * SPACING}px`,
-  }
+  showTextPlaceholder.value = true
 }
+
+watch(() => brandingStore.logoUrl, () => {
+  showTextPlaceholder.value = false
+})
+
+onMounted(() => brandingStore.loadBranding())
 </script>
 
 <template>
-  <img v-if="!showTextPlaceholder && logoSrc" :src="logoSrc" :alt="$MIT_ASSETS_ADMIN.appName" class="object-contain"
-    :style="{
-      ...getSize()
-    }" />
-  <div v-else-if="showTextPlaceholder"
-    class="rounded-full bg-muted flex items-center justify-center text-muted-foreground font-bold text-xs"
-    :style="{
-      ...getSize()
-    }">
-    GVA
-  </div>
+  <img
+    v-if="!showTextPlaceholder"
+    :src="brandingStore.logoUrl"
+    :alt="`${brandingStore.systemName} Logo`"
+    class="brand-logo-image"
+    :style="logoStyle"
+    @error="handleLogoError"
+  />
+  <span
+    v-else
+    class="brand-logo-fallback"
+    :style="logoStyle"
+    aria-hidden="true"
+  >{{ initial }}</span>
 </template>
+
+<style scoped>
+.brand-logo-image {
+  display: block;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
+.brand-logo-fallback {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--na-primary);
+  color: var(--na-on-primary);
+  font-size: .75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+</style>

@@ -12,8 +12,8 @@
           v-if="!isMobile"
           class="na-brand-name"
         >
-          <strong>{{ $MIT_ASSETS_ADMIN.appName }}</strong>
-          <small>ASSET CONTROL</small>
+          <strong>{{ brandingStore.systemName }}</strong>
+          <small v-if="brandingStore.subtitle">{{ brandingStore.subtitle }}</small>
         </span>
       </button>
 
@@ -88,7 +88,7 @@
   import CustomPic from '@/components/customPic/index.vue'
   import { useUserStore } from '@/pinia/modules/user'
   import { useRoute, useRouter } from 'vue-router'
-  import { useAppStore } from '@/pinia'
+  import { useAppStore, useBrandingStore } from '@/pinia'
   import { storeToRefs } from 'pinia'
   import { computed } from 'vue'
   import { setUserAuthority } from '@/api/user'
@@ -100,6 +100,7 @@
   const router = useRouter()
   const route = useRoute()
   const appStore = useAppStore()
+  const brandingStore = useBrandingStore()
   const { device, config } = storeToRefs(appStore)
   const isMobile = computed(() => {
     return device.value === 'mobile'

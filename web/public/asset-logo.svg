@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
-  <title id="title">资产管理中心</title>
+  <title id="title">mit-assets-admin</title>
   <defs>
     <linearGradient id="g" x1="10" y1="8" x2="54" y2="58" gradientUnits="userSpaceOnUse">
       <stop stop-color="#8A7CFF"/>

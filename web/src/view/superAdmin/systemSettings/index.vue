@@ -2,34 +2,72 @@
   <main class="na-page na-page--list system-settings-page">
     <section class="na-page-header settings-heading" aria-labelledby="settings-title">
       <div>
-        <p class="eyebrow">LOGIN APPEARANCE</p>
-        <h1 id="settings-title">登录外观</h1>
-        <p>管理登录页图标和背景图片，变更保存后即时生效。</p>
+        <p class="eyebrow">平台标识与登录体验</p>
+        <h1 id="settings-title">品牌外观</h1>
+        <p>统一管理系统名称、Logo 和登录背景，保存后将在所有终端生效。</p>
+      </div>
+    </section>
+
+    <section class="na-panel setting-card" aria-labelledby="brand-identity-title">
+      <header class="na-panel-header setting-card-header">
+        <div>
+          <h2 id="brand-identity-title">系统标识</h2>
+          <p>系统名称用于侧边栏、登录页和浏览器标题；副标题可留空。</p>
+        </div>
+      </header>
+
+      <div class="brand-editor">
+        <el-form
+          ref="brandFormRef"
+          :model="brandForm"
+          :rules="brandRules"
+          label-position="top"
+          class="brand-fields"
+        >
+          <el-form-item label="系统名称" prop="systemName">
+            <el-input v-model="brandForm.systemName" maxlength="80" show-word-limit placeholder="例如：MIT 资产管理平台" />
+          </el-form-item>
+          <el-form-item label="品牌副标题" prop="subtitle">
+            <el-input v-model="brandForm.subtitle" maxlength="120" show-word-limit placeholder="可选，例如：ASSET CONTROL" />
+          </el-form-item>
+          <div class="brand-actions">
+            <el-button type="primary" :loading="brandingSaving" @click="saveBrandIdentity">保存并应用</el-button>
+            <el-button :disabled="brandingSaving" @click="restoreDefaultBrand">恢复默认名称</el-button>
+          </div>
+        </el-form>
+
+        <aside class="brand-preview" aria-label="系统品牌预览">
+          <Logo :size="3" />
+          <span>
+            <strong>{{ brandForm.systemName || '系统名称' }}</strong>
+            <small v-if="brandForm.subtitle">{{ brandForm.subtitle }}</small>
+          </span>
+        </aside>
       </div>
     </section>
 
     <section class="na-panel setting-card" aria-labelledby="login-logo-title">
       <header class="na-panel-header setting-card-header">
         <div>
-          <h2 id="login-logo-title">登录页图标</h2>
-          <p>图标显示在登录表单顶部和登录页品牌区域，建议上传清晰的正方形图片。</p>
+          <h2 id="login-logo-title">系统 Logo</h2>
+          <p>Logo 将同步用于系统顶栏、登录页和浏览器图标，建议上传清晰的正方形图片。</p>
         </div>
       </header>
 
       <div v-loading="logoLoading" class="current-logo">
-        <div class="logo-preview" aria-label="当前登录页图标预览">
+        <div class="logo-preview" aria-label="当前系统Logo预览">
           <img
             v-if="currentLogo?.url && !logoPreviewFailed"
             :src="currentLogo.url"
-            alt="当前登录页图标"
+            alt="当前系统Logo"
             @error="logoPreviewFailed = true"
           />
           <Logo v-else :size="2.5" />
         </div>
         <div class="current-info">
-          <span class="current-label">当前图标</span>
-          <strong>{{ currentLogo?.name || '系统默认图标' }}</strong>
-          <p>{{ currentLogo ? '图片已保存至 OSS，并应用到登录页。' : '当前使用系统内置的默认图标。' }}</p>
+          <span class="current-label">当前 Logo</span>
+          <strong>{{ currentLogo?.name || '系统默认 Logo' }}</strong>
+          <p>{{ currentLogo ? '图片已保存至 OSS，并应用到所有品牌位置。' : '当前使用系统内置的默认 Logo。' }}</p>
         </div>
         <div class="logo-actions">
           <el-upload
@@ -49,7 +87,7 @@
             :icon="RefreshLeft"
             :disabled="!currentLogo || logoUploading"
             @click="restoreDefaultLogo"
-          >恢复默认</el-button>
+          >恢复默认 Logo</el-button>
         </div>
       </div>
     </section>
@@ -147,11 +185,12 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { Check, Delete, Edit, Picture, RefreshLeft, Upload } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getBaseUrl } from '@/utils/format'
 import { useUserStore } from '@/pinia/modules/user'
+import { useBrandingStore } from '@/pinia'
 import defaultBackground from '@/assets/login_background.jpg'
 import Logo from '@/components/logo/index.vue'
 import {
@@ -161,12 +200,20 @@ import {
   getCurrentLoginLogo,
   getLoginBackgrounds,
   resetLoginLogo,
+  saveBranding,
   saveLoginLogo
 } from '@/api/systemSettings'
 
 defineOptions({ name: 'SystemSettings' })
 
 const userStore = useUserStore()
+const brandingStore = useBrandingStore()
+const brandFormRef = ref(null)
+const brandForm = reactive({ systemName: 'mit-assets-admin', subtitle: 'ASSET CONTROL' })
+const brandRules = {
+  systemName: [{ required: true, message: '请输入系统名称', trigger: 'blur' }]
+}
+const brandingSaving = ref(false)
 const backgrounds = ref([])
 const selectedId = ref(0)
 const managing = ref(false)
@@ -187,6 +234,9 @@ const loadLoginLogo = async () => {
     const res = await getCurrentLoginLogo()
     if (res.code === 0) {
       currentLogo.value = res.data?.url ? res.data : null
+      brandForm.systemName = res.data?.systemName || 'mit-assets-admin'
+      brandForm.subtitle = res.data?.subtitle ?? 'ASSET CONTROL'
+      brandingStore.setBranding(res.data || {})
       logoPreviewFailed.value = false
     }
   } finally {
@@ -194,14 +244,38 @@ const loadLoginLogo = async () => {
   }
 }
 
+const saveBrandIdentity = async () => {
+  const valid = await brandFormRef.value?.validate().catch(() => false)
+  if (!valid) return
+  brandingSaving.value = true
+  try {
+    const res = await saveBranding({
+      systemName: brandForm.systemName.trim(),
+      subtitle: brandForm.subtitle.trim()
+    })
+    if (res.code === 0) {
+      await loadLoginLogo()
+      ElMessage.success('系统品牌已更新')
+    }
+  } finally {
+    brandingSaving.value = false
+  }
+}
+
+const restoreDefaultBrand = async () => {
+  brandForm.systemName = 'mit-assets-admin'
+  brandForm.subtitle = 'ASSET CONTROL'
+  await saveBrandIdentity()
+}
+
 const beforeLogoUpload = (file) => {
   const allowed = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type?.toLowerCase())
   if (!allowed) {
-    ElMessage.error('登录图标仅支持 JPG、PNG、WebP 图片')
+    ElMessage.error('系统 Logo 仅支持 JPG、PNG、WebP 图片')
     return false
   }
   if (file.size > 2 * 1024 * 1024) {
-    ElMessage.error('登录图标不能超过 2MB')
+    ElMessage.error('系统 Logo 不能超过 2MB')
     return false
   }
   logoUploading.value = true
@@ -211,7 +285,7 @@ const beforeLogoUpload = (file) => {
 const logoUploadSuccess = async (response, uploadFile) => {
   try {
     if (response?.code !== 0 || !response?.data?.file?.url) {
-      ElMessage.error(response?.msg || '登录图标上传失败')
+      ElMessage.error(response?.msg || '系统 Logo 上传失败')
       return
     }
     const file = response.data.file
@@ -221,7 +295,7 @@ const logoUploadSuccess = async (response, uploadFile) => {
     })
     if (res.code === 0) {
       await loadLoginLogo()
-      ElMessage.success('登录图标已更新')
+      ElMessage.success('系统 Logo 已更新')
     }
   } finally {
     logoUploading.value = false
@@ -230,13 +304,13 @@ const logoUploadSuccess = async (response, uploadFile) => {
 
 const logoUploadError = () => {
   logoUploading.value = false
-  ElMessage.error('登录图标上传失败')
+  ElMessage.error('系统 Logo 上传失败')
 }
 
 const restoreDefaultLogo = async () => {
   if (!currentLogo.value) return
   try {
-    await ElMessageBox.confirm('确定恢复系统默认登录图标吗？', '恢复默认图标', {
+    await ElMessageBox.confirm('确定恢复系统默认 Logo 吗？系统名称不会改变。', '恢复默认 Logo', {
       type: 'warning',
       confirmButtonText: '恢复默认',
       cancelButtonText: '取消'
@@ -247,7 +321,8 @@ const restoreDefaultLogo = async () => {
   const res = await resetLoginLogo()
   if (res.code === 0) {
     await loadLoginLogo()
-    ElMessage.success('已恢复默认登录图标')
+    brandingStore.useDefaultLogo()
+    ElMessage.success('已恢复默认系统 Logo')
   }
 }
 
@@ -358,31 +433,39 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-.system-settings-page { overflow-x: hidden; color: var(--el-text-color-primary); }
-.settings-heading { margin-bottom: 18px; }
-.eyebrow { margin: 0 0 5px; color: var(--el-color-primary); font-size: 11px; font-weight: 750; letter-spacing: .12em; }
-.settings-heading h1 { margin: 0; font-size: 24px; }
-.settings-heading p:last-child { margin: 5px 0 0; color: var(--el-text-color-secondary); font-size: 13px; }
+.system-settings-page { overflow-x: hidden; color: var(--na-foreground); }
+.settings-heading { margin-bottom: var(--na-space-lg); }
+.eyebrow { margin: 0 0 var(--na-space-xs); color: var(--na-primary); font-size: .75rem; font-weight: 600; line-height: 1.4; }
+.settings-heading h1 { margin: 0; font-size: 1.5rem; font-weight: 700; line-height: 1.25; }
+.settings-heading p:last-child { max-width: 65ch; margin: var(--na-space-xs) 0 0; color: var(--na-muted-foreground); font-size: .8125rem; line-height: 1.5; }
 .setting-card { overflow: hidden; }
-.setting-card-header { gap: 20px; }
-.setting-card-header h2 { margin: 0; font-size: 16px; }
-.setting-card-header p { margin: 5px 0 0; color: var(--el-text-color-secondary); font-size: 12px; }
-.current-background { display: grid; grid-template-columns: minmax(260px, 420px) minmax(220px, 1fr); align-items: center; gap: 24px; padding: 20px; }
+.setting-card-header { gap: var(--na-space-lg); }
+.setting-card-header h2 { margin: 0; font-size: 1rem; font-weight: 600; line-height: 1.35; }
+.setting-card-header p { max-width: 65ch; margin: var(--na-space-xs) 0 0; color: var(--na-muted-foreground); font-size: .75rem; line-height: 1.5; }
+.brand-editor { display: grid; grid-template-columns: minmax(320px, 1fr) minmax(260px, .72fr); align-items: center; gap: var(--na-space-xl); padding: var(--na-space-lg); }
+.brand-fields { min-width: 0; }
+.brand-actions { display: flex; flex-wrap: wrap; gap: var(--na-space-xs); }
+.brand-preview { display: flex; min-width: 0; align-items: center; gap: var(--na-space-md); padding: var(--na-space-lg); border: 1px solid var(--na-border); border-radius: var(--na-radius-sm); background: var(--na-muted); }
+.brand-preview > span { display: flex; min-width: 0; flex-direction: column; gap: var(--na-space-2xs); }
+.brand-preview strong, .brand-preview small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brand-preview strong { font-size: 1rem; font-weight: 700; line-height: 1.35; }
+.brand-preview small { color: var(--na-muted-foreground); font-size: .75rem; line-height: 1.4; }
+.current-background { display: grid; grid-template-columns: minmax(260px, 420px) minmax(220px, 1fr); align-items: center; gap: var(--na-space-lg); padding: var(--na-space-lg); }
 .current-preview { position: relative; overflow: hidden; aspect-ratio: 16 / 7; border: 1px solid var(--el-border-color-lighter); border-radius: 10px; background: var(--el-fill-color-light); }
 .current-preview img { width: 100%; height: 100%; object-fit: cover; }
-.current-badge { position: absolute; top: 10px; left: 10px; border-radius: 999px; background: rgb(15 23 42 / 78%); padding: 4px 9px; color: #fff; font-size: 11px; font-weight: 650; backdrop-filter: blur(4px); }
+.current-badge { position: absolute; top: 10px; left: 10px; border-radius: 999px; background: rgb(15 23 42 / 86%); padding: 4px 9px; color: #fff; font-size: .6875rem; font-weight: 600; }
 .current-info { min-width: 0; }
-.current-label { display: block; margin-bottom: 6px; color: var(--el-text-color-secondary); font-size: 12px; }
-.current-info strong { display: block; overflow: hidden; font-size: 17px; text-overflow: ellipsis; white-space: nowrap; }
-.current-info p { margin: 8px 0 0; color: var(--el-text-color-secondary); font-size: 12px; line-height: 1.6; }
-.current-logo { display: grid; grid-template-columns: 80px minmax(200px, 1fr) auto; align-items: center; gap: 20px; min-height: 120px; padding: 20px; }
+.current-label { display: block; margin-bottom: 6px; color: var(--na-muted-foreground); font-size: .75rem; }
+.current-info strong { display: block; overflow: hidden; font-size: 1rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.current-info p { max-width: 65ch; margin: var(--na-space-xs) 0 0; color: var(--na-muted-foreground); font-size: .75rem; line-height: 1.6; }
+.current-logo { display: grid; grid-template-columns: 80px minmax(200px, 1fr) auto; align-items: center; gap: var(--na-space-lg); min-height: 120px; padding: var(--na-space-lg); }
 .logo-preview { display: grid; place-items: center; width: 72px; height: 72px; overflow: hidden; border: 1px solid var(--el-border-color-lighter); border-radius: 14px; background: var(--el-fill-color-extra-light); }
 .logo-preview img { width: 48px; height: 48px; object-fit: contain; }
-.logo-actions { display: flex; align-items: center; gap: 8px; }
+.logo-actions { display: flex; align-items: center; gap: var(--na-space-xs); }
 .background-manager { border-top: 1px solid var(--el-border-color-lighter); background: var(--el-fill-color-extra-light); padding: 18px 20px 20px; }
-.manager-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 16px; }
-.manager-toolbar h3 { margin: 0; font-size: 15px; }
-.manager-toolbar p { margin: 4px 0 0; color: var(--el-text-color-secondary); font-size: 12px; }
+.manager-toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--na-space-lg); margin-bottom: var(--na-space-md); }
+.manager-toolbar h3 { margin: 0; font-size: .875rem; font-weight: 600; }
+.manager-toolbar p { max-width: 65ch; margin: var(--na-space-2xs) 0 0; color: var(--na-muted-foreground); font-size: .75rem; line-height: 1.5; }
 .background-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; min-height: 144px; }
 .background-option { position: relative; min-width: 0; overflow: hidden; padding: 0; border: 1px solid var(--el-border-color); border-radius: 10px; background: var(--el-bg-color); color: inherit; text-align: left; cursor: pointer; transition: border-color 180ms ease, box-shadow 180ms ease; }
 .background-option:hover { border-color: var(--el-color-primary-light-5); }
@@ -392,22 +475,22 @@ onMounted(() => {
 .thumbnail-wrap img { width: 100%; height: 100%; object-fit: cover; }
 .selected-mark { position: absolute; right: 9px; bottom: 9px; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--el-color-primary); color: #fff; box-shadow: 0 2px 8px rgb(0 0 0 / 18%); }
 .option-info { display: flex; min-width: 0; flex-direction: column; gap: 3px; padding: 10px 42px 11px 12px; }
-.option-info strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-.option-info span { color: var(--el-text-color-secondary); font-size: 11px; }
+.option-info strong { overflow: hidden; font-size: .8125rem; text-overflow: ellipsis; white-space: nowrap; }
+.option-info span { color: var(--el-text-color-secondary); font-size: .6875rem; }
 .delete-background { position: absolute; right: 7px; bottom: 6px; width: 32px; height: 32px; padding: 0; }
 .empty-gallery { grid-column: 1 / -1; display: flex; min-height: 144px; align-items: center; justify-content: center; flex-direction: column; gap: 6px; border: 1px dashed var(--el-border-color); border-radius: 10px; color: var(--el-text-color-secondary); }
-.empty-gallery .el-icon { font-size: 30px; }
-.empty-gallery strong { color: var(--el-text-color-primary); font-size: 13px; }
-.empty-gallery span { font-size: 12px; }
+.empty-gallery .el-icon { font-size: 1.875rem; }
+.empty-gallery strong { color: var(--el-text-color-primary); font-size: .8125rem; }
+.empty-gallery span { font-size: .75rem; }
 .manager-actions { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--el-border-color-lighter); }
-.manager-actions > span { overflow: hidden; color: var(--el-text-color-secondary); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.manager-actions > span { overflow: hidden; color: var(--el-text-color-secondary); font-size: .75rem; text-overflow: ellipsis; white-space: nowrap; }
 .manager-actions > div { display: flex; flex: 0 0 auto; gap: 8px; }
 @media (max-width: 720px) {
   .system-settings-page { padding: 12px; }
   .setting-card-header,
   .manager-toolbar,
   .manager-actions { align-items: stretch; flex-direction: column; }
-  .current-background { grid-template-columns: 1fr; gap: 14px; padding: 16px; }
+  .brand-editor, .current-background { grid-template-columns: 1fr; gap: var(--na-space-md); padding: var(--na-space-md); }
   .current-logo { grid-template-columns: 72px minmax(0, 1fr); gap: 14px; padding: 16px; }
   .logo-actions { grid-column: 1 / -1; flex-wrap: wrap; }
   .background-manager { padding: 16px; }

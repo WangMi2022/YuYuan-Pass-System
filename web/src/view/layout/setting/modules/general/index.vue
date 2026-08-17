@@ -63,7 +63,7 @@
       <div class="about-system">
         <span class="about-system__logo"><Logo /></span>
         <div>
-          <strong>资产管理中心</strong>
+          <strong>{{ brandingStore.systemName }}</strong>
           <p>面向资产全生命周期管理的业务平台，覆盖档案、入库、领用、调拨、归还、维修、报废与盘点流程。</p>
           <span>当前版本 v2.9.2</span>
         </div>
@@ -77,7 +77,7 @@ import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Download, RefreshLeft, Upload } from '@element-plus/icons-vue'
 import { storeToRefs } from 'pinia'
-import { useAppStore } from '@/pinia'
+import { useAppStore, useBrandingStore } from '@/pinia'
 import Logo from '@/components/logo/index.vue'
 
 defineOptions({
@@ -86,6 +86,7 @@ defineOptions({
 
 const emit = defineEmits(['reset'])
 const appStore = useAppStore()
+const brandingStore = useBrandingStore()
 const { config } = storeToRefs(appStore)
 const uploadRef = ref()
 const browserInfo = ref('检测中')
@@ -164,25 +165,25 @@ const handleImportConfig = (file) => {
 .system-info-grid > div { min-width: 0; padding: 14px; border-right: 1px solid var(--na-border); border-bottom: 1px solid var(--na-border); }
 .system-info-grid > div:nth-child(3n) { border-right: 0; }
 .system-info-grid > div:nth-last-child(-n + 3) { border-bottom: 0; }
-.system-info-grid dt { color: var(--na-muted-foreground); font-size: 9px; }
-.system-info-grid dd { overflow: hidden; margin: 4px 0 0; color: var(--na-foreground); font-size: 11px; font-weight: 620; text-overflow: ellipsis; white-space: nowrap; }
+.system-info-grid dt { color: var(--na-muted-foreground); font-size: 11px; }
+.system-info-grid dd { overflow: hidden; margin: 4px 0 0; color: var(--na-foreground); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 
 .settings-action-list { overflow: hidden; border: 1px solid var(--na-border); border-radius: 8px; background: var(--na-card); box-shadow: var(--na-shadow-sm); }
 .settings-action-row { display: grid; min-height: 76px; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--na-border); }
 .settings-action-row:last-child { border-bottom: 0; }
 .settings-action-row__icon { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 7px; background: var(--na-primary-soft); color: var(--na-primary); font-size: 16px; }
 .settings-action-row > div { min-width: 0; }
-.settings-action-row strong { display: block; color: var(--na-foreground); font-size: 12px; font-weight: 650; }
-.settings-action-row p { margin: 3px 0 0; color: var(--na-muted-foreground); font-size: 10px; }
+.settings-action-row strong { display: block; color: var(--na-foreground); font-size: 12px; font-weight: 600; }
+.settings-action-row p { margin: 3px 0 0; color: var(--na-muted-foreground); font-size: 11px; }
 .settings-action-row.is-danger .settings-action-row__icon { background: color-mix(in srgb, var(--na-danger) 10%, var(--na-card)); color: var(--na-danger); }
 
 .about-system { display: flex; align-items: flex-start; gap: 14px; padding: 2px 0; }
 .about-system__logo { display: grid; width: 46px; height: 46px; place-items: center; flex: 0 0 46px; border: 1px solid var(--na-border); border-radius: 8px; background: var(--na-card); }
 .about-system__logo :deep(img), .about-system__logo :deep(svg) { max-width: 30px; max-height: 30px; }
 .about-system > div { min-width: 0; }
-.about-system strong { color: var(--na-foreground); font-size: 13px; font-weight: 680; }
-.about-system p { max-width: 520px; margin: 5px 0; color: var(--na-muted-foreground); font-size: 10px; line-height: 1.7; }
-.about-system > div > span { color: var(--na-primary); font-size: 10px; font-weight: 600; }
+.about-system strong { color: var(--na-foreground); font-size: 13px; font-weight: 700; }
+.about-system p { max-width: 520px; margin: 5px 0; color: var(--na-muted-foreground); font-size: 11px; line-height: 1.7; }
+.about-system > div > span { color: var(--na-primary); font-size: 11px; font-weight: 600; }
 
 @media (max-width: 520px) {
   .system-info-grid { grid-template-columns: repeat(2, 1fr); }

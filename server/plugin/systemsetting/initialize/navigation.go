@@ -230,7 +230,7 @@ func syncBusinessNavigation(ctx context.Context) error {
 				{
 					name: systemConfigurationMenuName, path: systemConfigurationMenuName, title: "平台设置", icon: "setting", sort: 2,
 					menus: []navigationItem{
-						{name: "systemSettings", title: "登录外观", icon: "picture", sort: 1},
+						{name: "systemSettings", title: "品牌外观", icon: "picture", sort: 1},
 						{name: "system", title: "运行配置", icon: "operation", sort: 2},
 					},
 				},

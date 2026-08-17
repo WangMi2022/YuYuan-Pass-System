@@ -55,6 +55,14 @@ export const saveLoginLogo = (data) => {
   })
 }
 
+export const saveBranding = (data) => {
+  return service({
+    url: '/appearance/login-logo',
+    method: 'put',
+    data
+  })
+}
+
 export const resetLoginLogo = () => {
   return service({
     url: '/appearance/login-logo',

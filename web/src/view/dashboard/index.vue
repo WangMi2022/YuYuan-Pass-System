@@ -1,14 +1,23 @@
 <template>
-  <PendingTasks v-if="isPendingView" @back="closePendingItems" />
+  <LeadershipWallboard
+    v-if="isWallboardView"
+    :snapshot="wallboardSnapshot"
+    :loading="loading"
+    @refresh="loadDashboard"
+    @exit="closeWallboard"
+  />
+
+  <PendingTasks v-else-if="isPendingView" @back="closePendingItems" />
 
   <main v-else v-loading="loading" class="dashboard-page">
     <AppPageHeader
       title-id="dashboard-title"
       title="首页驾驶舱"
-      description="汇总当前权限范围内的资产、流水与日程。"
+      description="汇总当前权限范围内的资产、流水、风险与日程。"
     >
       <template #actions>
-        <span class="updated-at">刷新于 {{ updatedAt || '—' }}</span>
+        <span class="updated-at">{{ refreshText }}</span>
+        <el-button v-if="canOpenWallboard" plain :icon="FullScreen" @click="openWallboard">会议室大屏</el-button>
         <el-button :icon="Refresh" :loading="loading" @click="loadDashboard">刷新</el-button>
         <div v-if="access.assetInventory || access.invoiceRecognition" class="header-primary-actions">
           <el-button v-if="access.assetInventory" type="primary" :icon="Plus" @click="go('assetInventory')">登记资产</el-button>
@@ -39,20 +48,20 @@
       >
         <span class="runtime-topline">
           <span class="runtime-heading" :class="`health-${systemHealth.tone}`"><i />{{ moduleLoaded.monitor ? systemHealth.label : '服务器监控' }}</span>
-          <small>{{ moduleLoaded.monitor ? `采集于 ${serverCollectedAt}` : '暂无可用数据' }}</small>
+          <small>{{ moduleLoaded.monitor ? (moduleFailed.monitor ? moduleFreshnessShort('monitor') : `采集于 ${serverCollectedAt}`) : '暂无可用数据' }}</small>
         </span>
         <dl>
           <div>
             <dt>CPU</dt><dd>{{ moduleLoaded.monitor ? percent(systemUsage.cpu) : '—' }}</dd>
-            <span class="runtime-track"><i :class="`tone-${usageTone(systemUsage.cpu)}`" :style="{ width: `${safePercent(systemUsage.cpu)}%` }" /></span>
+            <span class="runtime-track"><i :class="`tone-${usageTone(systemUsage.cpu)}`" :style="{ width: `${moduleLoaded.monitor ? safePercent(systemUsage.cpu) : 0}%` }" /></span>
           </div>
           <div>
             <dt>内存</dt><dd>{{ moduleLoaded.monitor ? percent(systemUsage.ram) : '—' }}</dd>
-            <span class="runtime-track"><i :class="`tone-${usageTone(systemUsage.ram)}`" :style="{ width: `${safePercent(systemUsage.ram)}%` }" /></span>
+            <span class="runtime-track"><i :class="`tone-${usageTone(systemUsage.ram)}`" :style="{ width: `${moduleLoaded.monitor ? safePercent(systemUsage.ram) : 0}%` }" /></span>
           </div>
           <div>
             <dt>磁盘</dt><dd>{{ moduleLoaded.monitor ? percent(systemUsage.disk) : '—' }}</dd>
-            <span class="runtime-track"><i :class="`tone-${usageTone(systemUsage.disk)}`" :style="{ width: `${safePercent(systemUsage.disk)}%` }" /></span>
+            <span class="runtime-track"><i :class="`tone-${usageTone(systemUsage.disk)}`" :style="{ width: `${moduleLoaded.monitor ? safePercent(systemUsage.disk) : 0}%` }" /></span>
           </div>
         </dl>
       </button>
@@ -89,6 +98,7 @@
             <el-button v-if="access.assetInventory" text :icon="ArrowRight" @click="go('assetInventory')">资产档案</el-button>
           </header>
 
+          <p v-if="moduleFailed.assets && moduleLoaded.assets" class="module-stale-notice">{{ moduleFreshnessText('assets') }}</p>
           <template v-if="moduleLoaded.assets">
             <dl class="asset-summary">
               <div><dt>资产档案</dt><dd>{{ formatNumber(assetDashboard.assetKinds) }}</dd><small>{{ formatNumber(assetDashboard.categoryCount) }} 个分类</small></div>
@@ -140,6 +150,7 @@
             <el-button v-if="access.invoiceDashboard" text :icon="ArrowRight" @click="go('invoiceDashboard')">流水总览</el-button>
           </header>
 
+          <p v-if="moduleFailed.invoices && moduleLoaded.invoices" class="module-stale-notice">{{ moduleFreshnessText('invoices') }}</p>
           <template v-if="moduleLoaded.invoices">
             <div class="invoice-workspace">
               <div class="invoice-total">
@@ -176,12 +187,41 @@
       </div>
 
       <aside class="support-column">
+        <article v-if="access.risk" class="na-panel dashboard-panel daily-risk-panel">
+          <header class="na-panel-header panel-heading">
+            <div><span>风险闭环</span><h2>领导关注</h2></div>
+            <el-button text :icon="ArrowRight" @click="go('assetRiskCenter')">风险中心</el-button>
+          </header>
+          <p v-if="moduleFailed.risk && moduleLoaded.risk" class="module-stale-notice">{{ moduleFreshnessText('risk') }}</p>
+          <template v-if="moduleLoaded.risk">
+            <div class="daily-risk-summary">
+              <div class="daily-risk-total">
+                <span>开放风险</span>
+                <strong :class="riskDashboard.highOpen ? 'is-danger' : 'is-success'">{{ formatNumber(riskDashboard.totalOpen) }}</strong>
+                <small>高风险 {{ formatNumber(riskDashboard.highOpen) }} 项</small>
+              </div>
+              <dl>
+                <div><dt>今日新增</dt><dd>{{ formatNumber(riskDashboard.todayNew) }}</dd></div>
+                <div><dt>超期未结</dt><dd class="is-warning">{{ formatNumber(riskDashboard.overdue) }}</dd></div>
+              </dl>
+            </div>
+            <div v-if="riskTrendBars.length" class="daily-risk-trend" aria-label="近七日风险新增与关闭趋势">
+              <span v-for="item in riskTrendBars" :key="item.date" :title="`${item.date} 新增 ${item.new} · 关闭 ${item.resolved}`">
+                <i class="risk-new" :style="{ height: `${item.newRatio}%` }" />
+                <i class="risk-resolved" :style="{ height: `${item.resolvedRatio}%` }" />
+              </span>
+            </div>
+          </template>
+          <div v-else class="panel-placeholder">风险数据暂不可用</div>
+        </article>
+
         <article v-if="access.calendar" class="na-panel dashboard-panel schedule-panel">
           <header class="na-panel-header panel-heading">
             <div><span>工作日历</span><h2>今日日程</h2></div>
             <el-button text :icon="ArrowRight" @click="go('workSchedule')">查看日历</el-button>
           </header>
-          <div v-if="todaySchedules.length" class="schedule-list">
+          <p v-if="moduleFailed.calendar && moduleLoaded.calendar" class="module-stale-notice">{{ moduleFreshnessText('calendar') }}</p>
+          <div v-if="moduleLoaded.calendar && todaySchedules.length" class="schedule-list">
             <button v-for="item in todaySchedules" :key="item.id" type="button" @click="go('workSchedule')">
               <i :style="{ background: item.color }" />
               <time>{{ item.time }}</time>
@@ -191,8 +231,9 @@
               </span>
             </button>
           </div>
-          <div v-else class="side-empty"><Calendar /><span>今日暂无日程</span></div>
-          <footer v-if="todaySchedules.length" class="schedule-footer">今日共 {{ formatNumber(todaySchedules.length) }} 项安排</footer>
+          <div v-else-if="moduleLoaded.calendar" class="side-empty"><Calendar /><span>今日暂无日程</span></div>
+          <div v-else class="panel-placeholder">日程数据暂不可用</div>
+          <footer v-if="moduleLoaded.calendar && todaySchedules.length" class="schedule-footer">今日共 {{ formatNumber(todaySchedules.length) }} 项安排</footer>
         </article>
 
         <article v-if="access.audit" class="na-panel dashboard-panel audit-panel">
@@ -200,6 +241,7 @@
             <div><span>审计平台</span><h2>最近操作</h2></div>
             <el-button text :icon="ArrowRight" @click="go('operation')">全部记录</el-button>
           </header>
+          <p v-if="moduleFailed.audit && moduleLoaded.audit" class="module-stale-notice">{{ moduleFreshnessText('audit') }}</p>
           <div v-if="moduleLoaded.audit && recentOperations.length" class="operation-list">
             <div class="operation-table-head"><span>方法</span><span>请求路径</span><span>时间</span><span>状态</span></div>
             <button v-for="item in recentOperations" :key="item.ID" type="button" @click="go('operation')">
@@ -219,7 +261,7 @@
 </template>
 
 <script setup>
-import { computed, onActivated, onMounted, ref, watch } from 'vue'
+import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   ArrowRight,
@@ -228,6 +270,7 @@ import {
   Clock,
   Coin,
   DocumentChecked,
+  FullScreen,
   Plus,
   Refresh,
   Tickets,
@@ -236,8 +279,10 @@ import {
 import { dateKey, recurrenceLabel, scheduleMatchesDate } from '@/utils/workCalendar'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
 import PendingTasks from '@/view/dashboard/PendingTasks.vue'
+import LeadershipWallboard from '@/view/dashboard/LeadershipWallboard.vue'
 import { formatCompactCurrency, formatCurrency, formatNumber } from '@/utils/format'
 import { getAssetDashboard } from '@/plugin/asset/api/asset'
+import { getAssetRiskDashboard } from '@/plugin/asset/api/risk'
 import { getAssetOperationList } from '@/plugin/asset/api/operation'
 import { getInvoiceDashboard } from '@/plugin/invoice/api/invoice'
 import { centsToCurrency } from '@/plugin/invoice/utils/invoice'
@@ -251,14 +296,19 @@ defineOptions({ name: 'Dashboard' })
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const moduleKeys = ['assets', 'assetDrafts', 'invoices', 'risk', 'calendar', 'audit', 'monitor']
 const loading = ref(false)
 const updatedAt = ref('')
 const assetDashboard = ref(createAssetDashboard())
 const invoiceDashboard = ref(createInvoiceDashboard())
+const riskDashboard = ref(createRiskDashboard())
 const assetDraftTotal = ref(0)
 const recentOperations = ref([])
 const systemState = ref(createSystemState())
-const moduleLoaded = ref({ assets: false, invoices: false, audit: false, monitor: false })
+const moduleLoaded = ref(createModuleState())
+const moduleRefreshed = ref(createModuleState())
+const moduleFailed = ref(createModuleState())
+const moduleUpdatedAt = ref(createModuleState(''))
 const calendarEvents = ref([])
 const calendarTypes = ref([])
 
@@ -278,14 +328,28 @@ const access = computed(() => ({
   invoiceDashboard: router.hasRoute('invoiceDashboard'),
   invoiceLedger: router.hasRoute('invoiceLedger'),
   invoiceRecognition: router.hasRoute('invoiceRecognition'),
-  assets: router.hasRoute('assetDashboard') || router.hasRoute('assetInventory'),
-  invoices: router.hasRoute('invoiceDashboard') || router.hasRoute('invoiceLedger'),
+  assets: router.hasRoute('assetDashboard'),
+  invoices: router.hasRoute('invoiceDashboard'),
   calendar: router.hasRoute('workSchedule'),
   audit: router.hasRoute('operation'),
+  risk: router.hasRoute('assetRiskCenter'),
   monitor: router.hasRoute('state')
 }))
 const isPendingView = computed(() => route.query.view === 'pending')
+const isWallboardView = computed(() => route.query.view === 'wallboard')
+const canOpenWallboard = computed(() => access.value.assets || access.value.invoices || access.value.risk || access.value.calendar || access.value.monitor)
 const canOpenPendingTasks = computed(() => access.value.assetOperations || access.value.invoiceRecognition)
+const requestedModules = computed(() => [
+  access.value.assets && 'assets',
+  access.value.assetOperations && 'assetDrafts',
+  access.value.invoices && 'invoices',
+  access.value.risk && 'risk',
+  access.value.calendar && 'calendar',
+  access.value.audit && 'audit',
+  access.value.monitor && 'monitor'
+].filter(Boolean))
+const refreshedModuleCount = computed(() => requestedModules.value.filter((key) => moduleRefreshed.value[key]).length)
+const availableModuleCount = computed(() => requestedModules.value.filter((key) => moduleLoaded.value[key]).length)
 
 const greeting = computed(() => {
   const hour = new Date().getHours()
@@ -298,13 +362,36 @@ const greeting = computed(() => {
 const currentDateText = computed(() => new Intl.DateTimeFormat('zh-CN', {
   year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
 }).format(new Date()))
-const pendingTotal = computed(() => Number(assetDraftTotal.value || 0) + Number(invoiceDashboard.value.pendingCount || 0) + Number(invoiceDashboard.value.failedCount || 0))
+const refreshText = computed(() => {
+  if (loading.value) return '正在刷新数据'
+  const total = requestedModules.value.length
+  const refreshed = refreshedModuleCount.value
+  const available = availableModuleCount.value
+  if (!total) return '当前账号暂无统计权限'
+  if (!updatedAt.value) return available ? '数据已就绪' : '数据暂不可用'
+  if (!refreshed) return available ? `刷新失败 · 上次成功于 ${updatedAt.value}` : '数据暂不可用'
+  if (refreshed < total) return `部分更新于 ${updatedAt.value}`
+  return `刷新于 ${updatedAt.value}`
+})
+const pendingTotal = computed(() => {
+  const assetTotal = moduleLoaded.value.assetDrafts ? Number(assetDraftTotal.value || 0) : 0
+  const invoiceTotal = moduleLoaded.value.invoices
+    ? Number(invoiceDashboard.value.pendingCount || 0) + Number(invoiceDashboard.value.failedCount || 0)
+    : 0
+  return assetTotal + invoiceTotal
+})
 const overviewText = computed(() => {
   const counts = []
-  if (access.value.assets) counts.push(`${formatNumber(assetDraftTotal.value)} 项资产业务待处理`)
-  if (access.value.invoices) counts.push(`${formatNumber(invoiceDashboard.value.pendingCount)} 张发票待核对`)
-  if (access.value.invoices && invoiceDashboard.value.failedCount) counts.push(`${formatNumber(invoiceDashboard.value.failedCount)} 张识别失败`)
-  return counts.length ? `当前有 ${counts.join('，')}。` : '从左侧菜单进入已获授权的业务模块。'
+  if (access.value.assetOperations && moduleLoaded.value.assetDrafts) counts.push(`${formatNumber(assetDraftTotal.value)} 项资产业务待处理`)
+  if (access.value.invoices && moduleLoaded.value.invoices) counts.push(`${formatNumber(invoiceDashboard.value.pendingCount)} 张发票待核对`)
+  if (access.value.invoices && moduleLoaded.value.invoices && invoiceDashboard.value.failedCount) counts.push(`${formatNumber(invoiceDashboard.value.failedCount)} 张识别失败`)
+  if (access.value.risk && moduleLoaded.value.risk) counts.push(`${formatNumber(riskDashboard.value.totalOpen)} 项开放风险`)
+  if (counts.length) {
+    const staleHint = requestedModules.value.some((key) => moduleFailed.value[key] && moduleLoaded.value[key]) ? ' 部分数据来自上次成功刷新。' : ''
+    return `当前有 ${counts.join('，')}。${staleHint}`
+  }
+  if (availableModuleCount.value < requestedModules.value.length) return '部分统计数据暂不可用，可稍后刷新重试。'
+  return '当前没有待处理事项，可从左侧菜单进入已获授权的业务模块。'
 })
 const maintenanceQuantity = computed(() => Number(assetDashboard.value.statusSummary.find((item) => item.status === 'maintenance')?.quantity || 0))
 const controlledQuantity = computed(() => Math.max(Number(assetDashboard.value.totalQuantity || 0) - maintenanceQuantity.value, 0))
@@ -314,20 +401,40 @@ const healthRate = computed(() => {
 })
 const metrics = computed(() => {
   const items = []
-  if (access.value.assets) {
-    items.push({ label: '资产实物总量', value: `${formatNumber(assetDashboard.value.totalQuantity)} 件`, hint: `${formatNumber(assetDashboard.value.categoryCount)} 个分类 · ${formatNumber(assetDashboard.value.assetKinds)} 份资产档案`, tone: 'primary', icon: Box })
-    items.push({ label: '资产账面原值', value: formatCompactCurrency(assetDashboard.value.originalValue), hint: `当前估值 ${formatCompactCurrency(assetDashboard.value.currentValue)}`, tone: 'success', icon: Coin })
+  if (access.value.assets && moduleLoaded.value.assets) {
+    items.push({ label: '资产实物总量', value: `${formatNumber(assetDashboard.value.totalQuantity)} 件`, hint: hintWithFreshness('assets', `${formatNumber(assetDashboard.value.categoryCount)} 个分类 · ${formatNumber(assetDashboard.value.assetKinds)} 份资产档案`), tone: 'primary', icon: Box })
+    items.push({ label: '资产账面原值', value: formatCompactCurrency(assetDashboard.value.originalValue), hint: hintWithFreshness('assets', `当前估值 ${formatCompactCurrency(assetDashboard.value.currentValue)}`), tone: 'success', icon: Coin })
   }
-  if (access.value.invoices) {
-    items.push({ label: '已确认发票', value: centsToCurrency(invoiceDashboard.value.totalCents), hint: `${formatNumber(invoiceDashboard.value.confirmedCount)} 张已进入正式统计`, tone: 'info', icon: Tickets })
+  if (access.value.invoices && moduleLoaded.value.invoices) {
+    items.push({ label: '已确认发票', value: centsToCurrency(invoiceDashboard.value.totalCents), hint: hintWithFreshness('invoices', `${formatNumber(invoiceDashboard.value.confirmedCount)} 张已进入正式统计`), tone: 'info', icon: Tickets })
+  }
+  if ((access.value.assetOperations && moduleLoaded.value.assetDrafts) || (access.value.invoices && moduleLoaded.value.invoices)) {
+    const pendingHints = []
+    if (access.value.assetOperations && moduleLoaded.value.assetDrafts) pendingHints.push(`${formatNumber(assetDraftTotal.value)} 项资产业务`)
+    if (access.value.invoices && moduleLoaded.value.invoices) {
+      pendingHints.push(`${formatNumber(invoiceDashboard.value.pendingCount)} 张待核对`)
+      pendingHints.push(`${formatNumber(invoiceDashboard.value.failedCount)} 张失败`)
+    }
+    const pendingStale = (moduleFailed.value.assetDrafts && moduleLoaded.value.assetDrafts) || (moduleFailed.value.invoices && moduleLoaded.value.invoices)
     items.push({
       label: '待处理事项',
       value: `${formatNumber(pendingTotal.value)} 项`,
-      hint: `${formatNumber(assetDraftTotal.value)} 项资产业务 · ${formatNumber(invoiceDashboard.value.pendingCount)} 张待核对 · ${formatNumber(invoiceDashboard.value.failedCount)} 张失败`,
+      hint: `${pendingHints.join(' · ')}${pendingStale ? ' · 上次成功数据' : ''}`,
       tone: 'warning',
       icon: WarningFilled,
       action: canOpenPendingTasks.value ? 'pending' : '',
       actionLabel: canOpenPendingTasks.value ? '查看待处理事项' : ''
+    })
+  }
+  if (access.value.risk && moduleLoaded.value.risk) {
+    items.push({
+      label: '开放风险',
+      value: `${formatNumber(riskDashboard.value.totalOpen)} 项`,
+      hint: hintWithFreshness('risk', `高风险 ${formatNumber(riskDashboard.value.highOpen)} 项 · 今日新增 ${formatNumber(riskDashboard.value.todayNew)} 项`),
+      tone: riskDashboard.value.highOpen ? 'danger' : 'success',
+      icon: WarningFilled,
+      action: 'risk',
+      actionLabel: '查看风险中心'
     })
   }
   return items
@@ -342,6 +449,15 @@ const invoiceTrend = computed(() => {
   const values = invoiceDashboard.value.monthlyTrend.slice(-6)
   const maximum = Math.max(...values.map((item) => Number(item.totalCents || 0)), 0)
   return values.map((item) => ({ ...item, ratio: maximum ? Math.max((Number(item.totalCents || 0) / maximum) * 100, Number(item.totalCents || 0) ? 5 : 0) : 0 }))
+})
+const riskTrendBars = computed(() => {
+  const values = (riskDashboard.value.trend || []).slice(-7)
+  const maximum = Math.max(1, ...values.flatMap((item) => [Number(item.new || 0), Number(item.resolved || 0)]))
+  return values.map((item) => ({
+    ...item,
+    newRatio: Math.max(Number(item.new || 0) ? 10 : 0, Number(item.new || 0) / maximum * 100),
+    resolvedRatio: Math.max(Number(item.resolved || 0) ? 10 : 0, Number(item.resolved || 0) / maximum * 100)
+  }))
 })
 const systemUsage = computed(() => {
   const cpuValues = Array.isArray(systemState.value.cpu?.cpus) ? systemState.value.cpu.cpus : []
@@ -373,6 +489,26 @@ const todaySchedules = computed(() => calendarEvents.value
     const type = calendarTypes.value.find((entry) => entry.value === item.type) || defaultScheduleTypes[0]
     return { ...item, typeLabel: type.label, color: type.color, repeatLabel: recurrenceLabel(item) }
   }))
+const wallboardSnapshot = computed(() => ({
+  dateText: currentDateText.value,
+  updatedAt: updatedAt.value,
+  freshnessText: refreshText.value,
+  access: access.value,
+  moduleLoaded: moduleLoaded.value,
+  moduleFailed: moduleFailed.value,
+  moduleUpdatedAt: moduleUpdatedAt.value,
+  asset: assetDashboard.value,
+  assetStatusRows: assetStatusRows.value,
+  invoice: invoiceDashboard.value,
+  invoiceTrend: invoiceTrend.value,
+  risk: riskDashboard.value,
+  healthRate: healthRate.value,
+  pendingTotal: pendingTotal.value,
+  assetDraftTotal: assetDraftTotal.value,
+  schedules: todaySchedules.value,
+  systemHealth: systemHealth.value,
+  systemUsage: systemUsage.value
+}))
 const assetStatusOrder = [
   { key: 'in_use', label: '在用', tone: 'success' },
   { key: 'idle', label: '闲置', tone: 'info' },
@@ -383,10 +519,27 @@ const assetStatusOrder = [
 const statusMap = Object.fromEntries(assetStatusOrder.map((item) => [item.key, item]))
 
 function createAssetDashboard() {
-  return { assetKinds: 0, totalQuantity: 0, categoryCount: 0, originalValue: 0, currentValue: 0, statusSummary: [], recentAssets: [] }
+  return { assetKinds: 0, totalQuantity: 0, categoryCount: 0, originalValue: 0, currentValue: 0, statusSummary: [], locationSummary: [], recentAssets: [] }
 }
 function createInvoiceDashboard() {
   return { confirmedCount: 0, pendingCount: 0, failedCount: 0, totalCents: 0, amountCents: 0, taxCents: 0, monthlyTrend: [] }
+}
+function createModuleState(defaultValue = false) {
+  return Object.fromEntries(moduleKeys.map((key) => [key, defaultValue]))
+}
+function hintWithFreshness(key, text) {
+  return moduleFailed.value[key] && moduleLoaded.value[key] ? `${text} · 上次成功数据` : text
+}
+function moduleFreshnessShort(key) {
+  return moduleUpdatedAt.value[key] ? `上次成功 ${moduleUpdatedAt.value[key]}` : '上次成功数据'
+}
+function moduleFreshnessText(key) {
+  return moduleUpdatedAt.value[key]
+    ? `本次刷新失败，显示 ${moduleUpdatedAt.value[key]} 的上次成功数据`
+    : '本次刷新失败，当前显示上次成功数据'
+}
+function createRiskDashboard() {
+  return { totalOpen: 0, highOpen: 0, todayNew: 0, overdue: 0, trend: [], byCategory: [], bySeverity: [], byStatus: [], byCustodian: [], recentEvents: [], latestScan: null, generatedAt: '' }
 }
 function createSystemState() {
   return { collectedAt: '', cpu: { cpus: [] }, ram: { usedPercent: 0 }, disk: [] }
@@ -425,11 +578,20 @@ function go(name) {
 }
 function handleMetricClick(metric) {
   if (metric.action === 'pending') openPendingItems()
+  if (metric.action === 'risk') go('assetRiskCenter')
 }
 function openPendingItems() {
   router.push({ path: route.path, query: { ...route.query, view: 'pending' } })
 }
 function closePendingItems() {
+  const query = { ...route.query }
+  delete query.view
+  router.replace({ path: route.path, query })
+}
+function openWallboard() {
+  router.push({ path: route.path, query: { ...route.query, view: 'wallboard' } })
+}
+function closeWallboard() {
   const query = { ...route.query }
   delete query.view
   router.replace({ path: route.path, query })
@@ -484,73 +646,145 @@ async function loadCalendarSchedules() {
     if (result.code === 0) {
       calendarEvents.value = (result.data || []).map((item) => ({ ...item, id: String(item.id ?? item.ID) }))
       ensureCalendarTypes(calendarEvents.value)
+      return true
     }
   } catch {
-    calendarEvents.value = []
+    return false
   }
+  return false
 }
 async function loadAssets() {
-  const [dashboardResult, operationResult] = await Promise.allSettled([
-    getAssetDashboard(),
-    getAssetOperationList({ page: 1, pageSize: 1, status: 'draft' })
-  ])
-  if (dashboardResult.status === 'fulfilled' && dashboardResult.value.code === 0) {
-    const data = dashboardResult.value.data || {}
-    assetDashboard.value = { ...createAssetDashboard(), ...data, statusSummary: data.statusSummary || [], recentAssets: data.recentAssets || [] }
-    moduleLoaded.value.assets = true
+  const result = await getAssetDashboard()
+  if (result.code === 0) {
+    const data = result.data || {}
+    assetDashboard.value = {
+      ...createAssetDashboard(),
+      ...data,
+      statusSummary: data.statusSummary || [],
+      locationSummary: data.locationSummary || [],
+      recentAssets: data.recentAssets || []
+    }
+    return true
   }
-  if (operationResult.status === 'fulfilled' && operationResult.value.code === 0) {
-    assetDraftTotal.value = Number(operationResult.value.data?.total || 0)
+  return false
+}
+async function loadAssetDrafts() {
+  const result = await getAssetOperationList({ page: 1, pageSize: 1, status: 'draft' })
+  if (result.code === 0) {
+    assetDraftTotal.value = Number(result.data?.total || 0)
+    return true
   }
+  return false
 }
 async function loadInvoices() {
   const result = await getInvoiceDashboard()
   if (result.code === 0) {
     const data = result.data || {}
     invoiceDashboard.value = { ...createInvoiceDashboard(), ...data, monthlyTrend: data.monthlyTrend || [] }
-    moduleLoaded.value.invoices = true
+    return true
   }
+  return false
+}
+async function loadRisk() {
+  const result = await getAssetRiskDashboard()
+  if (result.code === 0) {
+    const data = result.data || {}
+    riskDashboard.value = { ...createRiskDashboard(), ...data, trend: data.trend || [] }
+    return true
+  }
+  return false
 }
 async function loadAudit() {
   const result = await getSysOperationRecordList({ page: 1, pageSize: 4 })
   if (result.code === 0) {
     recentOperations.value = result.data?.list || []
-    moduleLoaded.value.audit = true
+    return true
   }
+  return false
 }
 async function loadMonitor() {
   const result = await getSystemState()
   if (result.code === 0 && result.data?.server) {
     systemState.value = { ...createSystemState(), ...result.data.server }
-    moduleLoaded.value.monitor = true
+    return true
   }
+  return false
 }
 async function loadDashboard() {
+  if (loading.value) return
   loading.value = true
-  moduleLoaded.value = { assets: false, invoices: false, audit: false, monitor: false }
+  moduleRefreshed.value = createModuleState()
+  moduleFailed.value = createModuleState()
   try {
-    await Promise.allSettled([
-      access.value.assets ? loadAssets() : Promise.resolve(),
-      access.value.invoices ? loadInvoices() : Promise.resolve(),
-      access.value.calendar ? loadCalendarSchedules() : Promise.resolve(),
-      access.value.audit ? loadAudit() : Promise.resolve(),
-      access.value.monitor ? loadMonitor() : Promise.resolve()
-    ])
-    updatedAt.value = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+    const tasks = [
+      { key: 'assets', enabled: access.value.assets, run: loadAssets },
+      { key: 'assetDrafts', enabled: access.value.assetOperations, run: loadAssetDrafts },
+      { key: 'invoices', enabled: access.value.invoices, run: loadInvoices },
+      { key: 'risk', enabled: access.value.risk, run: loadRisk },
+      { key: 'calendar', enabled: access.value.calendar, run: loadCalendarSchedules },
+      { key: 'audit', enabled: access.value.audit, run: loadAudit },
+      { key: 'monitor', enabled: access.value.monitor, run: loadMonitor }
+    ].filter((task) => task.enabled)
+    const results = await Promise.allSettled(tasks.map((task) => task.run()))
+    const refreshed = createModuleState()
+    const failed = createModuleState()
+    const available = { ...moduleLoaded.value }
+    const timestamps = { ...moduleUpdatedAt.value }
+    const completedAt = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+    results.forEach((result, index) => {
+      const key = tasks[index].key
+      const succeeded = result.status === 'fulfilled' && result.value === true
+      refreshed[key] = succeeded
+      failed[key] = !succeeded
+      if (succeeded) {
+        available[key] = true
+        timestamps[key] = completedAt
+      }
+    })
+    moduleLoaded.value = available
+    moduleRefreshed.value = refreshed
+    moduleFailed.value = failed
+    moduleUpdatedAt.value = timestamps
+    if (results.some((result) => result.status === 'fulfilled' && result.value === true)) {
+      updatedAt.value = completedAt
+    }
   } finally {
     loading.value = false
   }
 }
 
+let wallboardTimer = null
+function syncWallboardTimer(enabled) {
+  if (wallboardTimer) {
+    window.clearInterval(wallboardTimer)
+    wallboardTimer = null
+  }
+  if (enabled) {
+    wallboardTimer = window.setInterval(() => {
+      if (isWallboardView.value && !loading.value) loadDashboard()
+    }, 60 * 1000)
+  }
+}
+
 onMounted(() => {
   if (!isPendingView.value) loadDashboard()
+  syncWallboardTimer(isWallboardView.value)
 })
+let activatedOnce = false
 onActivated(() => {
-  if (!isPendingView.value) loadCalendarSchedules()
+  if (activatedOnce && !isPendingView.value) loadDashboard()
+  activatedOnce = true
+  syncWallboardTimer(isWallboardView.value)
 })
+onDeactivated(() => syncWallboardTimer(false))
 watch(isPendingView, (pending, wasPending) => {
   if (!pending && wasPending) loadDashboard()
 })
+watch(isWallboardView, (wallboard, wasWallboard) => {
+  syncWallboardTimer(wallboard)
+  if (!wallboard && wasWallboard && !isPendingView.value) loadDashboard()
+})
+onBeforeUnmount(() => syncWallboardTimer(false))
 </script>
 
 <style scoped lang="scss">
@@ -559,10 +793,10 @@ watch(isPendingView, (pending, wasPending) => {
 .header-primary-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .header-primary-actions :deep(.el-button) { min-width: 104px; margin-left: 0; }
 
-.workbench-band { display: flex; min-width: 0; min-height: 120px; align-items: stretch; justify-content: space-between; gap: 28px; margin-bottom: 12px; padding: 18px 20px; border: 1px solid var(--na-border); border-radius: var(--na-radius); background: var(--na-card); }
+.workbench-band { display: flex; min-width: 0; min-height: 120px; align-items: stretch; justify-content: space-between; gap: 28px; margin-bottom: var(--na-space-lg); padding: 18px 20px; border: 1px solid var(--na-border); border-radius: var(--na-radius); background: var(--na-card); }
 .workbench-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; justify-content: center; }
-.current-date { margin: 0 0 5px; color: var(--na-primary); font-size: .75rem; font-weight: 650; }
-.workbench-copy h2 { margin: 0; font-size: 1.35rem; font-weight: 680; letter-spacing: 0; }
+.current-date { margin: 0 0 5px; color: var(--na-primary); font-size: .75rem; font-weight: 600; }
+.workbench-copy h2 { margin: 0; font-size: 1.375rem; font-weight: 700; letter-spacing: 0; }
 .workbench-copy > p:last-of-type { margin: 7px 0 0; color: var(--na-muted-foreground); font-size: .8125rem; }
 .quick-actions { display: flex; flex-wrap: wrap; gap: 2px 6px; margin-top: 8px; }
 .quick-actions :deep(.el-button) { height: 26px; padding: 0 4px; font-size: .75rem; }
@@ -573,18 +807,18 @@ watch(isPendingView, (pending, wasPending) => {
 .runtime-summary:disabled { cursor: default; opacity: 1; }
 .runtime-topline { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 16px; }
 .runtime-topline > small { overflow: hidden; color: var(--na-muted-foreground); font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
-.runtime-heading { display: inline-flex; align-items: center; gap: 7px; font-size: .75rem; font-weight: 630; transition: color 160ms ease; white-space: nowrap; }
+.runtime-heading { display: inline-flex; align-items: center; gap: 7px; font-size: .75rem; font-weight: 600; transition: color 160ms ease; white-space: nowrap; }
 .runtime-heading i { width: 7px; height: 7px; border-radius: 50%; background: var(--na-success); box-shadow: 0 0 0 3px var(--na-success-soft); }
 .runtime-heading.health-warning i { background: var(--na-warning); box-shadow: 0 0 0 3px var(--na-warning-soft); }
 .runtime-heading.health-danger i { background: var(--na-danger); box-shadow: 0 0 0 3px var(--na-danger-soft); }
 .runtime-summary dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 26px; margin: 0; }
 .runtime-summary dl div { display: grid; min-width: 0; grid-template-columns: 1fr auto; align-items: end; gap: 4px 8px; }
 .runtime-summary dt { color: var(--na-muted-foreground); font-size: .6875rem; }
-.runtime-summary dd { margin: 0; color: var(--na-foreground); font-size: 1rem; font-variant-numeric: tabular-nums; font-weight: 670; }
+.runtime-summary dd { margin: 0; color: var(--na-foreground); font-size: 1rem; font-variant-numeric: tabular-nums; font-weight: 700; }
 .runtime-track { grid-column: 1 / -1; height: 5px; overflow: hidden; border-radius: 3px; background: var(--na-muted); }
 .runtime-track i { display: block; height: 100%; border-radius: inherit; }
 
-.metric-band { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); margin-bottom: 12px; border: 1px solid var(--na-border); border-radius: var(--na-radius); background: var(--na-card); }
+.metric-band { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); margin-bottom: var(--na-space-lg); border: 1px solid var(--na-border); border-radius: var(--na-radius); background: var(--na-card); }
 .metric-item { display: flex; min-width: 0; min-height: 104px; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 16px 18px 15px 20px; border-right: 1px solid var(--na-border); }
 button.metric-item { width: 100%; border-top: 0; border-bottom: 0; border-left: 0; background: transparent; color: inherit; font: inherit; text-align: left; }
 .metric-item:last-child { border-right: 0; }
@@ -593,48 +827,50 @@ button.metric-item { width: 100%; border-top: 0; border-bottom: 0; border-left: 
 .metric-item--actionable:focus-visible { position: relative; z-index: 1; outline: 2px solid var(--na-primary); outline-offset: -3px; }
 .metric-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; justify-content: center; gap: 4px; }
 .metric-copy > span, .metric-copy small { overflow: hidden; color: var(--na-muted-foreground); font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
-.metric-copy strong { overflow: hidden; color: var(--na-foreground); font-size: 1.25rem; font-variant-numeric: tabular-nums; font-weight: 680; text-overflow: ellipsis; white-space: nowrap; }
+.metric-copy strong { overflow: hidden; color: var(--na-foreground); font-size: 1.25rem; font-variant-numeric: tabular-nums; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .metric-copy small.is-warning { color: var(--na-warning); }
-.metric-icon { display: inline-grid; width: 32px; height: 32px; flex: 0 0 auto; place-items: center; border-radius: var(--na-radius-sm); font-size: .95rem; }
+.metric-icon { display: inline-grid; width: 32px; height: 32px; flex: 0 0 auto; place-items: center; border-radius: var(--na-radius-sm); font-size: 1rem; }
 .metric-primary { color: var(--na-primary); background: var(--na-primary-soft); }
 .metric-success { color: var(--na-success); background: var(--na-success-soft); }
 .metric-info { color: var(--na-info); background: var(--na-info-soft); }
 .metric-warning { color: var(--na-warning); background: var(--na-warning-soft); }
+.metric-danger { color: var(--na-danger); background: var(--na-danger-soft); }
 
-.dashboard-workspace { display: grid; min-width: 0; grid-template-columns: minmax(0, 1.65fr) minmax(340px, .84fr); gap: 12px; }
-.business-column, .support-column { display: grid; min-width: 0; align-content: start; gap: 12px; }
+.dashboard-workspace { display: grid; min-width: 0; grid-template-columns: minmax(0, 1.65fr) minmax(340px, .84fr); gap: var(--na-space-md); }
+.business-column, .support-column { display: grid; min-width: 0; align-content: start; gap: var(--na-space-md); }
 .dashboard-panel { min-width: 0; overflow: hidden; }
 .panel-heading > div { min-width: 0; }
 .panel-heading span { display: block; color: var(--na-muted-foreground); font-size: .6875rem; }
-.panel-heading h2 { margin: 3px 0 0; color: var(--na-foreground); font-size: .9375rem; font-weight: 660; }
+.panel-heading h2 { margin: 3px 0 0; color: var(--na-foreground); font-size: .9375rem; font-weight: 600; }
 .panel-heading :deep(.el-button) { font-size: .75rem; }
 .panel-placeholder, .inline-empty { display: grid; min-height: 84px; place-items: center; color: var(--na-muted-foreground); font-size: .75rem; }
+.module-stale-notice { margin: 0; padding: 8px 16px; border-bottom: 1px solid var(--na-border); background: var(--na-warning-soft); color: var(--na-warning); font-size: .75rem; line-height: 1.5; }
 
 .asset-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; padding: 15px 20px; border-bottom: 1px solid var(--na-border); }
 .asset-summary div { min-width: 0; padding: 0 20px; border-left: 1px solid var(--na-border); }
 .asset-summary div:first-child { padding-left: 0; border-left: 0; }
 .asset-summary div:last-child { padding-right: 0; }
 .asset-summary dt, .asset-summary small { overflow: hidden; color: var(--na-muted-foreground); font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
-.asset-summary dd { overflow: hidden; margin: 6px 0 3px; color: var(--na-foreground); font-size: 1.05rem; font-variant-numeric: tabular-nums; font-weight: 680; text-overflow: ellipsis; white-space: nowrap; }
+.asset-summary dd { overflow: hidden; margin: 6px 0 3px; color: var(--na-foreground); font-size: 1.125rem; font-variant-numeric: tabular-nums; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .asset-detail-grid { display: grid; min-width: 0; grid-template-columns: minmax(320px, .96fr) minmax(360px, 1.04fr); }
 .asset-status-section, .asset-recent-section { min-width: 0; }
 .asset-status-section { border-right: 1px solid var(--na-border); }
 .section-mini-heading { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 20px 10px; }
-.section-mini-heading > span { color: var(--na-foreground); font-size: .75rem; font-weight: 620; }
+.section-mini-heading > span { color: var(--na-foreground); font-size: .75rem; font-weight: 600; }
 .section-mini-heading small { overflow: hidden; color: var(--na-muted-foreground); font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
 .asset-status-list { display: grid; gap: 11px; padding: 8px 20px 18px; }
 .asset-status-row { display: grid; min-width: 0; grid-template-columns: 78px minmax(0, 1fr) 42px; align-items: center; gap: 10px; }
 .status-label { display: inline-flex; align-items: center; gap: 6px; color: var(--na-muted-foreground); font-size: .75rem; white-space: nowrap; }
 .status-label i { width: 6px; height: 6px; border-radius: 50%; background: var(--na-muted-foreground); }
 .progress-track { height: 5px; overflow: hidden; border-radius: 3px; background: var(--na-muted); }
-.progress-track > i { display: block; height: 100%; border-radius: inherit; background: var(--na-primary); transition: width 180ms ease; }
+.progress-track > i { display: block; height: 100%; border-radius: inherit; background: var(--na-primary); }
 .tone-success { background: var(--na-success) !important; }
 .tone-warning { background: var(--na-warning) !important; }
 .tone-danger { background: var(--na-danger) !important; }
 .tone-info { background: var(--na-info) !important; }
 .tone-primary { background: var(--na-primary) !important; }
 .asset-status-row > strong { color: var(--na-foreground); font-size: .75rem; font-variant-numeric: tabular-nums; text-align: right; }
-.asset-recent-table-head { display: grid; margin: 0 20px; padding: 8px 12px; grid-template-columns: minmax(0, 1.25fr) minmax(90px, .8fr) minmax(92px, .6fr); gap: 12px; border-radius: 6px; background: var(--na-table-header); color: var(--na-muted-foreground); font-size: .625rem; }
+.asset-recent-table-head { display: grid; margin: 0 20px; padding: 8px 12px; grid-template-columns: minmax(0, 1.25fr) minmax(90px, .8fr) minmax(92px, .6fr); gap: 12px; border-radius: 6px; background: var(--na-table-header); color: var(--na-muted-foreground); font-size: .6875rem; }
 .asset-recent-table-head span:last-child { text-align: right; }
 .asset-recent-list { display: grid; }
 .asset-recent-list button { display: grid; min-width: 0; min-height: 52px; grid-template-columns: minmax(0, 1.25fr) minmax(90px, .8fr) minmax(92px, .6fr); align-items: center; gap: 12px; margin: 0 20px; padding: 7px 12px; border: 0; border-bottom: 1px solid var(--na-border); background: transparent; color: var(--na-foreground); text-align: left; }
@@ -642,7 +878,7 @@ button.metric-item { width: 100%; border-top: 0; border-bottom: 0; border-left: 
 .asset-recent-list button:hover, .operation-list button:hover, .schedule-list button:hover { background: var(--na-table-hover); }
 .asset-identity, .asset-place { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
 .asset-identity strong, .asset-place span { overflow: hidden; font-size: .75rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.asset-identity small, .asset-place small { overflow: hidden; color: var(--na-muted-foreground); font-size: .625rem; text-overflow: ellipsis; white-space: nowrap; }
+.asset-identity small, .asset-place small { overflow: hidden; color: var(--na-muted-foreground); font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
 .asset-place small.status-success { color: var(--na-success); }
 .asset-place small.status-warning { color: var(--na-warning); }
 .asset-place small.status-danger { color: var(--na-danger); }
@@ -653,25 +889,25 @@ button.metric-item { width: 100%; border-top: 0; border-bottom: 0; border-left: 
 .invoice-workspace { display: grid; min-width: 0; grid-template-columns: minmax(230px, .8fr) minmax(0, 1.7fr); }
 .invoice-total { display: flex; min-width: 0; flex-direction: column; justify-content: center; padding: 20px; background: var(--na-primary-soft); }
 .invoice-total > span, .invoice-total > small, .invoice-breakdown dt { color: var(--na-muted-foreground); font-size: .6875rem; }
-.invoice-total > strong { overflow: hidden; margin: 7px 0 3px; color: var(--na-primary); font-size: 1.35rem; font-variant-numeric: tabular-nums; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.invoice-total > strong { overflow: hidden; margin: 7px 0 3px; color: var(--na-primary); font-size: 1.375rem; font-variant-numeric: tabular-nums; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .invoice-breakdown { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 15px 0 0; padding-top: 13px; border-top: 1px solid var(--na-ring); }
 .invoice-breakdown div { min-width: 0; }
-.invoice-breakdown dd { overflow: hidden; margin: 5px 0 0; color: var(--na-foreground); font-size: .75rem; font-variant-numeric: tabular-nums; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.invoice-breakdown dd { overflow: hidden; margin: 5px 0 0; color: var(--na-foreground); font-size: .75rem; font-variant-numeric: tabular-nums; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .trend-section { min-width: 0; padding: 15px 20px 12px; }
 .invoice-trend-heading { display: flex; min-width: 0; align-items: flex-start; justify-content: space-between; gap: 14px; }
 .invoice-trend-heading > div:first-child { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
-.invoice-trend-heading > div:first-child > span { color: var(--na-foreground); font-size: .75rem; font-weight: 620; }
-.invoice-trend-heading small { color: var(--na-muted-foreground); font-size: .625rem; }
+.invoice-trend-heading > div:first-child > span { color: var(--na-foreground); font-size: .75rem; font-weight: 600; }
+.invoice-trend-heading small { color: var(--na-muted-foreground); font-size: .6875rem; }
 .invoice-exceptions { display: flex; flex: 0 0 auto; gap: 6px; }
-.invoice-exceptions span { display: inline-flex; min-height: 24px; align-items: center; padding: 0 8px; border-radius: 6px; font-size: .625rem; font-weight: 600; }
+.invoice-exceptions span { display: inline-flex; min-height: 24px; align-items: center; padding: 0 8px; border-radius: 6px; font-size: .6875rem; font-weight: 600; }
 .invoice-exceptions .is-warning { color: var(--na-warning); background: var(--na-warning-soft); }
 .invoice-exceptions .is-danger { color: var(--na-danger); background: var(--na-danger-soft); }
 .invoice-trend { display: grid; height: 124px; grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: end; gap: 10px; padding: 9px 0 0; }
 .trend-item { display: grid; min-width: 0; height: 100%; grid-template-rows: 16px minmax(0, 1fr) 15px; align-items: end; gap: 4px; }
-.trend-value { overflow: hidden; color: var(--na-muted-foreground); font-size: .5625rem; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+.trend-value { overflow: hidden; color: var(--na-muted-foreground); font-size: .6875rem; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 .trend-bar { display: flex; height: 100%; align-items: end; justify-content: center; border-bottom: 1px solid var(--na-border); }
 .trend-bar i { width: min(32px, 62%); min-height: 2px; border-radius: 4px 4px 0 0; background: var(--na-primary); }
-.trend-item small { color: var(--na-muted-foreground); font-size: .625rem; text-align: center; }
+.trend-item small { color: var(--na-muted-foreground); font-size: .6875rem; text-align: center; }
 
 .schedule-list, .operation-list { display: grid; }
 .schedule-list button { display: grid; min-width: 0; min-height: 48px; grid-template-columns: 6px 42px minmax(0, 1fr); align-items: center; gap: 10px; padding: 6px 16px; border: 0; border-bottom: 1px solid var(--na-border); background: transparent; color: var(--na-foreground); text-align: left; }
@@ -680,20 +916,35 @@ button.metric-item { width: 100%; border-top: 0; border-bottom: 0; border-left: 
 .schedule-list time { color: var(--na-muted-foreground); font-size: .6875rem; font-variant-numeric: tabular-nums; }
 .schedule-list span { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
 .schedule-list strong { overflow: hidden; font-size: .75rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.schedule-list small { overflow: hidden; color: var(--na-muted-foreground); font-size: .625rem; text-overflow: ellipsis; white-space: nowrap; }
+.schedule-list small { overflow: hidden; color: var(--na-muted-foreground); font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
 .side-empty { display: grid; min-height: 102px; place-items: center; align-content: center; gap: 7px; color: var(--na-muted-foreground); font-size: .75rem; }
 .side-empty :deep(svg) { width: 22px; height: 22px; color: var(--na-primary); }
-.schedule-footer { display: block; overflow: hidden; padding: 8px 16px; border-top: 1px solid var(--na-border); color: var(--na-muted-foreground); font-size: .625rem; text-overflow: ellipsis; white-space: nowrap; }
+.schedule-footer { display: block; overflow: hidden; padding: 8px 16px; border-top: 1px solid var(--na-border); color: var(--na-muted-foreground); font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
 .operation-table-head, .operation-list button { display: grid; min-width: 0; grid-template-columns: 42px minmax(0, 1fr) 40px 34px; align-items: center; gap: 8px; }
-.operation-table-head { margin: 12px 14px 4px; padding: 7px 8px; border-radius: 6px; background: var(--na-table-header); color: var(--na-muted-foreground); font-size: .625rem; }
+.operation-table-head { margin: 12px 14px 4px; padding: 7px 8px; border-radius: 6px; background: var(--na-table-header); color: var(--na-muted-foreground); font-size: .6875rem; }
 .operation-table-head span:last-child { text-align: center; }
 .operation-list button { min-height: 40px; padding: 0 22px; border: 0; border-bottom: 1px solid var(--na-border); background: transparent; color: var(--na-foreground); text-align: left; }
-.request-method { overflow: hidden; color: var(--na-primary); font: 600 .625rem/1 ui-monospace, SFMono-Regular, Menlo, monospace; text-overflow: ellipsis; white-space: nowrap; }
+.request-method { overflow: hidden; color: var(--na-primary); font: 600 .6875rem/1 ui-monospace, SFMono-Regular, Menlo, monospace; text-overflow: ellipsis; white-space: nowrap; }
 .request-path { overflow: hidden; font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
-.operation-list time { color: var(--na-muted-foreground); font-size: .625rem; font-variant-numeric: tabular-nums; }
-.operation-list i { display: inline-grid; min-width: 30px; place-items: center; border-radius: 4px; color: var(--na-on-primary); font-size: .5625rem; font-style: normal; font-variant-numeric: tabular-nums; line-height: 18px; }
+.operation-list time { color: var(--na-muted-foreground); font-size: .6875rem; font-variant-numeric: tabular-nums; }
+.operation-list i { display: inline-grid; min-width: 30px; place-items: center; border-radius: 4px; color: var(--na-on-primary); font-size: .6875rem; font-style: normal; font-variant-numeric: tabular-nums; line-height: 18px; }
 .operation-list i.request-ok { color: var(--na-success); background: var(--na-success-soft); }
 .operation-list i.request-error { color: var(--na-danger); background: var(--na-danger-soft); }
+.daily-risk-summary { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); border-bottom: 1px solid var(--na-border); }
+.daily-risk-total { display: flex; min-width: 0; flex-direction: column; justify-content: center; padding: var(--na-space-md); border-right: 1px solid var(--na-border); }
+.daily-risk-total span, .daily-risk-total small, .daily-risk-summary dt { color: var(--na-muted-foreground); font-size: .75rem; }
+.daily-risk-total strong { margin: 5px 0 3px; color: var(--na-foreground); font-size: 1.5rem; font-variant-numeric: tabular-nums; font-weight: 700; line-height: 1.15; }
+.daily-risk-total strong.is-danger { color: var(--na-danger); }
+.daily-risk-total strong.is-success { color: var(--na-success); }
+.daily-risk-summary dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: center; margin: 0; padding: var(--na-space-md) var(--na-space-sm); }
+.daily-risk-summary dl div { min-width: 0; padding: 0 var(--na-space-xs); }
+.daily-risk-summary dd { margin: 5px 0 0; color: var(--na-foreground); font-size: 1rem; font-variant-numeric: tabular-nums; font-weight: 600; }
+.daily-risk-summary dd.is-warning { color: var(--na-warning); }
+.daily-risk-trend { display: flex; height: 72px; align-items: stretch; gap: var(--na-space-xs); padding: var(--na-space-sm) var(--na-space-md); }
+.daily-risk-trend > span { display: flex; min-width: 0; flex: 1; align-items: end; justify-content: center; gap: 2px; border-bottom: 1px solid var(--na-border); }
+.daily-risk-trend i { width: min(7px, 34%); min-height: 2px; border-radius: 2px 2px 0 0; }
+.daily-risk-trend .risk-new { background: var(--na-danger); }
+.daily-risk-trend .risk-resolved { background: var(--na-success); }
 @media (max-width: 1120px) {
   .dashboard-workspace { grid-template-columns: 1fr; }
   .support-column { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -729,6 +980,8 @@ button.metric-item { width: 100%; border-top: 0; border-bottom: 0; border-left: 
   .metric-band { grid-template-columns: 1fr; }
   .metric-item, .metric-item:nth-child(2n), .metric-item:nth-child(-n + 2) { min-height: 86px; border-right: 0; border-bottom: 1px solid var(--na-border); }
   .metric-item:last-child { border-bottom: 0; }
+  .daily-risk-summary { grid-template-columns: 1fr; }
+  .daily-risk-total { border-right: 0; border-bottom: 1px solid var(--na-border); }
 }
 @media (prefers-reduced-motion: reduce) {
   .progress-track > i { transition: none; }

@@ -3,7 +3,7 @@
     <section class="na-page-header about-hero">
       <div>
         <p class="eyebrow">ABOUT SYSTEM</p>
-        <h1>资产管理中心</h1>
+        <h1>{{ brandingStore.systemName }}</h1>
         <p>
           面向二次开发的资产管理后台，聚合资产档案、分类统计、数据大屏、Excel 导入导出与统一 OSS 存储能力。
         </p>
@@ -36,6 +36,9 @@
 </template>
 
 <script setup>
+import { useBrandingStore } from '@/pinia'
+
+const brandingStore = useBrandingStore()
 defineOptions({ name: 'About' })
 </script>
 
