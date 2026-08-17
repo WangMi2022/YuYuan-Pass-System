@@ -143,7 +143,7 @@
                     readonly
                   />
                 </div>
-                <article v-else-if="isMarkdown && previewText" class="source-markdown-preview" v-html="previewMarkdownHtml" />
+                <MarkdownContent v-else-if="isMarkdown && previewText" class="source-markdown-preview" :source="previewText" />
                 <pre v-else-if="isSourceTextPreview && previewText" class="source-text-preview">{{ previewText }}</pre>
                 <el-empty v-else-if="previewError" :description="previewError">
                   <div class="empty-actions">
@@ -186,7 +186,7 @@
                         resize="none"
                         placeholder="请输入 Markdown 内容"
                       />
-                      <article class="markdown-preview" v-html="markdownHtml" />
+                      <MarkdownContent class="markdown-preview" :source="editor.content" />
                     </div>
                   </template>
 
@@ -322,8 +322,6 @@ import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, r
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Check, Delete, Document, Download, Edit, Refresh, Search, UploadFilled } from '@element-plus/icons-vue'
-import { marked } from 'marked'
-import '@vue-office/docx/lib/index.css'
 import { deleteDocument, downloadDocumentFile, getDocumentDetail, getDocumentList, updateDocumentContent, uploadDocument } from '@/plugin/document/api/document'
 import { formatDateText } from '@/utils/format'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
@@ -333,8 +331,16 @@ import { usePagedList } from '@/hooks/usePagedList'
 
 const RichEdit = defineAsyncComponent(() => import('@/components/richtext/rich-edit.vue'))
 const SpreadsheetEditor = defineAsyncComponent(() => import('@/plugin/document/components/SpreadsheetEditor.vue'))
+const loadMarkdownContent = () => import('@/plugin/document/components/MarkdownContent.vue')
+const MarkdownContent = defineAsyncComponent(loadMarkdownContent)
 
-const VueOfficeDocx = defineAsyncComponent(() => import('@vue-office/docx'))
+const VueOfficeDocx = defineAsyncComponent(async () => {
+  const [, docxModule] = await Promise.all([
+    import('@vue-office/docx/lib/index.css'),
+    import('@vue-office/docx')
+  ])
+  return docxModule.default || docxModule
+})
 
 const route = useRoute()
 const router = useRouter()
@@ -434,8 +440,6 @@ const plainPlaceholder = computed(() => {
   if (['json', 'xml', 'yaml', 'yml'].includes(currentExt.value)) return '请输入结构化文本内容'
   return '请输入文本内容'
 })
-const markdownHtml = computed(() => marked.parse(editor.content || ''))
-const previewMarkdownHtml = computed(() => marked.parse(previewText.value || ''))
 const previewEmptyText = computed(() => {
   if (isExcelPreview.value) return '正在解析原 Excel 文件'
   if (isSourceTextPreview.value) return '正在读取原文件内容'
@@ -825,6 +829,10 @@ const loadPreviewSource = async (doc = current.value) => {
       previewText.value = new TextDecoder('utf-8').decode(previewBuffer)
       if (data.byteLength > maxPreviewBytes) {
         previewText.value += '\n\n……原文件较大，仅预览前 1MB 内容。'
+      }
+      if (isMarkdown.value) {
+        await loadMarkdownContent()
+        if (seq !== previewRequestSeq) return
       }
     }
     if (isExcelPreview.value) {

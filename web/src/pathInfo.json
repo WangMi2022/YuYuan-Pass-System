@@ -93,6 +93,7 @@
   "/src/plugin/auto/view/installPlugin/index.vue": "Index",
   "/src/plugin/auto/view/pubPlug/pubPlug.vue": "PubPlug",
   "/src/plugin/auto/view/skills/index.vue": "Index",
+  "/src/plugin/document/components/MarkdownContent.vue": "MarkdownContent",
   "/src/plugin/document/components/SpreadsheetEditor.vue": "SpreadsheetEditor",
   "/src/plugin/document/view/viewer.vue": "Viewer",
   "/src/plugin/email/view/index.vue": "Email",
