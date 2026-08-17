@@ -115,7 +115,7 @@ func (i *initMenu) InitializeData(ctx context.Context) (next context.Context, er
 		// 系统管理分组子菜单
 		{MenuLevel: 2, Hidden: false, ParentId: menuNameMap["systemData"], Path: "dictionary", Name: "dictionary", Component: "view/superAdmin/dictionary/sysDictionary.vue", Sort: 1, Meta: Meta{Title: "数据字典", Icon: "notebook"}},
 		{MenuLevel: 2, Hidden: false, ParentId: menuNameMap["systemData"], Path: "sysParams", Name: "sysParams", Component: "view/superAdmin/params/sysParams.vue", Sort: 2, Meta: Meta{Title: "系统参数", Icon: "compass"}},
-		{MenuLevel: 2, Hidden: false, ParentId: menuNameMap["systemConfiguration"], Path: "system", Name: "system", Component: "view/systemTools/system/system.vue", Sort: 2, Meta: Meta{Title: "运行配置", Icon: "operation"}},
+		{MenuLevel: 2, Hidden: false, ParentId: menuNameMap["systemConfiguration"], Path: "system", Name: "system", Component: "view/systemTools/system/system.vue", Sort: 2, Meta: Meta{Title: "基础设置", Icon: "operation"}},
 		{MenuLevel: 2, Hidden: false, ParentId: menuNameMap["systemIntegration"], Path: "apiToken", Name: "apiToken", Component: "view/systemTools/apiToken/index.vue", Sort: 1, Meta: Meta{Title: "接口令牌", Icon: "key"}},
 		{MenuLevel: 2, Hidden: false, ParentId: menuNameMap["systemIntegration"], Path: "sysVersion", Name: "sysVersion", Component: "view/systemTools/version/version.vue", Sort: 2, Meta: Meta{Title: "配置版本", Icon: "server"}},
 

@@ -1,39 +1,5 @@
 <template>
   <main class="na-page na-page--list system-config-page">
-    <AppPageHeader
-      title-id="runtime-config-title"
-      title="运行配置"
-      description="服务、存储与安全运行参数"
-    >
-      <template #actions>
-        <el-tooltip
-          :disabled="!isDirty"
-          content="当前配置尚未保存"
-          placement="bottom"
-        >
-          <span class="header-action-wrap">
-            <el-button
-              :icon="Refresh"
-              :loading="reloading"
-              :disabled="reloading || saving || isDirty || !configReady"
-              @click="reload"
-            >
-              重载服务
-            </el-button>
-          </span>
-        </el-tooltip>
-        <el-button
-          type="primary"
-          :icon="Check"
-          :loading="saving"
-          :disabled="reloading || saving || !isDirty || !configReady"
-          @click="update"
-        >
-          保存更改
-        </el-button>
-      </template>
-    </AppPageHeader>
-
     <div class="config-console na-panel">
       <div class="config-main">
         <section class="config-workbench" :aria-labelledby="`config-section-${activeNames}`">
@@ -46,6 +12,33 @@
                 <h2 :id="`config-section-${activeNames}`">{{ activeSection.label }}</h2>
                 <p>{{ activeSection.description }}</p>
               </div>
+            </div>
+            <div class="config-editor-actions" aria-label="基础设置操作">
+              <el-tooltip
+                :disabled="!isDirty"
+                content="当前配置尚未保存"
+                placement="bottom"
+              >
+                <span class="header-action-wrap">
+                  <el-button
+                    :icon="Refresh"
+                    :loading="reloading"
+                    :disabled="reloading || saving || isDirty || !configReady"
+                    @click="reload"
+                  >
+                    重载服务
+                  </el-button>
+                </span>
+              </el-tooltip>
+              <el-button
+                type="primary"
+                :icon="Check"
+                :loading="saving"
+                :disabled="reloading || saving || !isDirty || !configReady"
+                @click="update"
+              >
+                保存更改
+              </el-button>
             </div>
           </header>
 
@@ -1016,7 +1009,7 @@
       </el-form>
       <div v-else-if="configLoadError" class="config-error-state" role="alert">
         <el-icon><WarningFilled /></el-icon>
-        <strong>运行配置读取失败</strong>
+        <strong>基础设置读取失败</strong>
         <el-button :icon="Refresh" @click="initForm">重新加载</el-button>
       </div>
       <el-skeleton v-else class="config-loading-state" :rows="8" animated />
@@ -1251,15 +1244,6 @@
     color: var(--na-foreground);
   }
 
-  .system-config-page :deep(.na-page-header) {
-    align-items: center;
-    margin-bottom: 12px;
-  }
-
-  .system-config-page :deep(.na-page-title) {
-    font-size: 22px;
-  }
-
   .header-action-wrap {
     display: inline-flex;
   }
@@ -1308,6 +1292,13 @@
     align-items: center;
     min-width: 0;
     gap: 12px;
+  }
+
+  .config-editor-actions {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    gap: 8px;
   }
 
   .config-editor-icon {
@@ -1523,7 +1514,12 @@
       padding-inline: 12px;
     }
 
-    .system-config-page :deep(.na-page-actions) {
+    .config-editor-header {
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .config-editor-actions {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       width: 100%;
@@ -1531,7 +1527,7 @@
 
     .header-action-wrap,
     .header-action-wrap :deep(.el-button),
-    .system-config-page :deep(.na-page-actions > .el-button) {
+    .config-editor-actions > :deep(.el-button) {
       width: 100%;
       margin-left: 0;
     }

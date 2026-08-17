@@ -267,7 +267,7 @@
               <div><h3>用量配额</h3><p>全局、模块、角色和用户配额同时生效；0 表示不限制。</p></div>
               <el-button type="primary" :icon="Plus" @click="openQuota()">新增配额</el-button>
             </header>
-            <el-table v-loading="quotaLoading" :data="quotas" row-key="ID">
+            <el-table v-if="quotaLoading || quotas.length > 0" v-loading="quotaLoading" :data="quotas" row-key="ID">
               <el-table-column prop="scopeType" label="范围" width="110" />
               <el-table-column prop="scopeId" label="范围标识" min-width="170" />
               <el-table-column prop="dailyRequests" label="每日请求" width="110" align="right" />
@@ -276,8 +276,8 @@
               <el-table-column prop="maxConcurrency" label="最大并发" width="105" align="right" />
               <el-table-column label="状态" width="90" align="center"><template #default="{ row }"><el-tag :type="row.enabled ? 'success' : 'info'">{{ row.enabled ? '启用' : '停用' }}</el-tag></template></el-table-column>
               <el-table-column label="操作" width="90"><template #default="{ row }"><el-button text type="primary" :icon="Edit" @click="openQuota(row)">编辑</el-button></template></el-table-column>
-              <template #empty><AppEmptyState compact title="尚未设置智能服务配额" description="可按全局、模块、角色或用户限制请求量、Token、预算和并发。"><template #actions><el-button type="primary" :icon="Plus" @click="openQuota()">新增配额</el-button></template></AppEmptyState></template>
             </el-table>
+            <AppEmptyState v-else class="quota-empty-state" compact title="尚未设置智能服务配额" description="可按全局、模块、角色或用户限制请求量、Token、预算和并发。" />
           </section>
         </template>
 
@@ -731,6 +731,7 @@ onMounted(() => loadActiveSection(true))
 .service-stack { display: grid; gap: 14px; }
 .service-stack .group-heading { margin-bottom: 0; }
 .pricing-table { overflow-x: auto; border: 1px solid var(--na-border); border-radius: 8px; }
+.quota-empty-state { min-height: 200px; border: 1px solid var(--na-border); border-radius: 8px; }
 .pricing-row { display: grid; min-width: 690px; grid-template-columns: minmax(180px, 1fr) 210px 210px 90px; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--na-border); }
 .pricing-row:last-child { border-bottom: 0; }
 .pricing-row--header { color: var(--na-muted-foreground); background: var(--na-surface-muted); font-size: .72rem; }
