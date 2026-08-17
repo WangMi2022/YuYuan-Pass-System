@@ -11,6 +11,10 @@ RUN npm ci --legacy-peer-deps
 
 FROM deps AS build
 WORKDIR /app
+ARG VITE_BASE_API=/api
+ARG VITE_FILE_API=/api
+ENV VITE_BASE_API=${VITE_BASE_API}
+ENV VITE_FILE_API=${VITE_FILE_API}
 COPY web/ ./
 RUN npm run build
 
