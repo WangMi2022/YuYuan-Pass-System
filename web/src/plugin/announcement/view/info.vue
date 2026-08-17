@@ -224,17 +224,17 @@
   } from '@/plugin/announcement/api/info'
   import { extractAnnouncementSchedule } from '@/plugin/smart/api/smart'
   import { getUrl } from '@/utils/image'
-  // 富文本组件
-  import RichEdit from '@/components/richtext/rich-edit.vue'
   // 文件选择组件
   import SelectFile from '@/components/selectFile/selectFile.vue'
 
   // 全量引入格式化工具 请按需保留
   import { formatDate, filterDataSource } from '@/utils/format'
   import { ElMessage, ElMessageBox } from 'element-plus'
-  import { ref, reactive } from 'vue'
+  import { defineAsyncComponent, ref, reactive } from 'vue'
   import AppEmptyState from '@/components/page/AppEmptyState.vue'
   import AppPageHeader from '@/components/page/AppPageHeader.vue'
+  // 富文本组件
+  const RichEdit = defineAsyncComponent(() => import('@/components/richtext/rich-edit.vue'))
 
   defineOptions({
     name: 'Info'

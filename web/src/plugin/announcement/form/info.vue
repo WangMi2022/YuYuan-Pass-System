@@ -60,10 +60,10 @@
   // 自动获取字典
   import { useRoute, useRouter } from 'vue-router'
   import { ElMessage } from 'element-plus'
-  import { ref, reactive } from 'vue'
+  import { defineAsyncComponent, ref, reactive } from 'vue'
   import SelectFile from '@/components/selectFile/selectFile.vue'
   // 富文本组件
-  import RichEdit from '@/components/richtext/rich-edit.vue'
+  const RichEdit = defineAsyncComponent(() => import('@/components/richtext/rich-edit.vue'))
 
   const route = useRoute()
   const router = useRouter()
