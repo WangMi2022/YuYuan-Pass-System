@@ -13,13 +13,15 @@ import (
 
 const aiOperationsMenuName = "aiOperations"
 const systemAdminMenuName = "superAdmin"
+const systemIntelligenceMenuName = "systemIntelligence"
 const aiServicesMenuTitle = "智能能力配置"
+const intelligenceServicesMenuTitle = "智能服务"
 
-var menuNames = []string{aiOperationsMenuName}
+var menuNames = []string{systemAdminMenuName, systemIntelligenceMenuName, aiOperationsMenuName}
 
 func Menu(ctx context.Context) {
 	menus := []system.SysBaseMenu{{
-		ParentId: 0, MenuLevel: 1, Path: aiOperationsMenuName, Name: aiOperationsMenuName, Component: "plugin/aioperations/view/operations.vue", Sort: 7,
+		ParentId: 0, MenuLevel: 1, Path: aiOperationsMenuName, Name: aiOperationsMenuName, Component: "plugin/aioperations/view/operations.vue", Sort: 1,
 		Meta: system.Meta{Title: aiServicesMenuTitle, Icon: "cpu", KeepAlive: true},
 	}}
 	utils.RegisterMenus(menus...)
@@ -39,19 +41,36 @@ func syncAIServiceMenu(ctx context.Context) error {
 			return err
 		}
 
-		aiMenu := system.SysBaseMenu{
+		intelligenceServices := system.SysBaseMenu{
 			ParentId: systemAdmin.ID, MenuLevel: 1,
+			Path: systemIntelligenceMenuName, Name: systemIntelligenceMenuName, Hidden: false,
+			Component: "view/routerHolder.vue", Sort: 4,
+			Meta: system.Meta{Title: intelligenceServicesMenuTitle, Icon: "cpu"},
+		}
+		if err := tx.Where("name = ?", systemIntelligenceMenuName).FirstOrCreate(&intelligenceServices).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&system.SysBaseMenu{}).Where("name = ?", systemIntelligenceMenuName).Updates(map[string]any{
+			"parent_id": systemAdmin.ID, "menu_level": 1, "path": systemIntelligenceMenuName,
+			"component": "view/routerHolder.vue", "title": intelligenceServicesMenuTitle, "icon": "cpu",
+			"sort": 4, "hidden": false,
+		}).Error; err != nil {
+			return err
+		}
+
+		aiMenu := system.SysBaseMenu{
+			ParentId: intelligenceServices.ID, MenuLevel: 2,
 			Path: aiOperationsMenuName, Name: aiOperationsMenuName, Hidden: false,
-			Component: "plugin/aioperations/view/operations.vue", Sort: 7,
+			Component: "plugin/aioperations/view/operations.vue", Sort: 1,
 			Meta: system.Meta{Title: aiServicesMenuTitle, Icon: "cpu", KeepAlive: true},
 		}
 		if err := tx.Where("name = ?", aiOperationsMenuName).FirstOrCreate(&aiMenu).Error; err != nil {
 			return err
 		}
 		if err := tx.Model(&system.SysBaseMenu{}).Where("name = ?", aiOperationsMenuName).Updates(map[string]any{
-			"parent_id": systemAdmin.ID, "menu_level": 1, "path": aiOperationsMenuName,
+			"parent_id": intelligenceServices.ID, "menu_level": 2, "path": aiOperationsMenuName,
 			"component": "plugin/aioperations/view/operations.vue", "title": aiServicesMenuTitle, "icon": "cpu",
-			"sort": 7, "hidden": false, "keep_alive": true,
+			"sort": 1, "hidden": false, "keep_alive": true,
 		}).Error; err != nil {
 			return err
 		}
@@ -64,13 +83,15 @@ func syncAIServiceMenu(ctx context.Context) error {
 			return err
 		}
 		for _, authorityID := range authorityIDs {
-			relation := system.SysAuthorityMenu{
-				MenuId: strconv.Itoa(int(systemAdmin.ID)), AuthorityId: authorityID,
-			}
-			if err := tx.Where(
-				"sys_base_menu_id = ? AND sys_authority_authority_id = ?", relation.MenuId, relation.AuthorityId,
-			).FirstOrCreate(&relation).Error; err != nil {
-				return err
+			for _, parentID := range []uint{intelligenceServices.ID, systemAdmin.ID} {
+				relation := system.SysAuthorityMenu{
+					MenuId: strconv.Itoa(int(parentID)), AuthorityId: authorityID,
+				}
+				if err := tx.Where(
+					"sys_base_menu_id = ? AND sys_authority_authority_id = ?", relation.MenuId, relation.AuthorityId,
+				).FirstOrCreate(&relation).Error; err != nil {
+					return err
+				}
 			}
 		}
 		return nil

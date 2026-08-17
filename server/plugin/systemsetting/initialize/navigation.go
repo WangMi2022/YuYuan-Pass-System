@@ -14,12 +14,25 @@ const monitorMenuName = "monitorCenter"
 const permissionMenuName = "permissionManagement"
 const auditMenuName = "auditPlatform"
 const workCalendarMenuName = "workCalendar"
+const systemDataMenuName = "systemData"
+const systemConfigurationMenuName = "systemConfiguration"
+const systemIntegrationMenuName = "systemIntegration"
+const systemIntelligenceMenuName = "systemIntelligence"
 
 type navigationItem struct {
 	name  string
 	title string
 	icon  string
 	sort  int
+}
+
+type systemNavigationGroup struct {
+	name  string
+	path  string
+	title string
+	icon  string
+	sort  int
+	menus []navigationItem
 }
 
 // syncBusinessNavigation 将已有菜单迁移为二开业务信息架构。
@@ -206,18 +219,53 @@ func syncBusinessNavigation(ctx context.Context) error {
 
 		var systemParent system.SysBaseMenu
 		if err := tx.Where("name = ?", "superAdmin").First(&systemParent).Error; err == nil {
-			systemMenus := []navigationItem{
-				{name: "dictionary", title: "字典管理", icon: "notebook", sort: 1},
-				{name: "sysParams", title: "参数管理", icon: "compass", sort: 2},
-				{name: "system", title: "运行配置", icon: "operation", sort: 3},
-				{name: "apiToken", title: "API Token", icon: "key", sort: 4},
-				{name: "sysVersion", title: "版本管理", icon: "server", sort: 5},
-				{name: "systemSettings", title: "系统设置", icon: "setting", sort: 6},
+			systemGroups := []systemNavigationGroup{
+				{
+					name: systemDataMenuName, path: systemDataMenuName, title: "基础数据", icon: "collection-tag", sort: 1,
+					menus: []navigationItem{
+						{name: "dictionary", title: "数据字典", icon: "notebook", sort: 1},
+						{name: "sysParams", title: "系统参数", icon: "compass", sort: 2},
+					},
+				},
+				{
+					name: systemConfigurationMenuName, path: systemConfigurationMenuName, title: "平台设置", icon: "setting", sort: 2,
+					menus: []navigationItem{
+						{name: "systemSettings", title: "登录外观", icon: "picture", sort: 1},
+						{name: "system", title: "运行配置", icon: "operation", sort: 2},
+					},
+				},
+				{
+					name: systemIntegrationMenuName, path: systemIntegrationMenuName, title: "开放与运维", icon: "connection", sort: 3,
+					menus: []navigationItem{
+						{name: "apiToken", title: "接口令牌", icon: "key", sort: 1},
+						{name: "sysVersion", title: "配置版本", icon: "server", sort: 2},
+					},
+				},
+				{
+					name: systemIntelligenceMenuName, path: systemIntelligenceMenuName, title: "智能服务", icon: "cpu", sort: 4,
+					menus: []navigationItem{
+						{name: "aiOperations", title: "智能能力配置", icon: "cpu", sort: 1},
+					},
+				},
 			}
-			for _, item := range systemMenus {
-				if err := updateChildMenu(tx, systemParent.ID, item); err != nil {
+			parentItems := make([]navigationItem, 0, len(systemGroups))
+			for _, group := range systemGroups {
+				groupMenu, err := upsertSystemNavigationGroup(tx, systemParent.ID, group)
+				if err != nil {
 					return err
 				}
+				for _, item := range group.menus {
+					if err := updateSystemNavigationMenu(tx, groupMenu.ID, item); err != nil {
+						return err
+					}
+				}
+				if err := migrateAuthoritiesForParent(tx, groupMenu.ID, group.menus); err != nil {
+					return err
+				}
+				parentItems = append(parentItems, navigationItem{name: group.name})
+			}
+			if err := migrateAuthoritiesForParent(tx, systemParent.ID, parentItems); err != nil {
+				return err
 			}
 		}
 
@@ -245,7 +293,8 @@ func syncBusinessNavigation(ctx context.Context) error {
 			return err
 		}
 		if systemParent.ID != 0 {
-			return removeParentAuthoritiesWithoutChildren(tx, systemParent.ID)
+			legacySystemMenus := append(permissionMenus, auditMenus...)
+			return removeLegacySystemParentAuthorities(tx, systemParent.ID, legacySystemMenus)
 		}
 		return nil
 	})
@@ -254,6 +303,32 @@ func syncBusinessNavigation(ctx context.Context) error {
 func updateChildMenu(tx *gorm.DB, parentID uint, item navigationItem) error {
 	return tx.Model(&system.SysBaseMenu{}).Where("name = ?", item.name).Updates(map[string]any{
 		"parent_id": parentID, "menu_level": 1, "hidden": false,
+		"title": item.title, "icon": item.icon, "sort": item.sort,
+	}).Error
+}
+
+func upsertSystemNavigationGroup(tx *gorm.DB, systemParentID uint, group systemNavigationGroup) (system.SysBaseMenu, error) {
+	menu := system.SysBaseMenu{
+		ParentId: systemParentID, MenuLevel: 1, Path: group.path, Name: group.name, Hidden: false,
+		Component: "view/routerHolder.vue", Sort: group.sort,
+		Meta: system.Meta{Title: group.title, Icon: group.icon},
+	}
+	if err := tx.Where("name = ?", group.name).FirstOrCreate(&menu).Error; err != nil {
+		return system.SysBaseMenu{}, err
+	}
+	if err := tx.Model(&system.SysBaseMenu{}).Where("name = ?", group.name).Updates(map[string]any{
+		"parent_id": systemParentID, "menu_level": 1, "path": group.path,
+		"component": "view/routerHolder.vue", "hidden": false, "sort": group.sort,
+		"title": group.title, "icon": group.icon,
+	}).Error; err != nil {
+		return system.SysBaseMenu{}, err
+	}
+	return menu, nil
+}
+
+func updateSystemNavigationMenu(tx *gorm.DB, parentID uint, item navigationItem) error {
+	return tx.Model(&system.SysBaseMenu{}).Where("name = ?", item.name).Updates(map[string]any{
+		"parent_id": parentID, "menu_level": 2, "hidden": false,
 		"title": item.title, "icon": item.icon, "sort": item.sort,
 	}).Error
 }
@@ -294,9 +369,42 @@ func migrateAuthoritiesForParent(tx *gorm.DB, parentID uint, items []navigationI
 	return nil
 }
 
-// removeParentAuthoritiesWithoutChildren 清理由菜单重组产生的空父菜单授权。
-// 仅根据父菜单当前实际拥有的子菜单判断，以兼容后续新增的自定义系统菜单。
-func removeParentAuthoritiesWithoutChildren(tx *gorm.DB, parentID uint) error {
+// removeLegacySystemParentAuthorities 仅移除已迁出系统管理的旧菜单造成的冗余父级授权。
+// 未关联任何旧迁出菜单的显式父级授权必须保留，避免升级时静默修改角色配置。
+func removeLegacySystemParentAuthorities(tx *gorm.DB, parentID uint, legacyItems []navigationItem) error {
+	legacyNames := make([]string, 0, len(legacyItems))
+	for _, item := range legacyItems {
+		legacyNames = append(legacyNames, item.name)
+	}
+	if len(legacyNames) == 0 {
+		return nil
+	}
+
+	var legacyMenuIDs []uint
+	if err := tx.Model(&system.SysBaseMenu{}).
+		Where("name IN ?", legacyNames).
+		Pluck("id", &legacyMenuIDs).Error; err != nil {
+		return err
+	}
+	if len(legacyMenuIDs) == 0 {
+		return nil
+	}
+
+	legacyIDs := make([]string, 0, len(legacyMenuIDs))
+	for _, menuID := range legacyMenuIDs {
+		legacyIDs = append(legacyIDs, strconv.Itoa(int(menuID)))
+	}
+	var authoritiesWithLegacyMenus []string
+	if err := tx.Model(&system.SysAuthorityMenu{}).
+		Distinct("sys_authority_authority_id").
+		Where("sys_base_menu_id IN ?", legacyIDs).
+		Pluck("sys_authority_authority_id", &authoritiesWithLegacyMenus).Error; err != nil {
+		return err
+	}
+	if len(authoritiesWithLegacyMenus) == 0 {
+		return nil
+	}
+
 	var childMenuIDs []uint
 	if err := tx.Model(&system.SysBaseMenu{}).
 		Where("parent_id = ?", parentID).
@@ -320,7 +428,10 @@ func removeParentAuthoritiesWithoutChildren(tx *gorm.DB, parentID uint) error {
 		return err
 	}
 
-	query := tx.Where("sys_base_menu_id = ?", strconv.Itoa(int(parentID)))
+	query := tx.Where(
+		"sys_base_menu_id = ? AND sys_authority_authority_id IN ?",
+		strconv.Itoa(int(parentID)), authoritiesWithLegacyMenus,
+	)
 	if len(authoritiesWithChildren) > 0 {
 		query = query.Where("sys_authority_authority_id NOT IN ?", authoritiesWithChildren)
 	}

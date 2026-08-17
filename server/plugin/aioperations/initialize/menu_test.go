@@ -57,7 +57,14 @@ func TestSyncAIServiceMenuMovesMenuAndPreservesAuthorities(t *testing.T) {
 	if err = db.Where("name = ?", aiOperationsMenuName).First(&aiMenu).Error; err != nil {
 		t.Fatalf("find AI service menu: %v", err)
 	}
-	if aiMenu.ParentId != systemAdmin.ID || aiMenu.MenuLevel != 1 || aiMenu.Sort != 7 {
+	var intelligenceServices system.SysBaseMenu
+	if err = db.Where("name = ?", systemIntelligenceMenuName).First(&intelligenceServices).Error; err != nil {
+		t.Fatalf("find intelligent services group: %v", err)
+	}
+	if intelligenceServices.ParentId != systemAdmin.ID || intelligenceServices.MenuLevel != 1 || intelligenceServices.Sort != 4 || intelligenceServices.Path != systemIntelligenceMenuName || intelligenceServices.Component != "view/routerHolder.vue" || intelligenceServices.Meta.Title != intelligenceServicesMenuTitle {
+		t.Fatalf("unexpected intelligent services group: %#v", intelligenceServices)
+	}
+	if aiMenu.ParentId != intelligenceServices.ID || aiMenu.MenuLevel != 2 || aiMenu.Sort != 1 {
 		t.Fatalf("unexpected AI service menu hierarchy: %#v", aiMenu)
 	}
 	if aiMenu.Meta.Title != aiServicesMenuTitle || aiMenu.Path != aiOperationsMenuName || aiMenu.Component != "plugin/aioperations/view/operations.vue" || !aiMenu.Meta.KeepAlive {
@@ -66,6 +73,8 @@ func TestSyncAIServiceMenuMovesMenuAndPreservesAuthorities(t *testing.T) {
 
 	assertAIServiceAuthorityMenu(t, db, legacyAI.ID, "100", 1)
 	assertAIServiceAuthorityMenu(t, db, legacyAI.ID, "200", 1)
+	assertAIServiceAuthorityMenu(t, db, intelligenceServices.ID, "100", 1)
+	assertAIServiceAuthorityMenu(t, db, intelligenceServices.ID, "200", 1)
 	assertAIServiceAuthorityMenu(t, db, systemAdmin.ID, "100", 1)
 	assertAIServiceAuthorityMenu(t, db, systemAdmin.ID, "200", 1)
 }
@@ -108,9 +117,17 @@ func TestSyncAIServiceMenuCreatesMissingSystemAdminParent(t *testing.T) {
 	if err = db.Where("name = ?", aiOperationsMenuName).First(&migratedAI).Error; err != nil {
 		t.Fatalf("find migrated AI menu: %v", err)
 	}
-	if migratedAI.ParentId != systemAdmin.ID || migratedAI.MenuLevel != 1 {
+	var intelligenceServices system.SysBaseMenu
+	if err = db.Where("name = ?", systemIntelligenceMenuName).First(&intelligenceServices).Error; err != nil {
+		t.Fatalf("find created intelligent services group: %v", err)
+	}
+	if intelligenceServices.ParentId != systemAdmin.ID || intelligenceServices.MenuLevel != 1 {
+		t.Fatalf("unexpected created intelligent services group: %#v", intelligenceServices)
+	}
+	if migratedAI.ParentId != intelligenceServices.ID || migratedAI.MenuLevel != 2 {
 		t.Fatalf("AI menu did not attach to created system admin: %#v", migratedAI)
 	}
+	assertAIServiceAuthorityMenu(t, db, intelligenceServices.ID, "100", 1)
 	assertAIServiceAuthorityMenu(t, db, systemAdmin.ID, "100", 1)
 }
 

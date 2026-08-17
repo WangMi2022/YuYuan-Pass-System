@@ -78,6 +78,21 @@ func (i *initMenu) InitializeData(ctx context.Context) (next context.Context, er
 	for _, menu := range allMenus {
 		menuNameMap[menu.Name] = menu.ID
 	}
+
+	// 系统管理二级分组
+	systemGroups := []SysBaseMenu{
+		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["superAdmin"], Path: "systemData", Name: "systemData", Component: "view/routerHolder.vue", Sort: 1, Meta: Meta{Title: "基础数据", Icon: "collection-tag"}},
+		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["superAdmin"], Path: "systemConfiguration", Name: "systemConfiguration", Component: "view/routerHolder.vue", Sort: 2, Meta: Meta{Title: "平台设置", Icon: "setting"}},
+		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["superAdmin"], Path: "systemIntegration", Name: "systemIntegration", Component: "view/routerHolder.vue", Sort: 3, Meta: Meta{Title: "开放与运维", Icon: "connection"}},
+		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["superAdmin"], Path: "systemIntelligence", Name: "systemIntelligence", Component: "view/routerHolder.vue", Sort: 4, Meta: Meta{Title: "智能服务", Icon: "cpu"}},
+	}
+	if err = db.Create(&systemGroups).Error; err != nil {
+		return ctx, errors.Wrap(err, SysBaseMenu{}.TableName()+"系统管理分组初始化失败!")
+	}
+	for _, group := range systemGroups {
+		menuNameMap[group.Name] = group.ID
+	}
+
 	// 定义子菜单，并设置正确的ParentId
 	childMenus := []SysBaseMenu{
 		// 工作日历子菜单
@@ -97,12 +112,12 @@ func (i *initMenu) InitializeData(ctx context.Context) (next context.Context, er
 		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["auditPlatform"], Path: "loginLog", Name: "loginLog", Component: "view/systemTools/loginLog/index.vue", Sort: 2, Meta: Meta{Title: "登录日志", Icon: "monitor"}},
 		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["auditPlatform"], Path: "sysError", Name: "sysError", Component: "view/systemTools/sysError/sysError.vue", Sort: 3, Meta: Meta{Title: "错误日志", Icon: "warn"}},
 
-		// superAdmin子菜单
-		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["superAdmin"], Path: "dictionary", Name: "dictionary", Component: "view/superAdmin/dictionary/sysDictionary.vue", Sort: 1, Meta: Meta{Title: "字典管理", Icon: "notebook"}},
-		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["superAdmin"], Path: "sysParams", Name: "sysParams", Component: "view/superAdmin/params/sysParams.vue", Sort: 2, Meta: Meta{Title: "参数管理", Icon: "compass"}},
-		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["superAdmin"], Path: "system", Name: "system", Component: "view/systemTools/system/system.vue", Sort: 3, Meta: Meta{Title: "运行配置", Icon: "operation"}},
-		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["superAdmin"], Path: "apiToken", Name: "apiToken", Component: "view/systemTools/apiToken/index.vue", Sort: 4, Meta: Meta{Title: "API Token", Icon: "key"}},
-		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["superAdmin"], Path: "sysVersion", Name: "sysVersion", Component: "view/systemTools/version/version.vue", Sort: 5, Meta: Meta{Title: "版本管理", Icon: "server"}},
+		// 系统管理分组子菜单
+		{MenuLevel: 2, Hidden: false, ParentId: menuNameMap["systemData"], Path: "dictionary", Name: "dictionary", Component: "view/superAdmin/dictionary/sysDictionary.vue", Sort: 1, Meta: Meta{Title: "数据字典", Icon: "notebook"}},
+		{MenuLevel: 2, Hidden: false, ParentId: menuNameMap["systemData"], Path: "sysParams", Name: "sysParams", Component: "view/superAdmin/params/sysParams.vue", Sort: 2, Meta: Meta{Title: "系统参数", Icon: "compass"}},
+		{MenuLevel: 2, Hidden: false, ParentId: menuNameMap["systemConfiguration"], Path: "system", Name: "system", Component: "view/systemTools/system/system.vue", Sort: 2, Meta: Meta{Title: "运行配置", Icon: "operation"}},
+		{MenuLevel: 2, Hidden: false, ParentId: menuNameMap["systemIntegration"], Path: "apiToken", Name: "apiToken", Component: "view/systemTools/apiToken/index.vue", Sort: 1, Meta: Meta{Title: "接口令牌", Icon: "key"}},
+		{MenuLevel: 2, Hidden: false, ParentId: menuNameMap["systemIntegration"], Path: "sysVersion", Name: "sysVersion", Component: "view/systemTools/version/version.vue", Sort: 2, Meta: Meta{Title: "配置版本", Icon: "server"}},
 
 		// example子菜单
 		{MenuLevel: 1, Hidden: false, ParentId: menuNameMap["collaborationCenter"], Path: "upload", Name: "upload", Component: "view/example/upload/upload.vue", Sort: 4, Meta: Meta{Title: "媒体库", Icon: "picture"}},
@@ -134,7 +149,8 @@ func (i *initMenu) InitializeData(ctx context.Context) (next context.Context, er
 	}
 
 	// 组合所有菜单作为返回结果
-	allEntities := append(allMenus, childMenus...)
+	allEntities := append(allMenus, systemGroups...)
+	allEntities = append(allEntities, childMenus...)
 	next = context.WithValue(ctx, i.InitializerName(), allEntities)
 	return next, nil
 }

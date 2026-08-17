@@ -9,7 +9,7 @@
     >
       <template #prefix>
         <el-icon>
-          <component v-if="value" :is="value" />
+          <component v-if="value" :is="resolveIcon(value)" />
         </el-icon>
       </template>
       <el-option
@@ -21,7 +21,7 @@
       >
         <span class="gva-icon" style="padding: 3px 0 0" :class="item.label">
           <el-icon>
-            <component v-if="item.label" :is="item.label" />
+            <component v-if="item.label" :is="resolveIcon(item.label)" />
           </el-icon>
         </span>
         <span style="text-align: left">{{ item.key }}</span>
@@ -31,7 +31,7 @@
 </template>
 
 <script setup>
-  import { reactive } from 'vue'
+  import { getCurrentInstance, onMounted, reactive, shallowRef } from 'vue'
   import config from "@/core/config";
 
   defineOptions({
@@ -39,6 +39,31 @@
   })
 
   const value = defineModel()
+
+  const app = getCurrentInstance()?.appContext.app
+  const registeredIcons = new Set()
+  const iconModules = shallowRef({})
+  const resolveIcon = (name) => {
+    const componentName = String(name || '')
+      .split('-')
+      .map((part) => part ? part[0].toUpperCase() + part.slice(1) : '')
+      .join('')
+    const iconComponent = iconModules.value[componentName] || name
+    if (iconModules.value[componentName] && app && !registeredIcons.has(componentName)) {
+      app.component(componentName, iconComponent)
+      registeredIcons.add(componentName)
+    }
+    return iconComponent
+  }
+
+  onMounted(async () => {
+    iconModules.value = await import('@element-plus/icons-vue')
+    for (const [name, component] of Object.entries(iconModules.value)) {
+      if (!app || registeredIcons.has(name)) continue
+      app.component(name, component)
+      registeredIcons.add(name)
+    }
+  })
 
   const options = reactive([
     {

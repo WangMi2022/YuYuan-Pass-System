@@ -13,6 +13,7 @@ var menuNames = []string{
 	"systemSettings", workCalendarMenuName, "workSchedule", collaborationMenuName, monitorMenuName, permissionMenuName, auditMenuName, "state",
 	"authority", "menu", "api", "user", "dictionary", "operation", "sysParams",
 	"system", "apiToken", "loginLog", "sysVersion", "sysError",
+	systemDataMenuName, systemConfigurationMenuName, systemIntegrationMenuName, systemIntelligenceMenuName,
 }
 
 func Menu(ctx context.Context) {

@@ -2,9 +2,9 @@
   <main class="na-page na-page--list system-settings-page">
     <section class="na-page-header settings-heading" aria-labelledby="settings-title">
       <div>
-        <p class="eyebrow">SYSTEM APPEARANCE</p>
-        <h1 id="settings-title">系统设置</h1>
-        <p>统一管理系统外观配置，支持设置登录页图标和背景图片。</p>
+        <p class="eyebrow">LOGIN APPEARANCE</p>
+        <h1 id="settings-title">登录外观</h1>
+        <p>管理登录页图标和背景图片，变更保存后即时生效。</p>
       </div>
     </section>
 

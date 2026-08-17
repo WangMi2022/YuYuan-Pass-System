@@ -251,7 +251,7 @@ flowchart LR
 2. `deploy/docker-dev/config.init.yaml` 提供 PostgreSQL 初始化模板。
 3. `up.sh`/`configure-rustfs.sh` 生成或更新运行时 `config.yaml`。
 4. Compose 将 `config.yaml` 挂载到 `/app/config.yaml`。
-5. 智能服务密钥保存在运行时配置中；浏览器读取只能看到 `api-key-configured`，更新使用写入即隐藏字段。管理入口统一为 `系统管理 → 智能能力配置`。
+5. 智能服务密钥保存在运行时配置中；浏览器读取只能看到 `api-key-configured`，更新使用写入即隐藏字段。管理入口统一为 `系统管理 → 智能服务 → 智能能力配置`。
 
 ### 示例配置
 

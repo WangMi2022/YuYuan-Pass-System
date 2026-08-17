@@ -45,6 +45,47 @@ func TestInitMenuCreatesTopLevelPermissionManagement(t *testing.T) {
 		t.Fatalf("unexpected system parent: %#v", systemParent)
 	}
 
+	expectedSystemGroups := map[string]struct {
+		title    string
+		sort     int
+		children map[string]int
+	}{
+		"systemData": {
+			title: "基础数据", sort: 1,
+			children: map[string]int{"dictionary": 1, "sysParams": 2},
+		},
+		"systemConfiguration": {
+			title: "平台设置", sort: 2,
+			children: map[string]int{"system": 2},
+		},
+		"systemIntegration": {
+			title: "开放与运维", sort: 3,
+			children: map[string]int{"apiToken": 1, "sysVersion": 2},
+		},
+		"systemIntelligence": {
+			title: "智能服务", sort: 4,
+			children: map[string]int{},
+		},
+	}
+	for name, expected := range expectedSystemGroups {
+		var group systemModel.SysBaseMenu
+		if err = db.Where("name = ?", name).First(&group).Error; err != nil {
+			t.Fatalf("find system management group %q: %v", name, err)
+		}
+		if group.ParentId != systemParent.ID || group.MenuLevel != 1 || group.Path != name || group.Component != "view/routerHolder.vue" || group.Sort != expected.sort || group.Meta.Title != expected.title {
+			t.Errorf("unexpected system management group %q: %#v", name, group)
+		}
+		for childName, childSort := range expected.children {
+			var child systemModel.SysBaseMenu
+			if err = db.Where("name = ?", childName).First(&child).Error; err != nil {
+				t.Fatalf("find system management child %q: %v", childName, err)
+			}
+			if child.ParentId != group.ID || child.MenuLevel != 2 || child.Sort != childSort {
+				t.Errorf("unexpected system management child %q: %#v", childName, child)
+			}
+		}
+	}
+
 	var auditParent systemModel.SysBaseMenu
 	if err = db.Where("name = ?", "auditPlatform").First(&auditParent).Error; err != nil {
 		t.Fatalf("find audit parent: %v", err)
