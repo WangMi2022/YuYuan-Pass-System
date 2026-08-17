@@ -134,3 +134,17 @@ func (m *Minio) DeleteFile(key string) error {
 	err := m.Client.RemoveObject(ctx, m.bucket, key, minio.RemoveObjectOptions{})
 	return err
 }
+
+// PreviewURL returns a short-lived URL for a private MinIO object without
+// exposing storage credentials or changing the persisted canonical URL.
+func (m *Minio) PreviewURL(ctx context.Context, key string, expires time.Duration) (string, error) {
+	key = strings.TrimLeft(strings.TrimSpace(key), "/")
+	if key == "" {
+		return "", errors.New("预览对象 key 不能为空")
+	}
+	previewURL, err := m.Client.PresignedGetObject(ctx, m.bucket, key, expires, nil)
+	if err != nil {
+		return "", err
+	}
+	return previewURL.String(), nil
+}

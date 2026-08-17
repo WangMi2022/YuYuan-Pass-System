@@ -12,6 +12,7 @@ import {
   Briefcase,
   Calendar,
   Camera,
+  ChatDotRound,
   Check,
   Cherry,
   CircleCheckFilled,
@@ -80,11 +81,13 @@ import {
   SwitchButton,
   Tickets,
   Tools,
+  TrendCharts,
   Upload,
   UploadFilled,
   User,
   VideoPlay,
   Wallet,
+  Warning,
   WarningFilled
 } from '@element-plus/icons-vue'
 import svgIcon from '@/components/svgIcon/svgIcon.vue'
@@ -146,6 +149,7 @@ export const register = (app) => {
     Briefcase,
     Calendar,
     Camera,
+    ChatDotRound,
     Check,
     Cherry,
     CircleCheckFilled,
@@ -214,11 +218,13 @@ export const register = (app) => {
     SwitchButton,
     Tickets,
     Tools,
+    TrendCharts,
     Upload,
     UploadFilled,
     User,
     VideoPlay,
     Wallet,
+    Warning,
     WarningFilled
   }
   for (const [iconName, iconComponent] of Object.entries(elIcons)) {

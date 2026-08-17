@@ -173,7 +173,7 @@ func (b *FileUploadAndDownloadApi) GetFileList(c *gin.Context) {
 		response.FailWithMessage(err.Error(), c)
 		return
 	}
-	list, total, err := fileUploadAndDownloadService.GetFileRecordInfoList(pageInfo)
+	list, total, err := fileUploadAndDownloadService.GetFileRecordInfoList(c.Request.Context(), pageInfo)
 	if err != nil {
 		global.GVA_LOG.Error("获取失败!", zap.Error(err))
 		response.FailWithMessage("获取失败", c)

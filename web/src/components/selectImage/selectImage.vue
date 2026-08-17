@@ -62,7 +62,7 @@
                   :aria-label="`${isSelected(item) ? '取消选择' : '选择'}图片 ${item.name || ''}`"
                   @click="toggleImageSelection(item)"
                 >
-                  <el-image :key="key" :src="getUrl(item.url)" fit="cover" class="w-full h-full relative" :class="{ selected: isSelected(item) }">
+                  <el-image :key="key" :src="getUrl(item.previewUrl || item.url)" fit="cover" class="w-full h-full relative" :class="{ selected: isSelected(item) }">
                     <template #error>
                       <div class="w-full h-full object-cover flex items-center justify-center">
                         <el-icon :size="32">
@@ -127,7 +127,7 @@
 
 <script setup>
 import { getUrl } from '@/utils/image'
-import { computed, defineAsyncComponent, ref } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, ref, watch } from 'vue'
 import { getFileList, editFileName, deleteFile } from '@/api/fileUploadAndDownload'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -226,6 +226,8 @@ const editFileNameFunc = async(row) => {
 
 const drawer = ref(false)
 const picList = ref([])
+const mediaPreviewRefreshInterval = 10 * 60 * 1000
+let mediaPreviewRefreshTimer = null
 
 const imageTypeList = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg', 'avif']
 
@@ -275,6 +277,36 @@ const getImageList = async() => {
     pageSize.value = res.data.pageSize
   }
 }
+
+const refreshMediaPreviewURLs = () => {
+  const hasSignedPreview = picList.value.some(item => item.previewUrl && item.previewUrl !== item.url)
+  if (drawer.value && document.visibilityState === 'visible' && hasSignedPreview) {
+    getImageList()
+  }
+}
+
+const startMediaPreviewRefresh = () => {
+  if (mediaPreviewRefreshTimer !== null) return
+  mediaPreviewRefreshTimer = window.setInterval(refreshMediaPreviewURLs, mediaPreviewRefreshInterval)
+  document.addEventListener('visibilitychange', refreshMediaPreviewURLs)
+}
+
+const stopMediaPreviewRefresh = () => {
+  if (mediaPreviewRefreshTimer !== null) {
+    window.clearInterval(mediaPreviewRefreshTimer)
+    mediaPreviewRefreshTimer = null
+  }
+  document.removeEventListener('visibilitychange', refreshMediaPreviewURLs)
+}
+
+watch(drawer, isOpen => {
+  if (isOpen) {
+    startMediaPreviewRefresh()
+  } else {
+    stopMediaPreviewRefresh()
+  }
+})
+onBeforeUnmount(stopMediaPreviewRefresh)
 
 const deleteCheck = (item) => {
   ElMessageBox.confirm('是否删除该文件', '提示', {

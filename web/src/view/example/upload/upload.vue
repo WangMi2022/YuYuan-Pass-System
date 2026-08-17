@@ -50,7 +50,7 @@
           <el-table :data="tableData" class="upload-file-table" table-layout="fixed">
             <el-table-column align="left" label="预览" width="100">
               <template #default="scope">
-                <CustomPic pic-type="file" :pic-src="scope.row.url" preview />
+                <CustomPic pic-type="file" :pic-src="scope.row.previewUrl || scope.row.url" preview />
               </template>
             </el-table-column>
             <el-table-column
@@ -187,7 +187,13 @@
   import { CreateUUID, formatDate } from '@/utils/format'
   import WarningBar from '@/components/warningBar/warningBar.vue'
 
-  import { ref } from 'vue'
+  import {
+    onActivated,
+    onBeforeUnmount,
+    onDeactivated,
+    onMounted,
+    ref
+  } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import {
     addCategory,
@@ -216,6 +222,8 @@
     classId: 0
   })
   const tableData = ref([])
+  const mediaPreviewRefreshInterval = 10 * 60 * 1000
+  let mediaPreviewRefreshTimer = null
 
   // 分页
   const handleSizeChange = (val) => {
@@ -249,7 +257,44 @@
       pageSize.value = table.data.pageSize
     }
   }
-  getTableData()
+  const refreshMediaPreviewURLs = () => {
+    const hasSignedPreview = tableData.value.some(
+      (item) => item.previewUrl && item.previewUrl !== item.url
+    )
+    if (document.visibilityState === 'visible' && hasSignedPreview) {
+      getTableData()
+    }
+  }
+
+  const startMediaPreviewRefresh = () => {
+    if (mediaPreviewRefreshTimer !== null) return false
+    mediaPreviewRefreshTimer = window.setInterval(
+      refreshMediaPreviewURLs,
+      mediaPreviewRefreshInterval
+    )
+    document.addEventListener('visibilitychange', refreshMediaPreviewURLs)
+    return true
+  }
+
+  const stopMediaPreviewRefresh = () => {
+    if (mediaPreviewRefreshTimer !== null) {
+      window.clearInterval(mediaPreviewRefreshTimer)
+      mediaPreviewRefreshTimer = null
+    }
+    document.removeEventListener('visibilitychange', refreshMediaPreviewURLs)
+  }
+
+  onMounted(() => {
+    getTableData()
+    startMediaPreviewRefresh()
+  })
+  onActivated(() => {
+    if (startMediaPreviewRefresh()) {
+      refreshMediaPreviewURLs()
+    }
+  })
+  onDeactivated(stopMediaPreviewRefresh)
+  onBeforeUnmount(stopMediaPreviewRefresh)
 
   const deleteFileFunc = async (row) => {
     ElMessageBox.confirm('此操作将永久删除文件, 是否继续?', '提示', {
@@ -279,10 +324,11 @@
   }
 
   const downloadFile = (row) => {
-    if (row.url.indexOf('http://') > -1 || row.url.indexOf('https://') > -1) {
-      downloadImage(row.url, row.name)
+    const downloadUrl = row.previewUrl || row.url
+    if (downloadUrl.indexOf('http://') > -1 || downloadUrl.indexOf('https://') > -1) {
+      downloadImage(downloadUrl, row.name)
     } else {
-      downloadImage(path.value + '/' + row.url, row.name)
+      downloadImage(path.value + '/' + downloadUrl, row.name)
     }
   }
 
