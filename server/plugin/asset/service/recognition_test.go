@@ -12,6 +12,7 @@ import (
 	"net/textproto"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/WangMi2022/mit-assets-admin/server/ai"
@@ -242,6 +243,57 @@ func TestAssetRecognitionBlocksNormalizedDuplicateSerial(t *testing.T) {
 	var assetCount int64
 	if err := global.GVA_DB.Model(&model.Asset{}).Count(&assetCount).Error; err != nil || assetCount != 1 {
 		t.Fatalf("duplicate confirmation created asset: count=%d err=%v", assetCount, err)
+	}
+}
+
+func TestFindAssetDuplicateCandidatesUsesNarrowAssetProjection(t *testing.T) {
+	setupAssetRecognitionTestDB(t)
+	category := createAssetRecognitionCategory(t)
+	existing := model.Asset{
+		AssetCode: "EXISTING-PROJECTION", Name: "投影测试资产", CategoryID: category.ID,
+		Brand: "Example", Model: "Model", SerialNumber: "SN-PROJECTION-001",
+		Specifications: strings.Repeat("S", 1000), Remarks: strings.Repeat("R", 1000),
+		Photos: []model.Photo{{Key: "projection-photo"}}, Quantity: 1, Unit: "台",
+	}
+	if err := Asset.Create(&existing); err != nil {
+		t.Fatalf("create projection asset: %v", err)
+	}
+	var assetSelects []string
+	if err := global.GVA_DB.Callback().Query().Before("gorm:query").Register(
+		"asset:record_duplicate_projection",
+		func(db *gorm.DB) {
+			if db.Statement.Table == "assets" {
+				assetSelects = append([]string(nil), db.Statement.Selects...)
+			}
+		},
+	); err != nil {
+		t.Fatalf("register projection callback: %v", err)
+	}
+	candidates, err := findAssetDuplicateCandidates(global.GVA_DB, "sn projection/001")
+	if err != nil {
+		t.Fatalf("find duplicate candidates: %v", err)
+	}
+	if len(candidates) != 1 || candidates[0].AssetID != existing.ID ||
+		candidates[0].CategoryName != category.Name || candidates[0].MatchType != "normalized" {
+		t.Fatalf("unexpected duplicate candidates: %#v", candidates)
+	}
+	if len(assetSelects) == 0 {
+		t.Fatal("duplicate candidate query loaded every asset column")
+	}
+	required := map[string]bool{
+		"id": false, "asset_code": false, "name": false, "category_id": false,
+		"brand": false, "model": false, "serial_number": false,
+	}
+	for _, column := range assetSelects {
+		if _, ok := required[column]; !ok {
+			t.Fatalf("duplicate candidate query selected unnecessary asset column %q", column)
+		}
+		required[column] = true
+	}
+	for column, selected := range required {
+		if !selected {
+			t.Fatalf("duplicate candidate query omitted required asset column %q", column)
+		}
 	}
 }
 

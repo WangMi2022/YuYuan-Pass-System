@@ -251,7 +251,8 @@ func findAssetDuplicateCandidates(db *gorm.DB, serialNumber string) ([]model.Ass
 		return []model.AssetDuplicateCandidate{}, nil
 	}
 	var assets []model.Asset
-	if err := db.Preload("Category").Where("TRIM(serial_number) <> ''").Order("id DESC").Find(&assets).Error; err != nil {
+	if err := db.Select("id", "asset_code", "name", "category_id", "brand", "model", "serial_number").
+		Preload("Category").Where("TRIM(serial_number) <> ''").Order("id DESC").Find(&assets).Error; err != nil {
 		return nil, err
 	}
 	normalized := normalizedAssetSerial(serialNumber)
