@@ -11,8 +11,8 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/model/common"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/asset/model"
+	"github.com/WangMi2022/mit-assets-admin/server/model/common"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/asset/model"
 )
 
 const (

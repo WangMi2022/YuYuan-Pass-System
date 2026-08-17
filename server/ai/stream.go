@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/config"
+	"github.com/WangMi2022/mit-assets-admin/server/config"
 	"github.com/goccy/go-json"
 )
 

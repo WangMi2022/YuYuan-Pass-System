@@ -1,6 +1,6 @@
 package request
 
-import commonRequest "github.com/flipped-aurora/gin-vue-admin/server/model/common/request"
+import commonRequest "github.com/WangMi2022/mit-assets-admin/server/model/common/request"
 
 type LocationSearch struct {
 	commonRequest.PageInfo

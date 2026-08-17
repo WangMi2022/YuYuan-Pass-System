@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/schedule/model"
-	scheduleRequest "github.com/flipped-aurora/gin-vue-admin/server/plugin/schedule/model/request"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/schedule/model"
+	scheduleRequest "github.com/WangMi2022/mit-assets-admin/server/plugin/schedule/model/request"
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )

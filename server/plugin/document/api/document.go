@@ -6,10 +6,10 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
-	documentRequest "github.com/flipped-aurora/gin-vue-admin/server/plugin/document/model/request"
-	documentService "github.com/flipped-aurora/gin-vue-admin/server/plugin/document/service"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/model/common/response"
+	documentRequest "github.com/WangMi2022/mit-assets-admin/server/plugin/document/model/request"
+	documentService "github.com/WangMi2022/mit-assets-admin/server/plugin/document/service"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )

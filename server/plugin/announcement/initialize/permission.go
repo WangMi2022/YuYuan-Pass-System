@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/plugin-tool/utils"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/plugin-tool/utils"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )

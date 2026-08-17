@@ -1,5 +1,5 @@
 package plugin
 
-import "github.com/flipped-aurora/gin-vue-admin/server/plugin/announcement/config"
+import "github.com/WangMi2022/mit-assets-admin/server/plugin/announcement/config"
 
 var Config config.Config

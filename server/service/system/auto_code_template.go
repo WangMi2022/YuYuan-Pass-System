@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/flipped-aurora/gin-vue-admin/server/utils/autocode"
+	"github.com/WangMi2022/mit-assets-admin/server/utils/autocode"
 	"go/ast"
 	"go/format"
 	"go/parser"
@@ -14,10 +14,10 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	model "github.com/flipped-aurora/gin-vue-admin/server/model/system"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/system/request"
-	utilsAst "github.com/flipped-aurora/gin-vue-admin/server/utils/ast"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	model "github.com/WangMi2022/mit-assets-admin/server/model/system"
+	"github.com/WangMi2022/mit-assets-admin/server/model/system/request"
+	utilsAst "github.com/WangMi2022/mit-assets-admin/server/utils/ast"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )

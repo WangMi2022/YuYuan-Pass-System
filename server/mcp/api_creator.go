@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 
-	commonReq "github.com/flipped-aurora/gin-vue-admin/server/model/common/request"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/system"
-	systemReq "github.com/flipped-aurora/gin-vue-admin/server/model/system/request"
+	commonReq "github.com/WangMi2022/mit-assets-admin/server/model/common/request"
+	"github.com/WangMi2022/mit-assets-admin/server/model/system"
+	systemReq "github.com/WangMi2022/mit-assets-admin/server/model/system/request"
 	"github.com/mark3labs/mcp-go/mcp"
 )
 

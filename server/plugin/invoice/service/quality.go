@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/ai"
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/model"
-	invoiceRequest "github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/model/request"
-	invoiceResponse "github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/model/response"
+	"github.com/WangMi2022/mit-assets-admin/server/ai"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/invoice/model"
+	invoiceRequest "github.com/WangMi2022/mit-assets-admin/server/plugin/invoice/model/request"
+	invoiceResponse "github.com/WangMi2022/mit-assets-admin/server/plugin/invoice/model/response"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )

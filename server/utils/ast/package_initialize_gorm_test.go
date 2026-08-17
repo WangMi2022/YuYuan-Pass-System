@@ -1,7 +1,7 @@
 package ast
 
 import (
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
 	"path/filepath"
 	"testing"
 )
@@ -25,7 +25,7 @@ func TestPackageInitializeGorm_Injection(t *testing.T) {
 			fields: fields{
 				Type:        TypePackageInitializeGorm,
 				Path:        filepath.Join(global.GVA_CONFIG.AutoCode.Root, global.GVA_CONFIG.AutoCode.Server, "initialize", "gorm_biz.go"),
-				ImportPath:  `"github.com/flipped-aurora/gin-vue-admin/server/model/example"`,
+				ImportPath:  `"github.com/WangMi2022/mit-assets-admin/server/model/example"`,
 				StructName:  "ExaFileUploadAndDownload",
 				PackageName: "example",
 				IsNew:       false,
@@ -36,7 +36,7 @@ func TestPackageInitializeGorm_Injection(t *testing.T) {
 			fields: fields{
 				Type:        TypePackageInitializeGorm,
 				Path:        filepath.Join(global.GVA_CONFIG.AutoCode.Root, global.GVA_CONFIG.AutoCode.Server, "initialize", "gorm_biz.go"),
-				ImportPath:  `"github.com/flipped-aurora/gin-vue-admin/server/model/example"`,
+				ImportPath:  `"github.com/WangMi2022/mit-assets-admin/server/model/example"`,
 				StructName:  "ExaCustomer",
 				PackageName: "example",
 				IsNew:       false,
@@ -47,7 +47,7 @@ func TestPackageInitializeGorm_Injection(t *testing.T) {
 			fields: fields{
 				Type:        TypePackageInitializeGorm,
 				Path:        filepath.Join(global.GVA_CONFIG.AutoCode.Root, global.GVA_CONFIG.AutoCode.Server, "initialize", "gorm_biz.go"),
-				ImportPath:  `"github.com/flipped-aurora/gin-vue-admin/server/model/example"`,
+				ImportPath:  `"github.com/WangMi2022/mit-assets-admin/server/model/example"`,
 				StructName:  "ExaFileUploadAndDownload",
 				PackageName: "example",
 				IsNew:       true,
@@ -58,7 +58,7 @@ func TestPackageInitializeGorm_Injection(t *testing.T) {
 			fields: fields{
 				Type:        TypePackageInitializeGorm,
 				Path:        filepath.Join(global.GVA_CONFIG.AutoCode.Root, global.GVA_CONFIG.AutoCode.Server, "initialize", "gorm_biz.go"),
-				ImportPath:  `"github.com/flipped-aurora/gin-vue-admin/server/model/example"`,
+				ImportPath:  `"github.com/WangMi2022/mit-assets-admin/server/model/example"`,
 				StructName:  "ExaCustomer",
 				PackageName: "example",
 				IsNew:       true,
@@ -107,7 +107,7 @@ func TestPackageInitializeGorm_Rollback(t *testing.T) {
 			fields: fields{
 				Type:        TypePackageInitializeGorm,
 				Path:        filepath.Join(global.GVA_CONFIG.AutoCode.Root, global.GVA_CONFIG.AutoCode.Server, "initialize", "gorm_biz.go"),
-				ImportPath:  `"github.com/flipped-aurora/gin-vue-admin/server/model/example"`,
+				ImportPath:  `"github.com/WangMi2022/mit-assets-admin/server/model/example"`,
 				StructName:  "ExaFileUploadAndDownload",
 				PackageName: "example",
 				IsNew:       false,
@@ -118,7 +118,7 @@ func TestPackageInitializeGorm_Rollback(t *testing.T) {
 			fields: fields{
 				Type:        TypePackageInitializeGorm,
 				Path:        filepath.Join(global.GVA_CONFIG.AutoCode.Root, global.GVA_CONFIG.AutoCode.Server, "initialize", "gorm_biz.go"),
-				ImportPath:  `"github.com/flipped-aurora/gin-vue-admin/server/model/example"`,
+				ImportPath:  `"github.com/WangMi2022/mit-assets-admin/server/model/example"`,
 				StructName:  "ExaCustomer",
 				PackageName: "example",
 				IsNew:       false,
@@ -129,7 +129,7 @@ func TestPackageInitializeGorm_Rollback(t *testing.T) {
 			fields: fields{
 				Type:        TypePackageInitializeGorm,
 				Path:        filepath.Join(global.GVA_CONFIG.AutoCode.Root, global.GVA_CONFIG.AutoCode.Server, "initialize", "gorm_biz.go"),
-				ImportPath:  `"github.com/flipped-aurora/gin-vue-admin/server/model/example"`,
+				ImportPath:  `"github.com/WangMi2022/mit-assets-admin/server/model/example"`,
 				StructName:  "ExaFileUploadAndDownload",
 				PackageName: "example",
 				IsNew:       true,
@@ -140,7 +140,7 @@ func TestPackageInitializeGorm_Rollback(t *testing.T) {
 			fields: fields{
 				Type:        TypePackageInitializeGorm,
 				Path:        filepath.Join(global.GVA_CONFIG.AutoCode.Root, global.GVA_CONFIG.AutoCode.Server, "initialize", "gorm_biz.go"),
-				ImportPath:  `"github.com/flipped-aurora/gin-vue-admin/server/model/example"`,
+				ImportPath:  `"github.com/WangMi2022/mit-assets-admin/server/model/example"`,
 				StructName:  "ExaCustomer",
 				PackageName: "example",
 				IsNew:       true,

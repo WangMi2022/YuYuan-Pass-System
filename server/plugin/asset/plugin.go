@@ -3,9 +3,9 @@ package asset
 import (
 	"context"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/asset/initialize"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/asset/service"
-	interfaces "github.com/flipped-aurora/gin-vue-admin/server/utils/plugin/v2"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/asset/initialize"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/asset/service"
+	interfaces "github.com/WangMi2022/mit-assets-admin/server/utils/plugin/v2"
 	"github.com/gin-gonic/gin"
 )
 

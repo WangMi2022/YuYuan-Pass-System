@@ -2,8 +2,8 @@ package announcement
 
 import (
 	"context"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/announcement/initialize"
-	interfaces "github.com/flipped-aurora/gin-vue-admin/server/utils/plugin/v2"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/announcement/initialize"
+	interfaces "github.com/WangMi2022/mit-assets-admin/server/utils/plugin/v2"
 	"github.com/gin-gonic/gin"
 )
 

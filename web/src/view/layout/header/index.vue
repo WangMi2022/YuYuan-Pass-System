@@ -12,7 +12,7 @@
           v-if="!isMobile"
           class="na-brand-name"
         >
-          <strong>{{ $GIN_VUE_ADMIN.appName }}</strong>
+          <strong>{{ $MIT_ASSETS_ADMIN.appName }}</strong>
           <small>ASSET CONTROL</small>
         </span>
       </button>

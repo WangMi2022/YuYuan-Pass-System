@@ -1,8 +1,8 @@
 package v1
 
 import (
-	"github.com/flipped-aurora/gin-vue-admin/server/api/v1/example"
-	"github.com/flipped-aurora/gin-vue-admin/server/api/v1/system"
+	"github.com/WangMi2022/mit-assets-admin/server/api/v1/example"
+	"github.com/WangMi2022/mit-assets-admin/server/api/v1/system"
 )
 
 var ApiGroupApp = new(ApiGroup)

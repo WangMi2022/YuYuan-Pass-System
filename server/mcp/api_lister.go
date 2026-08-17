@@ -3,7 +3,7 @@ package mcpTool
 import (
 	"context"
 
-	systemRes "github.com/flipped-aurora/gin-vue-admin/server/model/system/response"
+	systemRes "github.com/WangMi2022/mit-assets-admin/server/model/system/response"
 	"github.com/gin-gonic/gin"
 	"github.com/mark3labs/mcp-go/mcp"
 )

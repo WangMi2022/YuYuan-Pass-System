@@ -3,7 +3,7 @@ package internal
 import (
 	"time"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/config"
+	"github.com/WangMi2022/mit-assets-admin/server/config"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"gorm.io/gorm/schema"

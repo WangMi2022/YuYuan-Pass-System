@@ -2,8 +2,7 @@
 
 ## Repository location
 
-- The real Git repository is `D:\资产管理系统\gin-vue-admin`.
-- `D:\gin-vue-admin` is only a workspace shell and must not be treated as the source repository.
+- The real Git repository is `D:\资产管理系统\mit-assets-admin`.
 
 ## Mandatory verification after code changes
 
@@ -26,6 +25,7 @@ Do not auto-publish when the user requested only diagnosis, review, explanation,
 
 ## Production deployment facts
 
+- The production deployment still uses the legacy compatibility path and SSH alias below; migrate them only as a coordinated runtime operation.
 - SSH is available from WSL through the alias `gin-vue-admin-remote`.
 - Production root: `/data/gin-vue-admin`.
 - The production root is a source deployment tree without `.git`; `git pull` will fail there.

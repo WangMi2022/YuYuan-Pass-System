@@ -1,6 +1,6 @@
 package service
 
-import "github.com/flipped-aurora/gin-vue-admin/server/plugin/smart/model"
+import "github.com/WangMi2022/mit-assets-admin/server/plugin/smart/model"
 
 var Smart = new(smartService)
 

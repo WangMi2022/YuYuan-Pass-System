@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	systemModel "github.com/flipped-aurora/gin-vue-admin/server/model/system"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	systemModel "github.com/WangMi2022/mit-assets-admin/server/model/system"
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"

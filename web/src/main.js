@@ -11,12 +11,12 @@ import 'uno.css'
 import { createApp } from 'vue'
 
 import './style/theme/index.scss'
-// 引入gin-vue-admin前端初始化相关内容
-import './core/gin-vue-admin'
+// 引入 mit-assets-admin 前端初始化相关内容
+import './core/mit-assets-admin'
 // 引入封装的router
 import router from '@/router/index'
 import '@/permission'
-import run from '@/core/gin-vue-admin.js'
+import run from '@/core/mit-assets-admin.js'
 import auth from '@/directive/auth'
 import clickOutSide from '@/directive/clickOutSide'
 import { store } from '@/pinia'

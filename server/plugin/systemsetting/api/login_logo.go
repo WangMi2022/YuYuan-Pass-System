@@ -1,11 +1,11 @@
 package api
 
 import (
-	"github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/systemsetting/model"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/systemsetting/model/request"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/systemsetting/service"
-	"github.com/flipped-aurora/gin-vue-admin/server/utils"
+	"github.com/WangMi2022/mit-assets-admin/server/model/common/response"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/systemsetting/model"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/systemsetting/model/request"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/systemsetting/service"
+	"github.com/WangMi2022/mit-assets-admin/server/utils"
 	"github.com/gin-gonic/gin"
 )
 

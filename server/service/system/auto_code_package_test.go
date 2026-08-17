@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"testing"
 
-	model "github.com/flipped-aurora/gin-vue-admin/server/model/system"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/system/request"
+	model "github.com/WangMi2022/mit-assets-admin/server/model/system"
+	"github.com/WangMi2022/mit-assets-admin/server/model/system/request"
 )
 
 func Test_autoCodePackage_Create(t *testing.T) {

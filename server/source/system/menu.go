@@ -3,8 +3,8 @@ package system
 import (
 	"context"
 
-	. "github.com/flipped-aurora/gin-vue-admin/server/model/system"
-	"github.com/flipped-aurora/gin-vue-admin/server/service/system"
+	. "github.com/WangMi2022/mit-assets-admin/server/model/system"
+	"github.com/WangMi2022/mit-assets-admin/server/service/system"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -64,7 +64,7 @@ func (i *initMenu) InitializeData(ctx context.Context) (next context.Context, er
 		{MenuLevel: 0, Hidden: true, ParentId: 0, Path: "person", Name: "person", Component: "view/person/person.vue", Sort: 4, Meta: Meta{Title: "个人信息", Icon: "message"}},
 		{MenuLevel: 0, Hidden: true, ParentId: 0, Path: "example", Name: "example", Component: "view/example/index.vue", Sort: 7, Meta: Meta{Title: "示例文件", Icon: "management"}},
 		{MenuLevel: 0, Hidden: true, ParentId: 0, Path: "systemTools", Name: "systemTools", Component: "view/systemTools/index.vue", Sort: 5, Meta: Meta{Title: "编程辅助", Icon: "tools"}},
-		{MenuLevel: 0, Hidden: true, ParentId: 0, Path: "https://www.gin-vue-admin.com", Name: "https://www.gin-vue-admin.com", Component: "/", Sort: 0, Meta: Meta{Title: "官方网站", Icon: "customer-gva"}},
+		{MenuLevel: 0, Hidden: true, ParentId: 0, Path: "https://github.com/WangMi2022/YuYuan-Pass-System", Name: "https://github.com/WangMi2022/YuYuan-Pass-System", Component: "/", Sort: 0, Meta: Meta{Title: "项目主页", Icon: "customer-gva"}},
 		{MenuLevel: 0, Hidden: true, ParentId: 0, Path: "plugin", Name: "plugin", Component: "view/routerHolder.vue", Sort: 6, Meta: Meta{Title: "插件系统", Icon: "cherry"}},
 	}
 

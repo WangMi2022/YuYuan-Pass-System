@@ -5,7 +5,7 @@
 package main
 
 import (
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/announcement/model"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/announcement/model"
 	"gorm.io/gen"
 	"path/filepath"
 )

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/model/system"
+	"github.com/WangMi2022/mit-assets-admin/server/model/system"
 )
 
 var errAuthorityHierarchyCycle = errors.New("角色层级存在循环")

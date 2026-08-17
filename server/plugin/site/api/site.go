@@ -3,10 +3,10 @@ package api
 import (
 	"strconv"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/site/model"
-	siteRequest "github.com/flipped-aurora/gin-vue-admin/server/plugin/site/model/request"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/model/common/response"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/site/model"
+	siteRequest "github.com/WangMi2022/mit-assets-admin/server/plugin/site/model/request"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )

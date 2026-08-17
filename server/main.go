@@ -5,11 +5,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/core"
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/initialize"
-	systemService "github.com/flipped-aurora/gin-vue-admin/server/service/system"
-	"github.com/flipped-aurora/gin-vue-admin/server/utils"
+	"github.com/WangMi2022/mit-assets-admin/server/core"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/initialize"
+	systemService "github.com/WangMi2022/mit-assets-admin/server/service/system"
+	"github.com/WangMi2022/mit-assets-admin/server/utils"
 	_ "go.uber.org/automaxprocs"
 	"go.uber.org/zap"
 )
@@ -26,9 +26,9 @@ import (
 // @Tag.Name        SysUser
 // @Tag.Description 用户
 
-// @title                       Gin-Vue-Admin Swagger API接口文档
+// @title                       mit-assets-admin Swagger API 接口文档
 // @version                     v2.9.2
-// @description                 使用gin+vue进行极速开发的全栈开发基础平台
+// @description                 MIT 资产管理系统 API
 // @securityDefinitions.apikey  ApiKeyAuth
 // @in                          header
 // @name                        x-token

@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	commonRequest "github.com/flipped-aurora/gin-vue-admin/server/model/common/request"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/document/model"
-	documentRequest "github.com/flipped-aurora/gin-vue-admin/server/plugin/document/model/request"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	commonRequest "github.com/WangMi2022/mit-assets-admin/server/model/common/request"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/document/model"
+	documentRequest "github.com/WangMi2022/mit-assets-admin/server/plugin/document/model/request"
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )

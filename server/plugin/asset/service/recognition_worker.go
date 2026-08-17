@@ -14,9 +14,9 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/ai"
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/asset/model"
+	"github.com/WangMi2022/mit-assets-admin/server/ai"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/asset/model"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"gorm.io/gorm"

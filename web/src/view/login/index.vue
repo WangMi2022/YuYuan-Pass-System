@@ -9,11 +9,11 @@
           v-if="loginLogoUrl"
           class="na-auth-brand-image"
           :src="loginLogoUrl"
-          :alt="`${$GIN_VUE_ADMIN.appName}图标`"
+          :alt="`${$MIT_ASSETS_ADMIN.appName}图标`"
           @error="handleLogoError"
         />
         <Logo v-else :size="2" />
-        <span>{{ $GIN_VUE_ADMIN.appName }}</span>
+        <span>{{ $MIT_ASSETS_ADMIN.appName }}</span>
       </a>
     </section>
 
@@ -25,7 +25,7 @@
                 <img
                   v-if="loginLogoUrl"
                   :src="loginLogoUrl"
-                  :alt="`${$GIN_VUE_ADMIN.appName}登录图标`"
+                  :alt="`${$MIT_ASSETS_ADMIN.appName}登录图标`"
                   @error="handleLogoError"
                 />
                 <Logo v-else :size="2.5" />

@@ -3,7 +3,7 @@ package ast
 import (
 	"bytes"
 	"fmt"
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
 	"go/ast"
 	"go/parser"
 	"go/printer"
@@ -70,7 +70,7 @@ func RollGormBack(pk, model string) {
 			if gen, ok := node.(*ast.GenDecl); ok {
 				for i := range gen.Specs {
 					if imspec, ok := gen.Specs[i].(*ast.ImportSpec); ok {
-						if imspec.Path.Value == "\"github.com/flipped-aurora/gin-vue-admin/server/model/"+pk+"\"" {
+						if imspec.Path.Value == "\"github.com/WangMi2022/mit-assets-admin/server/model/"+pk+"\"" {
 							gp = gen
 							imI = i
 							return false

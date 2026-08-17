@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/config"
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	systemReq "github.com/flipped-aurora/gin-vue-admin/server/model/system/request"
+	"github.com/WangMi2022/mit-assets-admin/server/config"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	systemReq "github.com/WangMi2022/mit-assets-admin/server/model/system/request"
 	"github.com/gin-gonic/gin"
 )
 

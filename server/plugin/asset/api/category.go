@@ -1,9 +1,9 @@
 package api
 
 import (
-	"github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/asset/model"
-	assetRequest "github.com/flipped-aurora/gin-vue-admin/server/plugin/asset/model/request"
+	"github.com/WangMi2022/mit-assets-admin/server/model/common/response"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/asset/model"
+	assetRequest "github.com/WangMi2022/mit-assets-admin/server/plugin/asset/model/request"
 	"github.com/gin-gonic/gin"
 )
 

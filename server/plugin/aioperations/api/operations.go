@@ -1,12 +1,12 @@
 package api
 
 import (
-	"github.com/flipped-aurora/gin-vue-admin/server/ai"
-	"github.com/flipped-aurora/gin-vue-admin/server/config"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
-	aiService "github.com/flipped-aurora/gin-vue-admin/server/plugin/aioperations/service"
-	systemService "github.com/flipped-aurora/gin-vue-admin/server/service/system"
-	"github.com/flipped-aurora/gin-vue-admin/server/utils"
+	"github.com/WangMi2022/mit-assets-admin/server/ai"
+	"github.com/WangMi2022/mit-assets-admin/server/config"
+	"github.com/WangMi2022/mit-assets-admin/server/model/common/response"
+	aiService "github.com/WangMi2022/mit-assets-admin/server/plugin/aioperations/service"
+	systemService "github.com/WangMi2022/mit-assets-admin/server/service/system"
+	"github.com/WangMi2022/mit-assets-admin/server/utils"
 	"github.com/gin-gonic/gin"
 )
 

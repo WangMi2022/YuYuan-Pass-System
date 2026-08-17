@@ -4,10 +4,10 @@ import (
 	"errors"
 	"io"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
-	assetRequest "github.com/flipped-aurora/gin-vue-admin/server/plugin/asset/model/request"
-	"github.com/flipped-aurora/gin-vue-admin/server/utils"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/model/common/response"
+	assetRequest "github.com/WangMi2022/mit-assets-admin/server/plugin/asset/model/request"
+	"github.com/WangMi2022/mit-assets-admin/server/utils"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )

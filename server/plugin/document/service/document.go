@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/document/model"
-	documentRequest "github.com/flipped-aurora/gin-vue-admin/server/plugin/document/model/request"
-	documentResponse "github.com/flipped-aurora/gin-vue-admin/server/plugin/document/model/response"
-	"github.com/flipped-aurora/gin-vue-admin/server/utils/upload"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/document/model"
+	documentRequest "github.com/WangMi2022/mit-assets-admin/server/plugin/document/model/request"
+	documentResponse "github.com/WangMi2022/mit-assets-admin/server/plugin/document/model/response"
+	"github.com/WangMi2022/mit-assets-admin/server/utils/upload"
 	"github.com/minio/minio-go/v7"
 	"gorm.io/gorm"
 )

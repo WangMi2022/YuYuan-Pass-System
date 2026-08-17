@@ -5,8 +5,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/systemsetting/model"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/systemsetting/model"
 	"gorm.io/gorm"
 )
 

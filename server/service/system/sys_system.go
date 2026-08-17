@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/config"
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/system"
-	invoiceProvider "github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/provider"
-	"github.com/flipped-aurora/gin-vue-admin/server/utils"
+	"github.com/WangMi2022/mit-assets-admin/server/config"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/model/system"
+	invoiceProvider "github.com/WangMi2022/mit-assets-admin/server/plugin/invoice/provider"
+	"github.com/WangMi2022/mit-assets-admin/server/utils"
 	"go.uber.org/zap"
 )
 

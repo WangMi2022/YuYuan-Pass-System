@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	gormadapter "github.com/casbin/gorm-adapter/v3"
-	sysModel "github.com/flipped-aurora/gin-vue-admin/server/model/system"
+	sysModel "github.com/WangMi2022/mit-assets-admin/server/model/system"
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )

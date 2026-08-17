@@ -1,4 +1,4 @@
-module github.com/flipped-aurora/gin-vue-admin/server
+module github.com/WangMi2022/mit-assets-admin/server
 
 go 1.25.0
 

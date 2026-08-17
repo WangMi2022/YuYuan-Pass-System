@@ -3,8 +3,8 @@ package initialize
 import (
 	"context"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/ai"
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/ai"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
 	"go.uber.org/zap"
 )
 

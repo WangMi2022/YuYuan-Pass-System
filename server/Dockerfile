@@ -1,6 +1,6 @@
 FROM public.ecr.aws/docker/library/golang@sha256:8bee1901f1e530bfb4a7850aa7a479d17ae3a18beb6e09064ed54cfd245b7191 as builder
 
-WORKDIR /go/src/github.com/flipped-aurora/gin-vue-admin/server
+WORKDIR /go/src/github.com/WangMi2022/mit-assets-admin/server
 COPY . .
 
 RUN go env -w GO111MODULE=on \
@@ -19,14 +19,14 @@ ENV TZ=Asia/Shanghai
 RUN apk update && apk add --no-cache tzdata openntpd poppler-utils \
     && ln -sf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-WORKDIR /go/src/github.com/flipped-aurora/gin-vue-admin/server
+WORKDIR /go/src/github.com/WangMi2022/mit-assets-admin/server
 
-COPY --from=0 /go/src/github.com/flipped-aurora/gin-vue-admin/server/server ./
-COPY --from=0 /go/src/github.com/flipped-aurora/gin-vue-admin/server/resource ./resource/
-COPY --from=0 /go/src/github.com/flipped-aurora/gin-vue-admin/server/config.docker.yaml ./
+COPY --from=0 /go/src/github.com/WangMi2022/mit-assets-admin/server/server ./
+COPY --from=0 /go/src/github.com/WangMi2022/mit-assets-admin/server/resource ./resource/
+COPY --from=0 /go/src/github.com/WangMi2022/mit-assets-admin/server/config.docker.yaml ./
 
-# 挂载目录：如果使用了sqlite数据库，容器命令示例：docker run -d -v /宿主机路径/gva.db:/go/src/github.com/flipped-aurora/gin-vue-admin/server/gva.db -p 8888:8888 --name gva-server-v1 gva-server:1.0
-# VOLUME ["/go/src/github.com/flipped-aurora/gin-vue-admin/server"]
+# 挂载目录：如果使用了sqlite数据库，容器命令示例：docker run -d -v /宿主机路径/gva.db:/go/src/github.com/WangMi2022/mit-assets-admin/server/gva.db -p 8888:8888 --name gva-server-v1 gva-server:1.0
+# VOLUME ["/go/src/github.com/WangMi2022/mit-assets-admin/server"]
 
 EXPOSE 8888
 ENTRYPOINT ./server -c config.docker.yaml

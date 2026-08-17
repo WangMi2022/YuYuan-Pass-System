@@ -3,7 +3,7 @@ package service
 import (
 	"testing"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/model"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/invoice/model"
 )
 
 func TestClassifyInvoiceReturnsExplainableWinner(t *testing.T) {

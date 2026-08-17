@@ -3,8 +3,8 @@ package request
 import (
 	"strings"
 
-	commonRequest "github.com/flipped-aurora/gin-vue-admin/server/model/common/request"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/asset/model"
+	commonRequest "github.com/WangMi2022/mit-assets-admin/server/model/common/request"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/asset/model"
 )
 
 type AssetRecognitionSearch struct {

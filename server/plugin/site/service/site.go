@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/site/model"
-	siteRequest "github.com/flipped-aurora/gin-vue-admin/server/plugin/site/model/request"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/site/model"
+	siteRequest "github.com/WangMi2022/mit-assets-admin/server/plugin/site/model/request"
 	"gorm.io/gorm"
 )
 

@@ -1,6 +1,6 @@
 package response
 
-import "github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/model"
+import "github.com/WangMi2022/mit-assets-admin/server/plugin/invoice/model"
 
 type Dashboard struct {
 	ConfirmedCount int64             `json:"confirmedCount"`

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/config"
+	"github.com/WangMi2022/mit-assets-admin/server/config"
 )
 
 var errUnknownSystemSecret = errors.New("不支持读取该配置字段")

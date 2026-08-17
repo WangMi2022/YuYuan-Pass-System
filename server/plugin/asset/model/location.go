@@ -1,6 +1,6 @@
 package model
 
-import "github.com/flipped-aurora/gin-vue-admin/server/global"
+import "github.com/WangMi2022/mit-assets-admin/server/global"
 
 const (
 	LocationTypeInbound     = "inbound"

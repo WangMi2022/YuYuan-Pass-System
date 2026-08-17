@@ -6,7 +6,7 @@ const (
 	// Version 当前版本号
 	Version = "v2.9.2"
 	// AppName 应用名称
-	AppName = "Gin-Vue-Admin"
+	AppName = "mit-assets-admin"
 	// Description 应用描述
-	Description = "使用gin+vue进行极速开发的全栈开发基础平台"
+	Description = "MIT 资产管理系统"
 )

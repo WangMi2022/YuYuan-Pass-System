@@ -1,7 +1,7 @@
 package ast
 
 import (
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
 	"path/filepath"
 	"testing"
 )
@@ -28,7 +28,7 @@ func TestPluginEnter_Injection(t *testing.T) {
 			fields: fields{
 				Type:            TypePluginApiEnter,
 				Path:            filepath.Join(global.GVA_CONFIG.AutoCode.Root, global.GVA_CONFIG.AutoCode.Server, "plugin", "gva", "api", "enter.go"),
-				ImportPath:      `"github.com/flipped-aurora/gin-vue-admin/server/plugin/gva/service"`,
+				ImportPath:      `"github.com/WangMi2022/mit-assets-admin/server/plugin/gva/service"`,
 				StructName:      "User",
 				StructCamelName: "user",
 				ModuleName:      "serviceUser",
@@ -43,7 +43,7 @@ func TestPluginEnter_Injection(t *testing.T) {
 			fields: fields{
 				Type:            TypePluginRouterEnter,
 				Path:            filepath.Join(global.GVA_CONFIG.AutoCode.Root, global.GVA_CONFIG.AutoCode.Server, "plugin", "gva", "router", "enter.go"),
-				ImportPath:      `"github.com/flipped-aurora/gin-vue-admin/server/plugin/gva/api"`,
+				ImportPath:      `"github.com/WangMi2022/mit-assets-admin/server/plugin/gva/api"`,
 				StructName:      "User",
 				StructCamelName: "user",
 				ModuleName:      "userApi",
@@ -132,7 +132,7 @@ func TestPluginEnter_Rollback(t *testing.T) {
 			fields: fields{
 				Type:            TypePluginRouterEnter,
 				Path:            filepath.Join(global.GVA_CONFIG.AutoCode.Root, global.GVA_CONFIG.AutoCode.Server, "plugin", "gva", "router", "enter.go"),
-				ImportPath:      `"github.com/flipped-aurora/gin-vue-admin/server/plugin/gva/api"`,
+				ImportPath:      `"github.com/WangMi2022/mit-assets-admin/server/plugin/gva/api"`,
 				StructName:      "User",
 				StructCamelName: "user",
 				ModuleName:      "userApi",
@@ -147,7 +147,7 @@ func TestPluginEnter_Rollback(t *testing.T) {
 			fields: fields{
 				Type:            TypePluginApiEnter,
 				Path:            filepath.Join(global.GVA_CONFIG.AutoCode.Root, global.GVA_CONFIG.AutoCode.Server, "plugin", "gva", "api", "enter.go"),
-				ImportPath:      `"github.com/flipped-aurora/gin-vue-admin/server/plugin/gva/service"`,
+				ImportPath:      `"github.com/WangMi2022/mit-assets-admin/server/plugin/gva/service"`,
 				StructName:      "User",
 				StructCamelName: "user",
 				ModuleName:      "serviceUser",

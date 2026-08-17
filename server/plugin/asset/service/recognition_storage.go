@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/asset/model"
-	"github.com/flipped-aurora/gin-vue-admin/server/utils/upload"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/asset/model"
+	"github.com/WangMi2022/mit-assets-admin/server/utils/upload"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )

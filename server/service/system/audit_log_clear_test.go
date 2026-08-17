@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	commonRequest "github.com/flipped-aurora/gin-vue-admin/server/model/common/request"
-	systemModel "github.com/flipped-aurora/gin-vue-admin/server/model/system"
-	systemRequest "github.com/flipped-aurora/gin-vue-admin/server/model/system/request"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	commonRequest "github.com/WangMi2022/mit-assets-admin/server/model/common/request"
+	systemModel "github.com/WangMi2022/mit-assets-admin/server/model/system"
+	systemRequest "github.com/WangMi2022/mit-assets-admin/server/model/system/request"
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )

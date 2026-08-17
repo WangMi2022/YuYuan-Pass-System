@@ -5,12 +5,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/system"
-	"github.com/flipped-aurora/gin-vue-admin/server/utils"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/model/system"
+	"github.com/WangMi2022/mit-assets-admin/server/utils"
 	"github.com/golang-jwt/jwt/v5"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
+	"github.com/WangMi2022/mit-assets-admin/server/model/common/response"
 	"github.com/gin-gonic/gin"
 )
 

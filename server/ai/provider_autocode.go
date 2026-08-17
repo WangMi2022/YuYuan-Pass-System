@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/model/common"
-	commonResponse "github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
+	"github.com/WangMi2022/mit-assets-admin/server/model/common"
+	commonResponse "github.com/WangMi2022/mit-assets-admin/server/model/common/response"
 	"github.com/goccy/go-json"
 )
 

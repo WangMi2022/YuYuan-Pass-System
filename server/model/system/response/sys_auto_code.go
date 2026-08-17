@@ -1,6 +1,6 @@
 package response
 
-import "github.com/flipped-aurora/gin-vue-admin/server/model/system"
+import "github.com/WangMi2022/mit-assets-admin/server/model/system"
 
 type Db struct {
 	Database string `json:"database" gorm:"column:database"`

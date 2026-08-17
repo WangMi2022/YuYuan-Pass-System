@@ -1,4 +1,4 @@
-# YuYuan Pass System
+# mit-assets-admin
 
 <p align="center">
   <strong>面向企业内部资产、票据、文档与协同办公的一体化管理平台</strong>
@@ -8,7 +8,7 @@
   Go · Gin · Vue 3 · PostgreSQL · Redis · RustFS/MinIO · JWT · Casbin
 </p>
 
-YuYuan Pass System 以资产全生命周期为核心，整合发票识别与流水、文档协作、个人日程、站点收藏、公告通知、系统外观、权限与审计。项目由 Gin-Vue-Admin 演进而来，已经形成独立的业务插件、数据模型、部署脚本和产品文档体系。
+`mit-assets-admin` 以资产全生命周期为核心，整合发票识别与流水、文档协作、个人日程、站点收藏、公告通知、系统外观、权限与审计。项目由 Gin-Vue-Admin 演进而来，已经形成独立的业务插件、数据模型、部署脚本和产品文档体系。
 
 > 当前应用版本：`2.9.2`（来自 `web/package.json`）<br>
 > 文档与项目整体审计：`2026-08-14`

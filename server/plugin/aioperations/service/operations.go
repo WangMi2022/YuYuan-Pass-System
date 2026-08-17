@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/ai"
-	"github.com/flipped-aurora/gin-vue-admin/server/config"
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	commonRequest "github.com/flipped-aurora/gin-vue-admin/server/model/common/request"
+	"github.com/WangMi2022/mit-assets-admin/server/ai"
+	"github.com/WangMi2022/mit-assets-admin/server/config"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	commonRequest "github.com/WangMi2022/mit-assets-admin/server/model/common/request"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )

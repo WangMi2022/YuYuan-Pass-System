@@ -14,10 +14,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/ai"
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/asset/model"
-	assetRequest "github.com/flipped-aurora/gin-vue-admin/server/plugin/asset/model/request"
+	"github.com/WangMi2022/mit-assets-admin/server/ai"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/asset/model"
+	assetRequest "github.com/WangMi2022/mit-assets-admin/server/plugin/asset/model/request"
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )

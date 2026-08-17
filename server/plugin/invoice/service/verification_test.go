@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/config"
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/model"
-	invoiceRequest "github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/model/request"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/provider"
+	"github.com/WangMi2022/mit-assets-admin/server/config"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/invoice/model"
+	invoiceRequest "github.com/WangMi2022/mit-assets-admin/server/plugin/invoice/model/request"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/invoice/provider"
 	"gorm.io/gorm"
 )
 

@@ -5,7 +5,7 @@
 
 import child_process from 'child_process'
 
-var url = 'https://www.gin-vue-admin.com'
+var url = 'https://github.com/WangMi2022/YuYuan-Pass-System'
 var cmd = ''
 switch (process.platform) {
   case 'win32':

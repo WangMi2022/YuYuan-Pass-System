@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/model/common/request"
+	"github.com/WangMi2022/mit-assets-admin/server/model/common/request"
 )
 
 func resolveLogClearRange(req request.LogDeleteReq) (startTime, endTime *time.Time, shouldClear bool, err error) {

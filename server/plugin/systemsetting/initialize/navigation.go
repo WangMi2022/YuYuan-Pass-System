@@ -4,8 +4,8 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/system"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/model/system"
 	"gorm.io/gorm"
 )
 
@@ -270,8 +270,17 @@ func syncBusinessNavigation(ctx context.Context) error {
 		}
 
 		hiddenMenus := []string{
-			"about", "example", "systemTools", "https://www.gin-vue-admin.com", "plugin", "AutoRoot",
+			"about", "example", "systemTools", "https://github.com/WangMi2022/YuYuan-Pass-System", "plugin", "AutoRoot",
 			"documentManagement", "siteManagement", "assetDashboard", "breakpoint", "customer",
+		}
+		if err := tx.Model(&system.SysBaseMenu{}).
+			Where("name = ?", "https://www.gin-vue-admin.com").
+			Updates(map[string]any{
+				"name":   "https://github.com/WangMi2022/YuYuan-Pass-System",
+				"path":   "https://github.com/WangMi2022/YuYuan-Pass-System",
+				"hidden": true,
+			}).Error; err != nil {
+			return err
 		}
 		if err := tx.Model(&system.SysBaseMenu{}).Where("name IN ?", hiddenMenus).Update("hidden", true).Error; err != nil {
 			return err

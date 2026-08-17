@@ -1,6 +1,6 @@
 package response
 
-import "github.com/flipped-aurora/gin-vue-admin/server/plugin/asset/model"
+import "github.com/WangMi2022/mit-assets-admin/server/plugin/asset/model"
 
 type CategorySummary struct {
 	CategoryID   uint    `json:"categoryId"`

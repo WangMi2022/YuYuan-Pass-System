@@ -1,10 +1,10 @@
 package initialize
 
 import (
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	_ "github.com/flipped-aurora/gin-vue-admin/server/plugin"
-	systemService "github.com/flipped-aurora/gin-vue-admin/server/service/system"
-	"github.com/flipped-aurora/gin-vue-admin/server/utils/plugin/v2"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	_ "github.com/WangMi2022/mit-assets-admin/server/plugin"
+	systemService "github.com/WangMi2022/mit-assets-admin/server/service/system"
+	"github.com/WangMi2022/mit-assets-admin/server/utils/plugin/v2"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )

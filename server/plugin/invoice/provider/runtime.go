@@ -3,7 +3,7 @@ package provider
 import (
 	"sync/atomic"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/config"
+	"github.com/WangMi2022/mit-assets-admin/server/config"
 )
 
 var runtimeInvoiceRecognition atomic.Pointer[config.InvoiceRecognition]

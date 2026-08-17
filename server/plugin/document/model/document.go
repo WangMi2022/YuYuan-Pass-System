@@ -1,6 +1,6 @@
 package model
 
-import "github.com/flipped-aurora/gin-vue-admin/server/global"
+import "github.com/WangMi2022/mit-assets-admin/server/global"
 
 // Document 保存上传文档的对象存储信息和在线编辑内容。
 type Document struct {

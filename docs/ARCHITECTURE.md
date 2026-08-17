@@ -31,7 +31,7 @@ flowchart LR
 ## 3. 仓库结构
 
 ```text
-gin-vue-admin/
+mit-assets-admin/
 ├─ server/                     Go 服务端
 │  ├─ api/v1/                 系统与示例 API 层
 │  ├─ ai/                     统一 AI Gateway 深模块

@@ -12,8 +12,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/model"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/provider"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/invoice/model"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/invoice/provider"
 )
 
 func renderedJPEG(t *testing.T) []byte {

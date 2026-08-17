@@ -9,8 +9,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	commonResponse "github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
-	invoiceRequest "github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/model/request"
+	commonResponse "github.com/WangMi2022/mit-assets-admin/server/model/common/response"
+	invoiceRequest "github.com/WangMi2022/mit-assets-admin/server/plugin/invoice/model/request"
 	"github.com/gin-gonic/gin"
 )
 

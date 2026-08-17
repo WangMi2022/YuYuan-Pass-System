@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/common/request"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/system"
-	systemReq "github.com/flipped-aurora/gin-vue-admin/server/model/system/request"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/model/common/request"
+	"github.com/WangMi2022/mit-assets-admin/server/model/system"
+	systemReq "github.com/WangMi2022/mit-assets-admin/server/model/system/request"
 )
 
 //@author: [granty1](https://github.com/granty1)

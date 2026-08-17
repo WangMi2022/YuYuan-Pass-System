@@ -1,8 +1,8 @@
-name: ${PROJECT_NAME:-gin-vue-admin-dev}
+name: ${PROJECT_NAME:-mit-assets-admin-dev}
 
 services:
   server:
-    image: ${SERVER_IMAGE:-gin-vue-admin-server:dev}
+    image: ${SERVER_IMAGE:-mit-assets-admin-server:dev}
     container_name: ${SERVER_CONTAINER:-gva-server-dev}
     build:
       context: ../..
@@ -27,7 +27,7 @@ services:
       - gva
 
   web:
-    image: ${WEB_IMAGE:-gin-vue-admin-web:dev}
+    image: ${WEB_IMAGE:-mit-assets-admin-web:dev}
     container_name: ${WEB_CONTAINER:-gva-web-dev}
     build:
       context: ../..

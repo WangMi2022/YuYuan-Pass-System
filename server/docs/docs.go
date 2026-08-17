@@ -3,7 +3,7 @@
 package docs
 
 import (
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
 	"github.com/swaggo/swag"
 )
 
@@ -7197,7 +7197,7 @@ const docTemplate = `{
                     }
                 },
                 "email": {
-                    "$ref": "#/definitions/github_com_flipped-aurora_gin-vue-admin_server_config.Email"
+                    "$ref": "#/definitions/github_com_WangMi2022_mit-assets-admin_server_config.Email"
                 },
                 "excel": {
                     "$ref": "#/definitions/config.Excel"
@@ -7667,7 +7667,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_flipped-aurora_gin-vue-admin_server_config.Email": {
+        "github_com_WangMi2022_mit-assets-admin_server_config.Email": {
             "type": "object",
             "properties": {
                 "from": {
@@ -9303,8 +9303,8 @@ var SwaggerInfo = &swag.Spec{
 	Host:             "",
 	BasePath:         "",
 	Schemes:          []string{},
-	Title:            "Gin-Vue-Admin Swagger API接口文档",
-	Description:      "使用gin+vue进行极速开发的全栈开发基础平台",
+	Title:            "mit-assets-admin Swagger API 接口文档",
+	Description:      "MIT 资产管理系统 API",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 }

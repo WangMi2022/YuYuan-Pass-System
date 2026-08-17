@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/flipped-aurora/gin-vue-admin/server/utils/ast"
+	"github.com/WangMi2022/mit-assets-admin/server/utils/ast"
 	"github.com/pkg/errors"
 	"path"
 	"path/filepath"
@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	common "github.com/flipped-aurora/gin-vue-admin/server/model/common/request"
-	model "github.com/flipped-aurora/gin-vue-admin/server/model/system"
-	request "github.com/flipped-aurora/gin-vue-admin/server/model/system/request"
-	"github.com/flipped-aurora/gin-vue-admin/server/utils"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	common "github.com/WangMi2022/mit-assets-admin/server/model/common/request"
+	model "github.com/WangMi2022/mit-assets-admin/server/model/system"
+	request "github.com/WangMi2022/mit-assets-admin/server/model/system/request"
+	"github.com/WangMi2022/mit-assets-admin/server/utils"
 
 	"go.uber.org/zap"
 )

@@ -10,9 +10,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	announcementService "github.com/flipped-aurora/gin-vue-admin/server/plugin/announcement/service"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/asset/model"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	announcementService "github.com/WangMi2022/mit-assets-admin/server/plugin/announcement/service"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/asset/model"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"

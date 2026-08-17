@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/system"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/model/system"
 	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )
@@ -40,6 +40,7 @@ func TestSyncBusinessNavigationGroupsPermissionMenusAndMigratesAuthorities(t *te
 		{ParentId: systemParent.ID, MenuLevel: 1, Path: "operation", Name: "operation"},
 		{ParentId: systemParent.ID, MenuLevel: 1, Path: "loginLog", Name: "loginLog"},
 		{ParentId: systemParent.ID, MenuLevel: 1, Path: "sysError", Name: "sysError"},
+		{ParentId: 0, MenuLevel: 0, Path: "https://www.gin-vue-admin.com", Name: "https://www.gin-vue-admin.com"},
 	}
 	if err = db.Create(&legacyMenus).Error; err != nil {
 		t.Fatalf("create legacy menus: %v", err)
@@ -160,6 +161,14 @@ func TestSyncBusinessNavigationGroupsPermissionMenusAndMigratesAuthorities(t *te
 	assertAuthorityMenuRelation(t, db, permissionParent.ID, "999", 0)
 	assertAuthorityMenuRelation(t, db, systemParent.ID, "999", 1)
 	assertAuthorityMenuRelation(t, db, legacyMenus[0].ID, "100", 1)
+
+	var projectHome system.SysBaseMenu
+	if err = db.First(&projectHome, legacyMenus[8].ID).Error; err != nil {
+		t.Fatalf("reload migrated project home: %v", err)
+	}
+	if projectHome.Name != "https://github.com/WangMi2022/YuYuan-Pass-System" || projectHome.Path != projectHome.Name || !projectHome.Hidden {
+		t.Fatalf("unexpected migrated project home: %#v", projectHome)
+	}
 }
 
 func TestSyncBusinessNavigationGroupsSystemManagementMenusAndPreservesAuthorities(t *testing.T) {

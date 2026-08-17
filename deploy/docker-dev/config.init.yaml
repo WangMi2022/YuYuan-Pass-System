@@ -1,4 +1,4 @@
-# asset-center server Global Configuration
+# mit-assets-admin server Global Configuration
 # Docker 二开初始化配置：首次启动保持 pgsql.db-name 为空，让后端进入初始化流程。
 # 初始化成功后，/init/initdb 会自动把数据库连接信息写入 deploy/docker-dev/config.yaml。
 
@@ -11,7 +11,7 @@ jwt:
 zap:
     level: info
     format: console
-    prefix: "[asset-center]"
+    prefix: "[mit-assets-admin]"
     director: log
     show-line: true
     encode-level: LowercaseColorLevelEncoder
@@ -171,7 +171,7 @@ autocode:
     web: web/src
     root: ""
     server: server
-    module: 'github.com/flipped-aurora/gin-vue-admin/server'
+    module: 'github.com/WangMi2022/mit-assets-admin/server'
     ai-path: ""
 
 qiniu:
@@ -206,7 +206,7 @@ tencent-cos:
     secret-id: your-secret-id
     secret-key: your-secret-key
     base-url: https://gin.vue.admin
-    path-prefix: github.com/flipped-aurora/gin-vue-admin/server
+    path-prefix: github.com/WangMi2022/mit-assets-admin/server
 
 aws-s3:
     bucket: xxxxx-10005608
@@ -217,7 +217,7 @@ aws-s3:
     secret-id: your-secret-id
     secret-key: your-secret-key
     base-url: https://gin.vue.admin
-    path-prefix: github.com/flipped-aurora/gin-vue-admin/server
+    path-prefix: github.com/WangMi2022/mit-assets-admin/server
 
 cloudflare-r2:
     bucket: xxxx0bucket

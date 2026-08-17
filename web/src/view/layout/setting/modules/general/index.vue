@@ -118,7 +118,7 @@ const handleExportConfig = () => {
   const link = document.createElement('a')
 
   link.href = url
-  link.download = `asset-center-config-${new Date().toISOString().split('T')[0]}.json`
+  link.download = `mit-assets-admin-config-${new Date().toISOString().split('T')[0]}.json`
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)

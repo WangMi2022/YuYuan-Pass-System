@@ -1,6 +1,6 @@
 package router
 
-import "github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/api"
+import "github.com/WangMi2022/mit-assets-admin/server/plugin/invoice/api"
 
 var (
 	Router      = new(routerGroup)

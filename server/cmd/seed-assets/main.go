@@ -203,7 +203,7 @@ var genericTemplates = []assetTemplate{
 
 func main() {
 	var (
-		configPath = flag.String("config", "../deploy/docker-dev/config.yaml", "gin-vue-admin config.yaml path")
+		configPath = flag.String("config", "../deploy/docker-dev/config.yaml", "mit-assets-admin config.yaml path")
 		count      = flag.Int("count", 100, "number of fake assets to seed")
 		prefix     = flag.String("prefix", "DEMO-ASSET", "asset code prefix for generated data")
 		reset      = flag.Bool("reset", true, "delete existing generated assets with the same prefix before seeding")

@@ -3,8 +3,8 @@ package system
 import (
 	"testing"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/common"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/model/common"
 )
 
 func TestBuildLLMAutoPathValidatesMode(t *testing.T) {

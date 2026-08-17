@@ -4,10 +4,10 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/asset/model"
-	assetRequest "github.com/flipped-aurora/gin-vue-admin/server/plugin/asset/model/request"
-	assetResponse "github.com/flipped-aurora/gin-vue-admin/server/plugin/asset/model/response"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/asset/model"
+	assetRequest "github.com/WangMi2022/mit-assets-admin/server/plugin/asset/model/request"
+	assetResponse "github.com/WangMi2022/mit-assets-admin/server/plugin/asset/model/response"
 	"gorm.io/gorm"
 )
 

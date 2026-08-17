@@ -6,7 +6,7 @@ import (
 	"github.com/casbin/casbin/v3"
 	"github.com/casbin/casbin/v3/model"
 	gormadapter "github.com/casbin/gorm-adapter/v3"
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
 	"go.uber.org/zap"
 )
 

@@ -3,8 +3,8 @@ package request
 import (
 	"time"
 
-	commonRequest "github.com/flipped-aurora/gin-vue-admin/server/model/common/request"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/invoice/model"
+	commonRequest "github.com/WangMi2022/mit-assets-admin/server/model/common/request"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/invoice/model"
 )
 
 type InvoiceSearch struct {

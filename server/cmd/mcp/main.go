@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	mcpTool "github.com/flipped-aurora/gin-vue-admin/server/mcp"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	mcpTool "github.com/WangMi2022/mit-assets-admin/server/mcp"
 	_ "go.uber.org/automaxprocs"
 	"go.uber.org/zap"
 )

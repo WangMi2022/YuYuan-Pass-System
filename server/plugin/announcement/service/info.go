@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/announcement/model"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/announcement/model/request"
-	announcementResponse "github.com/flipped-aurora/gin-vue-admin/server/plugin/announcement/model/response"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/announcement/model"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/announcement/model/request"
+	announcementResponse "github.com/WangMi2022/mit-assets-admin/server/plugin/announcement/model/response"
 	"gorm.io/gorm"
 )
 

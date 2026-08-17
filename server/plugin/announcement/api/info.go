@@ -7,12 +7,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/flipped-aurora/gin-vue-admin/server/global"
-	"github.com/flipped-aurora/gin-vue-admin/server/model/common/response"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/announcement/model"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/announcement/model/request"
-	"github.com/flipped-aurora/gin-vue-admin/server/plugin/announcement/service"
-	"github.com/flipped-aurora/gin-vue-admin/server/utils"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/model/common/response"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/announcement/model"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/announcement/model/request"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/announcement/service"
+	"github.com/WangMi2022/mit-assets-admin/server/utils"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
