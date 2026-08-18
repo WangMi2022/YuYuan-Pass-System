@@ -6,6 +6,7 @@ import (
 	"net/smtp"
 	"strings"
 
+	serverConfig "github.com/WangMi2022/mit-assets-admin/server/config"
 	"github.com/WangMi2022/mit-assets-admin/server/plugin/email/global"
 
 	"github.com/jordan-wright/email"
@@ -54,13 +55,27 @@ func EmailTest(subject string, body string) error {
 //@return: error
 
 func send(to []string, subject string, body string) error {
-	from := global.GlobalConfig.From
-	nickname := global.GlobalConfig.Nickname
-	secret := global.GlobalConfig.Secret
-	host := global.GlobalConfig.Host
-	port := global.GlobalConfig.Port
-	isSSL := global.GlobalConfig.IsSSL
-	isLoginAuth := global.GlobalConfig.IsLoginAuth
+	return SendWithConfig(serverConfig.Email{
+		From:        global.GlobalConfig.From,
+		Host:        global.GlobalConfig.Host,
+		Secret:      global.GlobalConfig.Secret,
+		Nickname:    global.GlobalConfig.Nickname,
+		Port:        global.GlobalConfig.Port,
+		IsSSL:       global.GlobalConfig.IsSSL,
+		IsLoginAuth: global.GlobalConfig.IsLoginAuth,
+	}, to, subject, body)
+}
+
+// SendWithConfig sends one message using an explicit SMTP snapshot. It avoids
+// stale plugin state for runtime-managed verification settings.
+func SendWithConfig(configuration serverConfig.Email, to []string, subject string, body string) error {
+	from := configuration.From
+	nickname := configuration.Nickname
+	secret := configuration.Secret
+	host := configuration.Host
+	port := configuration.Port
+	isSSL := configuration.IsSSL
+	isLoginAuth := configuration.IsLoginAuth
 
 	var auth smtp.Auth
 	if isLoginAuth {

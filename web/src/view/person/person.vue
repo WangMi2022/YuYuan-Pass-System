@@ -110,13 +110,13 @@
           <div class="profile-contact-list">
             <div class="profile-contact-row">
               <span class="profile-contact-icon profile-contact-icon--phone"><el-icon><Phone /></el-icon></span>
-              <div><span class="profile-detail-label">手机号码</span><strong>{{ userStore.userInfo.phone || '未设置' }}</strong></div>
-              <el-button link type="primary" class="profile-row-action" @click="changePhoneFlag = true">{{ userStore.userInfo.phone ? '修改' : '添加' }}</el-button>
+              <div><span class="profile-detail-label">手机号码</span><strong>{{ userStore.userInfo.phone || '未设置' }}</strong><small>{{ contactCapabilities.phone.reason }}</small></div>
+              <el-button link type="primary" class="profile-row-action" @click="openPhoneDialog">{{ userStore.userInfo.phone ? '修改' : '添加' }}</el-button>
             </div>
             <div class="profile-contact-row">
               <span class="profile-contact-icon profile-contact-icon--email"><el-icon><Message /></el-icon></span>
-              <div><span class="profile-detail-label">邮箱地址</span><strong>{{ userStore.userInfo.email || '未设置' }}</strong></div>
-              <el-button link type="primary" class="profile-row-action" @click="changeEmailFlag = true">{{ userStore.userInfo.email ? '修改' : '添加' }}</el-button>
+              <div><span class="profile-detail-label">邮箱地址</span><strong>{{ userStore.userInfo.email || '未设置' }}</strong><small>{{ contactCapabilities.email.reason }}</small></div>
+              <el-button link type="primary" class="profile-row-action" @click="openEmailDialog">{{ userStore.userInfo.email ? '修改' : '添加' }}</el-button>
             </div>
             <div class="profile-contact-row">
               <span class="profile-contact-icon profile-contact-icon--password"><el-icon><Lock /></el-icon></span>
@@ -185,43 +185,88 @@
     <el-dialog
       v-model="changePhoneFlag"
       title="修改手机号"
-      width="400px"
-      class="custom-dialog"
+      width="480px"
+      class="contact-dialog"
+      :close-on-click-modal="false"
+      @closed="resetPhoneForm"
     >
-      <el-form :model="phoneForm" label-width="80px" class="py-4">
-        <el-form-item label="手机号">
-          <el-input v-model="phoneForm.phone" placeholder="请输入新的手机号码">
+      <template #header>
+        <div class="contact-dialog__heading">
+          <span class="contact-dialog__icon" aria-hidden="true"><el-icon><Phone /></el-icon></span>
+          <div><h3>修改手机号</h3><p>验证新号码后，将同步更新账户联系方式</p></div>
+        </div>
+      </template>
+      <div
+        class="contact-verification-state"
+        :class="{ 'is-ready': contactCapabilities.phone.enabled }"
+        aria-live="polite"
+      >
+        <el-icon><CircleCheck v-if="contactCapabilities.phone.enabled" /><Warning v-else /></el-icon>
+        <div>
+          <strong>{{ contactCapabilities.phone.enabled ? '短信验证已就绪' : '暂不可修改手机号' }}</strong>
+          <span>{{ contactCapabilities.phone.reason }}</span>
+        </div>
+      </div>
+      <el-form
+        ref="phoneFormRef"
+        :model="phoneForm"
+        :rules="phoneRules"
+        label-position="top"
+        class="contact-form"
+        :disabled="!contactCapabilities.phone.enabled"
+      >
+        <el-form-item label="新手机号" prop="phone">
+          <el-input
+            v-model.trim="phoneForm.phone"
+            placeholder="请输入 11 位手机号码"
+            maxlength="11"
+            inputmode="tel"
+            autocomplete="tel"
+            clearable
+            size="large"
+          >
             <template #prefix>
-              <el-icon><phone /></el-icon>
+              <el-icon><Phone /></el-icon>
             </template>
           </el-input>
         </el-form-item>
-        <el-form-item label="验证码">
-          <div class="flex gap-4">
+        <el-form-item label="短信验证码" prop="code">
+          <div class="contact-code-row">
             <el-input
-              v-model="phoneForm.code"
-              placeholder="请输入验证码[模拟]"
-              class="flex-1"
+              v-model.trim="phoneForm.code"
+              placeholder="请输入 6 位验证码"
+              maxlength="6"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              size="large"
             >
               <template #prefix>
-                <el-icon><key /></el-icon>
+                <el-icon><Key /></el-icon>
               </template>
             </el-input>
             <el-button
               type="primary"
-              :disabled="time > 0"
-              class="w-32"
+              plain
+              size="large"
+              :loading="sendingPhoneCode"
+              :disabled="time > 0 || sendingPhoneCode || !phoneForm.phone || !contactCapabilities.phone.enabled"
               @click="getCode"
             >
               {{ time > 0 ? `${time}s` : '获取验证码' }}
             </el-button>
           </div>
+          <p class="contact-field-hint">验证码发送成功后 5 分钟内有效，请勿泄露给他人</p>
         </el-form-item>
       </el-form>
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="closeChangePhone">取 消</el-button>
-          <el-button type="primary" :loading="savingPhone" @click="changePhone">确 定</el-button>
+          <el-button
+            type="primary"
+            :loading="savingPhone"
+            :disabled="!contactCapabilities.phone.enabled"
+            @click="changePhone"
+          >确认修改</el-button>
         </div>
       </template>
     </el-dialog>
@@ -229,43 +274,88 @@
     <el-dialog
       v-model="changeEmailFlag"
       title="修改邮箱"
-      width="400px"
-      class="custom-dialog"
+      width="480px"
+      class="contact-dialog"
+      :close-on-click-modal="false"
+      @closed="resetEmailForm"
     >
-      <el-form :model="emailForm" label-width="80px" class="py-4">
-        <el-form-item label="邮箱">
-          <el-input v-model="emailForm.email" placeholder="请输入新的邮箱地址">
+      <template #header>
+        <div class="contact-dialog__heading">
+          <span class="contact-dialog__icon contact-dialog__icon--email" aria-hidden="true"><el-icon><Message /></el-icon></span>
+          <div><h3>修改邮箱</h3><p>验证新邮箱后，将用于接收系统通知</p></div>
+        </div>
+      </template>
+      <div
+        class="contact-verification-state"
+        :class="{ 'is-ready': contactCapabilities.email.enabled }"
+        aria-live="polite"
+      >
+        <el-icon><CircleCheck v-if="contactCapabilities.email.enabled" /><Warning v-else /></el-icon>
+        <div>
+          <strong>{{ contactCapabilities.email.enabled ? '邮件验证已就绪' : '暂不可修改邮箱' }}</strong>
+          <span>{{ contactCapabilities.email.reason }}</span>
+        </div>
+      </div>
+      <el-form
+        ref="emailFormRef"
+        :model="emailForm"
+        :rules="emailRules"
+        label-position="top"
+        class="contact-form"
+        :disabled="!contactCapabilities.email.enabled"
+      >
+        <el-form-item label="新邮箱" prop="email">
+          <el-input
+            v-model.trim="emailForm.email"
+            placeholder="请输入新的邮箱地址"
+            maxlength="120"
+            inputmode="email"
+            autocomplete="email"
+            clearable
+            size="large"
+          >
             <template #prefix>
-              <el-icon><message /></el-icon>
+              <el-icon><Message /></el-icon>
             </template>
           </el-input>
         </el-form-item>
-        <el-form-item label="验证码">
-          <div class="flex gap-4">
+        <el-form-item label="邮件验证码" prop="code">
+          <div class="contact-code-row">
             <el-input
-              v-model="emailForm.code"
-              placeholder="请输入验证码[模拟]"
-              class="flex-1"
+              v-model.trim="emailForm.code"
+              placeholder="请输入 6 位验证码"
+              maxlength="6"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              size="large"
             >
               <template #prefix>
-                <el-icon><key /></el-icon>
+                <el-icon><Key /></el-icon>
               </template>
             </el-input>
             <el-button
               type="primary"
-              :disabled="emailTime > 0"
-              class="w-32"
+              plain
+              size="large"
+              :loading="sendingEmailCode"
+              :disabled="emailTime > 0 || sendingEmailCode || !emailForm.email || !contactCapabilities.email.enabled"
               @click="getEmailCode"
             >
               {{ emailTime > 0 ? `${emailTime}s` : '获取验证码' }}
             </el-button>
           </div>
+          <p class="contact-field-hint">验证码发送成功后 5 分钟内有效，请检查垃圾邮件目录</p>
         </el-form-item>
       </el-form>
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="closeChangeEmail">取 消</el-button>
-          <el-button type="primary" :loading="savingEmail" @click="changeEmail">确 定</el-button>
+          <el-button
+            type="primary"
+            :loading="savingEmail"
+            :disabled="!contactCapabilities.email.enabled"
+            @click="changeEmail"
+          >确认修改</el-button>
         </div>
       </template>
     </el-dialog>
@@ -273,8 +363,14 @@
 </template>
 
 <script setup>
-  import { setSelfInfo, changePassword } from '@/api/user.js'
-  import { computed, reactive, ref, watch } from 'vue'
+  import {
+    changePassword,
+    getContactVerificationCapabilities,
+    sendContactVerificationCode,
+    setSelfInfo,
+    updateSelfContact
+  } from '@/api/user.js'
+  import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
   import { ElMessage } from 'element-plus'
   import { CircleCheck, Edit, Key, Lock, Message, Monitor, Phone, User, Warning } from '@element-plus/icons-vue'
   import { useUserStore } from '@/pinia/modules/user'
@@ -293,7 +389,16 @@
   const savingPassword = ref(false)
   const savingPhone = ref(false)
   const savingEmail = ref(false)
+  const sendingPhoneCode = ref(false)
+  const sendingEmailCode = ref(false)
   const savingAvatar = ref(false)
+  const phoneFormRef = ref(null)
+  const emailFormRef = ref(null)
+  const capabilitiesLoading = ref(false)
+  const contactCapabilities = reactive({
+    phone: { configured: false, enabled: false, reason: '正在检查短信验证配置' },
+    email: { configured: false, enabled: false, reason: '正在检查邮件验证配置' }
+  })
 
   const displayName = computed(() => userStore.userInfo.nickName || userStore.userInfo.userName || '未命名用户')
   const userId = computed(() => userStore.userInfo.ID || userStore.userInfo.id || '—')
@@ -327,8 +432,6 @@
 
   const selfInfoPayload = (value = {}) => ({
     nickName: userStore.userInfo.nickName || '',
-    phone: userStore.userInfo.phone || '',
-    email: userStore.userInfo.email || '',
     headerImg: userStore.userInfo.headerImg || '',
     ...value
   })
@@ -415,34 +518,118 @@
 
   const changePhoneFlag = ref(false)
   const time = ref(0)
+  const phoneTimer = ref(null)
   const phoneForm = reactive({
     phone: '',
     code: ''
   })
 
-  const getCode = async () => {
-    time.value = 60
-    let timer = setInterval(() => {
-      time.value--
-      if (time.value <= 0) {
-        clearInterval(timer)
-        timer = null
+  const phoneRules = {
+    phone: [
+      { required: true, message: '请输入手机号码', trigger: 'blur' },
+      { pattern: /^1[3-9]\d{9}$/, message: '请输入有效的 11 位手机号码', trigger: 'blur' }
+    ],
+    code: [
+      { required: true, message: '请输入短信验证码', trigger: 'blur' },
+      { pattern: /^\d{6}$/, message: '请输入 6 位数字验证码', trigger: 'blur' }
+    ]
+  }
+
+  const emailRules = {
+    email: [
+      { required: true, message: '请输入邮箱地址', trigger: 'blur' },
+      { type: 'email', message: '请输入有效的邮箱地址', trigger: 'blur' }
+    ],
+    code: [
+      { required: true, message: '请输入邮件验证码', trigger: 'blur' },
+      { pattern: /^\d{6}$/, message: '请输入 6 位数字验证码', trigger: 'blur' }
+    ]
+  }
+
+  const loadContactCapabilities = async () => {
+    if (capabilitiesLoading.value) return
+    capabilitiesLoading.value = true
+    try {
+      const res = await getContactVerificationCapabilities()
+      if (res.code === 0) {
+        Object.assign(contactCapabilities.phone, res.data.phone)
+        Object.assign(contactCapabilities.email, res.data.email)
+      }
+    } catch {
+      contactCapabilities.phone.reason = '短信验证状态读取失败，请稍后重试'
+      contactCapabilities.email.reason = '邮件验证状态读取失败，请稍后重试'
+    } finally {
+      capabilitiesLoading.value = false
+    }
+  }
+
+  const openPhoneDialog = () => {
+    changePhoneFlag.value = true
+    loadContactCapabilities()
+  }
+
+  const startCountdown = (counter, timerRef) => {
+    if (timerRef.value) clearInterval(timerRef.value)
+    counter.value = 60
+    timerRef.value = window.setInterval(() => {
+      counter.value--
+      if (counter.value <= 0) {
+        clearInterval(timerRef.value)
+        timerRef.value = null
       }
     }, 1000)
   }
 
+  const getCode = async () => {
+    if (sendingPhoneCode.value || time.value > 0) return
+    if (!contactCapabilities.phone.enabled) {
+      ElMessage.warning(contactCapabilities.phone.reason)
+      return
+    }
+    sendingPhoneCode.value = true
+    try {
+      const valid = await phoneFormRef.value?.validateField('phone').then(() => true).catch(() => false)
+      if (!valid) return
+      const res = await sendContactVerificationCode({
+        channel: 'phone',
+        target: phoneForm.phone
+      })
+      if (res.code === 0) {
+        startCountdown(time, phoneTimer)
+        ElMessage.success('验证码已发送到新手机号')
+      }
+    } finally {
+      sendingPhoneCode.value = false
+    }
+  }
+
   const closeChangePhone = () => {
     changePhoneFlag.value = false
+  }
+
+  const resetPhoneForm = () => {
     phoneForm.phone = ''
     phoneForm.code = ''
+    phoneFormRef.value?.clearValidate()
   }
 
   const changePhone = async () => {
+    if (savingPhone.value) return
+    if (!contactCapabilities.phone.enabled) {
+      ElMessage.warning(contactCapabilities.phone.reason)
+      return
+    }
     savingPhone.value = true
     try {
-      const res = await setSelfInfo(selfInfoPayload({ phone: phoneForm.phone }))
+      const valid = await phoneFormRef.value?.validate().catch(() => false)
+      if (!valid) return
+      const res = await updateSelfContact({
+        channel: 'phone',
+        target: phoneForm.phone,
+        code: phoneForm.code
+      })
       if (res.code === 0) {
-        ElMessage.success('修改成功')
+        ElMessage.success('手机号修改成功')
         userStore.ResetUserInfo({ phone: phoneForm.phone })
         closeChangePhone()
       }
@@ -453,41 +640,81 @@
 
   const changeEmailFlag = ref(false)
   const emailTime = ref(0)
+  const emailTimer = ref(null)
   const emailForm = reactive({
     email: '',
     code: ''
   })
 
+  const openEmailDialog = () => {
+    changeEmailFlag.value = true
+    loadContactCapabilities()
+  }
+
   const getEmailCode = async () => {
-    emailTime.value = 60
-    let timer = setInterval(() => {
-      emailTime.value--
-      if (emailTime.value <= 0) {
-        clearInterval(timer)
-        timer = null
+    if (sendingEmailCode.value || emailTime.value > 0) return
+    if (!contactCapabilities.email.enabled) {
+      ElMessage.warning(contactCapabilities.email.reason)
+      return
+    }
+    sendingEmailCode.value = true
+    try {
+      const valid = await emailFormRef.value?.validateField('email').then(() => true).catch(() => false)
+      if (!valid) return
+      const res = await sendContactVerificationCode({
+        channel: 'email',
+        target: emailForm.email
+      })
+      if (res.code === 0) {
+        startCountdown(emailTime, emailTimer)
+        ElMessage.success('验证码已发送到新邮箱')
       }
-    }, 1000)
+    } finally {
+      sendingEmailCode.value = false
+    }
   }
 
   const closeChangeEmail = () => {
     changeEmailFlag.value = false
+  }
+
+  const resetEmailForm = () => {
     emailForm.email = ''
     emailForm.code = ''
+    emailFormRef.value?.clearValidate()
   }
 
   const changeEmail = async () => {
+    if (savingEmail.value) return
+    if (!contactCapabilities.email.enabled) {
+      ElMessage.warning(contactCapabilities.email.reason)
+      return
+    }
     savingEmail.value = true
     try {
-      const res = await setSelfInfo(selfInfoPayload({ email: emailForm.email }))
+      const valid = await emailFormRef.value?.validate().catch(() => false)
+      if (!valid) return
+      const target = emailForm.email.trim().toLowerCase()
+      const res = await updateSelfContact({
+        channel: 'email',
+        target,
+        code: emailForm.code
+      })
       if (res.code === 0) {
-        ElMessage.success('修改成功')
-        userStore.ResetUserInfo({ email: emailForm.email })
+        ElMessage.success('邮箱修改成功')
+        userStore.ResetUserInfo({ email: target })
         closeChangeEmail()
       }
     } finally {
       savingEmail.value = false
     }
   }
+
+  onMounted(loadContactCapabilities)
+  onBeforeUnmount(() => {
+    if (phoneTimer.value) clearInterval(phoneTimer.value)
+    if (emailTimer.value) clearInterval(emailTimer.value)
+  })
 
   watch(() => userStore.userInfo.headerImg, async (val) => {
     const nextAvatar = val || ''
@@ -851,6 +1078,190 @@
       }
     }
 
+    .contact-dialog {
+      overflow: hidden;
+      border-radius: 14px;
+      background: var(--na-card);
+      box-shadow: 0 6px 14px color-mix(in srgb, var(--na-foreground) 16%, transparent);
+
+      :deep(.el-dialog__header) {
+        margin: 0;
+        padding: 22px 24px 18px;
+        border-bottom: 1px solid var(--na-border);
+      }
+
+      :deep(.el-dialog__headerbtn) {
+        top: 18px;
+        right: 18px;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+      }
+
+      :deep(.el-dialog__headerbtn:hover) {
+        background: var(--na-muted);
+      }
+
+      :deep(.el-dialog__body) {
+        padding: 18px 24px 8px;
+        color: var(--na-foreground);
+      }
+
+      :deep(.el-dialog__footer) {
+        padding: 16px 24px 20px;
+        border-top: 1px solid var(--na-border);
+      }
+
+      :deep(.el-dialog__footer .el-button) {
+        min-width: 92px;
+      }
+    }
+
+    .contact-dialog__heading {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      padding-right: 34px;
+    }
+
+    .contact-dialog__heading h3 {
+      margin: 0;
+      color: var(--na-foreground);
+      font-size: 18px;
+      font-weight: 680;
+      line-height: 26px;
+    }
+
+    .contact-dialog__heading p {
+      margin: 2px 0 0;
+      color: var(--na-muted-foreground);
+      font-size: 12px;
+      line-height: 18px;
+    }
+
+    .contact-dialog__icon {
+      display: inline-flex;
+      flex: 0 0 auto;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--na-primary) 12%, var(--na-card));
+      color: var(--na-primary);
+      font-size: 18px;
+    }
+
+    .contact-dialog__icon--email {
+      background: color-mix(in srgb, var(--na-success) 12%, var(--na-card));
+      color: var(--na-success);
+    }
+
+    .contact-verification-state {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--na-warning) 10%, var(--na-muted));
+      color: var(--na-warning);
+    }
+
+    .contact-verification-state.is-ready {
+      background: color-mix(in srgb, var(--na-success) 10%, var(--na-muted));
+      color: var(--na-success);
+    }
+
+    .contact-verification-state > .el-icon {
+      flex: 0 0 auto;
+      margin-top: 2px;
+      font-size: 17px;
+    }
+
+    .contact-verification-state strong,
+    .contact-verification-state span {
+      display: block;
+    }
+
+    .contact-verification-state strong {
+      color: var(--na-foreground);
+      font-size: 13px;
+      font-weight: 620;
+      line-height: 20px;
+    }
+
+    .contact-verification-state span {
+      margin-top: 1px;
+      color: var(--na-muted-foreground);
+      font-size: 12px;
+      line-height: 18px;
+    }
+
+    .contact-form {
+      margin-top: 18px;
+
+      :deep(.el-form-item) {
+        margin-bottom: 18px;
+      }
+
+      :deep(.el-form-item__label) {
+        height: auto;
+        padding: 0 0 7px;
+        color: var(--na-foreground);
+        font-size: 13px;
+        font-weight: 600;
+        line-height: 20px;
+      }
+
+      :deep(.el-form-item__content) {
+        line-height: normal;
+      }
+
+      :deep(.el-input__wrapper) {
+        min-height: 44px;
+        padding-inline: 13px;
+        border-radius: 9px;
+        background: var(--na-card);
+        box-shadow: 0 0 0 1px var(--na-border) inset;
+      }
+
+      :deep(.el-input__wrapper:hover) {
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--na-primary) 48%, var(--na-border)) inset;
+      }
+
+      :deep(.el-input__wrapper.is-focus) {
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--na-primary) 28%, transparent) inset;
+      }
+
+      :deep(.el-input__prefix) {
+        margin-right: 7px;
+        color: var(--na-muted-foreground);
+      }
+    }
+
+    .contact-code-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 132px;
+      gap: 10px;
+      width: 100%;
+    }
+
+    .contact-code-row > .el-button {
+      width: 100%;
+      min-height: 44px;
+      margin-left: 0;
+      border-radius: 9px;
+    }
+
+    .contact-field-hint {
+      width: 100%;
+      margin: 7px 0 0;
+      color: var(--na-muted-foreground);
+      font-size: 12px;
+      line-height: 18px;
+    }
+
     @media (max-width: 900px) {
       .profile-content { grid-template-columns: 1fr; }
       .profile-aside { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--profile-gap); }
@@ -871,8 +1282,29 @@
       .profile-aside .profile-card { margin-bottom: var(--profile-gap); }
     }
 
+    @media (max-width: 520px) {
+      .contact-dialog {
+        width: calc(100vw - 24px) !important;
+        margin-top: 7vh;
+
+        :deep(.el-dialog__header) { padding: 18px 18px 16px; }
+        :deep(.el-dialog__body) { padding: 16px 18px 4px; }
+        :deep(.el-dialog__footer) { padding: 14px 18px 18px; }
+      }
+
+      .contact-code-row {
+        grid-template-columns: 1fr;
+      }
+
+      .contact-dialog__heading p {
+        max-width: 30ch;
+      }
+    }
+
     @media (prefers-reduced-motion: reduce) {
       * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+      .contact-dialog,
+      .contact-dialog * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
     }
   }
 </style>

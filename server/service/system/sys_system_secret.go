@@ -23,6 +23,14 @@ var systemSecretAccessors = map[string]systemSecretAccessor{
 		get: func(configuration config.Server) string { return configuration.Email.Secret },
 		set: func(configuration *config.Server, value string) { configuration.Email.Secret = value },
 	},
+	"contact-verification.sms.access-token": {
+		get: func(configuration config.Server) string {
+			return configuration.ContactVerification.SMS.AccessToken
+		},
+		set: func(configuration *config.Server, value string) {
+			configuration.ContactVerification.SMS.AccessToken = value
+		},
+	},
 	"qiniu.access-key": {
 		get: func(configuration config.Server) string { return configuration.Qiniu.AccessKey },
 		set: func(configuration *config.Server, value string) { configuration.Qiniu.AccessKey = value },

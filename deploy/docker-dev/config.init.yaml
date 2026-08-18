@@ -58,8 +58,21 @@ email:
     from: xxx@163.com
     host: smtp.163.com
     is-ssl: true
+    is-loginauth: false
     secret: xxx
     nickname: test
+
+contact-verification:
+    sms:
+        enabled: false
+        provider: webhook
+        endpoint: ""
+        access-token: ""
+        sign-name: ""
+        template-id: ""
+    email:
+        enabled: false
+        subject: 账号安全验证码
 
 system:
     env: public

@@ -252,6 +252,12 @@
               placeholder="请输入发送者邮箱"
             />
           </el-form-item>
+          <el-form-item label="发件人名称">
+            <el-input
+              v-model.trim="config.email.nickname"
+              placeholder="例如：资产管理平台"
+            />
+          </el-form-item>
           <el-form-item label="host">
             <el-input
               v-model.trim="config.email.host"
@@ -381,7 +387,13 @@
             />
           </el-form-item>
         </el-tab-pane>
-        <el-tab-pane label="验证码" name="7" lazy>
+        <el-tab-pane label="验证服务" name="7" lazy>
+          <div class="verification-config-heading">
+            <div>
+              <strong>登录图形验证码</strong>
+              <p>控制登录安全校验图片的尺寸与字符长度</p>
+            </div>
+          </div>
           <el-form-item label="字符长度">
             <el-input-number
               v-model="config.captcha['key-long']"
@@ -394,6 +406,82 @@
           </el-form-item>
           <el-form-item label="图片高度">
             <el-input-number v-model.number="config.captcha['img-height']" />
+          </el-form-item>
+
+          <div class="verification-config-heading">
+            <div>
+              <strong>邮件验证码</strong>
+              <p>复用“邮件服务”中的 SMTP 账户，配置完整后才可开启</p>
+            </div>
+            <el-tag :type="emailVerificationReady ? 'success' : 'info'" effect="plain">
+              {{ emailVerificationReady ? '配置完整' : '待配置' }}
+            </el-tag>
+          </div>
+          <el-form-item label="开启邮件验证码">
+            <div class="verification-toggle-field">
+              <el-switch
+                v-model="config['contact-verification'].email.enabled"
+                :disabled="!emailVerificationReady && !config['contact-verification'].email.enabled"
+              />
+              <span>{{ emailVerificationReady ? '开启后，修改邮箱必须完成验证码校验' : '请先补齐 SMTP 地址、端口、发件人和密钥' }}</span>
+            </div>
+          </el-form-item>
+          <el-form-item label="验证码邮件主题">
+            <el-input
+              v-model.trim="config['contact-verification'].email.subject"
+              placeholder="账号安全验证码"
+            />
+          </el-form-item>
+
+          <div class="verification-config-heading">
+            <div>
+              <strong>短信验证码</strong>
+              <p>通过统一 Webhook 接入短信供应商，保存密钥时不会回显明文</p>
+            </div>
+            <el-tag :type="smsVerificationReady ? 'success' : 'info'" effect="plain">
+              {{ smsVerificationReady ? '配置完整' : '待配置' }}
+            </el-tag>
+          </div>
+          <el-form-item label="接入方式">
+            <el-select v-model="config['contact-verification'].sms.provider">
+              <el-option label="HTTP Webhook" value="webhook" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="Webhook 地址">
+            <el-input
+              v-model.trim="config['contact-verification'].sms.endpoint"
+              placeholder="https://sms.example.com/send"
+            />
+          </el-form-item>
+          <el-form-item label="短信签名">
+            <el-input
+              v-model.trim="config['contact-verification'].sms['sign-name']"
+              placeholder="请输入短信签名"
+            />
+          </el-form-item>
+          <el-form-item label="模板 ID">
+            <el-input
+              v-model.trim="config['contact-verification'].sms['template-id']"
+              placeholder="请输入验证码模板 ID"
+            />
+          </el-form-item>
+          <el-form-item label="访问令牌">
+            <SecretInput
+              v-model.trim="config['contact-verification'].sms['access-token']"
+              secret-path="contact-verification.sms.access-token"
+              :configured="isSecretConfigured('contact-verification.sms.access-token')"
+              :can-reveal="canManageSystemSecrets"
+              placeholder="请输入 Webhook Bearer Token"
+            />
+          </el-form-item>
+          <el-form-item label="开启短信验证码">
+            <div class="verification-toggle-field">
+              <el-switch
+                v-model="config['contact-verification'].sms.enabled"
+                :disabled="!smsVerificationReady && !config['contact-verification'].sms.enabled"
+              />
+              <span>{{ smsVerificationReady ? '开启后，修改手机号必须完成验证码校验' : '请先补齐地址、签名、模板和访问令牌' }}</span>
+            </div>
           </el-form-item>
         </el-tab-pane>
         <el-tab-pane label="数据库" name="9" lazy>
@@ -1109,6 +1197,20 @@
     zap: {},
     local: {},
     email: {},
+    'contact-verification': {
+      sms: {
+        enabled: false,
+        provider: 'webhook',
+        endpoint: '',
+        'access-token': '',
+        'sign-name': '',
+        'template-id': ''
+      },
+      email: {
+        enabled: false,
+        subject: '账号安全验证码'
+      }
+    },
     timer: {
       detail: {}
     }
@@ -1120,7 +1222,7 @@
     { name: '3', label: '运行日志', description: '日志级别、输出方式与保留策略', icon: Document },
     { name: '4', label: 'Redis', description: '缓存连接与数据库选择', icon: Connection, enabled: () => config.value.system['use-redis'] },
     { name: '5', label: '邮件服务', description: 'SMTP 连接与通知账户', icon: Message },
-    { name: '7', label: '验证码', description: '验证码尺寸与字符规则', icon: View },
+    { name: '7', label: '验证服务', description: '登录图形验证码与联系方式验证渠道', icon: View },
     { name: '9', label: '主数据库', description: '数据库连接、连接池与日志策略', icon: Coin },
     { name: '10', label: '文件存储', description: '本地与对象存储服务连接', icon: UploadFilled },
     { name: '14', label: 'MongoDB', description: '文档数据库集群与连接参数', icon: DataBoard, enabled: () => config.value.system['use-mongo'] }
@@ -1132,6 +1234,29 @@
   )
   const serializeConfig = (value) => JSON.stringify(value)
   const isSecretConfigured = (path) => Boolean(configuredSecrets.value[path])
+  const hasConfiguredSecret = (path, value) => Boolean(
+    String(value || '').trim() || isSecretConfigured(path)
+  )
+  const emailVerificationReady = computed(() => {
+    const email = config.value.email || {}
+    return Boolean(
+      String(email.from || '').trim() &&
+      String(email.host || '').trim() &&
+      Number(email.port) > 0 &&
+      Number(email.port) <= 65535 &&
+      hasConfiguredSecret('email.secret', email.secret)
+    )
+  })
+  const smsVerificationReady = computed(() => {
+    const sms = config.value['contact-verification']?.sms || {}
+    return Boolean(
+      sms.provider === 'webhook' &&
+      /^https?:\/\/\S+$/i.test(String(sms.endpoint || '').trim()) &&
+      String(sms['sign-name'] || '').trim() &&
+      String(sms['template-id'] || '').trim() &&
+      hasConfiguredSecret('contact-verification.sms.access-token', sms['access-token'])
+    )
+  })
   const isDirty = computed(() => Boolean(savedSnapshot.value) &&
     serializeConfig(config.value) !== savedSnapshot.value)
   watch(visibleSections, (sections) => {
@@ -1140,6 +1265,27 @@
     }
   })
 
+  const withVerificationDefaults = (value) => {
+    const verification = value?.['contact-verification'] || {}
+    value['contact-verification'] = {
+      ...verification,
+      sms: {
+        enabled: false,
+        provider: 'webhook',
+        endpoint: '',
+        'access-token': '',
+        'sign-name': '',
+        'template-id': '',
+        ...(verification.sms || {})
+      },
+      email: {
+        enabled: false,
+        subject: '账号安全验证码',
+        ...(verification.email || {})
+      }
+    }
+    return value
+  }
 
   const initForm = async () => {
     configLoading.value = true
@@ -1147,7 +1293,7 @@
     try {
       const res = await getSystemConfig()
       if (res.code === 0) {
-        config.value = res.data.config
+        config.value = withVerificationDefaults(res.data.config)
         configuredSecrets.value = res.data.configuredSecrets || {}
         savedSnapshot.value = serializeConfig(config.value)
         configReady.value = true
@@ -1457,6 +1603,54 @@
     line-height: 22px;
   }
 
+  .verification-config-heading {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-width: 0;
+    margin: 6px 0 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--na-border);
+  }
+
+  .verification-config-heading:not(:first-child) {
+    margin-top: 16px;
+  }
+
+  .verification-config-heading strong {
+    display: block;
+    color: var(--na-foreground);
+    font-size: 14px;
+    font-weight: 650;
+    line-height: 22px;
+  }
+
+  .verification-config-heading p {
+    margin: 2px 0 0;
+    color: var(--na-muted-foreground);
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  .verification-toggle-field {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    min-height: 32px;
+  }
+
+  .verification-toggle-field :deep(.el-switch) {
+    flex: 0 0 auto;
+  }
+
+  .verification-toggle-field span {
+    color: var(--na-muted-foreground);
+    font-size: 12px;
+    line-height: 18px;
+  }
+
   .config-error-state {
     display: flex;
     align-items: center;
@@ -1498,7 +1692,8 @@
     }
 
     .config-tabs :deep(.el-tab-pane > .el-form-item:has(h3)),
-    .config-tabs :deep(.el-tab-pane > h2) {
+    .config-tabs :deep(.el-tab-pane > h2),
+    .verification-config-heading {
       grid-column: 1;
     }
 

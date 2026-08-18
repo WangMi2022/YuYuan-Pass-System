@@ -75,6 +75,9 @@ func systemSecretFixture() config.Server {
 	return config.Server{
 		JWT:   config.JWT{SigningKey: "jwt-secret"},
 		Email: config.Email{Secret: "email-secret"},
+		ContactVerification: config.ContactVerification{
+			SMS: config.ContactVerificationSMS{AccessToken: "sms-access-token"},
+		},
 		Qiniu: config.Qiniu{AccessKey: "qiniu-access", SecretKey: "qiniu-secret"},
 		TencentCOS: config.TencentCOS{
 			SecretID: "tencent-id", SecretKey: "tencent-secret",

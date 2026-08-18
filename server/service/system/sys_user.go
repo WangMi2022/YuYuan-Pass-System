@@ -283,8 +283,6 @@ func (userService *UserService) SetSelfInfo(req system.SysUser) error {
 		Updates(map[string]interface{}{
 			"nick_name":  req.NickName,
 			"header_img": req.HeaderImg,
-			"phone":      req.Phone,
-			"email":      req.Email,
 		}).Error
 }
 

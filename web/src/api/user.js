@@ -126,6 +126,32 @@ export const setSelfInfo = (data) => {
   })
 }
 
+export const getContactVerificationCapabilities = () => {
+  return service({
+    url: '/user/contactVerificationCapabilities',
+    method: 'get',
+    donNotShowLoading: true
+  })
+}
+
+export const sendContactVerificationCode = (data) => {
+  return service({
+    url: '/user/sendContactVerificationCode',
+    method: 'post',
+    data,
+    donNotShowLoading: true
+  })
+}
+
+export const updateSelfContact = (data) => {
+  return service({
+    url: '/user/updateSelfContact',
+    method: 'put',
+    data,
+    donNotShowLoading: true
+  })
+}
+
 // @Tags SysUser
 // @Summary 设置自身界面配置
 // @Security ApiKeyAuth

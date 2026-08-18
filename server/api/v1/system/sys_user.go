@@ -439,9 +439,6 @@ func (b *BaseApi) SetSelfInfo(c *gin.Context) {
 		},
 		NickName:  user.NickName,
 		HeaderImg: user.HeaderImg,
-		Phone:     user.Phone,
-		Email:     user.Email,
-		Enable:    user.Enable,
 	})
 	if err != nil {
 		global.GVA_LOG.Error("设置失败!", zap.Error(err))
@@ -449,6 +446,77 @@ func (b *BaseApi) SetSelfInfo(c *gin.Context) {
 		return
 	}
 	response.OkWithMessage("设置成功", c)
+}
+
+// GetContactVerificationCapabilities returns only readiness flags and never
+// exposes provider credentials to the personal profile page.
+// @Tags      SysUser
+// @Summary   获取联系方式验证码能力
+// @Security  ApiKeyAuth
+// @Produce   application/json
+// @Success   200  {object}  response.Response{data=systemRes.ContactVerificationCapabilities}
+// @Router    /user/contactVerificationCapabilities [get]
+func (b *BaseApi) GetContactVerificationCapabilities(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	c.Header("Pragma", "no-cache")
+	response.OkWithDetailed(userService.ContactVerificationCapabilities(), "获取成功", c)
+}
+
+// SendContactVerificationCode sends a code only through a configured and
+// explicitly enabled provider.
+// @Tags      SysUser
+// @Summary   发送联系方式验证码
+// @Security  ApiKeyAuth
+// @accept    application/json
+// @Produce   application/json
+// @Param     data  body  systemReq.SendContactVerificationCode  true  "验证码渠道与目标"
+// @Success   200   {object}  response.Response{msg=string}
+// @Router    /user/sendContactVerificationCode [post]
+func (b *BaseApi) SendContactVerificationCode(c *gin.Context) {
+	var request systemReq.SendContactVerificationCode
+	if err := c.ShouldBindJSON(&request); err != nil {
+		response.FailWithMessage(err.Error(), c)
+		return
+	}
+	if err := userService.SendContactVerificationCode(
+		c.Request.Context(),
+		utils.GetUserID(c),
+		request.Channel,
+		request.Target,
+	); err != nil {
+		global.GVA_LOG.Warn("验证码发送失败", zap.Error(err))
+		response.FailWithMessage(err.Error(), c)
+		return
+	}
+	response.OkWithMessage("验证码已发送", c)
+}
+
+// UpdateSelfContact verifies and consumes a one-time code before updating the
+// current user's phone or email address.
+// @Tags      SysUser
+// @Summary   验证并修改联系方式
+// @Security  ApiKeyAuth
+// @accept    application/json
+// @Produce   application/json
+// @Param     data  body  systemReq.UpdateSelfContact  true  "验证码渠道、目标与验证码"
+// @Success   200   {object}  response.Response{msg=string}
+// @Router    /user/updateSelfContact [put]
+func (b *BaseApi) UpdateSelfContact(c *gin.Context) {
+	var request systemReq.UpdateSelfContact
+	if err := c.ShouldBindJSON(&request); err != nil {
+		response.FailWithMessage(err.Error(), c)
+		return
+	}
+	if err := userService.UpdateSelfContact(
+		utils.GetUserID(c),
+		request.Channel,
+		request.Target,
+		request.Code,
+	); err != nil {
+		response.FailWithMessage(err.Error(), c)
+		return
+	}
+	response.OkWithMessage("联系方式修改成功", c)
 }
 
 // SetSelfSetting
