@@ -41,28 +41,30 @@
 
     <section class="na-panel table-panel">
       <header class="na-panel-header panel-header">
-        <div>
-          <h2>资产清单</h2>
-          <span>共 {{ total }} 条档案</span>
+        <div class="panel-heading">
+          <div class="panel-title">
+            <h2>资产清单</h2>
+            <span>共 {{ total }} 条档案</span>
+          </div>
+
+          <nav class="status-overview" aria-label="按资产状态快速筛选">
+            <button type="button" :class="{ active: !search.status }" :aria-pressed="!search.status" @click="selectStatus('')">
+              <i class="all-status" />全部状态<strong>{{ statusTotal }}</strong>
+            </button>
+            <button
+              v-for="item in statusOptions"
+              :key="item.value"
+              type="button"
+              :class="{ active: search.status === item.value }"
+              :aria-pressed="search.status === item.value"
+              @click="selectStatus(item.value)"
+            >
+              <i :style="{ background: item.color }" />{{ item.label }}<strong>{{ statusCounts[item.value] || 0 }}</strong>
+            </button>
+          </nav>
         </div>
         <el-button :icon="Refresh" text aria-label="刷新资产列表" @click="refreshAssets">刷新</el-button>
       </header>
-
-      <nav class="status-overview" aria-label="按资产状态快速筛选">
-        <button type="button" :class="{ active: !search.status }" :aria-pressed="!search.status" @click="selectStatus('')">
-          <i class="all-status" />全部状态<strong>{{ statusTotal }}</strong>
-        </button>
-        <button
-          v-for="item in statusOptions"
-          :key="item.value"
-          type="button"
-          :class="{ active: search.status === item.value }"
-          :aria-pressed="search.status === item.value"
-          @click="selectStatus(item.value)"
-        >
-          <i :style="{ background: item.color }" />{{ item.label }}<strong>{{ statusCounts[item.value] || 0 }}</strong>
-        </button>
-      </nav>
 
       <el-table v-loading="loading" :data="tableData" row-key="ID" stripe class="asset-table">
         <el-table-column label="资产" min-width="250" fixed="left">
@@ -139,6 +141,7 @@
         </el-table-column>
         <template #empty>
           <AppEmptyState
+            compact
             title="还没有资产档案"
             description="登记第一项资产后，可继续维护分类、责任人、位置、价值和实物照片。"
             :highlights="['正式资产需人工确认']"
@@ -148,7 +151,7 @@
         </template>
       </el-table>
 
-      <div class="na-pagination pagination-wrap">
+      <div v-if="total > 0" class="na-pagination pagination-wrap">
         <el-pagination
           v-model:current-page="search.page"
           v-model:page-size="search.pageSize"
@@ -518,22 +521,37 @@ watch(() => route.query.keyword, (keyword) => {
   --asset-muted: var(--na-muted-foreground);
   --asset-border: var(--na-border);
 }
-.filter-panel { padding: 14px 16px 0; }
-.filter-grid { display: grid; grid-template-columns: minmax(220px, 1.5fr) repeat(3, minmax(160px, 1fr)) auto; gap: 14px; align-items: end; }
-.filter-actions { display: flex; gap: 8px; padding-bottom: 14px; }
+.filter-panel { padding: var(--na-space-md); }
+.filter-panel :deep(.el-form-item) { margin-bottom: 0; }
+.filter-grid {
+  display: grid;
+  width: min(100%, 96rem);
+  grid-template-columns: minmax(280px, 1.4fr) repeat(3, minmax(180px, 1fr)) auto;
+  align-items: end;
+  gap: var(--na-space-sm);
+}
+.filter-actions { display: flex; gap: var(--na-space-xs); }
+.filter-panel + .table-panel { margin-top: var(--na-space-md); }
 .table-panel { overflow: hidden; }
-.panel-header h2 { margin: 0 0 3px; font-size: 17px; }
-.panel-header span { color: var(--asset-muted); font-size: 13px; }
-.status-overview { display: flex; flex-wrap: wrap; gap: 7px; padding: 10px 16px; border-bottom: 1px solid var(--asset-border); background: var(--na-muted); }
-.status-overview button { display: inline-flex; min-height: 32px; align-items: center; gap: 7px; padding: 5px 10px; border: 1px solid var(--asset-border); border-radius: 4px; background: var(--asset-surface); color: var(--asset-muted); cursor: pointer; font-size: 11px; }
-.status-overview button:hover, .status-overview button:focus-visible { border-color: var(--na-primary); color: var(--asset-text); }
-.status-overview button.active { border-color: color-mix(in srgb, var(--na-primary) 48%, var(--asset-border)); background: var(--na-primary-soft); color: var(--na-primary); }
+.panel-header { align-items: center; padding: var(--na-space-sm) var(--na-space-md); }
+.panel-heading { display: flex; min-width: 0; flex: 1; align-items: center; flex-wrap: wrap; gap: var(--na-space-sm); }
+.panel-title { display: flex; flex: 0 0 auto; align-items: baseline; gap: var(--na-space-xs); padding-right: var(--na-space-sm); border-right: 1px solid var(--asset-border); }
+.panel-header h2 { margin: 0; font-size: 1rem; line-height: 1.4; }
+.panel-header span { color: var(--asset-muted); font-size: .75rem; }
+.status-overview { display: flex; min-width: 0; flex: 1; flex-wrap: wrap; gap: var(--na-space-2xs); padding: var(--na-space-2xs); border: 1px solid var(--asset-border); border-radius: var(--na-radius-sm); background: var(--na-muted); }
+.status-overview button { display: inline-flex; min-height: 32px; align-items: center; gap: var(--na-space-2xs); padding: 0 var(--na-space-xs); border: 0; border-radius: 6px; background: transparent; color: var(--asset-muted); cursor: pointer; font: inherit; font-size: .75rem; transition: background-color 180ms ease, color 180ms ease; }
+.status-overview button:hover { background: var(--asset-surface); color: var(--asset-text); }
+.status-overview button:focus-visible { background: var(--asset-surface); color: var(--asset-text); outline: 3px solid var(--na-ring); outline-offset: 1px; }
+.status-overview button.active { background: var(--na-primary-soft); color: var(--na-primary); }
 .status-overview i, .status-option i { width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; }
 .status-overview .all-status { border: 2px solid var(--na-primary); background: transparent; }
-.status-overview strong { min-width: 20px; color: inherit; font-variant-numeric: tabular-nums; text-align: right; }
+.status-overview strong { min-width: 1.25rem; color: inherit; font-variant-numeric: tabular-nums; text-align: right; }
 .status-option { display: flex; align-items: center; gap: 8px; }
 .status-option small { margin-left: auto; color: var(--asset-muted); font-size: 12px; }
-.asset-table { --el-table-header-bg-color: var(--na-table-header); --el-table-row-hover-bg-color: var(--na-table-hover); }
+.asset-table { --el-table-header-bg-color: var(--na-table-header); --el-table-row-hover-bg-color: var(--na-table-hover); border: 0; border-radius: 0; }
+.asset-table :deep(.el-table__empty-block) { min-height: 176px; }
+.asset-table :deep(.el-table__empty-text) { width: min(40rem, calc(100% - var(--na-space-xl))); }
+.asset-table :deep(.na-empty-state) { width: 100%; margin-inline: auto; padding: var(--na-space-md) var(--na-space-lg); background: transparent; text-align: left; }
 .asset-identity { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .asset-thumb { width: 44px; height: 44px; flex: 0 0 44px; border-radius: 5px; border: 1px solid var(--asset-border); background: var(--na-muted); }
 .asset-thumb--empty { display: grid; place-items: center; color: var(--asset-muted); font-size: 18px; }
@@ -569,10 +587,19 @@ watch(() => route.query.keyword, (keyword) => {
 
 :global(html.dark) .asset-table { --el-table-header-bg-color: var(--na-table-header); --el-table-row-hover-bg-color: var(--na-table-hover); }
 
-@media (max-width: 1200px) { .filter-grid { grid-template-columns: repeat(2, minmax(180px, 1fr)); } .filter-actions { align-self: end; } }
+@media (max-width: 1200px) {
+  .filter-grid { width: 100%; grid-template-columns: repeat(2, minmax(180px, 1fr)); }
+  .filter-actions { grid-column: 1 / -1; justify-content: flex-end; }
+}
 @media (max-width: 767px) {
   .filter-grid, .form-grid, .valuation-box { grid-template-columns: 1fr; }
-  .filter-actions { padding-bottom: 16px; }
+  .filter-actions { grid-column: auto; display: grid; grid-template-columns: 1fr 1fr; }
+  .filter-actions :deep(.el-button) { min-height: 44px; margin: 0; }
+  .panel-header { align-items: flex-start; }
+  .panel-heading { align-items: stretch; flex-direction: column; }
+  .panel-title { padding-right: 0; border-right: 0; }
+  .status-overview { width: 100%; flex-wrap: nowrap; overflow-x: auto; }
+  .status-overview button { flex: 0 0 auto; min-height: 36px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; } }
 </style>
