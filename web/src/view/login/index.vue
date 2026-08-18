@@ -19,7 +19,7 @@
               </span>
               <h1 id="login-title">登录{{ brandingStore.systemName }}</h1>
               <p v-if="brandingStore.subtitle" class="na-auth-subtitle">{{ brandingStore.subtitle }}</p>
-              <p>使用管理员或有效账号继续访问工作台</p>
+              <p>使用用户名或绑定邮箱继续访问工作台</p>
             </div>
             <el-form
               ref="loginForm"
@@ -30,11 +30,11 @@
               class="na-auth-form"
               @keyup.enter="submitForm"
             >
-              <el-form-item label="用户名" prop="username">
+              <el-form-item label="用户名或邮箱" prop="username">
                 <el-input
                   v-model="loginFormData.username"
                   size="large"
-                  placeholder="请输入用户名"
+                  placeholder="请输入用户名或邮箱"
                   autocomplete="username"
                 />
               </el-form-item>
@@ -151,11 +151,11 @@
   const captchaRequiredLength = ref(6)
   // 验证函数
   const checkUsername = (rule, value, callback) => {
-    if (value.length < 5) {
-      return callback(new Error('请输入正确的用户名'))
-    } else {
-      callback()
+    const identifier = String(value || '').trim()
+    if (!identifier) {
+      return callback(new Error('请输入用户名或邮箱'))
     }
+    callback()
   }
   const checkPassword = (rule, value, callback) => {
     if (value.length < 6) {

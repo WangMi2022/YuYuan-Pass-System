@@ -3,6 +3,7 @@ package system
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/WangMi2022/mit-assets-admin/server/model/common"
@@ -29,6 +30,8 @@ var UserServiceApp = new(UserService)
 // token management without making every collection endpoint unbounded.
 const maxBulkUserPageSize = 1000
 
+var errAmbiguousLoginEmail = errors.New("邮箱对应多个账号，请使用用户名登录")
+
 func (userService *UserService) Register(u system.SysUser) (userInter system.SysUser, err error) {
 	var user system.SysUser
 	if !errors.Is(global.GVA_DB.Where("username = ?", u.Username).First(&user).Error, gorm.ErrRecordNotFound) { // 判断用户名是否注册
@@ -53,15 +56,52 @@ func (userService *UserService) Login(u *system.SysUser) (userInter *system.SysU
 		return nil, fmt.Errorf("db not init")
 	}
 
-	var user system.SysUser
-	err = global.GVA_DB.Where("username = ?", u.Username).Preload("Authorities").Preload("Authority").First(&user).Error
-	if err == nil {
-		if ok := utils.BcryptCheck(u.Password, user.Password); !ok {
-			return nil, errors.New("密码错误")
-		}
-		MenuServiceApp.UserAuthorityDefaultRouter(&user)
+	rawIdentifier := u.Username
+	identifier := strings.TrimSpace(rawIdentifier)
+	if identifier == "" {
+		return nil, errors.New("登录账号不能为空")
 	}
-	return &user, err
+
+	var user system.SysUser
+	loadByUsername := func(username string) error {
+		return global.GVA_DB.Where("username = ?", username).
+			Preload("Authorities").
+			Preload("Authority").
+			First(&user).Error
+	}
+	err = loadByUsername(rawIdentifier)
+	if errors.Is(err, gorm.ErrRecordNotFound) && identifier != rawIdentifier {
+		user = system.SysUser{}
+		err = loadByUsername(identifier)
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		var users []system.SysUser
+		err = global.GVA_DB.
+			Where("TRIM(email) <> '' AND LOWER(TRIM(email)) = LOWER(?)", identifier).
+			Limit(2).
+			Preload("Authorities").
+			Preload("Authority").
+			Find(&users).Error
+		if err != nil {
+			return nil, err
+		}
+		switch len(users) {
+		case 0:
+			return &user, gorm.ErrRecordNotFound
+		case 1:
+			user = users[0]
+		default:
+			return nil, errAmbiguousLoginEmail
+		}
+	} else if err != nil {
+		return &user, err
+	}
+
+	if ok := utils.BcryptCheck(u.Password, user.Password); !ok {
+		return nil, errors.New("密码错误")
+	}
+	MenuServiceApp.UserAuthorityDefaultRouter(&user)
+	return &user, nil
 }
 
 //@author: [piexlmax](https://github.com/piexlmax)
