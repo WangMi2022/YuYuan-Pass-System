@@ -6,7 +6,7 @@
       description="集中查看系统异常、处理进度和 AI 分析结果，便于快速恢复服务。"
     >
       <template #actions>
-        <el-button :icon="Refresh" @click="getTableData">刷新</el-button>
+        <el-button :icon="Refresh" :loading="loading" @click="getTableData">刷新</el-button>
         <LogClearButton
           log-name="错误日志"
           :count-request="getSysErrorList"
@@ -67,7 +67,7 @@
         </el-form-item>
           <div class="audit-filter__actions">
             <el-button :icon="RefreshLeft" @click="onReset">重置</el-button>
-            <el-button native-type="submit" type="primary" :icon="Search">查询</el-button>
+            <el-button native-type="submit" type="primary" :icon="Search" :loading="loading">查询</el-button>
           </div>
         </div>
       </el-form>
@@ -91,7 +91,7 @@
       </header>
       <el-table
         ref="multipleTable"
-        v-loading="loading"
+        v-loading="loading && !loaded"
         style="width: 100%"
         tooltip-effect="dark"
         :data="tableData"
@@ -292,6 +292,7 @@
     items: tableData,
     total,
     loading,
+    loaded,
     load: getTableData,
     submit: onSubmit,
     reset: onReset,

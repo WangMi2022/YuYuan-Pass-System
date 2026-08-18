@@ -1,7 +1,6 @@
 <template>
   <main
     ref="screenRef"
-    v-loading="loading"
     class="asset-dashboard"
     :class="'is-' + viewMode"
   >
@@ -31,8 +30,15 @@
         </template>
       </AppPageHeader>
 
+      <el-skeleton
+        v-if="loading && !hasAssetData"
+        animated
+        :rows="8"
+        class="na-panel dashboard-loading-skeleton"
+      />
+
       <AppEmptyState
-        v-if="!loading && !hasAssetData"
+        v-else-if="!hasAssetData"
         title="资产全景尚无可汇总数据"
         description="登记首批资产后，这里会自动形成价值、状态、分类、空间分布和最近登记视图。"
         :highlights="['基于正式资产台账实时汇总', '支持全景与模块矩阵两种布局', '不创建任何演示数据']"
@@ -599,6 +605,11 @@ onMounted(loadDashboard)
 .dashboard-content {
   min-width: 1160px;
   padding: 24px;
+}
+
+.dashboard-loading-skeleton {
+  margin-top: var(--na-space-md);
+  padding: var(--na-space-lg);
 }
 
 .asset-dashboard :deep(.na-page-title) { color: var(--text); }

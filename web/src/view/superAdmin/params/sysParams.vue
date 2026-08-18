@@ -67,7 +67,7 @@
         </template>
 
         <el-form-item>
-          <el-button type="primary" icon="search" @click="onSubmit"
+          <el-button type="primary" icon="search" :loading="loading" @click="onSubmit"
             >查询</el-button
           >
           <el-button icon="refresh" @click="onReset">重置</el-button>
@@ -101,7 +101,7 @@
       </div>
       <el-table
         ref="multipleTable"
-        v-loading="loading"
+        v-loading="loading && !loaded"
         style="width: 100%"
         tooltip-effect="dark"
         :data="tableData"
@@ -403,6 +403,7 @@
     items: tableData,
     total,
     loading,
+    loaded,
     load: getTableData,
     submit: submitSearch,
     reset: resetSearch,

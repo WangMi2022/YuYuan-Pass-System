@@ -1,11 +1,11 @@
 <template>
   <span class="headerAvatar">
     <template v-if="picType === 'avatar'">
-      <el-avatar v-if="userStore.userInfo.headerImg" :size="30" :src="avatar" />
+      <el-avatar v-if="hasAvatar" :size="30" :src="avatar" @error="handleAvatarError" />
       <el-avatar v-else :size="30" :src="noAvatar" />
     </template>
     <template v-if="picType === 'img'">
-      <img v-if="userStore.userInfo.headerImg" :src="avatar" alt="用户头像" class="avatar" />
+      <img v-if="hasAvatar" :src="avatar" alt="用户头像" class="avatar" @error="handleAvatarError" />
       <img v-else :src="noAvatar" alt="默认用户头像" class="avatar" />
     </template>
     <template v-if="picType === 'file'">
@@ -23,7 +23,8 @@
 <script setup>
   import noAvatarPng from '@/assets/noBody.png'
   import { useUserStore } from '@/pinia/modules/user'
-  import { computed, ref } from 'vue'
+  import { resolveAvatarUrl } from '@/utils/avatar'
+  import { computed, ref, watch } from 'vue'
 
   defineOptions({
     name: 'CustomPic'
@@ -46,34 +47,29 @@
     }
   })
 
-  const path = ref(import.meta.env.VITE_BASE_API + '/')
   const noAvatar = ref(noAvatarPng)
+  const avatarFailed = ref(false)
 
   const userStore = useUserStore()
 
-  const avatar = computed(() => {
-    if (props.picSrc === '') {
-      if (
-        userStore.userInfo.headerImg !== '' &&
-        userStore.userInfo.headerImg.slice(0, 4) === 'http'
-      ) {
-        return userStore.userInfo.headerImg
-      }
-      return path.value + userStore.userInfo.headerImg
-    } else {
-      if (props.picSrc !== '' && props.picSrc.slice(0, 4) === 'http') {
-        return props.picSrc
-      }
-      return path.value + props.picSrc
-    }
+  const fileBaseUrl = import.meta.env.VITE_FILE_API || import.meta.env.VITE_BASE_API || '/'
+  const avatar = computed(() => resolveAvatarUrl({
+    picSrc: props.picSrc,
+    headerImgPreviewUrl: userStore.userInfo.headerImgPreviewUrl,
+    headerImg: userStore.userInfo.headerImg,
+    fileBaseUrl
+  }))
+  const hasAvatar = computed(() => Boolean(avatar.value) && !avatarFailed.value)
+  const file = computed(() => resolveAvatarUrl({ picSrc: props.picSrc, fileBaseUrl }))
+  const previewSrcList = computed(() => (props.preview && file.value ? [file.value] : []))
+
+  const handleAvatarError = () => {
+    avatarFailed.value = true
+  }
+
+  watch(avatar, () => {
+    avatarFailed.value = false
   })
-  const file = computed(() => {
-    if (props.picSrc && props.picSrc.slice(0, 4) !== 'http') {
-      return path.value + props.picSrc
-    }
-    return props.picSrc
-  })
-  const previewSrcList = computed(() => (props.preview ? [file.value] : []))
 </script>
 
 <style scoped>

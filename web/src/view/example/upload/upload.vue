@@ -1,5 +1,5 @@
 <template>
-  <div v-loading.fullscreen.lock="fullscreenLoading" class="na-page na-page--list upload-page">
+  <div class="na-page na-page--list upload-page">
     <div class="upload-layout min-w-0 gap-4 pt-2">
       <div class="na-panel upload-sidebar">
         <MediaCategoryTree
@@ -34,7 +34,7 @@
               :classId="search.classId"
               @on-success="onSuccess"
             />
-            <el-button type="primary" icon="upload" @click="importUrlFunc">
+            <el-button type="primary" icon="upload" :loading="importing" @click="importUrlFunc">
               导入URL
             </el-button>
             <el-input
@@ -42,12 +42,12 @@
               class="upload-search-input"
               placeholder="请输入文件名或备注"
             />
-            <el-button type="primary" icon="search" @click="onSubmit"
+            <el-button type="primary" icon="search" :loading="tableLoading" @click="onSubmit"
               >查询
             </el-button>
           </div>
 
-          <el-table :data="tableData" class="upload-file-table" table-layout="fixed">
+          <el-table v-loading="tableLoading && !tableLoaded" :data="tableData" class="upload-file-table" table-layout="fixed">
             <el-table-column align="left" label="预览" width="100">
               <template #default="scope">
                 <CustomPic pic-type="file" :pic-src="scope.row.previewUrl || scope.row.url" preview />
@@ -113,6 +113,7 @@
                   icon="delete"
                   type="primary"
                   link
+                  :loading="deletingId === scope.row.ID"
                   @click="deleteFileFunc(scope.row)"
                   >删除
                 </el-button>
@@ -167,7 +168,7 @@
       </el-form>
       <template #footer>
         <el-button @click="closeAddCategoryDialog">取消</el-button>
-        <el-button type="primary" @click="confirmAddCategory">确定</el-button>
+        <el-button type="primary" :loading="savingCategory" @click="confirmAddCategory">确定</el-button>
       </template>
     </el-dialog>
   </div>
@@ -208,7 +209,6 @@
     name: 'Upload'
   })
 
-  const fullscreenLoading = ref(false)
   const path = ref(import.meta.env.VITE_BASE_API)
 
   const imageUrl = ref('')
@@ -222,6 +222,11 @@
     classId: 0
   })
   const tableData = ref([])
+  const tableLoading = ref(false)
+  const tableLoaded = ref(false)
+  const deletingId = ref(0)
+  const importing = ref(false)
+  const savingCategory = ref(false)
   const mediaPreviewRefreshInterval = 10 * 60 * 1000
   let mediaPreviewRefreshTimer = null
 
@@ -244,17 +249,23 @@
 
   // 查询
   const getTableData = async () => {
-    const table = await getFileList({
-      page: page.value,
-      pageSize: pageSize.value,
-      ...search.value,
-      fileType: 'image'
-    })
-    if (table.code === 0) {
-      tableData.value = table.data.list
-      total.value = table.data.total
-      page.value = table.data.page
-      pageSize.value = table.data.pageSize
+    tableLoading.value = true
+    try {
+      const table = await getFileList({
+        page: page.value,
+        pageSize: pageSize.value,
+        ...search.value,
+        fileType: 'image'
+      })
+      if (table.code === 0) {
+        tableData.value = table.data.list
+        total.value = table.data.total
+        page.value = table.data.page
+        pageSize.value = table.data.pageSize
+      }
+    } finally {
+      tableLoading.value = false
+      tableLoaded.value = true
     }
   }
   const refreshMediaPreviewURLs = () => {
@@ -303,16 +314,21 @@
       type: 'warning'
     })
       .then(async () => {
-        const res = await deleteFile(row)
-        if (res.code === 0) {
-          ElMessage({
-            type: 'success',
-            message: '删除成功!'
-          })
-          if (tableData.value.length === 1 && page.value > 1) {
-            page.value--
+        deletingId.value = row.ID
+        try {
+          const res = await deleteFile(row)
+          if (res.code === 0) {
+            ElMessage({
+              type: 'success',
+              message: '删除成功!'
+            })
+            if (tableData.value.length === 1 && page.value > 1) {
+              page.value--
+            }
+            await getTableData()
           }
-          await getTableData()
+        } finally {
+          deletingId.value = 0
         }
       })
       .catch(() => {
@@ -409,13 +425,18 @@
           return
         }
 
-        const res = await importURL(importData)
-        if (res.code === 0) {
-          ElMessage({
-            type: 'success',
-            message: '导入成功!'
-          })
-          await getTableData()
+        importing.value = true
+        try {
+          const res = await importURL(importData)
+          if (res.code === 0) {
+            ElMessage({
+              type: 'success',
+              message: '导入成功!'
+            })
+            await getTableData()
+          }
+        } finally {
+          importing.value = false
         }
       })
       .catch(() => {
@@ -501,11 +522,16 @@
   const confirmAddCategory = async () => {
     categoryForm.value.validate(async (valid) => {
       if (valid) {
-        const res = await addCategory(categoryFormData.value)
-        if (res.code === 0) {
-          ElMessage({ type: 'success', message: '操作成功' })
-          await fetchCategories()
-          closeAddCategoryDialog()
+        savingCategory.value = true
+        try {
+          const res = await addCategory(categoryFormData.value)
+          if (res.code === 0) {
+            ElMessage({ type: 'success', message: '操作成功' })
+            await fetchCategories()
+            closeAddCategoryDialog()
+          }
+        } finally {
+          savingCategory.value = false
         }
       }
     })

@@ -12,13 +12,13 @@
       multiple
       class="upload-btn"
     >
-      <el-button type="primary" :icon="Upload">普通上传</el-button>
+      <el-button type="primary" :icon="Upload" :loading="uploading">普通上传</el-button>
     </el-upload>
   </div>
 </template>
 
 <script setup>
-  import { ref } from 'vue'
+  import { computed, ref } from 'vue'
   import { ElMessage } from 'element-plus'
   import { isImageExt, isImageMime } from '@/utils/image'
   import { getBaseUrl } from '@/utils/format'
@@ -42,30 +42,30 @@
 
   const emit = defineEmits(['on-success'])
 
-  const fullscreenLoading = ref(false)
+  const pendingUploads = ref(0)
+  const uploading = computed(() => pendingUploads.value > 0)
 
   const checkFile = (file) => {
-    fullscreenLoading.value = true
     const isLt500K = file.size / 1024 / 1024 < 0.5 // 500K, @todo 应支持在项目中设置
     const isImage = isImageMime(file.type) || isImageExt(file.name)
     let pass = true
     if (!isImage) {
       ElMessage.error('媒体库仅允许上传图片文件，支持 jpg、png、gif、webp、svg、bmp、avif')
-      fullscreenLoading.value = false
       pass = false
     }
     if (!isLt500K && isImage) {
       ElMessage.error('未压缩的上传图片大小不能超过 500KB，请使用压缩上传')
-      fullscreenLoading.value = false
       pass = false
     }
 
     console.log('upload file check result: ', pass)
 
+    if (pass) pendingUploads.value++
     return pass
   }
 
   const uploadSuccess = (res) => {
+    pendingUploads.value = Math.max(0, pendingUploads.value - 1)
     const { data } = res
     if (data.file) {
       emit('on-success', data.file.url)
@@ -77,6 +77,6 @@
       type: 'error',
       message: '上传失败'
     })
-    fullscreenLoading.value = false
+    pendingUploads.value = Math.max(0, pendingUploads.value - 1)
   }
 </script>

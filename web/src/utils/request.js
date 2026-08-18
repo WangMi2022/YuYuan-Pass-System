@@ -3,6 +3,7 @@ import { useUserStore } from '@/pinia/modules/user'
 import { ElLoading, ElMessage } from 'element-plus'
 import { emitter } from '@/utils/bus'
 import router from '@/router/index'
+import { shouldUseRequestLoadingOverlay } from '@/utils/requestLoadingPolicy'
 
 const DEFAULT_REQUEST_TIMEOUT = 1000 * 60 * 10
 const DEFAULT_LOADING_FORCE_CLOSE_DELAY = 30000
@@ -122,7 +123,7 @@ service.interceptors.request.use(
       config.timeout = DEFAULT_REQUEST_TIMEOUT
     }
 
-    if (!config.donNotShowLoading) {
+    if (shouldUseRequestLoadingOverlay(config)) {
       showLoading(config.loadingOption)
     }
 
@@ -139,7 +140,7 @@ service.interceptors.request.use(
     return config
   },
   (error) => {
-    if (!error.config?.donNotShowLoading) {
+    if (shouldUseRequestLoadingOverlay(error.config)) {
       closeLoading(error.config?.loadingOption)
     }
 
@@ -160,7 +161,7 @@ service.interceptors.response.use(
   (response) => {
     const userStore = useUserStore()
 
-    if (!response.config.donNotShowLoading) {
+    if (shouldUseRequestLoadingOverlay(response.config)) {
       closeLoading(response.config.loadingOption)
     }
 
@@ -188,7 +189,7 @@ service.interceptors.response.use(
     return response.data.msg ? response.data : response
   },
   (error) => {
-    if (!error.config?.donNotShowLoading) {
+    if (shouldUseRequestLoadingOverlay(error.config)) {
       closeLoading(error.config?.loadingOption)
     }
 

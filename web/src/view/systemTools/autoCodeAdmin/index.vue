@@ -131,23 +131,21 @@
         <div class="flex justify-between items-center">
           <span class="text-lg">操作栏</span>
           <div>
-            <el-button type="primary" @click="runFunc" :loading="aiLoading">
+            <el-button type="primary" :loading="runLoading" @click="runFunc">
               生成
             </el-button>
-            <el-button type="primary" @click="closeFunc" :loading="aiLoading">
+            <el-button
+              type="primary"
+              :disabled="runLoading || aiAddLoading || autoCompleteLoading"
+              @click="closeFunc"
+            >
               取消
             </el-button>
           </div>
         </div>
       </template>
       <div class="">
-        <el-form
-          v-loading="aiLoading"
-          label-position="top"
-          element-loading-text="小淼正在思考，请稍候..."
-          :model="autoFunc"
-          label-width="80px"
-        >
+        <el-form label-position="top" :model="autoFunc" label-width="80px">
           <el-row :gutter="12">
             <el-col :span="8">
               <el-form-item label="包名：">
@@ -223,9 +221,10 @@
                   @input="autoFunc.router = autoFunc.router.replace(/\//g, '')"
                 />
                 <el-button
-                  @click="aiAddFunc"
                   type="primary"
                   class="absolute right-2 bottom-2"
+                  :loading="aiAddLoading"
+                  @click="aiAddFunc"
                   ><ai-gva />帮写</el-button
                 >
               </div>
@@ -263,7 +262,7 @@
                 v-model="autoFunc.funcDesc"
                 placeholder="请输入方法介绍"
               />
-              <el-button type="primary" @click="autoComplete"
+              <el-button type="primary" :loading="autoCompleteLoading" @click="autoComplete"
                 ><ai-gva />补全</el-button
               >
             </div>
@@ -334,7 +333,9 @@
     name: 'AutoCodeAdmin'
   })
 
-  const aiLoading = ref(false)
+  const runLoading = ref(false)
+  const aiAddLoading = ref(false)
+  const autoCompleteLoading = ref(false)
 
   const formData = ref({
     id: undefined,
@@ -440,10 +441,15 @@
       }
     }
 
-    const res = await addFunc(autoFunc.value)
-    if (res.code === 0) {
-      ElMessage.success('增加方法成功')
-      closeFunc()
+    runLoading.value = true
+    try {
+      const res = await addFunc(autoFunc.value)
+      if (res.code === 0) {
+        ElMessage.success('增加方法成功')
+        closeFunc()
+      }
+    } finally {
+      runLoading.value = false
     }
   }
 
@@ -541,7 +547,6 @@
   }
 
   const aiAddFunc = async () => {
-    aiLoading.value = true
     autoFunc.value.apiFunc = ''
     autoFunc.value.serverFunc = ''
     autoFunc.value.jsFunc = ''
@@ -551,54 +556,60 @@
       return
     }
 
-    const res = await addFunc({ ...autoFunc.value, isPreview: true })
-    if (res.code !== 0) {
-      aiLoading.value = false
-      ElMessage.error(res.msg)
-      return
-    }
-
-    const aiRes = await llmAuto({
-      structInfo: activeInfo.value,
-      template: JSON.stringify(res.data),
-      prompt: autoFunc.value.prompt,
-      mode: 'addFunc'
-    })
-    aiLoading.value = false
-    if (aiRes.code === 0) {
-      try {
-        const aiData = JSON.parse(aiRes.data)
-        autoFunc.value.apiFunc = aiData.api
-        autoFunc.value.serverFunc = aiData.server
-        autoFunc.value.jsFunc = aiData.js
-        autoFunc.value.method = aiData.method
-        autoFunc.value.funcName = aiData.funcName
-        const routerArr = aiData.router.split('/')
-        autoFunc.value.router = routerArr[routerArr.length - 1]
-        autoFunc.value.funcDesc = autoFunc.value.prompt
-      } catch (_) {
-        ElMessage.error('小淼忙碌，请重新调用')
+    aiAddLoading.value = true
+    try {
+      const res = await addFunc({ ...autoFunc.value, isPreview: true })
+      if (res.code !== 0) {
+        ElMessage.error(res.msg)
+        return
       }
+
+      const aiRes = await llmAuto({
+        structInfo: activeInfo.value,
+        template: JSON.stringify(res.data),
+        prompt: autoFunc.value.prompt,
+        mode: 'addFunc'
+      })
+      if (aiRes.code === 0) {
+        try {
+          const aiData = JSON.parse(aiRes.data)
+          autoFunc.value.apiFunc = aiData.api
+          autoFunc.value.serverFunc = aiData.server
+          autoFunc.value.jsFunc = aiData.js
+          autoFunc.value.method = aiData.method
+          autoFunc.value.funcName = aiData.funcName
+          const routerArr = aiData.router.split('/')
+          autoFunc.value.router = routerArr[routerArr.length - 1]
+          autoFunc.value.funcDesc = autoFunc.value.prompt
+        } catch (_) {
+          ElMessage.error('小淼忙碌，请重新调用')
+        }
+      }
+    } finally {
+      aiAddLoading.value = false
     }
   }
 
   const autoComplete = async () => {
-    aiLoading.value = true
-    const aiRes = await llmAuto({
-      prompt: autoFunc.value.funcDesc,
-      mode: 'autoCompleteFunc'
-    })
-    aiLoading.value = false
-    if (aiRes.code === 0) {
-      try {
-        const aiData = JSON.parse(aiRes.data)
-        autoFunc.value.method = aiData.method
-        autoFunc.value.funcName = aiData.funcName
-        autoFunc.value.router = aiData.router
-        autoFunc.value.prompt = autoFunc.value.funcDesc
-      } catch (_) {
-        ElMessage.error('小淼开小差了，请重新调用')
+    autoCompleteLoading.value = true
+    try {
+      const aiRes = await llmAuto({
+        prompt: autoFunc.value.funcDesc,
+        mode: 'autoCompleteFunc'
+      })
+      if (aiRes.code === 0) {
+        try {
+          const aiData = JSON.parse(aiRes.data)
+          autoFunc.value.method = aiData.method
+          autoFunc.value.funcName = aiData.funcName
+          autoFunc.value.router = aiData.router
+          autoFunc.value.prompt = autoFunc.value.funcDesc
+        } catch (_) {
+          ElMessage.error('小淼开小差了，请重新调用')
+        }
       }
+    } finally {
+      autoCompleteLoading.value = false
     }
   }
 </script>

@@ -6,6 +6,7 @@
       :action="`${getBaseUrl()}/fileUploadAndDownload/upload?noSave=1`"
       :on-error="uploadError"
       :on-success="uploadSuccess"
+      :before-upload="beforeUpload"
       :on-remove="uploadRemove"
       :show-file-list="true"
       :limit="limit"
@@ -13,13 +14,13 @@
       class="upload-btn"
       :headers="{'x-token': token}"
     >
-      <el-button type="primary"> 上传文件 </el-button>
+      <el-button type="primary" :loading="uploading"> 上传文件 </el-button>
     </el-upload>
   </div>
 </template>
 
 <script setup>
-  import { ref } from 'vue'
+  import { computed, ref } from 'vue'
   import { ElMessage } from 'element-plus'
   import { getBaseUrl } from '@/utils/format'
   import { useUserStore } from "@/pinia";
@@ -43,7 +44,8 @@
 
   const token = userStore.token
 
-  const fullscreenLoading = ref(false)
+  const pendingUploads = ref(0)
+  const uploading = computed(() => pendingUploads.value > 0)
 
   const model = defineModel({ type: Array })
 
@@ -51,7 +53,13 @@
 
   const emits = defineEmits(['on-success', 'on-error'])
 
+  const beforeUpload = () => {
+    pendingUploads.value++
+    return true
+  }
+
   const uploadSuccess = (res) => {
+    pendingUploads.value = Math.max(0, pendingUploads.value - 1)
     const { data, code } = res
     if (code !== 0) {
       ElMessage({
@@ -81,7 +89,7 @@
       type: 'error',
       message: '上传失败'
     })
-    fullscreenLoading.value = false
+    pendingUploads.value = Math.max(0, pendingUploads.value - 1)
     emits('on-error', err)
   }
 </script>

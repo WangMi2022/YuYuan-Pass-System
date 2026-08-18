@@ -28,7 +28,7 @@
             </el-select>
           </el-form-item>
           <div class="filter-actions">
-            <el-button type="primary" :icon="Search" @click="submitSearch">查询</el-button>
+            <el-button type="primary" :icon="Search" :loading="loading" @click="submitSearch">查询</el-button>
             <el-button :icon="Refresh" @click="resetSearch">重置</el-button>
           </div>
         </div>
@@ -41,10 +41,10 @@
           <h2>工作站点</h2>
           <span>共 {{ total }} 个站点</span>
         </div>
-        <el-button :icon="Refresh" text @click="loadSites">刷新</el-button>
+        <el-button :icon="Refresh" :loading="loading" text @click="loadSites">刷新</el-button>
       </header>
 
-      <div v-loading="loading" class="site-grid">
+      <div v-loading="loading && !loaded" class="site-grid">
         <article
           v-for="row in tableData"
           :key="row.ID"
@@ -189,6 +189,7 @@ const {
   items: tableData,
   total,
   loading,
+  loaded,
   load: loadSites,
   submit: submitSearch,
   reset: resetSearch,

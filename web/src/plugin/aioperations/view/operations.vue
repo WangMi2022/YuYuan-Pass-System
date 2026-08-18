@@ -40,7 +40,7 @@
         </button>
       </nav>
 
-      <section v-loading="loading" class="settings-content" :aria-labelledby="'settings-section-' + activeSectionName">
+      <section class="settings-content" :aria-labelledby="'settings-section-' + activeSectionName">
         <header class="settings-section-header">
           <div>
             <h2 :id="'settings-section-' + activeSectionName">{{ activeSection.label }}</h2>
@@ -267,7 +267,7 @@
               <div><h3>用量配额</h3><p>全局、模块、角色和用户配额同时生效；0 表示不限制。</p></div>
               <el-button type="primary" :icon="Plus" @click="openQuota()">新增配额</el-button>
             </header>
-            <el-table v-if="quotaLoading || quotas.length > 0" v-loading="quotaLoading" :data="quotas" row-key="ID">
+            <el-table v-if="quotaLoading || quotas.length > 0" v-loading="quotaLoading && !quotaLoaded" :data="quotas" row-key="ID">
               <el-table-column prop="scopeType" label="范围" width="110" />
               <el-table-column prop="scopeId" label="范围标识" min-width="170" />
               <el-table-column prop="dailyRequests" label="每日请求" width="110" align="right" />
@@ -283,13 +283,13 @@
 
         <template v-else-if="activeSectionName === 'prompts'">
           <div class="section-toolbar"><span>每个 Prompt 标识只保留一个活跃版本。</span><el-button type="primary" :icon="Plus" @click="openPrompt">创建版本</el-button></div>
-          <el-table v-loading="promptLoading" :data="prompts" row-key="ID">
+          <el-table v-loading="promptLoading && !promptLoaded" :data="prompts" row-key="ID">
             <el-table-column prop="promptKey" label="标识" min-width="180" />
             <el-table-column prop="version" label="版本" width="85" />
             <el-table-column prop="status" label="状态" width="105"><template #default="{ row }"><el-tag :type="promptStatus(row.status).type">{{ promptStatus(row.status).label }}</el-tag></template></el-table-column>
             <el-table-column prop="CreatedAt" label="创建时间" min-width="165"><template #default="{ row }">{{ dateTime(row.CreatedAt) }}</template></el-table-column>
             <el-table-column label="内容" min-width="260" show-overflow-tooltip><template #default="{ row }">{{ row.content }}</template></el-table-column>
-            <el-table-column label="操作" width="100"><template #default="{ row }"><el-button v-if="row.status !== 'active'" text type="primary" :icon="Check" @click="activatePrompt(row)">激活</el-button></template></el-table-column>
+            <el-table-column label="操作" width="100"><template #default="{ row }"><el-button v-if="row.status !== 'active'" text type="primary" :icon="Check" :loading="activatingPromptId === row.ID" @click="activatePrompt(row)">激活</el-button></template></el-table-column>
             <template #empty><AppEmptyState compact title="还没有 Prompt 版本" description="创建草稿并人工激活后，Gateway 才会使用对应版本。"><template #actions><el-button type="primary" :icon="Plus" @click="openPrompt">创建第一个版本</el-button></template></AppEmptyState></template>
           </el-table>
         </template>
@@ -306,9 +306,9 @@
             <el-input v-model="invocationSearch.module" clearable placeholder="业务模块" />
             <el-input v-model="invocationSearch.provider" clearable placeholder="Provider" />
             <el-input-number v-model="invocationSearch.userId" :min="1" :controls="false" placeholder="用户 ID" />
-            <el-button :icon="Search" @click="loadInvocations">查询</el-button>
+            <el-button :icon="Search" :loading="invocationLoading" @click="loadInvocations">查询</el-button>
           </div>
-          <el-table v-loading="invocationLoading" :data="invocations" row-key="ID">
+          <el-table v-loading="invocationLoading && !invocationLoaded" :data="invocations" row-key="ID">
             <el-table-column prop="CreatedAt" label="时间" min-width="165"><template #default="{ row }">{{ dateTime(row.CreatedAt) }}</template></el-table-column>
             <el-table-column prop="userId" label="用户" width="80" />
             <el-table-column prop="module" label="模块" min-width="110" />
@@ -392,14 +392,18 @@ const usage = ref({})
 const invocations = ref([])
 const invocationTotal = ref(0)
 const invocationLoading = ref(false)
+const invocationLoaded = ref(false)
 const quotas = ref([])
 const quotaLoading = ref(false)
+const quotaLoaded = ref(false)
 const prompts = ref([])
 const promptLoading = ref(false)
+const promptLoaded = ref(false)
 const quotaDialogVisible = ref(false)
 const promptDialogVisible = ref(false)
 const savingQuota = ref(false)
 const savingPrompt = ref(false)
+const activatingPromptId = ref(0)
 const testingInvoice = ref('')
 const providers = reactive(defaultProviders())
 const invoice = reactive(defaultInvoiceRecognition())
@@ -511,6 +515,7 @@ async function loadInvocations() {
     } else ElMessage.error(response.msg || '无法读取调用日志')
   } finally {
     invocationLoading.value = false
+    invocationLoaded.value = true
   }
 }
 
@@ -522,6 +527,7 @@ async function loadQuotas() {
     else ElMessage.error(response.msg || '无法读取用量配额')
   } finally {
     quotaLoading.value = false
+    quotaLoaded.value = true
   }
 }
 
@@ -533,6 +539,7 @@ async function loadPrompts() {
     else ElMessage.error(response.msg || '无法读取 Prompt 模板')
   } finally {
     promptLoading.value = false
+    promptLoaded.value = true
   }
 }
 
@@ -667,6 +674,7 @@ async function submitPrompt() {
 async function activatePrompt(row) {
   try {
     await ElMessageBox.confirm('确认激活 ' + row.promptKey + ' 的 V' + row.version + '？当前活跃版本将退役。', '激活 Prompt', { type: 'warning' })
+    activatingPromptId.value = row.ID
     const response = await activateAIPrompt({ promptKey: row.promptKey, version: row.version })
     if (response.code === 0) {
       ElMessage.success(response.msg || 'Prompt 已激活')
@@ -674,6 +682,8 @@ async function activatePrompt(row) {
     } else ElMessage.error(response.msg || '激活失败')
   } catch (error) {
     if (error !== 'cancel' && error !== 'close') ElMessage.error('激活失败')
+  } finally {
+    activatingPromptId.value = 0
   }
 }
 

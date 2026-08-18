@@ -54,7 +54,7 @@
         </div>
       </header>
 
-      <div v-loading="logoLoading" class="current-logo">
+      <div v-loading="logoLoading && !logoLoaded" class="current-logo">
         <div class="logo-preview" aria-label="当前系统Logo预览">
           <img
             v-if="currentLogo?.url && !logoPreviewFailed"
@@ -85,6 +85,7 @@
           </el-upload>
           <el-button
             :icon="RefreshLeft"
+            :loading="restoringLogo"
             :disabled="!currentLogo || logoUploading"
             @click="restoreDefaultLogo"
           >恢复默认 Logo</el-button>
@@ -135,7 +136,7 @@
             </el-upload>
           </div>
 
-          <div v-loading="loading" class="background-grid">
+          <div v-loading="loading && !backgroundsLoaded" class="background-grid">
             <button
               v-for="item in backgrounds"
               :key="item.ID"
@@ -159,6 +160,7 @@
                 type="danger"
                 text
                 :icon="Delete"
+                :loading="deletingBackgroundId === item.ID"
                 aria-label="删除背景图片"
                 @click.stop="removeBackground(item)"
               />
@@ -222,8 +224,12 @@ const uploading = ref(false)
 const saving = ref(false)
 const currentLogo = ref(null)
 const logoLoading = ref(false)
+const logoLoaded = ref(false)
 const logoUploading = ref(false)
+const restoringLogo = ref(false)
 const logoPreviewFailed = ref(false)
+const backgroundsLoaded = ref(false)
+const deletingBackgroundId = ref(0)
 
 const currentBackground = computed(() => backgrounds.value.find((item) => item.isActive))
 const selectedBackground = computed(() => backgrounds.value.find((item) => item.ID === selectedId.value))
@@ -241,6 +247,7 @@ const loadLoginLogo = async () => {
     }
   } finally {
     logoLoading.value = false
+    logoLoaded.value = true
   }
 }
 
@@ -318,11 +325,16 @@ const restoreDefaultLogo = async () => {
   } catch {
     return
   }
-  const res = await resetLoginLogo()
-  if (res.code === 0) {
-    await loadLoginLogo()
-    brandingStore.useDefaultLogo()
-    ElMessage.success('已恢复默认系统 Logo')
+  restoringLogo.value = true
+  try {
+    const res = await resetLoginLogo()
+    if (res.code === 0) {
+      await loadLoginLogo()
+      brandingStore.useDefaultLogo()
+      ElMessage.success('已恢复默认系统 Logo')
+    }
+  } finally {
+    restoringLogo.value = false
   }
 }
 
@@ -333,6 +345,7 @@ const loadBackgrounds = async () => {
     if (res.code === 0) backgrounds.value = res.data || []
   } finally {
     loading.value = false
+    backgroundsLoaded.value = true
   }
 }
 
@@ -411,11 +424,16 @@ const removeBackground = async (item) => {
   } catch {
     return
   }
-  const res = await deleteLoginBackground({ id: item.ID })
-  if (res.code === 0) {
-    if (selectedId.value === item.ID) selectedId.value = currentBackground.value?.ID || 0
-    await loadBackgrounds()
-    ElMessage.success('背景图片已删除')
+  deletingBackgroundId.value = item.ID
+  try {
+    const res = await deleteLoginBackground({ id: item.ID })
+    if (res.code === 0) {
+      if (selectedId.value === item.ID) selectedId.value = currentBackground.value?.ID || 0
+      await loadBackgrounds()
+      ElMessage.success('背景图片已删除')
+    }
+  } finally {
+    deletingBackgroundId.value = 0
   }
 }
 

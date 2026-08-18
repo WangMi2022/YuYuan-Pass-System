@@ -38,12 +38,12 @@
           @clear="submitSearch"
         />
         <div class="toolbar-actions">
-          <el-button type="primary" :icon="Search" @click="submitSearch">查询</el-button>
+          <el-button type="primary" :icon="Search" :loading="loading" @click="submitSearch">查询</el-button>
           <el-button :icon="Refresh" @click="resetSearch">重置</el-button>
         </div>
       </header>
 
-      <el-table v-if="activeTab === 'category'" v-loading="loading" :data="tableData" row-key="ID" stripe size="small" class="manage-table">
+      <el-table v-if="activeTab === 'category'" v-loading="loading && !loaded" :data="tableData" row-key="ID" stripe size="small" class="manage-table">
         <el-table-column label="分类" min-width="220">
           <template #default="{ row }">
             <div class="category-name">
@@ -78,7 +78,7 @@
         </template>
       </el-table>
 
-      <el-table v-else v-loading="loading" :data="tableData" row-key="ID" stripe size="small" class="manage-table">
+      <el-table v-else v-loading="loading && !loaded" :data="tableData" row-key="ID" stripe size="small" class="manage-table">
         <el-table-column label="位置名称" min-width="220">
           <template #default="{ row }">
             <div class="location-name">
@@ -224,6 +224,7 @@ const currentSearch = computed(() => currentList.value.search)
 const tableData = computed(() => currentList.value.items.value)
 const total = computed(() => currentList.value.total.value)
 const loading = computed(() => currentList.value.loading.value)
+const loaded = computed(() => currentList.value.loaded.value)
 const categoryDialogVisible = ref(false)
 const locationDialogVisible = ref(false)
 const editing = ref(false)

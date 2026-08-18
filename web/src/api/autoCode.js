@@ -251,13 +251,8 @@ export const llmAuto = (data, options = {}) => {
     method: 'post',
     data: { ...data },
     timeout: options.timeout ?? DEFAULT_LLM_TIMEOUT,
-    loadingOption: {
-      lock: true,
-      fullscreen: true,
-      persistLoading: true,
-      text: '小淼正在思考，请稍候...'
-    },
-    donNotShowLoading: options.donNotShowLoading ?? false
+    loadingOption: options.loadingOption,
+    donNotShowLoading: options.donNotShowLoading ?? true
   })
 }
 

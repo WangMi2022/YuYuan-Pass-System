@@ -50,7 +50,7 @@
         </el-form-item>
           <div class="audit-filter__actions">
             <el-button :icon="RefreshLeft" @click="onReset">重置</el-button>
-            <el-button native-type="submit" type="primary" :icon="Search">查询</el-button>
+            <el-button native-type="submit" type="primary" :icon="Search" :loading="loading">查询</el-button>
           </div>
         </div>
       </el-form>
@@ -74,7 +74,7 @@
       </header>
       <el-table
         ref="multipleTable"
-        v-loading="loading"
+        v-loading="loading && !loaded"
         :data="tableData"
         style="width: 100%"
         tooltip-effect="dark"
@@ -182,6 +182,7 @@
     items: tableData,
     total,
     loading,
+    loaded,
     load: getTableData,
     submit: onSubmit,
     reset: onReset,

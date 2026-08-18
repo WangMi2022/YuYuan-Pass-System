@@ -108,7 +108,7 @@
           </el-form-item>
           <el-form-item>
             <div style="text-align: right">
-              <el-button type="primary" @click="onSubmit">立即初始化</el-button>
+              <el-button type="primary" :loading="initializing" @click="onSubmit">立即初始化</el-button>
             </div>
           </el-form-item>
         </el-form>
@@ -125,7 +125,7 @@
   // @ts-ignore
   import { initDB } from '@/api/initdb'
   import { reactive, ref } from 'vue'
-  import { ElLoading, ElMessage, ElMessageBox } from 'element-plus'
+  import { ElMessage, ElMessageBox } from 'element-plus'
   import { useRouter } from 'vue-router'
   import { useBrandingStore } from '@/pinia'
 
@@ -135,6 +135,7 @@
 
   const router = useRouter()
   const brandingStore = useBrandingStore()
+  const initializing = ref(false)
 
   const page = reactive({
     showReadme: false,
@@ -251,12 +252,7 @@
       return
     }
 
-    const loading = ElLoading.service({
-      lock: true,
-      text: '正在初始化数据库，请稍候',
-      spinner: 'loading',
-      background: 'rgba(0, 0, 0, 0.7)'
-    })
+    initializing.value = true
     try {
       const res = await initDB(form)
       if (res.code === 0) {
@@ -281,9 +277,8 @@
           router.push({ name: 'Login' })
         })
       }
-      loading.close()
-    } catch (_) {
-      loading.close()
+    } finally {
+      initializing.value = false
     }
   }
 </script>

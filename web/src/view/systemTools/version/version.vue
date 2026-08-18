@@ -44,7 +44,7 @@
         </template>
 
         <el-form-item>
-          <el-button type="primary" icon="search" @click="onSubmit">查询</el-button>
+          <el-button type="primary" icon="search" :loading="loading" @click="onSubmit">查询</el-button>
           <el-button icon="refresh" @click="onReset">重置</el-button>
           <el-button link type="primary" icon="arrow-down" @click="showAllQuery = true"
             v-if="!showAllQuery">展开</el-button>
@@ -57,7 +57,7 @@
         <el-button icon="delete" :disabled="!multipleSelection.length"
           @click="onDelete">删除</el-button>
       </div>
-      <el-table ref="multipleTable" v-loading="loading" style="width: 100%" tooltip-effect="dark" :data="tableData" row-key="ID"
+      <el-table ref="multipleTable" v-loading="loading && !loaded" style="width: 100%" tooltip-effect="dark" :data="tableData" row-key="ID"
         @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55" />
 
@@ -419,6 +419,7 @@ const {
   items: tableData,
   total,
   loading,
+  loaded,
   load: getTableData,
   submit: onSubmit,
   reset: onReset,

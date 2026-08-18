@@ -9,7 +9,7 @@
 
   <PendingTasks v-else-if="isPendingView" @back="closePendingItems" />
 
-  <main v-else v-loading="loading" class="dashboard-page">
+  <main v-else class="dashboard-page">
     <AppPageHeader
       title-id="dashboard-title"
       title="首页驾驶舱"

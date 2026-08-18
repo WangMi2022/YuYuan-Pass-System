@@ -14,7 +14,7 @@
       </template>
     </AppPageHeader>
 
-    <section v-loading="dashboardLoading" class="risk-kpis" aria-label="风险关键指标">
+    <section v-loading="dashboardLoading && !dashboardLoaded" class="risk-kpis" aria-label="风险关键指标">
       <div>
         <span>待处理风险</span>
         <strong>{{ formatNumber(dashboard.totalOpen) }}</strong>
@@ -72,7 +72,7 @@
             <el-select v-model="searchForm.category" clearable placeholder="全部类型">
               <el-option v-for="item in categoryFilters" :key="item.value" :label="item.label" :value="item.value" />
             </el-select>
-            <el-button type="primary" :icon="Search" @click="submitSearch">查询</el-button>
+            <el-button type="primary" :icon="Search" :loading="eventsLoading" @click="submitSearch">查询</el-button>
             <el-button :icon="Refresh" @click="resetSearch">重置</el-button>
           </div>
 
@@ -83,7 +83,7 @@
           </div>
 
           <el-table
-            v-loading="eventsLoading"
+            v-loading="eventsLoading && !eventsLoaded"
             :data="events"
             row-key="ID"
             stripe
@@ -151,7 +151,7 @@
             <div><h2>检测规则</h2><p>阈值或等级变更会生成新版本，历史事件继续保留原版本证据。</p></div>
             <el-button :icon="Refresh" :loading="rulesLoading" @click="loadRules">刷新规则</el-button>
           </header>
-          <el-table v-loading="rulesLoading" :data="rules" row-key="ID" stripe>
+          <el-table v-loading="rulesLoading && !rulesLoaded" :data="rules" row-key="ID" stripe>
             <el-table-column label="规则" min-width="260">
               <template #default="{ row }"><div class="rule-cell"><strong>{{ row.name }}</strong><code>{{ row.code }}</code></div></template>
             </el-table-column>
@@ -170,7 +170,7 @@
             <div><h2>扫描运行</h2><p>扫描按批次提交并记录游标，失败任务可从上次完成位置继续。</p></div>
             <el-button :icon="Refresh" :loading="scansLoading" @click="loadScans">刷新记录</el-button>
           </header>
-          <el-table v-loading="scansLoading" :data="scans" row-key="ID" stripe>
+          <el-table v-loading="scansLoading && !scansLoaded" :data="scans" row-key="ID" stripe>
             <el-table-column label="运行 ID" width="100"><template #default="{ row }">#{{ row.ID }}</template></el-table-column>
             <el-table-column label="触发方式" width="100"><template #default="{ row }">{{ row.triggerType === 'scheduled' ? '定时扫描' : '手动扫描' }}</template></el-table-column>
             <el-table-column label="状态" width="100" align="center"><template #default="{ row }"><el-tag :type="scanStatusMeta(row.status).type">{{ scanStatusMeta(row.status).label }}</el-tag></template></el-table-column>
@@ -196,8 +196,9 @@
           <p>{{ detail.event.ruleCode }} · v{{ detail.event.ruleVersion }}</p>
         </div>
       </template>
-      <div v-loading="detailLoading" class="detail-content">
-        <template v-if="detail.event">
+      <div class="detail-content">
+        <el-skeleton v-if="detailLoading" animated :rows="9" class="detail-loading-skeleton" />
+        <template v-else-if="detail.event">
           <section class="detail-status-row">
             <el-tag :type="severityMeta(detail.event.severity).type">{{ severityMeta(detail.event.severity).label }}</el-tag>
             <el-tag :type="statusMeta(detail.event.status).type" effect="plain">{{ statusMeta(detail.event.status).label }}</el-tag>
@@ -322,9 +323,13 @@ const refreshing = ref(false)
 const scanStarting = ref(false)
 const activeScan = ref(null)
 const dashboardLoading = ref(false)
+const dashboardLoaded = ref(false)
 const eventsLoading = ref(false)
+const eventsLoaded = ref(false)
 const rulesLoading = ref(false)
+const rulesLoaded = ref(false)
 const scansLoading = ref(false)
+const scansLoaded = ref(false)
 const detailLoading = ref(false)
 const dashboard = ref({ totalOpen: 0, highOpen: 0, todayNew: 0, overdue: 0, byCategory: [], bySeverity: [], byStatus: [], byCustodian: [], trend: [], recentEvents: [], latestScan: null, generatedAt: null })
 const events = ref([])
@@ -420,6 +425,7 @@ const loadDashboard = async () => {
     if (res.code === 0) dashboard.value = { ...dashboard.value, ...res.data }
   } finally {
     dashboardLoading.value = false
+    dashboardLoaded.value = true
   }
 }
 const loadEvents = async () => {
@@ -432,6 +438,7 @@ const loadEvents = async () => {
     }
   } finally {
     eventsLoading.value = false
+    eventsLoaded.value = true
   }
 }
 const loadRules = async () => {
@@ -441,6 +448,7 @@ const loadRules = async () => {
     if (res.code === 0) rules.value = res.data || []
   } finally {
     rulesLoading.value = false
+    rulesLoaded.value = true
   }
 }
 const loadScans = async () => {
@@ -450,6 +458,7 @@ const loadScans = async () => {
     if (res.code === 0) scans.value = res.data?.list || []
   } finally {
     scansLoading.value = false
+    scansLoaded.value = true
   }
 }
 const requestScanStatus = async (runId) => {

@@ -131,7 +131,7 @@ func attachMediaPreviewURLs(ctx context.Context, files []example.ExaFileUploadAn
 		if key == "" || strings.TrimSpace(files[index].Url) != bucketURL+"/"+key {
 			continue
 		}
-		previewURL, err := signer(ctx, key, mediaPreviewURLTTL)
+		previewURL, err := resolveMediaPreviewURL(ctx, files[index].Url, ossType, bucketURL, signer)
 		if err != nil {
 			previewErrors = append(previewErrors, fmt.Errorf("签发媒体预览链接 %q: %w", key, err))
 			continue
@@ -139,6 +139,64 @@ func attachMediaPreviewURLs(ctx context.Context, files []example.ExaFileUploadAn
 		files[index].PreviewURL = previewURL
 	}
 	return errors.Join(previewErrors...)
+}
+
+func resolveMediaPreviewURL(ctx context.Context, rawURL, ossType, bucketURL string, signer mediaPreviewURLSigner) (string, error) {
+	rawURL = strings.TrimSpace(rawURL)
+	bucketURL = strings.TrimRight(strings.TrimSpace(bucketURL), "/")
+	if rawURL == "" || !strings.EqualFold(ossType, "minio") || bucketURL == "" || signer == nil {
+		return rawURL, nil
+	}
+
+	prefix := bucketURL + "/"
+	if !strings.HasPrefix(rawURL, prefix) {
+		return rawURL, nil
+	}
+	key := strings.TrimLeft(strings.TrimSpace(strings.TrimPrefix(rawURL, prefix)), "/")
+	if key == "" {
+		return rawURL, nil
+	}
+
+	previewURL, err := signer(ctx, key, mediaPreviewURLTTL)
+	if err != nil {
+		return rawURL, err
+	}
+	return previewURL, nil
+}
+
+// ResolveMediaPreviewURL returns a short-lived browser URL for managed private
+// MinIO objects while leaving local and external URLs unchanged.
+func (e *FileUploadAndDownloadService) ResolveMediaPreviewURL(ctx context.Context, rawURL string) (string, error) {
+	rawURL = strings.TrimSpace(rawURL)
+	ossType := global.GVA_CONFIG.System.OssType
+	bucketURL := global.GVA_CONFIG.Minio.BucketUrl
+	if rawURL == "" || !strings.EqualFold(ossType, "minio") || strings.TrimSpace(bucketURL) == "" {
+		return rawURL, nil
+	}
+
+	var file example.ExaFileUploadAndDownload
+	if err := global.GVA_DB.WithContext(ctx).Select("url", "key").Where("url = ?", rawURL).First(&file).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return rawURL, nil
+		}
+		return rawURL, fmt.Errorf("查询头像媒体记录: %w", err)
+	}
+
+	minioClient, err := upload.GetMinio(
+		global.GVA_CONFIG.Minio.Endpoint,
+		global.GVA_CONFIG.Minio.AccessKeyId,
+		global.GVA_CONFIG.Minio.AccessKeySecret,
+		global.GVA_CONFIG.Minio.BucketName,
+		global.GVA_CONFIG.Minio.UseSSL,
+	)
+	if err != nil {
+		return rawURL, fmt.Errorf("初始化头像预览存储: %w", err)
+	}
+	files := []example.ExaFileUploadAndDownload{file}
+	if err := attachMediaPreviewURLs(ctx, files, ossType, bucketURL, minioClient.PreviewURL); err != nil {
+		return rawURL, err
+	}
+	return files[0].PreviewURL, nil
 }
 
 //@author: [piexlmax](https://github.com/piexlmax)

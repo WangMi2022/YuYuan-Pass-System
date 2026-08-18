@@ -78,3 +78,50 @@ func TestAttachMediaPreviewURLsContinuesAfterOneObjectCannotBeSigned(t *testing.
 		t.Fatalf("later objects must still be signed: %q", files[1].PreviewURL)
 	}
 }
+
+func TestResolveMediaPreviewURLSignsPrivateAvatar(t *testing.T) {
+	signer := func(_ context.Context, key string, expires time.Duration) (string, error) {
+		if key != "avatars/user-7.png" {
+			t.Fatalf("unexpected avatar object key: %q", key)
+		}
+		if expires != mediaPreviewURLTTL {
+			t.Fatalf("unexpected preview URL TTL: %s", expires)
+		}
+		return "http://minio.local/gva-assets/" + key + "?X-Amz-Signature=avatar", nil
+	}
+
+	previewURL, err := resolveMediaPreviewURL(
+		context.Background(),
+		"http://minio.local/gva-assets/avatars/user-7.png",
+		"minio",
+		"http://minio.local/gva-assets/",
+		signer,
+	)
+	if err != nil {
+		t.Fatalf("resolve avatar preview URL: %v", err)
+	}
+	if previewURL != "http://minio.local/gva-assets/avatars/user-7.png?X-Amz-Signature=avatar" {
+		t.Fatalf("private avatar did not receive a signed preview URL: %q", previewURL)
+	}
+}
+
+func TestResolveMediaPreviewURLLeavesExternalAvatarUntouched(t *testing.T) {
+	signer := func(context.Context, string, time.Duration) (string, error) {
+		t.Fatal("external avatar must not call the MinIO signer")
+		return "", nil
+	}
+
+	previewURL, err := resolveMediaPreviewURL(
+		context.Background(),
+		"https://cdn.example.com/avatar.png",
+		"minio",
+		"http://minio.local/gva-assets",
+		signer,
+	)
+	if err != nil {
+		t.Fatalf("resolve external avatar URL: %v", err)
+	}
+	if previewURL != "https://cdn.example.com/avatar.png" {
+		t.Fatalf("external avatar URL changed: %q", previewURL)
+	}
+}

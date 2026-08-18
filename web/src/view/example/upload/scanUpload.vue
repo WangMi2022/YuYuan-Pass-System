@@ -79,7 +79,7 @@
 
 <script setup>
 import { ref, getCurrentInstance } from 'vue'
-import { ElLoading, ElMessage } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { RefreshLeft, RefreshRight, Plus, Minus } from '@element-plus/icons-vue'
 import 'vue-cropper/dist/index.css'
 import { VueCropper } from 'vue-cropper'
@@ -149,17 +149,11 @@ const handleFileChange = (file) => {
     return false
   }
 
-  const loading = ElLoading.service({
-    lock: true,
-    text: '请稍后',
-    background: 'rgba(0, 0, 0, 0.7)',
-  })
-
   const reader = new FileReader()
   reader.onload = (e) => {
     imgSrc.value = e.target.result
-    loading.close()
   }
+  reader.onerror = () => ElMessage.error('图片读取失败，请重新选择')
   reader.readAsDataURL(file.raw)
 }
 

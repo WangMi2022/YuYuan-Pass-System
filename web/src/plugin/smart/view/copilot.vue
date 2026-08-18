@@ -35,7 +35,10 @@
               :aria-pressed="item.ID === sessionId"
               @click="openSession(item.ID)"
             >
-              <strong>{{ item.title || '未命名会话' }}</strong>
+              <strong>
+                <el-icon v-if="sessionLoading && item.ID === sessionId" class="is-loading"><Loading /></el-icon>
+                {{ item.title || '未命名会话' }}
+              </strong>
               <small>{{ formatSessionTime(item.lastMessageAt) }}</small>
             </button>
             <el-tooltip content="删除会话" placement="top">
@@ -43,6 +46,7 @@
                 class="session-delete"
                 text
                 :icon="Delete"
+                :loading="deletingSessionId === item.ID"
                 :aria-label="`删除会话：${item.title || '未命名会话'}`"
                 @click="removeSession(item)"
               />
@@ -59,7 +63,8 @@
       </aside>
 
       <section class="na-panel chat-panel" aria-labelledby="smart-copilot-title">
-        <div ref="chatScroll" v-loading="sessionLoading" class="chat-scroll" aria-live="polite">
+        <div ref="chatScroll" class="chat-scroll" aria-live="polite">
+          <el-skeleton v-if="sessionLoading" animated :rows="8" class="chat-loading-skeleton" />
           <div v-if="!messages.length && !sessionLoading" class="empty-chat">
             <div class="empty-chat-icon" aria-hidden="true"><el-icon><MagicStick /></el-icon></div>
             <div class="empty-chat-copy">
@@ -227,7 +232,7 @@
 <script setup>
 import { nextTick, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowRight, CircleCheck, Delete, MagicStick, Plus, Position, Refresh } from '@element-plus/icons-vue'
+import { ArrowRight, CircleCheck, Delete, Loading, MagicStick, Plus, Position, Refresh } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
 import AppEmptyState from '@/components/page/AppEmptyState.vue'
@@ -240,6 +245,7 @@ const router = useRouter()
 const loading = ref(false)
 const sending = ref(false)
 const sessionLoading = ref(false)
+const deletingSessionId = ref(0)
 const sessions = ref([])
 const messages = ref([])
 const tools = ref([])
@@ -404,6 +410,7 @@ async function loadSessions() {
 
 async function openSession(id) {
   sessionId.value = id
+  messages.value = []
   sessionLoading.value = true
   try {
     const res = await getCopilotSession({ id })
@@ -432,6 +439,7 @@ function chooseQuestion(value) {
 async function removeSession(item) {
   try {
     await ElMessageBox.confirm(`确认删除会话“${item.title || '未命名会话'}”？`, '删除会话', { type: 'warning' })
+    deletingSessionId.value = item.ID
     const res = await deleteCopilotSession({ id: item.ID })
     if (res.code !== 0) {
       ElMessage.error(res.msg || '删除失败')
@@ -442,6 +450,8 @@ async function removeSession(item) {
     ElMessage.success(res.msg || '会话已删除')
   } catch (error) {
     if (error !== 'cancel' && error !== 'close') ElMessage.error('删除失败')
+  } finally {
+    deletingSessionId.value = 0
   }
 }
 

@@ -41,7 +41,7 @@
             />
           </el-form-item>
           <div class="filter-actions">
-            <el-button type="primary" :icon="Search" @click="submitSearch">查询</el-button>
+            <el-button type="primary" :icon="Search" :loading="loading" @click="submitSearch">查询</el-button>
             <el-button :icon="Refresh" @click="resetSearch">重置</el-button>
           </div>
         </div>
@@ -54,10 +54,10 @@
           <h2>{{ currentMeta.shortLabel }}单据</h2>
           <span>共 {{ total }} 张单据；草稿可编辑，提交完成后转为只读审计记录</span>
         </div>
-        <el-button :icon="Refresh" text aria-label="刷新业务单" @click="loadOrders">刷新</el-button>
+        <el-button :icon="Refresh" :loading="loading" text aria-label="刷新业务单" @click="loadOrders">刷新</el-button>
       </header>
 
-      <el-table v-loading="loading" :data="tableData" row-key="ID" class="operation-table">
+      <el-table v-loading="loading && !loaded" :data="tableData" row-key="ID" class="operation-table">
         <el-table-column label="业务单号" min-width="190" fixed="left">
           <template #default="{ row }">
             <button type="button" class="order-link" @click="openDetail(row)">{{ row.orderNo }}</button>
@@ -412,6 +412,7 @@ const {
   items: tableData,
   total,
   loading,
+  loaded,
   load: loadOrders,
   submit: submitSearch,
   reset: resetOrderSearch,

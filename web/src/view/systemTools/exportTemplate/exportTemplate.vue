@@ -194,8 +194,6 @@
         label-position="right"
         :rules="rule"
         label-width="100px"
-        v-loading="aiLoading"
-        element-loading-text="小淼正在思考..."
       >
         <el-form-item label="业务库" prop="dbName">
           <template #label>
@@ -260,6 +258,7 @@
             <el-button
               class="absolute bottom-2 right-2"
               type="primary"
+              :loading="autoExportLoading"
               @click="autoExport"
               ><el-icon><ai-gva /></el-icon>帮写</el-button
             >
@@ -284,12 +283,14 @@
             <el-button
               :disabled="!formData.tableName"
               type="primary"
+              :loading="columnLoadingMode === 'ai'"
               @click="getColumnFunc(true)"
               ><el-icon><ai-gva /></el-icon>自动补全</el-button
             >
             <el-button
               :disabled="!formData.tableName"
               type="primary"
+              :loading="columnLoadingMode === 'template'"
               @click="getColumnFunc(false)"
               >自动生成模板</el-button
             >
@@ -724,7 +725,8 @@ JOINS模式下不支持导入
 
   const dbList = ref([])
   const tableOptions = ref([])
-  const aiLoading = ref(false)
+  const autoExportLoading = ref(false)
+  const columnLoadingMode = ref('')
 
   const getTablesCloumn = async () => {
     const tablesMap = {}
@@ -749,21 +751,24 @@ JOINS模式下不支持导入
       })
       return
     }
-    aiLoading.value = true
-    const tableMap = await getTablesCloumn()
-    const aiRes = await llmAuto({
-      prompt: prompt.value,
-      tableMap: JSON.stringify(tableMap),
-      mode: 'autoExportTemplate'
-    })
-    aiLoading.value = false
-    if (aiRes.code === 0) {
-      const aiData = JSON.parse(aiRes.data)
-      formData.value.name = aiData.name
-      formData.value.tableName = aiData.tableName
-      formData.value.templateID = aiData.templateID
-      formData.value.templateInfo = JSON.stringify(aiData.templateInfo, null, 2)
-      formData.value.joinTemplate = aiData.joinTemplate
+    autoExportLoading.value = true
+    try {
+      const tableMap = await getTablesCloumn()
+      const aiRes = await llmAuto({
+        prompt: prompt.value,
+        tableMap: JSON.stringify(tableMap),
+        mode: 'autoExportTemplate'
+      })
+      if (aiRes.code === 0) {
+        const aiData = JSON.parse(aiRes.data)
+        formData.value.name = aiData.name
+        formData.value.tableName = aiData.tableName
+        formData.value.templateID = aiData.templateID
+        formData.value.templateInfo = JSON.stringify(aiData.templateInfo, null, 2)
+        formData.value.joinTemplate = aiData.joinTemplate
+      }
+    } finally {
+      autoExportLoading.value = false
     }
   }
 
@@ -791,7 +796,7 @@ JOINS模式下不支持导入
     formData.value.tableName = ''
   }
   getTableFunc()
-  const getColumnFunc = async (aiFLag) => {
+  const getColumnFunc = async (aiFlag) => {
     if (!formData.value.tableName) {
       ElMessage({
         type: 'error',
@@ -800,40 +805,42 @@ JOINS模式下不支持导入
       return
     }
     formData.value.templateInfo = ''
-    aiLoading.value = true
-    const res = await getColumn({
-      businessDB: formData.value.dbName,
-      tableName: formData.value.tableName
-    })
-    if (res.code === 0) {
-      if (aiFLag) {
-        const aiRes = await llmAuto({
-          data: JSON.stringify(res.data.columns),
-          mode: 'exportCompletion'
-        })
-        if (aiRes.code === 0) {
-          const aiData = JSON.parse(aiRes.data)
-          aiLoading.value = false
-          formData.value.templateInfo = JSON.stringify(
-            aiData.templateInfo,
-            null,
-            2
-          )
-          formData.value.name = aiData.name
-          formData.value.templateID = aiData.templateID
-          return
-        }
-        ElMessage.warning('AI自动补全失败，已调整为逻辑填写')
-      }
-
-      // 把返回值的data.columns做尊换，制作一组JSON数据，columnName做key，columnComment做value
-      const templateInfo = {}
-      res.data.columns.forEach((item) => {
-        templateInfo[item.columnName] = item.columnComment || item.columnName
+    columnLoadingMode.value = aiFlag ? 'ai' : 'template'
+    try {
+      const res = await getColumn({
+        businessDB: formData.value.dbName,
+        tableName: formData.value.tableName
       })
-      formData.value.templateInfo = JSON.stringify(templateInfo, null, 2)
+      if (res.code === 0) {
+        if (aiFlag) {
+          const aiRes = await llmAuto({
+            data: JSON.stringify(res.data.columns),
+            mode: 'exportCompletion'
+          })
+          if (aiRes.code === 0) {
+            const aiData = JSON.parse(aiRes.data)
+            formData.value.templateInfo = JSON.stringify(
+              aiData.templateInfo,
+              null,
+              2
+            )
+            formData.value.name = aiData.name
+            formData.value.templateID = aiData.templateID
+            return
+          }
+          ElMessage.warning('AI自动补全失败，已调整为逻辑填写')
+        }
+
+        // 把返回值的data.columns做尊换，制作一组JSON数据，columnName做key，columnComment做value
+        const templateInfo = {}
+        res.data.columns.forEach((item) => {
+          templateInfo[item.columnName] = item.columnComment || item.columnName
+        })
+        formData.value.templateInfo = JSON.stringify(templateInfo, null, 2)
+      }
+    } finally {
+      columnLoadingMode.value = ''
     }
-    aiLoading.value = false
   }
 
   // 重置

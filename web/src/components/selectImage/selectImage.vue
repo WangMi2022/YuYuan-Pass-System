@@ -1,6 +1,14 @@
 <template>
   <div>
-    <selectComponent :rounded="rounded" v-if="!props.multiple" :model="model" @chooseItem="openChooseImg" @deleteItem="openChooseImg" />
+    <selectComponent
+      v-if="!props.multiple"
+      :rounded="rounded"
+      :model="model"
+      :preview-url="previewUrl"
+      :loading="selectLoading"
+      @chooseItem="openChooseImg"
+      @deleteItem="deleteSingleImage"
+    />
     <div v-else class="w-full gap-4 flex flex-wrap">
       <draggable 
         v-model="model" 
@@ -44,7 +52,7 @@
         <div class="media-library-picker__content">
           <div class="gva-btn-list gap-2">
             <el-input v-model.trim="search.keyword" class="w-96" placeholder="请输入文件名或备注" clearable />
-            <el-button type="primary" icon="search" @click="onSubmit"></el-button>
+            <el-button type="primary" icon="search" :loading="listLoading" aria-label="查询图片" @click="onSubmit"></el-button>
           </div>
           <div class="gva-btn-list gap-2">
             <el-button @click="useSelectedImages" type="danger" :disabled="selectedImages.length === 0" :icon="ArrowLeftBold">选定</el-button>
@@ -119,7 +127,7 @@
       </el-form>
       <template #footer>
         <el-button @click="closeAddCategoryDialog">取消</el-button>
-        <el-button type="primary" @click="confirmAddCategory">确定</el-button>
+        <el-button type="primary" :loading="savingCategory" @click="confirmAddCategory">确定</el-button>
       </template>
     </el-dialog>
   </div>
@@ -149,6 +157,9 @@ const QRCodeUpload = defineAsyncComponent(() => import('@/components/upload/QR-c
 
 const imageUrl = ref('')
 const imageCommon = ref('')
+const pickerLoading = ref(false)
+const listLoading = ref(false)
+const savingCategory = ref(false)
 
 const search = ref({
   keyword: null,
@@ -176,11 +187,26 @@ const props = defineProps({
   rounded: {
     type: Boolean,
     default: false
+  },
+  previewUrl: {
+    type: String,
+    default: ''
+  },
+  loading: {
+    type: Boolean,
+    default: false
   }
 })
 
+const selectLoading = computed(() => props.loading || pickerLoading.value)
+
 const deleteImg = (index) => {
   model.value.splice(index, 1)
+}
+
+const deleteSingleImage = () => {
+  if (props.loading) return
+  model.value = ''
 }
 
 const handleSizeChange = (val) => {
@@ -259,22 +285,29 @@ const chooseImg = (url) => {
 }
 
 const openChooseImg = async() => {
-  if (model.value && !props.multiple) {
-    model.value = ''
-    return
-  }
+  if (props.loading) return
   selectedImages.value = []
-  await Promise.all([getImageList(), fetchCategories()])
-  drawer.value = true
+  pickerLoading.value = true
+  try {
+    await Promise.all([getImageList(), fetchCategories()])
+    drawer.value = true
+  } finally {
+    pickerLoading.value = false
+  }
 }
 
 const getImageList = async() => {
-  const res = await getFileList({ page: page.value, pageSize: pageSize.value, ...search.value, fileType: 'image' })
-  if (res.code === 0) {
-    picList.value = res.data.list
-    total.value = res.data.total
-    page.value = res.data.page
-    pageSize.value = res.data.pageSize
+  listLoading.value = true
+  try {
+    const res = await getFileList({ page: page.value, pageSize: pageSize.value, ...search.value, fileType: 'image' })
+    if (res.code === 0) {
+      picList.value = res.data.list
+      total.value = res.data.total
+      page.value = res.data.page
+      pageSize.value = res.data.pageSize
+    }
+  } finally {
+    listLoading.value = false
   }
 }
 
@@ -405,11 +438,16 @@ const deleteCategoryFun = async(id) => {
 const confirmAddCategory = async() => {
   categoryForm.value.validate(async valid => {
     if (valid) {
-      const res = await addCategory(categoryFormData.value)
-      if (res.code === 0) {
-        ElMessage({ type: 'success', message: '操作成功' })
-        await fetchCategories()
-        closeAddCategoryDialog()
+      savingCategory.value = true
+      try {
+        const res = await addCategory(categoryFormData.value)
+        if (res.code === 0) {
+          ElMessage({ type: 'success', message: '操作成功' })
+          await fetchCategories()
+          closeAddCategoryDialog()
+        }
+      } finally {
+        savingCategory.value = false
       }
     }
   })

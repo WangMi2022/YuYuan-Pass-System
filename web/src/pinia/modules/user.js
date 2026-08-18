@@ -1,7 +1,7 @@
 import { login, getUserInfo } from '@/api/user'
 import { jsonInBlacklist } from '@/api/jwt'
 import router from '@/router/index'
-import { ElLoading, ElMessage } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useRouterStore } from './router'
@@ -18,6 +18,7 @@ export const useUserStore = defineStore('user', () => {
     uuid: '',
     nickName: '',
     headerImg: '',
+    headerImgPreviewUrl: '',
     authority: {}
   })
   const token = useStorage('token', '')
@@ -25,7 +26,10 @@ export const useUserStore = defineStore('user', () => {
   const currentToken = computed(() => token.value || xToken.get('x-token') || '')
 
   const setUserInfo = (val) => {
-    userInfo.value = val
+    userInfo.value = {
+      ...val,
+      headerImgPreviewUrl: val.headerImgPreviewUrl || ''
+    }
     if (val.originSetting) {
       Object.keys(appStore.config).forEach((key) => {
         if (val.originSetting[key] !== undefined) {
@@ -47,9 +51,12 @@ export const useUserStore = defineStore('user', () => {
   }
 
   const ResetUserInfo = (value = {}) => {
+    const nextValue = Object.prototype.hasOwnProperty.call(value, 'headerImg') && !Object.prototype.hasOwnProperty.call(value, 'headerImgPreviewUrl')
+      ? { ...value, headerImgPreviewUrl: '' }
+      : value
     userInfo.value = {
       ...userInfo.value,
-      ...value
+      ...nextValue
     }
   }
   /* 获取用户信息*/
@@ -63,11 +70,6 @@ export const useUserStore = defineStore('user', () => {
   /* 登录*/
   const LoginIn = async (loginInfo) => {
     try {
-      loadingInstance.value = ElLoading.service({
-        fullscreen: true,
-        text: '登录中，请稍候...'
-      })
-
       const res = await login(loginInfo)
 
       if (res.code !== 0) {

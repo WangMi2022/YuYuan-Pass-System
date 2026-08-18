@@ -11,7 +11,7 @@
       </div>
       <el-table
         ref="multipleTable"
-        v-loading="loading"
+        v-loading="loading && !loaded"
         :data="tableData"
         style="width: 100%"
         tooltip-effect="dark"
@@ -126,6 +126,7 @@
     items: tableData,
     total,
     loading,
+    loaded,
     load: getTableData,
     changePage,
     changePageSize,

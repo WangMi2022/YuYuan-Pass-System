@@ -32,7 +32,7 @@
             <el-input v-model="search.location" clearable placeholder="例如：A 区三楼" />
           </el-form-item>
           <div class="filter-actions">
-            <el-button type="primary" :icon="Search" @click="submitSearch">查询</el-button>
+            <el-button type="primary" :icon="Search" :loading="loading" @click="submitSearch">查询</el-button>
             <el-button :icon="Refresh" @click="resetSearch">重置</el-button>
           </div>
         </div>
@@ -63,10 +63,10 @@
             </button>
           </nav>
         </div>
-        <el-button :icon="Refresh" text aria-label="刷新资产列表" @click="refreshAssets">刷新</el-button>
+        <el-button :icon="Refresh" :loading="loading" text aria-label="刷新资产列表" @click="refreshAssets">刷新</el-button>
       </header>
 
-      <el-table v-loading="loading" :data="tableData" row-key="ID" stripe class="asset-table">
+      <el-table v-loading="loading && !loaded" :data="tableData" row-key="ID" stripe class="asset-table">
         <el-table-column label="资产" min-width="250" fixed="left">
           <template #default="{ row }">
             <div class="asset-identity">
@@ -385,6 +385,7 @@ const {
   items: tableData,
   total,
   loading,
+  loaded,
   load: loadAssets,
   submit: submitSearch,
   reset: resetAssetSearch,

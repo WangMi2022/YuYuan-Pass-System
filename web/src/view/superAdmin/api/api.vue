@@ -163,12 +163,13 @@
         <div class="flex justify-between items-center">
           <span class="text-lg">同步路由</span>
           <div>
-            <el-button :loading="apiCompletionLoading" @click="closeSyncDialog">
+            <el-button :disabled="syncing || apiCompletionLoading" @click="closeSyncDialog">
               取 消
             </el-button>
             <el-button
               type="primary"
-              :loading="syncing || apiCompletionLoading"
+              :loading="syncing"
+              :disabled="apiCompletionLoading"
               @click="enterSyncDialog"
             >
               确 定
@@ -182,18 +183,19 @@
         <span class="text-xs text-gray-500 mx-2 font-normal"
           >存在于当前路由中，但是不存在于api表</span
         >
-        <el-button type="primary" size="small" @click="apiCompletion">
+        <el-button
+          type="primary"
+          size="small"
+          :loading="apiCompletionLoading"
+          @click="apiCompletion"
+        >
           <el-icon size="18">
             <ai-gva />
           </el-icon>
           自动填充
         </el-button>
       </h4>
-      <el-table
-        v-loading="syncing || apiCompletionLoading"
-        element-loading-text="小淼正在思考..."
-        :data="syncApiData.newApis"
-      >
+      <el-table :data="syncApiData.newApis">
         <el-table-column
           align="left"
           label="API路径"
@@ -630,15 +632,18 @@
     }
 
     syncing.value = true
-    const res = await enterSyncApi(syncApiData.value)
-    syncing.value = false
-    if (res.code === 0) {
-      ElMessage({
-        type: 'success',
-        message: res.msg
-      })
-      syncApiFlag.value = false
-      getTableData()
+    try {
+      const res = await enterSyncApi(syncApiData.value)
+      if (res.code === 0) {
+        ElMessage({
+          type: 'success',
+          message: res.msg
+        })
+        syncApiFlag.value = false
+        getTableData()
+      }
+    } finally {
+      syncing.value = false
     }
   }
 
@@ -835,31 +840,34 @@
   const apiCompletionLoading = ref(false)
   const apiCompletion = async () => {
     apiCompletionLoading.value = true
-    const routerPaths = syncApiData.value.newApis
-      .filter((item) => !item.apiGroup || !item.description)
-      .map((item) => item.path)
-    const res = await llmAuto({ data: String(routerPaths), mode: 'apiCompletion' })
-    apiCompletionLoading.value = false
-    if (res.code === 0) {
-      try {
-        const data = JSON.parse(res.data)
-        syncApiData.value.newApis.forEach((item) => {
-          const target = data.find((d) => d.path === item.path)
-          if (target) {
-            if (!item.apiGroup) {
-              item.apiGroup = target.apiGroup
+    try {
+      const routerPaths = syncApiData.value.newApis
+        .filter((item) => !item.apiGroup || !item.description)
+        .map((item) => item.path)
+      const res = await llmAuto({ data: String(routerPaths), mode: 'apiCompletion' })
+      if (res.code === 0) {
+        try {
+          const data = JSON.parse(res.data)
+          syncApiData.value.newApis.forEach((item) => {
+            const target = data.find((d) => d.path === item.path)
+            if (target) {
+              if (!item.apiGroup) {
+                item.apiGroup = target.apiGroup
+              }
+              if (!item.description) {
+                item.description = target.description
+              }
             }
-            if (!item.description) {
-              item.description = target.description
-            }
-          }
-        })
-      } catch (_) {
-        ElMessage({
-          type: 'error',
-          message: 'AI自动填充失败,请重新生成'
-        })
+          })
+        } catch (_) {
+          ElMessage({
+            type: 'error',
+            message: 'AI自动填充失败,请重新生成'
+          })
+        }
       }
+    } finally {
+      apiCompletionLoading.value = false
     }
   }
 

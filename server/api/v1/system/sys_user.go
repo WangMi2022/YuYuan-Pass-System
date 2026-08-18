@@ -2,6 +2,7 @@ package system
 
 import (
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/WangMi2022/mit-assets-admin/server/global"
@@ -100,6 +101,7 @@ func (b *BaseApi) Login(c *gin.Context) {
 
 // TokenNext 登录以后签发jwt
 func (b *BaseApi) TokenNext(c *gin.Context, user system.SysUser) {
+	attachUserAvatarPreview(c, &user)
 	token, claims, err := utils.LoginToken(&user)
 	if err != nil {
 		global.GVA_LOG.Error("获取token失败!", zap.Error(err))
@@ -491,7 +493,19 @@ func (b *BaseApi) GetUserInfo(c *gin.Context) {
 		response.FailWithMessage("获取失败", c)
 		return
 	}
+	attachUserAvatarPreview(c, &ReqUser)
 	response.OkWithDetailed(gin.H{"userInfo": ReqUser}, "获取成功", c)
+}
+
+func attachUserAvatarPreview(c *gin.Context, user *system.SysUser) {
+	if user == nil || strings.TrimSpace(user.HeaderImg) == "" {
+		return
+	}
+	previewURL, err := fileUploadAndDownloadService.ResolveMediaPreviewURL(c.Request.Context(), user.HeaderImg)
+	if err != nil {
+		global.GVA_LOG.Warn("签发用户头像预览地址失败", zap.Error(err), zap.Uint("userID", user.ID))
+	}
+	user.HeaderImgPreviewURL = previewURL
 }
 
 // ResetPassword

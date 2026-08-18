@@ -24,7 +24,7 @@
             <h2>已上传文档</h2>
             <span>共 {{ total }} 个文档</span>
           </div>
-          <el-button :icon="Refresh" text @click="loadDocuments">刷新</el-button>
+          <el-button :icon="Refresh" :loading="loading" text @click="loadDocuments">刷新</el-button>
         </header>
 
         <el-form :model="search" class="search-form" @keyup.enter="submitSearch">
@@ -38,7 +38,7 @@
           </div>
         </el-form>
 
-        <div v-loading="loading" class="document-cards">
+        <div v-loading="loading && !loaded" class="document-cards">
           <div
             v-for="row in tableData"
             :key="row.ID"
@@ -97,7 +97,7 @@
             </div>
             <div class="editor-actions">
               <el-button :icon="Download" @click="downloadOriginal">下载原文件</el-button>
-              <el-button :icon="Refresh" @click="reloadCurrent">重新加载</el-button>
+              <el-button :icon="Refresh" :loading="previewLoading" @click="reloadCurrent">重新加载</el-button>
               <el-button type="primary" :icon="Check" :loading="saving" :disabled="!editingStarted" @click="saveDocument">保存在线版本</el-button>
             </div>
           </header>
@@ -123,9 +123,10 @@
                 />
                 <el-button type="primary" :icon="Edit" @click="startEditing">开始编辑</el-button>
               </div>
-              <div v-loading="previewLoading" class="preview-stage">
+              <div class="preview-stage">
+                <el-skeleton v-if="previewLoading" animated :rows="10" class="preview-skeleton" />
                 <VueOfficeDocx
-                  v-if="isDocxPreview && previewSource"
+                  v-else-if="isDocxPreview && previewSource"
                   :src="previewSource"
                   class="office-viewer"
                   @error="handlePreviewError"
@@ -147,7 +148,7 @@
                 <pre v-else-if="isSourceTextPreview && previewText" class="source-text-preview">{{ previewText }}</pre>
                 <el-empty v-else-if="previewError" :description="previewError">
                   <div class="empty-actions">
-                    <el-button :icon="Refresh" @click="loadPreviewSource(current)">重新加载预览</el-button>
+                    <el-button :icon="Refresh" :loading="previewLoading" @click="loadPreviewSource(current)">重新加载预览</el-button>
                     <el-button type="primary" :icon="Edit" @click="startEditing">开始编辑</el-button>
                   </div>
                 </el-empty>
@@ -202,14 +203,14 @@
                   </template>
 
                   <template v-else-if="isExcelPreview">
-                    <div v-loading="excelLoading" class="excel-preview-panel">
+                    <div class="excel-preview-panel">
                       <div class="excel-preview-toolbar">
                         <div class="excel-preview-title">
                           <strong>Excel 数据表格</strong>
                           <span>默认以只读表格展示，点击“编辑表格”后进入独立编辑框。</span>
                         </div>
                         <div class="excel-preview-actions">
-                          <el-button :icon="Refresh" @click="loadExcelFromOriginal(true)">从原文件重新解析</el-button>
+                          <el-button :icon="Refresh" :loading="excelLoading || previewLoading" @click="loadExcelFromOriginal(true)">从原文件重新解析</el-button>
                           <el-button type="primary" :icon="Edit" @click="openExcelEditor">编辑表格</el-button>
                         </div>
                       </div>
@@ -292,7 +293,7 @@
             <h3>{{ current.originalName || '编辑表格' }}</h3>
             <span>在独立编辑框中修改表格，保存后写入系统在线版本。</span>
           </div>
-          <el-button :icon="Refresh" @click="loadExcelFromOriginal(true)">从原文件重新解析</el-button>
+          <el-button :icon="Refresh" :loading="excelLoading || previewLoading" @click="loadExcelFromOriginal(true)">从原文件重新解析</el-button>
         </div>
       </template>
 
@@ -797,6 +798,7 @@ const {
   items: tableData,
   total,
   loading,
+  loaded,
   load: loadDocuments,
   submit: submitSearch,
   reset: resetSearch,

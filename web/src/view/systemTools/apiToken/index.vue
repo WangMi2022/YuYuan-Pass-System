@@ -21,14 +21,14 @@
              </el-select>
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" icon="search" @click="onSubmit">查询</el-button>
+          <el-button type="primary" icon="search" :loading="loading" @click="onSubmit">查询</el-button>
           <el-button icon="refresh" @click="onReset">重置</el-button>
         </el-form-item>
       </el-form>
     </div>
     <div class="gva-table-box">
       <el-table
-        v-loading="loading"
+        v-loading="loading && !loaded"
         :data="tableData"
         style="width: 100%"
         tooltip-effect="dark"
@@ -192,6 +192,7 @@ const {
   items: tableData,
   total,
   loading,
+  loaded,
   load: getTableData,
   submit: onSubmit,
   reset: onReset,

@@ -1,5 +1,5 @@
 <template>
-  <main v-loading="loading" class="na-page na-page--list pending-tasks-page">
+  <main class="na-page na-page--list pending-tasks-page">
     <AppPageHeader
       title-id="pending-tasks-title"
       title="待处理事项"
@@ -11,7 +11,9 @@
       </template>
     </AppPageHeader>
 
-    <section class="pending-summary" aria-label="待处理事项汇总">
+    <el-skeleton v-if="loading && !loaded" animated :rows="8" class="na-panel pending-loading" />
+
+    <section v-if="loaded" class="pending-summary" aria-label="待处理事项汇总">
       <article v-if="canAccessAssetOperations" class="summary-item summary-item--asset">
         <span>资产业务草稿</span>
         <strong>{{ formatNumber(assetTotal) }}<small>项</small></strong>
@@ -29,7 +31,7 @@
       </article>
     </section>
 
-    <section v-if="canAccessAssetOperations || canAccessInvoices" class="pending-workspace">
+    <section v-if="loaded && (canAccessAssetOperations || canAccessInvoices)" class="pending-workspace">
       <article v-if="canAccessAssetOperations" class="na-panel pending-panel">
         <header class="na-panel-header pending-panel-heading">
           <div>
@@ -114,7 +116,7 @@
     </section>
 
     <el-result
-      v-else
+      v-else-if="loaded"
       icon="warning"
       title="暂无待处理模块权限"
       sub-title="当前账号没有资产业务或发票识别权限。"
@@ -139,6 +141,7 @@ import { formatDateText, formatNumber } from '@/utils/format'
 const emit = defineEmits(['back'])
 const router = useRouter()
 const loading = ref(false)
+const loaded = ref(false)
 const assetOrders = ref([])
 const assetTotal = ref(0)
 const pendingInvoices = ref([])
@@ -213,6 +216,7 @@ async function loadPendingTasks() {
   if (canAccessInvoices.value && (!pendingLoaded || !failedLoaded)) {
     invoiceError.value = '待处理发票加载失败，请刷新后重试。'
   }
+  loaded.value = true
   loading.value = false
 }
 
