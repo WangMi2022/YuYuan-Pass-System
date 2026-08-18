@@ -105,6 +105,7 @@
               type="primary"
               link
               icon="delete"
+              :loading="deletingMenuId === scope.row.ID"
               @click="deleteMenu(scope.row.ID)"
             >
               删除
@@ -124,7 +125,7 @@
           <span class="text-lg">{{ dialogTitle }}</span>
           <div>
             <el-button @click="closeDialog"> 取 消 </el-button>
-            <el-button type="primary" @click="enterDialog"> 确 定 </el-button>
+            <el-button type="primary" :loading="menuSubmitting" @click="enterDialog"> 确 定 </el-button>
           </div>
         </div>
       </template>
@@ -673,33 +674,32 @@
     done()
   }
   // 删除菜单
-  const deleteMenu = (ID) => {
-    ElMessageBox.confirm(
-      '此操作将永久删除所有角色下该菜单, 是否继续?',
-      '提示',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    )
-      .then(async () => {
-        const res = await deleteBaseMenu({ ID })
-        if (res.code === 0) {
-          ElMessage({
-            type: 'success',
-            message: '删除成功!'
-          })
-
-          getTableData()
+  const deletingMenuId = ref(null)
+  const deleteMenu = async (ID) => {
+    if (deletingMenuId.value !== null) return
+    deletingMenuId.value = ID
+    try {
+      const confirmed = await ElMessageBox.confirm(
+        '此操作将永久删除所有角色下该菜单, 是否继续?',
+        '提示',
+        {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
         }
-      })
-      .catch(() => {
+      ).catch(() => false)
+      if (!confirmed) return
+      const res = await deleteBaseMenu({ ID })
+      if (res.code === 0) {
         ElMessage({
-          type: 'info',
-          message: '已取消删除'
+          type: 'success',
+          message: '删除成功!'
         })
-      })
+        await getTableData()
+      }
+    } finally {
+      deletingMenuId.value = null
+    }
   }
   // 初始化弹窗内表格方法
   const menuForm = ref(null)
@@ -726,31 +726,36 @@
   // 关闭弹窗
 
   const dialogFormVisible = ref(false)
+  const menuSubmitting = ref(false)
   const closeDialog = () => {
     initForm()
     dialogFormVisible.value = false
   }
   // 添加menu
   const enterDialog = async () => {
-    menuForm.value.validate(async (valid) => {
-      if (valid) {
-        let res
-        if (isEdit.value) {
-          res = await updateBaseMenu(form.value)
-        } else {
-          res = await addBaseMenu(form.value)
-        }
-        if (res.code === 0) {
-          ElMessage({
-            type: 'success',
-            message: isEdit.value ? '编辑成功' : '添加成功，请到角色管理页面分配权限'
-          })
-          getTableData()
-        }
-        initForm()
-        dialogFormVisible.value = false
+    if (menuSubmitting.value) return
+    menuSubmitting.value = true
+    try {
+      const valid = await menuForm.value.validate().catch(() => false)
+      if (!valid) return
+      let res
+      if (isEdit.value) {
+        res = await updateBaseMenu(form.value)
+      } else {
+        res = await addBaseMenu(form.value)
       }
-    })
+      if (res.code === 0) {
+        ElMessage({
+          type: 'success',
+          message: isEdit.value ? '编辑成功' : '添加成功，请到角色管理页面分配权限'
+        })
+        await getTableData()
+      }
+      initForm()
+      dialogFormVisible.value = false
+    } finally {
+      menuSubmitting.value = false
+    }
   }
 
   const menuOption = ref([

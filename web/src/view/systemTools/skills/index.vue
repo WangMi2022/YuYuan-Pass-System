@@ -96,8 +96,8 @@
                 <el-tag size="small" type="info">Skill</el-tag>
               </div>
               <div class="flex items-center gap-2">
-                <el-button icon="Download" @click="packageCurrentSkill">打包</el-button>
-                <el-button type="primary" icon="Check" @click="saveCurrentSkill">保存配置</el-button>
+                <el-button icon="Download" :loading="packagingSkill" :disabled="savingSkill" @click="packageCurrentSkill">打包</el-button>
+                <el-button type="primary" icon="Check" :loading="savingSkill" :disabled="packagingSkill" @click="saveCurrentSkill">保存配置</el-button>
               </div>
             </div>
 
@@ -495,6 +495,8 @@
   const skillFilter = ref('')
   const activeTab = ref('config')
   const globalConstraintExists = ref(false)
+  const savingSkill = ref(false)
+  const packagingSkill = ref(false)
 
   const toolDirMap = {
     copilot: '.aone_copilot',
@@ -763,6 +765,7 @@
   }
 
   async function saveCurrentSkill() {
+    if (savingSkill.value || packagingSkill.value) return
     if (!activeSkill.value) return
     if (!form.name.trim()) {
       ElMessage.warning('Name 不能为空')
@@ -781,31 +784,32 @@
       markdown: form.markdown
     }
 
-    let syncTools = []
+    savingSkill.value = true
     try {
-      await ElMessageBox.confirm('是否同步到其他 AI 客户端工具？', '同步提示', {
-        confirmButtonText: '同步',
-        cancelButtonText: '仅当前',
-        type: 'warning'
-      })
-      syncTools = tools.value
-        .map((item) => item.key)
-        .filter((key) => key && key !== activeTool.value)
-    } catch (e) {
-      syncTools = []
-    }
-
-    if (syncTools.length) {
-      payload.syncTools = syncTools
-    }
-
-    try {
+      let syncTools = []
+      try {
+        await ElMessageBox.confirm('是否同步到其他 AI 客户端工具？', '同步提示', {
+          confirmButtonText: '同步',
+          cancelButtonText: '仅当前',
+          type: 'warning'
+        })
+        syncTools = tools.value
+          .map((item) => item.key)
+          .filter((key) => key && key !== activeTool.value)
+      } catch (e) {
+        syncTools = []
+      }
+      if (syncTools.length) {
+        payload.syncTools = syncTools
+      }
       const res = await saveSkill(payload)
       if (res.code === 0) {
         ElMessage.success('保存成功')
       }
     } catch (e) {
       ElMessage.error('保存失败')
+    } finally {
+      savingSkill.value = false
     }
   }
 
@@ -824,10 +828,12 @@
   }
 
   async function packageCurrentSkill() {
+    if (packagingSkill.value || savingSkill.value) return
     if (!activeTool.value || !activeSkill.value) {
       ElMessage.warning('请先选择技能')
       return
     }
+    packagingSkill.value = true
     try {
       const res = await packageSkill({ tool: activeTool.value, skill: activeSkill.value })
       const blob = res instanceof Blob ? res : (res?.data instanceof Blob ? res.data : null)
@@ -869,6 +875,8 @@
       ElMessage.success('打包成功')
     } catch (e) {
       ElMessage.error('打包失败')
+    } finally {
+      packagingSkill.value = false
     }
   }
 

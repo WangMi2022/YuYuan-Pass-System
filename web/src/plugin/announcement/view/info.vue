@@ -62,8 +62,8 @@
             </el-select>
           </el-form-item>
           <div class="filter-actions">
-            <el-button type="primary" icon="search" @click="onSubmit">查询</el-button>
-            <el-button icon="refresh" @click="onReset">重置</el-button>
+            <el-button type="primary" icon="search" :loading="listAction === 'search'" @click="onSubmit">查询</el-button>
+            <el-button icon="refresh" :loading="listAction === 'reset'" @click="onReset">重置</el-button>
           </div>
         </div>
       </el-form>
@@ -79,6 +79,7 @@
           icon="delete"
           text
           type="danger"
+          :loading="batchDeleting"
           :disabled="!multipleSelection.length"
           @click="onDelete"
         >
@@ -88,6 +89,7 @@
 
       <el-table
         ref="multipleTable"
+        v-loading="loading && !loaded"
         :data="tableData"
         row-key="ID"
         @selection-change="handleSelectionChange"
@@ -129,8 +131,8 @@
         <el-table-column align="center" label="操作" fixed="right" width="136">
           <template #default="scope">
             <div class="announcement-actions">
-              <el-button type="primary" link icon="edit" @click="updateInfoFunc(scope.row)">变更</el-button>
-              <el-button type="danger" link icon="delete" @click="deleteRow(scope.row)">删除</el-button>
+              <el-button type="primary" link icon="edit" :loading="editingId === scope.row.ID" @click="updateInfoFunc(scope.row)">变更</el-button>
+              <el-button type="danger" link icon="delete" :loading="deletingId === scope.row.ID" @click="deleteRow(scope.row)">删除</el-button>
             </div>
           </template>
         </el-table-column>
@@ -178,11 +180,13 @@
           <div class="drawer-actions">
             <el-button
               v-if="formData.ID && formData.status === 'published'"
+              :loading="extractingSchedule"
+              :disabled="Boolean(submittingStatus)"
               @click="extractScheduleDraft"
             >提取日程草稿</el-button>
-            <el-button @click="enterDialog('draft')">{{ formData.status === 'published' ? '转为草稿' : '保存草稿' }}</el-button>
-            <el-button type="primary" @click="enterDialog('published')">{{ formData.status === 'published' ? '保存修改' : '发布公告' }}</el-button>
-            <el-button @click="closeDialog"> 取 消 </el-button>
+            <el-button :loading="submittingStatus === 'draft'" :disabled="submittingStatus === 'published' || extractingSchedule" @click="enterDialog('draft')">{{ formData.status === 'published' ? '转为草稿' : '保存草稿' }}</el-button>
+            <el-button type="primary" :loading="submittingStatus === 'published'" :disabled="submittingStatus === 'draft' || extractingSchedule" @click="enterDialog('published')">{{ formData.status === 'published' ? '保存修改' : '发布公告' }}</el-button>
+            <el-button :disabled="Boolean(submittingStatus) || extractingSchedule" @click="closeDialog"> 取 消 </el-button>
           </div>
         </div>
       </template>
@@ -304,20 +308,39 @@
   const pageSize = ref(10)
   const tableData = ref([])
   const searchInfo = ref({})
+  const loading = ref(false)
+  const loaded = ref(false)
+  const listAction = ref('')
+  const deletingId = ref(0)
+  const batchDeleting = ref(false)
+  const editingId = ref(0)
+  const submittingStatus = ref('')
+  const extractingSchedule = ref(false)
 
   // 重置
-  const onReset = () => {
+  const onReset = async () => {
+    if (listAction.value) return
     searchInfo.value = {}
-    getTableData()
+    listAction.value = 'reset'
+    try {
+      await getTableData()
+    } finally {
+      listAction.value = ''
+    }
   }
 
   // 搜索
-  const onSubmit = () => {
-    elSearchFormRef.value?.validate(async (valid) => {
+  const onSubmit = async () => {
+    if (listAction.value) return
+    listAction.value = 'search'
+    try {
+      const valid = await elSearchFormRef.value?.validate().catch(() => false)
       if (!valid) return
       page.value = 1
-      getTableData()
-    })
+      await getTableData()
+    } finally {
+      listAction.value = ''
+    }
   }
 
   // 分页
@@ -334,16 +357,22 @@
 
   // 查询
   const getTableData = async () => {
-    const table = await getInfoList({
-      page: page.value,
-      pageSize: pageSize.value,
-      ...searchInfo.value
-    })
-    if (table.code === 0) {
-      tableData.value = table.data.list
-      total.value = table.data.total
-      page.value = table.data.page
-      pageSize.value = table.data.pageSize
+    loading.value = true
+    try {
+      const table = await getInfoList({
+        page: page.value,
+        pageSize: pageSize.value,
+        ...searchInfo.value
+      })
+      if (table.code === 0) {
+        tableData.value = table.data.list
+        total.value = table.data.total
+        page.value = table.data.page
+        pageSize.value = table.data.pageSize
+      }
+    } finally {
+      loading.value = false
+      loaded.value = true
     }
   }
 
@@ -359,35 +388,38 @@
   }
 
   // 删除行
-  const deleteRow = (row) => {
-    ElMessageBox.confirm('确定要删除吗?', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }).then(() => {
-      deleteInfoFunc(row)
-    })
+  const deleteRow = async (row) => {
+    if (!row?.ID || deletingId.value) return
+    deletingId.value = row.ID
+    try {
+      const confirmed = await ElMessageBox.confirm('确定要删除吗?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).catch(() => false)
+      if (!confirmed) return
+      await deleteInfoFunc(row)
+    } finally {
+      deletingId.value = 0
+    }
   }
 
   // 多选删除
   const onDelete = async () => {
-    ElMessageBox.confirm('确定要删除吗?', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }).then(async () => {
-      const IDs = []
-      if (multipleSelection.value.length === 0) {
-        ElMessage({
-          type: 'warning',
-          message: '请选择要删除的数据'
-        })
-        return
-      }
-      multipleSelection.value &&
-        multipleSelection.value.map((item) => {
-          IDs.push(item.ID)
-        })
+    if (batchDeleting.value) return
+    if (multipleSelection.value.length === 0) {
+      ElMessage({ type: 'warning', message: '请选择要删除的数据' })
+      return
+    }
+    const IDs = multipleSelection.value.map((item) => item.ID)
+    batchDeleting.value = true
+    try {
+      const confirmed = await ElMessageBox.confirm('确定要删除吗?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).catch(() => false)
+      if (!confirmed) return
       const res = await deleteInfoByIds({ IDs })
       if (res.code === 0) {
         ElMessage({
@@ -397,9 +429,11 @@
         if (tableData.value.length === IDs.length && page.value > 1) {
           page.value--
         }
-        getTableData()
+        await getTableData()
       }
-    })
+    } finally {
+      batchDeleting.value = false
+    }
   }
 
   // 行为控制标记（弹窗内部需要增还是改）
@@ -407,11 +441,16 @@
 
   // 更新行
   const updateInfoFunc = async (row) => {
-    const res = await findInfo({ ID: row.ID })
-    type.value = 'update'
-    if (res.code === 0) {
-      formData.value = res.data
-      dialogFormVisible.value = true
+    editingId.value = row.ID
+    try {
+      const res = await findInfo({ ID: row.ID })
+      type.value = 'update'
+      if (res.code === 0) {
+        formData.value = res.data
+        dialogFormVisible.value = true
+      }
+    } finally {
+      editingId.value = 0
     }
   }
 
@@ -426,7 +465,7 @@
       if (tableData.value.length === 1 && page.value > 1) {
         page.value--
       }
-      getTableData()
+      await getTableData()
     }
   }
 
@@ -452,7 +491,10 @@
   }
   // 弹窗确定
   const enterDialog = async (status) => {
-    elFormRef.value?.validate(async (valid) => {
+    if (submittingStatus.value) return
+    submittingStatus.value = status
+    try {
+      const valid = await elFormRef.value?.validate().catch(() => false)
       if (!valid) return
       formData.value.status = status
       let res
@@ -473,18 +515,25 @@
           message: status === 'published' ? '公告已发布' : '草稿已保存'
         })
         closeDialog()
-        getTableData()
+        await getTableData()
       }
-    })
+    } finally {
+      submittingStatus.value = ''
+    }
   }
 
   const extractScheduleDraft = async () => {
-    if (!formData.value.ID) return
-    const res = await extractAnnouncementSchedule({ announcementId: formData.value.ID })
-    if (res.code === 0) {
-      ElMessage({ type: 'success', message: '日程草稿已生成，请到智能中心确认' })
-    } else {
-      ElMessage({ type: 'error', message: res.msg || '日程提取失败' })
+    if (!formData.value.ID || extractingSchedule.value) return
+    extractingSchedule.value = true
+    try {
+      const res = await extractAnnouncementSchedule({ announcementId: formData.value.ID })
+      if (res.code === 0) {
+        ElMessage({ type: 'success', message: '日程草稿已生成，请到智能中心确认' })
+      } else {
+        ElMessage({ type: 'error', message: res.msg || '日程提取失败' })
+      }
+    } finally {
+      extractingSchedule.value = false
     }
   }
 

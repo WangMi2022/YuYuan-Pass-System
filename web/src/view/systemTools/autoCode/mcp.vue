@@ -72,7 +72,7 @@
       </div>
 
       <div class="flex justify-end mt-8">
-        <el-button type="primary" @click="submit">生成</el-button>
+        <el-button type="primary" :loading="submitting" @click="submit">生成</el-button>
       </div>
     </el-form>
   </div>
@@ -88,6 +88,7 @@ defineOptions({
 })
 
 const formRef = ref(null)
+const submitting = ref(false)
 const form = reactive({
   name: '',
   description: '',
@@ -125,8 +126,11 @@ function removeResponse(index) {
   form.response.splice(index, 1)
 }
 
-function submit() {
-  formRef.value.validate(async (valid) => {
+async function submit() {
+  if (submitting.value) return
+  submitting.value = true
+  try {
+    const valid = await formRef.value.validate().catch(() => false)
     if (!valid) return
     // 简单校验参数
     for (const p of form.params) {
@@ -142,10 +146,12 @@ function submit() {
         return
       }
     }
-      const res = await mcp(form)
-      if (res.code === 0) {
-        ElMessage.success(res.msg)
-      }
-  })
+    const res = await mcp(form)
+    if (res.code === 0) {
+      ElMessage.success(res.msg)
+    }
+  } finally {
+    submitting.value = false
+  }
 }
 </script>

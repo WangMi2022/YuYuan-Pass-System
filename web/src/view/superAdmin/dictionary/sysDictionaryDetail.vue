@@ -163,7 +163,7 @@
           }}</span>
           <div>
             <el-button @click="closeDrawer"> 取 消 </el-button>
-            <el-button type="primary" @click="enterDrawer"> 确 定 </el-button>
+            <el-button type="primary" :loading="drawerSubmitting" @click="enterDrawer"> 确 定 </el-button>
           </div>
         </div>
       </template>
@@ -367,6 +367,7 @@
 
   const type = ref('')
   const drawerFormVisible = ref(false)
+  const drawerSubmitting = ref(false)
 
   const updateSysDictionaryDetailFunc = async (row) => {
     drawerForm.value && drawerForm.value.clearValidate()
@@ -429,7 +430,10 @@
 
   const drawerForm = ref(null)
   const enterDrawer = async () => {
-    drawerForm.value.validate(async (valid) => {
+    if (drawerSubmitting.value) return
+    drawerSubmitting.value = true
+    try {
+      const valid = await drawerForm.value.validate().catch(() => false)
       formData.value.sysDictionaryID = props.sysDictionaryID
       if (!valid) return
       let res
@@ -452,7 +456,9 @@
         closeDrawer()
         await getTreeData() // 重新加载数据
       }
-    })
+    } finally {
+      drawerSubmitting.value = false
+    }
   }
 
   const openDrawer = () => {

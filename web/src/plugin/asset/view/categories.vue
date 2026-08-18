@@ -68,7 +68,7 @@
         <el-table-column label="操作" width="150" fixed="right" align="center">
           <template #default="{ row }">
             <el-button size="small" type="primary" link :icon="Edit" @click="openEdit(row)">编辑</el-button>
-            <el-button size="small" type="danger" link :icon="Delete" :disabled="row.assetKinds > 0" @click="removeCategory(row)">删除</el-button>
+            <el-button size="small" type="danger" link :icon="Delete" :loading="deletingId === row.ID" :disabled="row.assetKinds > 0" @click="removeCategory(row)">删除</el-button>
           </template>
         </el-table-column>
         <template #empty>
@@ -102,7 +102,7 @@
         <el-table-column label="操作" width="150" fixed="right" align="center">
           <template #default="{ row }">
             <el-button size="small" type="primary" link :icon="Edit" @click="openEdit(row)">编辑</el-button>
-            <el-button size="small" type="danger" link :icon="Delete" @click="removeLocation(row)">删除</el-button>
+            <el-button size="small" type="danger" link :icon="Delete" :loading="deletingId === row.ID" @click="removeLocation(row)">删除</el-button>
           </template>
         </el-table-column>
         <template #empty>
@@ -230,6 +230,7 @@ const locationDialogVisible = ref(false)
 const editing = ref(false)
 const saving = ref(false)
 const switchingId = ref(0)
+const deletingId = ref(0)
 const categoryFormRef = ref()
 const locationFormRef = ref()
 const categoryForm = ref(emptyCategoryForm())
@@ -279,10 +280,11 @@ const openEdit = (row) => {
 }
 
 const saveCategory = async () => {
-  const valid = await categoryFormRef.value?.validate().catch(() => false)
-  if (!valid) return
+  if (saving.value) return
   saving.value = true
   try {
+    const valid = await categoryFormRef.value?.validate().catch(() => false)
+    if (!valid) return
     const res = editing.value ? await updateCategory(categoryForm.value) : await createCategory(categoryForm.value)
     if (res.code === 0) {
       ElMessage.success(editing.value ? '分类已更新' : '分类已创建')
@@ -293,10 +295,11 @@ const saveCategory = async () => {
 }
 
 const saveLocation = async () => {
-  const valid = await locationFormRef.value?.validate().catch(() => false)
-  if (!valid) return
+  if (saving.value) return
   saving.value = true
   try {
+    const valid = await locationFormRef.value?.validate().catch(() => false)
+    if (!valid) return
     const data = { ...locationForm.value, type: activeTab.value }
     const res = editing.value ? await updateLocation(data) : await createLocation(data)
     if (res.code === 0) {
@@ -319,19 +322,25 @@ const toggleLocation = async (row) => {
 }
 
 const removeCategory = async (row) => {
+  if (!row?.ID || deletingId.value) return
+  deletingId.value = row.ID
   try {
-    await ElMessageBox.confirm(`确定删除分类“${row.name}”吗？`, '删除确认', { type: 'warning' })
-  } catch { return }
-  const res = await deleteCategory({ id: row.ID })
-  if (res.code === 0) { ElMessage.success('分类已删除'); categoryList.reloadAfterRemoval() }
+    const confirmed = await ElMessageBox.confirm(`确定删除分类“${row.name}”吗？`, '删除确认', { type: 'warning' }).catch(() => false)
+    if (!confirmed) return
+    const res = await deleteCategory({ id: row.ID })
+    if (res.code === 0) { ElMessage.success('分类已删除'); await categoryList.reloadAfterRemoval() }
+  } finally { deletingId.value = 0 }
 }
 
 const removeLocation = async (row) => {
+  if (!row?.ID || deletingId.value) return
+  deletingId.value = row.ID
   try {
-    await ElMessageBox.confirm(`确定删除${activeLocation.value.label}“${row.name}”吗？历史单据中的位置记录不受影响。`, '删除确认', { type: 'warning' })
-  } catch { return }
-  const res = await deleteLocation({ id: row.ID })
-  if (res.code === 0) { ElMessage.success('位置已删除'); locationList.reloadAfterRemoval() }
+    const confirmed = await ElMessageBox.confirm(`确定删除${activeLocation.value.label}“${row.name}”吗？历史单据中的位置记录不受影响。`, '删除确认', { type: 'warning' }).catch(() => false)
+    if (!confirmed) return
+    const res = await deleteLocation({ id: row.ID })
+    if (res.code === 0) { ElMessage.success('位置已删除'); await locationList.reloadAfterRemoval() }
+  } finally { deletingId.value = 0 }
 }
 
 onMounted(() => categoryList.load())

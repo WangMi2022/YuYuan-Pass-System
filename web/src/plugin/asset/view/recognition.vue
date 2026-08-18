@@ -33,7 +33,7 @@
         <el-table-column label="状态" width="120"><template #default="{ row }"><el-tag :type="statusMeta(row.status).type">{{ statusMeta(row.status).label }}</el-tag></template></el-table-column>
         <el-table-column label="尝试" width="82" align="right"><template #default="{ row }">{{ row.attempts || 0 }} / {{ row.maxAttempts || 3 }}</template></el-table-column>
         <el-table-column label="更新时间" width="170"><template #default="{ row }">{{ dateText(row.updatedAt || row.createdAt) }}</template></el-table-column>
-        <el-table-column label="操作" width="190" fixed="right"><template #default="{ row }"><el-button link type="primary" @click="openJob(row)">查看任务</el-button><el-button v-if="row.status === 'failed'" link type="warning" @click="retryJob(row)">重试</el-button><el-button v-if="!['completed', 'processing'].includes(row.status)" link type="danger" @click="deleteJob(row)">{{ row.status === 'deleting' ? '重试删除' : '删除' }}</el-button></template></el-table-column>
+        <el-table-column label="操作" width="190" fixed="right"><template #default="{ row }"><el-button link type="primary" @click="openJob(row)">查看任务</el-button><el-button v-if="row.status === 'failed'" link type="warning" :loading="retryingId === row.ID" @click="retryJob(row)">重试</el-button><el-button v-if="!['completed', 'processing'].includes(row.status)" link type="danger" :loading="deletingId === row.ID" @click="deleteJob(row)">{{ row.status === 'deleting' ? '重试删除' : '删除' }}</el-button></template></el-table-column>
         <template #empty>
           <AppEmptyState
             compact
@@ -139,6 +139,8 @@ const detailLoading = ref(false)
 const saving = ref(false)
 const confirming = ref(false)
 const retrying = ref(false)
+const retryingId = ref(null)
+const deletingId = ref(null)
 const detailVisible = ref(false)
 const activeJob = ref(null)
 const draft = ref(emptyDraft())
@@ -211,11 +213,13 @@ const saveDraft = async () => {
   } finally { saving.value = false }
 }
 const confirmJob = async () => {
-  const valid = await draftFormRef.value?.validate().catch(() => false)
-  if (!valid || !activeJob.value) return
-  await ElMessageBox.confirm('确认后将创建正式资产，任务与资产关系不可撤销。', '确认建档', { type: 'warning', confirmButtonText: '确认建档', cancelButtonText: '再检查' })
+  if (confirming.value) return
   confirming.value = true
   try {
+    const valid = await draftFormRef.value?.validate().catch(() => false)
+    if (!valid || !activeJob.value) return
+    const confirmed = await ElMessageBox.confirm('确认后将创建正式资产，任务与资产关系不可撤销。', '确认建档', { type: 'warning', confirmButtonText: '确认建档', cancelButtonText: '再检查' }).catch(() => false)
+    if (!confirmed) return
     const saved = await saveAssetRecognitionDraft({ id: activeJob.value.ID, draft: draft.value })
     if (saved?.code !== 0) return
     const response = await confirmAssetRecognition({ id: activeJob.value.ID })
@@ -223,16 +227,28 @@ const confirmJob = async () => {
   } finally { confirming.value = false }
 }
 const retryJob = async (row) => {
+  if (!row?.ID || retryingId.value !== null) return
+  retryingId.value = row.ID
   retrying.value = true
   try {
     const response = await retryAssetRecognition({ id: row.ID })
     if (response?.code === 0) { ElMessage.success('任务已重新排队'); await loadJobs(); if (activeJob.value?.ID === row.ID) { await refreshActiveJob(); startPolling() } }
-  } finally { retrying.value = false }
+  } finally {
+    retrying.value = false
+    retryingId.value = null
+  }
 }
 const deleteJob = async (row) => {
-  await ElMessageBox.confirm('删除后会清理本次任务图片，不能恢复。', '删除任务', { type: 'warning', confirmButtonText: '确认删除', cancelButtonText: '取消' })
-  const response = await deleteAssetRecognition({ id: row.ID })
-  if (response?.code === 0) { ElMessage.success('识别任务已删除'); if (activeJob.value?.ID === row.ID) { detailVisible.value = false; stopPolling() } await loadJobs() }
+  if (!row?.ID || deletingId.value !== null) return
+  deletingId.value = row.ID
+  try {
+    const confirmed = await ElMessageBox.confirm('删除后会清理本次任务图片，不能恢复。', '删除任务', { type: 'warning', confirmButtonText: '确认删除', cancelButtonText: '取消' }).catch(() => false)
+    if (!confirmed) return
+    const response = await deleteAssetRecognition({ id: row.ID })
+    if (response?.code === 0) { ElMessage.success('识别任务已删除'); if (activeJob.value?.ID === row.ID) { detailVisible.value = false; stopPolling() } await loadJobs() }
+  } finally {
+    deletingId.value = null
+  }
 }
 
 onMounted(async () => { await loadCategories(); await loadJobs() })

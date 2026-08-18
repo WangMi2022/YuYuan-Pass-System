@@ -78,7 +78,7 @@
 
           <div v-if="selectedEvents.length" class="batch-toolbar">
             <span>已选择 {{ selectedEvents.length }} 条</span>
-            <el-button type="primary" plain :icon="Check" @click="acknowledgeSelected">批量确认</el-button>
+            <el-button type="primary" plain :icon="Check" :loading="batchAcknowledging" @click="acknowledgeSelected">批量确认</el-button>
             <el-button :icon="User" @click="openAssign(selectedEvents)">批量分配</el-button>
           </div>
 
@@ -182,7 +182,7 @@
             <el-table-column label="完成时间" width="166"><template #default="{ row }">{{ formatDate(row.finishedAt) || '—' }}</template></el-table-column>
             <el-table-column label="结果" min-width="220"><template #default="{ row }"><span class="scan-error">{{ row.errorMessage || '扫描过程正常' }}</span></template></el-table-column>
             <el-table-column label="操作" width="100" fixed="right" align="center">
-              <template #default="{ row }"><el-button v-if="canResumeScan(row)" type="primary" link :icon="RefreshRight" @click="startScan(row.ID)">继续扫描</el-button><span v-else>—</span></template>
+              <template #default="{ row }"><el-button v-if="canResumeScan(row)" type="primary" link :icon="RefreshRight" :loading="scanStarting && resumingScanId === row.ID" @click="startScan(row.ID)">继续扫描</el-button><span v-else>—</span></template>
             </el-table-column>
           </el-table>
         </el-tab-pane>
@@ -240,7 +240,7 @@
       <template #footer>
         <div v-if="detail.event" class="detail-actions">
           <el-button :icon="User" @click="openAssign([detail.event])">{{ detail.event.assignedTo ? '重新分配' : '分配处理人' }}</el-button>
-          <el-button v-if="detail.event.status === 'open'" type="primary" plain :icon="Check" @click="acknowledgeOne">确认风险</el-button>
+          <el-button v-if="detail.event.status === 'open'" type="primary" plain :icon="Check" :loading="acknowledgingOne" @click="acknowledgeOne">确认风险</el-button>
           <el-button v-if="['open', 'acknowledged'].includes(detail.event.status)" type="success" :icon="CircleCheck" @click="openAction('resolve')">标记解决</el-button>
           <el-button v-if="['open', 'acknowledged'].includes(detail.event.status)" type="warning" plain :icon="Hide" @click="openAction('ignore')">忽略</el-button>
           <el-button v-if="['resolved', 'ignored'].includes(detail.event.status)" type="primary" :icon="RefreshRight" @click="openAction('reopen')">重新打开</el-button>
@@ -321,6 +321,9 @@ const appStore = useAppStore()
 const activeTab = ref('events')
 const refreshing = ref(false)
 const scanStarting = ref(false)
+const resumingScanId = ref(0)
+const batchAcknowledging = ref(false)
+const acknowledgingOne = ref(false)
 const activeScan = ref(null)
 const dashboardLoading = ref(false)
 const dashboardLoaded = ref(false)
@@ -515,6 +518,7 @@ const handleTabChange = (name) => { if (name === 'rules' && !rules.value.length)
 
 const startScan = async (runId = 0) => {
   if (scanInProgress.value) return
+  resumingScanId.value = runId
   scanStarting.value = true
   try {
     const res = await startAssetRiskScan({ runId })
@@ -524,6 +528,7 @@ const startScan = async (runId = 0) => {
     ElMessage.success(runId ? '扫描任务已从上次游标继续' : '资产风险扫描已启动')
   } finally {
     scanStarting.value = false
+    resumingScanId.value = 0
   }
 }
 
@@ -571,19 +576,28 @@ const formatEvidence = (value) => {
 
 const isSelectableRisk = (row) => row.status === 'open'
 const acknowledgeSelected = async () => {
+  if (batchAcknowledging.value) return
   const ids = selectedEvents.value.filter((item) => item.status === 'open').map((item) => item.ID)
   if (!ids.length) return ElMessage.warning('请选择待处理风险')
+  batchAcknowledging.value = true
   try {
-    await ElMessageBox.confirm(`确认接手 ${ids.length} 条风险？`, '批量确认', { type: 'warning' })
-  } catch {
-    return
+    const confirmed = await ElMessageBox.confirm(`确认接手 ${ids.length} 条风险？`, '批量确认', { type: 'warning' }).catch(() => false)
+    if (!confirmed) return
+    const res = await acknowledgeAssetRisk({ ids, note: '批量确认并进入处理' })
+    if (res.code === 0) { ElMessage.success('风险已确认'); await Promise.all([loadEvents(), loadDashboard()]) }
+  } finally {
+    batchAcknowledging.value = false
   }
-  const res = await acknowledgeAssetRisk({ ids, note: '批量确认并进入处理' })
-  if (res.code === 0) { ElMessage.success('风险已确认'); await Promise.all([loadEvents(), loadDashboard()]) }
 }
 const acknowledgeOne = async () => {
-  const res = await acknowledgeAssetRisk({ ids: [detail.value.event.ID], note: '已确认并进入处理' })
-  if (res.code === 0) { ElMessage.success('风险已确认'); await Promise.all([refreshDetail(), loadEvents(), loadDashboard()]) }
+  if (acknowledgingOne.value) return
+  acknowledgingOne.value = true
+  try {
+    const res = await acknowledgeAssetRisk({ ids: [detail.value.event.ID], note: '已确认并进入处理' })
+    if (res.code === 0) { ElMessage.success('风险已确认'); await Promise.all([refreshDetail(), loadEvents(), loadDashboard()]) }
+  } finally {
+    acknowledgingOne.value = false
+  }
 }
 
 const actionVisible = ref(false)

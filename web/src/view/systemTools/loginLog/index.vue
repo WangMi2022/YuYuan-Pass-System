@@ -64,7 +64,8 @@
           type="danger"
           plain
           :icon="Delete"
-          :disabled="!multipleSelection.length"
+          :disabled="!multipleSelection.length || bulkDeleting"
+          :loading="bulkDeleting"
           @click="onDelete"
         >
           删除选中<span v-if="multipleSelection.length">（{{ multipleSelection.length }}）</span>
@@ -144,6 +145,7 @@ import AppPageHeader from '@/components/page/AppPageHeader.vue'
 import LogClearButton from '@/components/logClearButton/index.vue'
 
 const multipleSelection = ref([])
+const bulkDeleting = ref(false)
 
 const {
   search: searchInfo,
@@ -195,21 +197,28 @@ const deleteRow = async (row) => {
 }
 
 const onDelete = async() => {
-    ElMessageBox.confirm('确定要删除吗?', '提示', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-    }).then(async() => {
-        const ids = multipleSelection.value.map(item => item.ID)
-        const res = await deleteLoginLogByIds({ ids })
-        if (res.code === 0) {
-            ElMessage({
-                type: 'success',
-                message: '删除成功'
-            })
-            reloadAfterRemoval(ids.length)
-        }
-    })
+  if (bulkDeleting.value) return
+  const ids = multipleSelection.value.map(item => item.ID)
+  if (!ids.length) return
+  bulkDeleting.value = true
+  try {
+    const confirmed = await ElMessageBox.confirm('确定要删除吗?', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }).catch(() => false)
+    if (!confirmed) return
+    const res = await deleteLoginLogByIds({ ids })
+    if (res.code === 0) {
+      ElMessage({
+        type: 'success',
+        message: '删除成功'
+      })
+      await reloadAfterRemoval(ids.length)
+    }
+  } finally {
+    bulkDeleting.value = false
+  }
 }
 
 // 首次加载

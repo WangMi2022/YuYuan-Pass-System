@@ -1,5 +1,5 @@
 <template>
-  <el-button type="primary" icon="download" @click="exportExcelFunc"
+  <el-button type="primary" icon="download" :loading="exporting" @click="exportExcelFunc"
     >导出</el-button
   >
 </template>
@@ -7,6 +7,7 @@
 <script setup>
 
 import { exportExcel } from '@/api/exportTemplate'
+import { ref } from 'vue'
 
   const props = defineProps({
     filterDeleted: {
@@ -37,7 +38,10 @@ import { exportExcel } from '@/api/exportTemplate'
 
   import { ElMessage } from 'element-plus'
 
+  const exporting = ref(false)
+
   const exportExcelFunc = async () => {
+    if (exporting.value) return
     if (props.templateId === '') {
       ElMessage.error('组件未设置模板ID')
       return
@@ -68,17 +72,20 @@ import { exportExcel } from '@/api/exportTemplate'
       )
       .join('&')
 
-    const res = await exportExcel({
-      templateID: props.templateId,
-      params
-    })
+    exporting.value = true
+    try {
+      const res = await exportExcel({
+        templateID: props.templateId,
+        params
+      })
 
-    if(res.code === 0){
-      ElMessage.success('创建导出任务成功，开始下载')
-      const url = `${baseUrl}${res.data}`
-      window.open(url, '_blank')
+      if(res.code === 0){
+        ElMessage.success('创建导出任务成功，开始下载')
+        const url = `${baseUrl}${res.data}`
+        window.open(url, '_blank')
+      }
+    } finally {
+      exporting.value = false
     }
-
-
   }
 </script>

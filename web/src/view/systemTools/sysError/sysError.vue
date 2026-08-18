@@ -83,7 +83,8 @@
           type="danger"
           plain
           :icon="Delete"
-          :disabled="!multipleSelection.length"
+          :disabled="!multipleSelection.length || bulkDeleting"
+          :loading="bulkDeleting"
           @click="onDelete"
         >
           删除选中<span v-if="multipleSelection.length">（{{ multipleSelection.length }}）</span>
@@ -328,6 +329,7 @@
 
   // 多选数据
   const multipleSelection = ref([])
+  const bulkDeleting = ref(false)
   // 多选
   const handleSelectionChange = (val) => {
     multipleSelection.value = val
@@ -346,32 +348,28 @@
 
   // 多选删除
   const onDelete = async () => {
-    ElMessageBox.confirm('确定要删除吗?', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }).then(async () => {
-      const IDs = []
-      if (multipleSelection.value.length === 0) {
-        ElMessage({
-          type: 'warning',
-          message: '请选择要删除的数据'
-        })
-        return
-      }
-      multipleSelection.value &&
-        multipleSelection.value.map((item) => {
-          IDs.push(item.ID)
-        })
+    if (bulkDeleting.value) return
+    const IDs = multipleSelection.value.map((item) => item.ID)
+    if (!IDs.length) return
+    bulkDeleting.value = true
+    try {
+      const confirmed = await ElMessageBox.confirm('确定要删除吗?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).catch(() => false)
+      if (!confirmed) return
       const res = await deleteSysErrorByIds({ IDs })
       if (res.code === 0) {
         ElMessage({
           type: 'success',
           message: '删除成功'
         })
-        reloadAfterRemoval(IDs.length)
+        await reloadAfterRemoval(IDs.length)
       }
-    })
+    } finally {
+      bulkDeleting.value = false
+    }
   }
 
   const handleLogsCleared = () => {

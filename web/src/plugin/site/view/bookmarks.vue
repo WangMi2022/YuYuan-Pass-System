@@ -78,7 +78,7 @@
             <div class="site-actions" @click.stop>
               <el-button type="primary" plain :icon="Position" @click="openSite(row)">打开</el-button>
               <el-button plain :icon="Edit" @click="openEdit(row)">编辑</el-button>
-              <el-button type="danger" plain :icon="Delete" @click="removeSite(row)">删除</el-button>
+              <el-button type="danger" plain :icon="Delete" :loading="deletingId === row.ID" @click="removeSite(row)">删除</el-button>
             </div>
           </footer>
         </article>
@@ -149,6 +149,7 @@ import AppEmptyState from '@/components/page/AppEmptyState.vue'
 import { usePagedList } from '@/hooks/usePagedList'
 
 const saving = ref(false)
+const deletingId = ref(null)
 const dialogVisible = ref(false)
 const editing = ref(false)
 const formRef = ref(null)
@@ -255,19 +256,22 @@ const openSite = async (row) => {
 }
 
 const removeSite = async (row) => {
+  if (!row?.ID || deletingId.value !== null) return
+  deletingId.value = row.ID
   try {
-    await ElMessageBox.confirm(`确定删除站点“${row.name}”吗？`, '删除确认', {
+    const confirmed = await ElMessageBox.confirm(`确定删除站点“${row.name}”吗？`, '删除确认', {
       type: 'warning',
       confirmButtonText: '删除',
       cancelButtonText: '取消'
-    })
-  } catch {
-    return
-  }
-  const res = await deleteSite({ id: row.ID })
-  if (res.code === 0) {
-    ElMessage.success('站点已删除')
-    await Promise.all([loadSites(), loadCategories()])
+    }).catch(() => false)
+    if (!confirmed) return
+    const res = await deleteSite({ id: row.ID })
+    if (res.code === 0) {
+      ElMessage.success('站点已删除')
+      await Promise.all([loadSites(), loadCategories()])
+    }
+  } finally {
+    deletingId.value = null
   }
 }
 

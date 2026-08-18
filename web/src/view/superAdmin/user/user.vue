@@ -115,6 +115,7 @@
               type="primary"
               link
               icon="delete"
+              :loading="deletingUserId === scope.row.ID"
               @click="deleteUserFunc(scope.row)"
               >删除</el-button
             >
@@ -451,18 +452,25 @@
       })
   }
 
+  const deletingUserId = ref(null)
   const deleteUserFunc = async (row) => {
-    ElMessageBox.confirm('确定要删除吗?', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }).then(async () => {
+    if (!row?.ID || deletingUserId.value !== null) return
+    deletingUserId.value = row.ID
+    try {
+      const confirmed = await ElMessageBox.confirm('确定要删除吗?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).catch(() => false)
+      if (!confirmed) return
       const res = await deleteUser({ id: row.ID })
       if (res.code === 0) {
         ElMessage.success('删除成功')
         await reloadAfterRemoval()
       }
-    })
+    } finally {
+      deletingUserId.value = null
+    }
   }
 
   // 弹窗相关

@@ -61,13 +61,13 @@
                 <span>{{ dateText(row.UpdatedAt || row.updatedAt) }}</span>
               </span>
             </span>
-            <el-button type="danger" link :icon="Delete" class="doc-delete" @click.stop="removeDocument(row)">删除</el-button>
+            <el-button type="danger" link :icon="Delete" class="doc-delete" :loading="deletingId === row.ID" @click.stop="removeDocument(row)">删除</el-button>
           </div>
 
           <AppEmptyState v-if="!loading && !tableData.length" compact title="文档库为空" description="上传第一份业务文档后，可在右侧查看原文件和在线版本。">
             <template #actions>
               <el-upload :show-file-list="false" :http-request="uploadFile" :before-upload="beforeUpload">
-                <el-button type="primary" :icon="UploadFilled">上传文档</el-button>
+                <el-button type="primary" :icon="UploadFilled" :loading="uploading">上传文档</el-button>
               </el-upload>
             </template>
           </AppEmptyState>
@@ -270,7 +270,7 @@
         >
           <template #actions>
             <el-upload :show-file-list="false" :http-request="uploadFile" :before-upload="beforeUpload">
-              <el-button type="primary" :icon="UploadFilled">上传文档</el-button>
+              <el-button type="primary" :icon="UploadFilled" :loading="uploading">上传文档</el-button>
             </el-upload>
           </template>
         </AppEmptyState>
@@ -347,6 +347,7 @@ const route = useRoute()
 const router = useRouter()
 const uploading = ref(false)
 const saving = ref(false)
+const deletingId = ref(0)
 const previewLoading = ref(false)
 const previewError = ref('')
 const previewSource = ref(null)
@@ -917,6 +918,7 @@ const uploadFile = async ({ file }) => {
 }
 
 const saveDocument = async () => {
+  if (saving.value) return false
   if (!editor.ID) return false
   if (!editingStarted.value) {
     ElMessage.warning('请先点击“开始编辑”后再保存')
@@ -968,23 +970,26 @@ const handlePreviewError = () => {
 }
 
 const removeDocument = async (row) => {
+  if (!row?.ID || deletingId.value) return
+  deletingId.value = row.ID
   try {
-    await ElMessageBox.confirm(`确定删除文档「${row.title || row.originalName}」吗？`, '删除确认', {
+    const confirmed = await ElMessageBox.confirm(`确定删除文档「${row.title || row.originalName}」吗？`, '删除确认', {
       type: 'warning',
       confirmButtonText: '删除',
       cancelButtonText: '取消'
-    })
-  } catch {
-    return
-  }
-  const res = await deleteDocument({ id: row.ID })
-  if (res.code === 0) {
-    ElMessage.success('删除成功')
-    if (editor.ID === row.ID) {
-      syncEditor({})
-      router.replace({ name: 'documentViewer' })
+    }).catch(() => false)
+    if (!confirmed) return
+    const res = await deleteDocument({ id: row.ID })
+    if (res.code === 0) {
+      ElMessage.success('删除成功')
+      if (editor.ID === row.ID) {
+        syncEditor({})
+        router.replace({ name: 'documentViewer' })
+      }
+      await loadDocuments()
     }
-    await loadDocuments()
+  } finally {
+    deletingId.value = 0
   }
 }
 

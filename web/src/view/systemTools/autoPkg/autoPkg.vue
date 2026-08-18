@@ -78,7 +78,7 @@
           <span class="text-lg">创建Package</span>
           <div>
             <el-button @click="closeDialog"> 取 消 </el-button>
-            <el-button type="primary" @click="enterDialog"> 确 定 </el-button>
+            <el-button type="primary" :loading="submitting" @click="enterDialog"> 确 定 </el-button>
           </div>
         </div>
       </template>
@@ -142,6 +142,7 @@
   })
 
   const dialogFormVisible = ref(false)
+  const submitting = ref(false)
   const openDialog = () => {
     dialogFormVisible.value = true
   }
@@ -158,20 +159,24 @@
 
   const pkgForm = ref(null)
   const enterDialog = async () => {
-    pkgForm.value.validate(async (valid) => {
-      if (valid) {
-        const res = await createPackageApi(form.value)
-        if (res.code === 0) {
-          ElMessage({
-            type: 'success',
-            message: '添加成功',
-            showClose: true
-          })
-        }
-        getTableData()
+    if (submitting.value) return
+    submitting.value = true
+    try {
+      const valid = await pkgForm.value.validate().catch(() => false)
+      if (!valid) return
+      const res = await createPackageApi(form.value)
+      if (res.code === 0) {
+        ElMessage({
+          type: 'success',
+          message: '添加成功',
+          showClose: true
+        })
+        await getTableData()
         closeDialog()
       }
-    })
+    } finally {
+      submitting.value = false
+    }
   }
 
   const tableData = ref([])

@@ -741,10 +741,10 @@
         <el-button type="primary" :disabled="isAdd" @click="catchData()">
           暂存
         </el-button>
-        <el-button type="primary" :disabled="isAdd" @click="enterForm(false)">
+        <el-button type="primary" :disabled="isAdd" :loading="generatingCode" @click="enterForm(false)">
           生成代码
         </el-button>
-        <el-button type="primary" @click="enterForm(true)">
+        <el-button type="primary" :loading="previewingCode" @click="enterForm(true)">
           {{ isAdd ? '查看代码' : '预览代码' }}
         </el-button>
       </div>
@@ -941,6 +941,8 @@
   }
 
   const isAdd = ref(false)
+  const generatingCode = ref(false)
+  const previewingCode = ref(false)
 
   // 行拖拽
   const rowDrop = () => {
@@ -1242,6 +1244,7 @@
   }
   const autoCodeForm = ref(null)
   const enterForm = async (isPreview) => {
+    if (generatingCode.value || previewingCode.value) return
     if (form.value.isTree && !form.value.treeJson){
       ElMessage({
         type: 'error',
@@ -1315,8 +1318,11 @@
       }
     }
 
-    autoCodeForm.value.validate(async (valid) => {
-      if (valid) {
+    const pendingState = isPreview ? previewingCode : generatingCode
+    pendingState.value = true
+    try {
+      const valid = await autoCodeForm.value.validate().catch(() => false)
+      if (!valid) return
         for (const key in form.value) {
           if (typeof form.value[key] === 'string') {
             form.value[key] = form.value[key].trim()
@@ -1374,8 +1380,9 @@
           })
           clearCatch()
         }
-      }
-    })
+    } finally {
+      pendingState.value = false
+    }
   }
 
   const dbList = ref([])

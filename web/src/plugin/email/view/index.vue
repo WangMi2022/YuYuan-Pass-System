@@ -20,8 +20,8 @@
           <el-input v-model="form.body" type="textarea" />
         </el-form-item>
         <el-form-item>
-          <el-button @click="sendTestEmail">发送测试邮件</el-button>
-          <el-button @click="sendEmail">发送邮件</el-button>
+          <el-button :loading="sendingMode === 'test'" :disabled="sendingMode === 'email'" @click="sendTestEmail">发送测试邮件</el-button>
+          <el-button :loading="sendingMode === 'email'" :disabled="sendingMode === 'test'" @click="sendEmail">发送邮件</el-button>
         </el-form-item>
       </el-form>
     </div>
@@ -39,22 +39,35 @@
   })
 
   const emailForm = ref(null)
+  const sendingMode = ref('')
   const form = reactive({
     to: '',
     subject: '',
     body: ''
   })
   const sendTestEmail = async () => {
-    const res = await emailTest()
-    if (res.code === 0) {
-      ElMessage.success('发送成功')
+    if (sendingMode.value) return
+    sendingMode.value = 'test'
+    try {
+      const res = await emailTest()
+      if (res.code === 0) {
+        ElMessage.success('发送成功')
+      }
+    } finally {
+      sendingMode.value = ''
     }
   }
 
   const sendEmail = async () => {
-    const res = await emailTest()
-    if (res.code === 0) {
-      ElMessage.success('发送成功,请查收')
+    if (sendingMode.value) return
+    sendingMode.value = 'email'
+    try {
+      const res = await emailTest()
+      if (res.code === 0) {
+        ElMessage.success('发送成功,请查收')
+      }
+    } finally {
+      sendingMode.value = ''
     }
   }
 </script>

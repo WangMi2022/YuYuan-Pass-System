@@ -54,7 +54,7 @@
     </div>
     <div class="gva-table-box">
       <div class="gva-btn-list">
-        <el-button icon="delete" :disabled="!multipleSelection.length"
+        <el-button icon="delete" :disabled="!multipleSelection.length" :loading="bulkDeleting"
           @click="onDelete">删除</el-button>
       </div>
       <el-table ref="multipleTable" v-loading="loading && !loaded" style="width: 100%" tooltip-effect="dark" :data="tableData" row-key="ID"
@@ -75,7 +75,7 @@
                 style="margin-right: 5px">
                 <InfoFilled />
               </el-icon>查看</el-button>
-            <el-button type="success" link icon="download" class="table-button"
+            <el-button type="success" link icon="download" class="table-button" :loading="downloadingVersionId === scope.row.ID"
               @click="downloadJson(scope.row)">下载发版包</el-button>
             <el-button type="primary" link icon="delete" @click="deleteRow(scope.row)">删除</el-button>
           </template>
@@ -437,6 +437,8 @@ getTableData()
 
 // 多选数据
 const multipleSelection = ref([])
+const bulkDeleting = ref(false)
+const downloadingVersionId = ref(null)
 // 多选
 const handleSelectionChange = (val) => {
   multipleSelection.value = val
@@ -455,32 +457,34 @@ const deleteRow = (row) => {
 
 // 多选删除
 const onDelete = async () => {
-  ElMessageBox.confirm('确定要删除吗?', '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(async () => {
-    const IDs = []
-    if (multipleSelection.value.length === 0) {
-      ElMessage({
-        type: 'warning',
-        message: '请选择要删除的数据'
-      })
-      return
-    }
-    multipleSelection.value &&
-      multipleSelection.value.map(item => {
-        IDs.push(item.ID)
-      })
+  if (bulkDeleting.value) return
+  const IDs = multipleSelection.value.map(item => item.ID)
+  if (!IDs.length) {
+    ElMessage({
+      type: 'warning',
+      message: '请选择要删除的数据'
+    })
+    return
+  }
+  bulkDeleting.value = true
+  try {
+    const confirmed = await ElMessageBox.confirm('确定要删除吗?', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }).catch(() => false)
+    if (!confirmed) return
     const res = await deleteSysVersionByIds({ IDs })
     if (res.code === 0) {
       ElMessage({
         type: 'success',
         message: '删除成功'
       })
-      reloadAfterRemoval(IDs.length)
+      await reloadAfterRemoval(IDs.length)
     }
-  })
+  } finally {
+    bulkDeleting.value = false
+  }
 }
 
 // 删除行
@@ -891,6 +895,8 @@ const handleImport = async () => {
 
 // 下载版本JSON
 const downloadJson = async (row) => {
+  if (!row?.ID || downloadingVersionId.value !== null) return
+  downloadingVersionId.value = row.ID
   try {
     const res = await downloadVersionJson({ ID: row.ID })
     // 处理axios响应，获取实际的blob数据
@@ -918,6 +924,8 @@ const downloadJson = async (row) => {
   } catch (error) {
     console.error('下载失败:', error)
     ElMessage.error('下载失败')
+  } finally {
+    downloadingVersionId.value = null
   }
 }
 

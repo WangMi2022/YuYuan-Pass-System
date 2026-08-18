@@ -59,7 +59,7 @@
               <p>确定要作废吗？</p>
               <div style="text-align: right; margin: 0">
                 <el-button size="small" type="primary" link @click="scope.row.visible = false">取消</el-button>
-                <el-button size="small" type="primary" @click="invalidateToken(scope.row)">确定</el-button>
+                <el-button size="small" type="primary" :loading="revokingId === scope.row.ID" @click="invalidateToken(scope.row)">确定</el-button>
               </div>
               <template #reference>
                 <el-button icon="delete" type="danger" link @click="scope.row.visible = true">作废</el-button>
@@ -125,7 +125,7 @@
          <template #footer>
              <div style="flex: auto">
                  <el-button @click="drawerVisible = false">取消</el-button>
-                 <el-button type="primary" @click="submitIssuer">签发JWT</el-button>
+                 <el-button type="primary" :loading="issuing" @click="submitIssuer">签发JWT</el-button>
              </div>
          </template>
     </el-drawer>
@@ -176,6 +176,8 @@ const tokenResult = ref('')
 const curlDrawerVisible = ref(false)
 const curlHeader = ref('')
 const curlCookie = ref('')
+const issuing = ref(false)
+const revokingId = ref(0)
 
 const form = ref({
     userId: '',
@@ -234,21 +236,33 @@ const submitIssuer = async () => {
         ElMessage.warning("请选择用户和角色")
         return
     }
-    const res = await createApiToken(form.value)
-    if (res.code === 0) {
-        tokenResult.value = res.data.token
-        drawerVisible.value = false
-        tokenDialogVisible.value = true
-        getTableData()
+    if (issuing.value) return
+    issuing.value = true
+    try {
+        const res = await createApiToken(form.value)
+        if (res.code === 0) {
+            tokenResult.value = res.data.token
+            drawerVisible.value = false
+            tokenDialogVisible.value = true
+            await getTableData()
+        }
+    } finally {
+        issuing.value = false
     }
 }
 
 const invalidateToken = async (row) => {
-    row.visible = false
-    const res = await deleteApiToken({ ID: row.ID })
-    if (res.code === 0) {
-        ElMessage.success("作废成功")
-        getTableData()
+    if (revokingId.value) return
+    revokingId.value = row.ID
+    try {
+        const res = await deleteApiToken({ ID: row.ID })
+        if (res.code === 0) {
+            ElMessage.success("作废成功")
+            await getTableData()
+        }
+    } finally {
+        row.visible = false
+        revokingId.value = 0
     }
 }
 

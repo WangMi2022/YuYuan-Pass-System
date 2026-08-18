@@ -380,13 +380,13 @@
           <el-popconfirm v-if="editingId" title="确认删除这条日程？" @confirm="removeSchedule(editingId)">
             <template #reference>
               <el-tooltip content="删除日程" placement="top">
-                <el-button :icon="Delete" circle type="danger" plain aria-label="删除日程" />
+                <el-button :icon="Delete" circle type="danger" plain :loading="deletingSchedule" aria-label="删除日程" />
               </el-tooltip>
             </template>
           </el-popconfirm>
           <span />
           <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="saveSchedule">保存</el-button>
+          <el-button type="primary" :loading="savingSchedule" @click="saveSchedule">保存</el-button>
         </div>
       </template>
     </el-dialog>
@@ -446,6 +446,8 @@ const activeTypes = ref(scheduleTypes.value.map((type) => type.value))
 const dialogVisible = ref(false)
 const editingId = ref('')
 const draft = ref(createDraft(selectedDate.value))
+const savingSchedule = ref(false)
+const deletingSchedule = ref(false)
 const dateNavigatorVisible = ref(false)
 const pickerYear = ref(today.getFullYear())
 const pickerMonth = ref(today.getMonth() + 1)
@@ -742,6 +744,7 @@ function editSchedule(schedule) {
 }
 
 async function saveSchedule() {
+  if (savingSchedule.value) return
   const title = draft.value.title.trim()
   if (!title) {
     ElMessage.warning('请填写日程名称')
@@ -753,6 +756,7 @@ async function saveSchedule() {
     id: editingId.value ? Number(editingId.value) : undefined,
     title
   })
+  savingSchedule.value = true
   try {
     const result = editingId.value
       ? await updateWorkSchedule(payload)
@@ -772,10 +776,14 @@ async function saveSchedule() {
     ElMessage.success(editingId.value ? '日程已更新' : '日程已创建')
   } catch {
     ElMessage.error('保存日程失败，请稍后重试')
+  } finally {
+    savingSchedule.value = false
   }
 }
 
 async function removeSchedule(id) {
+  if (deletingSchedule.value) return
+  deletingSchedule.value = true
   try {
     const result = await deleteWorkSchedule({ id: Number(id) })
     if (result.code !== 0) return
@@ -784,6 +792,8 @@ async function removeSchedule(id) {
     ElMessage.success('日程已删除')
   } catch {
     ElMessage.error('删除日程失败，请稍后重试')
+  } finally {
+    deletingSchedule.value = false
   }
 }
 

@@ -112,6 +112,7 @@
                       link
                       type="success"
                       :icon="Download"
+                      :loading="exportingDictionaryId === dictionary.ID"
                       aria-label="导出字典"
                       @click.stop="exportDictionary(dictionary)"
                     />
@@ -171,7 +172,7 @@
           }}</span>
           <div>
             <el-button @click="closeDrawer"> 取 消 </el-button>
-            <el-button type="primary" @click="enterDrawer"> 确 定 </el-button>
+            <el-button type="primary" :loading="drawerSubmitting" @click="enterDrawer"> 确 定 </el-button>
           </div>
         </div>
       </template>
@@ -568,6 +569,8 @@
 
   const drawerFormVisible = ref(false)
   const type = ref('')
+  const drawerSubmitting = ref(false)
+  const exportingDictionaryId = ref(null)
   const updateSysDictionaryFunc = async (row) => {
     const res = await findSysDictionary({ ID: row.ID, status: row.status })
     type.value = 'update'
@@ -607,7 +610,10 @@
 
   const drawerForm = ref(null)
   const enterDrawer = async () => {
-    drawerForm.value.validate(async (valid) => {
+    if (drawerSubmitting.value) return
+    drawerSubmitting.value = true
+    try {
+      const valid = await drawerForm.value.validate().catch(() => false)
       if (!valid) return
       let res
       switch (type.value) {
@@ -624,9 +630,11 @@
       if (res.code === 0) {
         ElMessage.success('操作成功')
         closeDrawer()
-        getTableData()
+        await getTableData()
       }
-    })
+    } finally {
+      drawerSubmitting.value = false
+    }
   }
   const openDrawer = () => {
     type.value = 'create'
@@ -659,6 +667,8 @@
 
   // 导出字典
   const exportDictionary = async (row) => {
+    if (!row?.ID || exportingDictionaryId.value !== null) return
+    exportingDictionaryId.value = row.ID
     try {
       const res = await exportSysDictionary({ ID: row.ID })
       if (res.code === 0) {
@@ -677,6 +687,8 @@
       }
     } catch (error) {
       ElMessage.error('导出失败: ' + error.message)
+    } finally {
+      exportingDictionaryId.value = null
     }
   }
 

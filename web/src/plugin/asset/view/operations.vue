@@ -101,7 +101,7 @@
             <template v-if="row.status === 'draft'">
               <el-button type="primary" link :icon="Edit" @click="openEdit(row)">编辑</el-button>
               <el-button type="success" link :loading="processingId === row.ID" @click="submitOrder(row)">提交</el-button>
-              <el-button type="danger" link :icon="Delete" @click="removeOrder(row)">删除</el-button>
+              <el-button type="danger" link :icon="Delete" :loading="deletingId === row.ID" @click="removeOrder(row)">删除</el-button>
             </template>
             <template v-else>
               <el-tooltip content="已完成单据已更新资产并生成审计记录，不支持直接修改" placement="top">
@@ -359,6 +359,7 @@ const operationMeta = {
 const currentMeta = computed(() => operationMeta[route.name] || operationMeta.assetInbound)
 const operationType = computed(() => currentMeta.value.type)
 const processingId = ref(0)
+const deletingId = ref(0)
 const drawerVisible = ref(false)
 const editing = ref(false)
 const saving = ref(false)
@@ -496,19 +497,19 @@ const openEdit = async (row) => {
 
 const payload = (submit) => ({ ...formData.value, type: operationType.value, submit })
 const saveOrder = async (submit) => {
-  const valid = await formRef.value?.validate().catch(() => false)
-  if (!valid) return
-  if (submit) {
-    try {
-      await ElMessageBox.confirm(`提交后将立即更新 ${selectedAssets.value.length} 项资产，且不能直接撤销。`, `提交${currentMeta.value.shortLabel}单`, {
+  if (saving.value || submitting.value) return
+  const pendingState = submit ? submitting : saving
+  pendingState.value = true
+  try {
+    const valid = await formRef.value?.validate().catch(() => false)
+    if (!valid) return
+    if (submit) {
+      const confirmed = await ElMessageBox.confirm(`提交后将立即更新 ${selectedAssets.value.length} 项资产，且不能直接撤销。`, `提交${currentMeta.value.shortLabel}单`, {
         type: currentMeta.value.type === 'scrap' ? 'error' : 'warning',
         confirmButtonText: '确认提交', cancelButtonText: '取消'
-      })
-    } catch { return }
-  }
-  if (submit) submitting.value = true
-  else saving.value = true
-  try {
+      }).catch(() => false)
+      if (!confirmed) return
+    }
     const res = editing.value ? await updateAssetOperation(payload(submit)) : await createAssetOperation(payload(submit))
     if (res.code === 0) {
       ElMessage.success(submit ? `${currentMeta.value.shortLabel}单已提交` : '草稿已保存')
@@ -516,20 +517,19 @@ const saveOrder = async (submit) => {
       await Promise.all([loadOrders(), loadAssetOptions(), loadLocationOptions()])
     }
   } finally {
-    saving.value = false
-    submitting.value = false
+    pendingState.value = false
   }
 }
 
 const submitOrder = async (row) => {
-  try {
-    await ElMessageBox.confirm(`确定提交业务单 ${row.orderNo} 吗？提交后将立即更新资产档案。`, '提交业务单', {
-      type: operationType.value === 'scrap' ? 'error' : 'warning',
-      confirmButtonText: '确认提交', cancelButtonText: '取消'
-    })
-  } catch { return }
+  if (!row?.ID || processingId.value) return
   processingId.value = row.ID
   try {
+    const confirmed = await ElMessageBox.confirm(`确定提交业务单 ${row.orderNo} 吗？提交后将立即更新资产档案。`, '提交业务单', {
+      type: operationType.value === 'scrap' ? 'error' : 'warning',
+      confirmButtonText: '确认提交', cancelButtonText: '取消'
+    }).catch(() => false)
+    if (!confirmed) return
     const res = await submitAssetOperation({ id: row.ID })
     if (res.code === 0) {
       ElMessage.success('业务单已提交')
@@ -541,15 +541,20 @@ const submitOrder = async (row) => {
 }
 
 const removeOrder = async (row) => {
+  if (!row?.ID || deletingId.value) return
+  deletingId.value = row.ID
   try {
-    await ElMessageBox.confirm(`确定删除草稿 ${row.orderNo} 吗？`, '删除草稿', {
+    const confirmed = await ElMessageBox.confirm(`确定删除草稿 ${row.orderNo} 吗？`, '删除草稿', {
       type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消'
-    })
-  } catch { return }
-  const res = await deleteAssetOperation({ id: row.ID })
-  if (res.code === 0) {
-    ElMessage.success('草稿已删除')
-    loadOrders()
+    }).catch(() => false)
+    if (!confirmed) return
+    const res = await deleteAssetOperation({ id: row.ID })
+    if (res.code === 0) {
+      ElMessage.success('草稿已删除')
+      await loadOrders()
+    }
+  } finally {
+    deletingId.value = 0
   }
 }
 

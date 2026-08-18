@@ -135,7 +135,7 @@
           <template #default="{ row }">
             <div class="asset-actions">
               <el-button size="small" type="primary" link :icon="Edit" @click="openEdit(row)">编辑</el-button>
-              <el-button size="small" type="danger" link :icon="Delete" @click="removeAsset(row)">删除</el-button>
+              <el-button size="small" type="danger" link :icon="Delete" :loading="deletingId === row.ID" @click="removeAsset(row)">删除</el-button>
             </div>
           </template>
         </el-table-column>
@@ -353,6 +353,7 @@ const statusCounts = ref({})
 const drawerVisible = ref(false)
 const editing = ref(false)
 const saving = ref(false)
+const deletingId = ref(0)
 const formRef = ref()
 const formData = ref(emptyForm())
 const previewVisible = ref(false)
@@ -434,10 +435,11 @@ const syncCurrentValue = () => {
 }
 
 const saveAsset = async () => {
-  const valid = await formRef.value?.validate().catch(() => false)
-  if (!valid) return
+  if (saving.value) return
   saving.value = true
   try {
+    const valid = await formRef.value?.validate().catch(() => false)
+    if (!valid) return
     const payload = {
       ...formData.value,
       photos: (formData.value.photos || []).map(({ name, key, url, assetId, accessToken }) => ({ name, key, url, assetId, accessToken }))
@@ -454,13 +456,20 @@ const saveAsset = async () => {
 }
 
 const removeAsset = async (row) => {
-  await ElMessageBox.confirm(`确定删除资产“${row.name}”吗？删除后统计数据会同步更新。`, '删除确认', {
-    type: 'warning', confirmButtonText: '确认删除', cancelButtonText: '取消'
-  })
-  const res = await deleteAsset({ id: row.ID })
-  if (res.code === 0) {
-    ElMessage.success('资产已删除')
-    refreshAssets()
+  if (!row?.ID || deletingId.value) return
+  deletingId.value = row.ID
+  try {
+    const confirmed = await ElMessageBox.confirm(`确定删除资产“${row.name}”吗？删除后统计数据会同步更新。`, '删除确认', {
+      type: 'warning', confirmButtonText: '确认删除', cancelButtonText: '取消'
+    }).catch(() => false)
+    if (!confirmed) return
+    const res = await deleteAsset({ id: row.ID })
+    if (res.code === 0) {
+      ElMessage.success('资产已删除')
+      await refreshAssets()
+    }
+  } finally {
+    deletingId.value = 0
   }
 }
 

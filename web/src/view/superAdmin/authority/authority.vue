@@ -74,6 +74,7 @@
                 icon="delete"
                 type="primary"
                 link
+                :loading="deletingAuthorityId === scope.row.authorityId"
                 @click="deleteAuth(scope.row)"
                 >删除</el-button
               >
@@ -101,7 +102,7 @@
           <span class="text-lg">{{ authorityTitleForm }}</span>
           <div>
             <el-button @click="closeAuthorityForm">取 消</el-button>
-            <el-button type="primary" @click="submitAuthorityForm"
+            <el-button type="primary" :loading="authoritySubmitting" @click="submitAuthorityForm"
               >确 定</el-button
             >
           </div>
@@ -279,6 +280,8 @@
   const authorityFormVisible = ref(false)
   const apiDialogFlag = ref(false)
   const copyForm = ref({})
+  const authoritySubmitting = ref(false)
+  const deletingAuthorityId = ref(null)
 
   const form = ref({
     authorityId: 0,
@@ -339,29 +342,27 @@
     activeRow.value = row
   }
   // 删除角色
-  const deleteAuth = (row) => {
-    ElMessageBox.confirm('此操作将永久删除该角色, 是否继续?', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-      .then(async () => {
-        const res = await deleteAuthority({ authorityId: row.authorityId })
-        if (res.code === 0) {
-          ElMessage({
-            type: 'success',
-            message: '删除成功!'
-          })
-
-          getTableData()
-        }
-      })
-      .catch(() => {
+  const deleteAuth = async (row) => {
+    if (!row?.authorityId || deletingAuthorityId.value !== null) return
+    deletingAuthorityId.value = row.authorityId
+    try {
+      const confirmed = await ElMessageBox.confirm('此操作将永久删除该角色, 是否继续?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).catch(() => false)
+      if (!confirmed) return
+      const res = await deleteAuthority({ authorityId: row.authorityId })
+      if (res.code === 0) {
         ElMessage({
-          type: 'info',
-          message: '已取消删除'
+          type: 'success',
+          message: '删除成功!'
         })
-      })
+        await getTableData()
+      }
+    } finally {
+      deletingAuthorityId.value = null
+    }
   }
   // 初始化表单
   const authorityForm = ref(null)
@@ -383,67 +384,71 @@
   }
   // 确定弹窗
 
-  const submitAuthorityForm = () => {
-    authorityForm.value.validate(async (valid) => {
-      if (valid) {
-        form.value.authorityId = Number(form.value.authorityId)
-        switch (dialogType.value) {
-          case 'add':
-            {
-              const res = await createAuthority(form.value)
-              if (res.code === 0) {
-                ElMessage({
-                  type: 'success',
-                  message: '添加成功!'
-                })
-                getTableData()
-                closeAuthorityForm()
-              }
-            }
-            break
-          case 'edit':
-            {
-              const res = await updateAuthority(form.value)
-              if (res.code === 0) {
-                ElMessage({
-                  type: 'success',
-                  message: '添加成功!'
-                })
-                getTableData()
-                closeAuthorityForm()
-              }
-            }
-            break
-          case 'copy': {
-            const data = {
-              authority: {
-                authorityId: 0,
-                authorityName: '',
-                datauthorityId: [],
-                parentId: 0
-              },
-              oldAuthorityId: 0
-            }
-            data.authority.authorityId = form.value.authorityId
-            data.authority.authorityName = form.value.authorityName
-            data.authority.parentId = form.value.parentId
-            data.authority.dataAuthorityId = copyForm.value.dataAuthorityId
-            data.oldAuthorityId = copyForm.value.authorityId
-            const res = await copyAuthority(data)
+  const submitAuthorityForm = async () => {
+    if (authoritySubmitting.value) return
+    authoritySubmitting.value = true
+    try {
+      const valid = await authorityForm.value.validate().catch(() => false)
+      if (!valid) return
+      form.value.authorityId = Number(form.value.authorityId)
+      switch (dialogType.value) {
+        case 'add':
+          {
+            const res = await createAuthority(form.value)
             if (res.code === 0) {
               ElMessage({
                 type: 'success',
-                message: '复制成功！'
+                message: '添加成功!'
               })
-              getTableData()
+              await getTableData()
+              closeAuthorityForm()
             }
           }
+          break
+        case 'edit':
+          {
+            const res = await updateAuthority(form.value)
+            if (res.code === 0) {
+              ElMessage({
+                type: 'success',
+                message: '添加成功!'
+              })
+              await getTableData()
+              closeAuthorityForm()
+            }
+          }
+          break
+        case 'copy': {
+          const data = {
+            authority: {
+              authorityId: 0,
+              authorityName: '',
+              datauthorityId: [],
+              parentId: 0
+            },
+            oldAuthorityId: 0
+          }
+          data.authority.authorityId = form.value.authorityId
+          data.authority.authorityName = form.value.authorityName
+          data.authority.parentId = form.value.parentId
+          data.authority.dataAuthorityId = copyForm.value.dataAuthorityId
+          data.oldAuthorityId = copyForm.value.authorityId
+          const res = await copyAuthority(data)
+          if (res.code === 0) {
+            ElMessage({
+              type: 'success',
+              message: '复制成功！'
+            })
+            await getTableData()
+          }
         }
-
-        initForm()
-        authorityFormVisible.value = false
       }
-    })
+
+      initForm()
+      authorityFormVisible.value = false
+    } finally {
+      authoritySubmitting.value = false
+    }
   }
   const setOptions = () => {
     AuthorityOption.value = [
