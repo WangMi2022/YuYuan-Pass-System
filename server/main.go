@@ -62,5 +62,8 @@ func initializeSystem() {
 		if err := systemService.CasbinServiceApp.EnsureCoreAdminPermissions(context.Background(), global.GVA_DB); err != nil {
 			global.GVA_LOG.Error("repair core administrator permissions failed", zap.Error(err))
 		}
+		if err := systemService.CasbinServiceApp.EnsureContactVerificationPermissions(context.Background(), global.GVA_DB); err != nil {
+			global.GVA_LOG.Error("repair contact verification permissions failed", zap.Error(err))
+		}
 	}
 }

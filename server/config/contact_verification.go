@@ -14,8 +14,9 @@ const (
 // ContactVerification controls self-service phone and email verification.
 // A channel is available only when it is both enabled and fully configured.
 type ContactVerification struct {
-	SMS   ContactVerificationSMS   `mapstructure:"sms" json:"sms" yaml:"sms"`
-	Email ContactVerificationEmail `mapstructure:"email" json:"email" yaml:"email"`
+	Enabled bool                     `mapstructure:"enabled" json:"enabled" yaml:"enabled"`
+	SMS     ContactVerificationSMS   `mapstructure:"sms" json:"sms" yaml:"sms"`
+	Email   ContactVerificationEmail `mapstructure:"email" json:"email" yaml:"email"`
 }
 
 type ContactVerificationSMS struct {
@@ -46,11 +47,14 @@ func (c *ContactVerification) Normalize() {
 
 func (c ContactVerification) Validate(smtp Email) error {
 	c.Normalize()
-	if c.SMS.Enabled && !c.SMS.Ready() {
-		return fmt.Errorf("短信验证码配置不完整，无法开启")
+	if c.Enabled && c.SMS.Enabled && !c.SMS.Ready() {
+		return fmt.Errorf("接码中心验证码配置不完整，无法开启")
 	}
-	if c.Email.Enabled && !c.Email.Ready(smtp) {
+	if c.Enabled && c.Email.Enabled && !c.Email.Ready(smtp) {
 		return fmt.Errorf("邮件验证码配置不完整，无法开启")
+	}
+	if c.Enabled && !c.SMS.Enabled && !c.Email.Enabled {
+		return fmt.Errorf("请先完成并开启邮件或接码中心渠道")
 	}
 	return nil
 }

@@ -410,6 +410,25 @@
 
           <div class="verification-config-heading">
             <div>
+              <strong>联系方式验证总开关</strong>
+              <p>关闭时不发送验证码，也不允许用户修改手机号或邮箱；可先配置渠道，接入完成后再开启。</p>
+            </div>
+            <el-tag :type="contactVerificationReady ? 'success' : 'info'" effect="plain">
+              {{ contactVerificationReady ? '可开启' : '等待渠道配置' }}
+            </el-tag>
+          </div>
+          <el-form-item label="启用联系方式验证">
+            <div class="verification-toggle-field">
+              <el-switch
+                v-model="config['contact-verification'].enabled"
+                :disabled="!contactVerificationReady && !config['contact-verification'].enabled"
+              />
+              <span>{{ contactVerificationReady ? '开启后，用户修改手机或邮箱必须完成对应渠道验证码' : '请先完成并开启邮件或接码中心渠道' }}</span>
+            </div>
+          </el-form-item>
+
+          <div class="verification-config-heading">
+            <div>
               <strong>邮件验证码</strong>
               <p>复用“邮件服务”中的 SMTP 账户，配置完整后才可开启</p>
             </div>
@@ -435,8 +454,8 @@
 
           <div class="verification-config-heading">
             <div>
-              <strong>短信验证码</strong>
-              <p>通过统一 Webhook 接入短信供应商，保存密钥时不会回显明文</p>
+              <strong>接码中心</strong>
+              <p>通过统一 Webhook 接入接码中心，后续可替换为正式短信供应商</p>
             </div>
             <el-tag :type="smsVerificationReady ? 'success' : 'info'" effect="plain">
               {{ smsVerificationReady ? '配置完整' : '待配置' }}
@@ -447,25 +466,25 @@
               <el-option label="HTTP Webhook" value="webhook" />
             </el-select>
           </el-form-item>
-          <el-form-item label="Webhook 地址">
+          <el-form-item label="接码中心地址">
             <el-input
               v-model.trim="config['contact-verification'].sms.endpoint"
               placeholder="https://sms.example.com/send"
             />
           </el-form-item>
-          <el-form-item label="短信签名">
+          <el-form-item label="接码中心签名">
             <el-input
               v-model.trim="config['contact-verification'].sms['sign-name']"
               placeholder="请输入短信签名"
             />
           </el-form-item>
-          <el-form-item label="模板 ID">
+          <el-form-item label="接码中心模板 ID">
             <el-input
               v-model.trim="config['contact-verification'].sms['template-id']"
               placeholder="请输入验证码模板 ID"
             />
           </el-form-item>
-          <el-form-item label="访问令牌">
+          <el-form-item label="接码中心访问令牌">
             <SecretInput
               v-model.trim="config['contact-verification'].sms['access-token']"
               secret-path="contact-verification.sms.access-token"
@@ -474,7 +493,7 @@
               placeholder="请输入 Webhook Bearer Token"
             />
           </el-form-item>
-          <el-form-item label="开启短信验证码">
+          <el-form-item label="开启接码中心验证码">
             <div class="verification-toggle-field">
               <el-switch
                 v-model="config['contact-verification'].sms.enabled"
@@ -1198,6 +1217,7 @@
     local: {},
     email: {},
     'contact-verification': {
+      enabled: false,
       sms: {
         enabled: false,
         provider: 'webhook',
@@ -1257,6 +1277,13 @@
       hasConfiguredSecret('contact-verification.sms.access-token', sms['access-token'])
     )
   })
+  const contactVerificationReady = computed(() => {
+    const verification = config.value['contact-verification'] || {}
+    return Boolean(
+      (verification.email?.enabled && emailVerificationReady.value) ||
+      (verification.sms?.enabled && smsVerificationReady.value)
+    )
+  })
   const isDirty = computed(() => Boolean(savedSnapshot.value) &&
     serializeConfig(config.value) !== savedSnapshot.value)
   watch(visibleSections, (sections) => {
@@ -1269,6 +1296,7 @@
     const verification = value?.['contact-verification'] || {}
     value['contact-verification'] = {
       ...verification,
+      enabled: Boolean(verification.enabled),
       sms: {
         enabled: false,
         provider: 'webhook',

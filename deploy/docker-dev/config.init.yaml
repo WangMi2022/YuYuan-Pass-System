@@ -63,6 +63,7 @@ email:
     nickname: test
 
 contact-verification:
+    enabled: false
     sms:
         enabled: false
         provider: webhook

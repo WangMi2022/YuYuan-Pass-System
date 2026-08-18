@@ -63,14 +63,16 @@ func (userService *UserService) ContactVerificationCapabilities() systemRes.Cont
 	return systemRes.ContactVerificationCapabilities{
 		Phone: contactVerificationCapability(
 			phoneConfigured,
-			verification.SMS.Enabled && phoneConfigured,
+			verification.Enabled,
+			verification.SMS.Enabled,
 			"短信服务尚未完成配置",
 			"短信验证码尚未开启",
 			"短信验证码已启用",
 		),
 		Email: contactVerificationCapability(
 			emailConfigured,
-			verification.Email.Enabled && emailConfigured,
+			verification.Enabled,
+			verification.Email.Enabled,
 			"SMTP 服务尚未完成配置",
 			"邮件验证码尚未开启",
 			"邮件验证码已启用",
@@ -97,6 +99,9 @@ func (userService *UserService) SendContactVerificationCode(
 	}
 
 	verification, smtp := currentContactVerificationConfig()
+	if !verification.Enabled {
+		return errors.New("联系方式验证码总开关尚未开启")
+	}
 	code, err := generateContactVerificationCode()
 	if err != nil {
 		return errors.New("验证码生成失败，请稍后重试")
@@ -150,6 +155,9 @@ func (userService *UserService) UpdateSelfContact(
 	defer lock.Unlock()
 
 	verification, smtp := currentContactVerificationConfig()
+	if !verification.Enabled {
+		return errors.New("联系方式验证码总开关尚未开启")
+	}
 	if channel == contactChannelPhone && (!verification.SMS.Enabled || !verification.SMS.Ready()) {
 		return errors.New("短信验证码服务尚未配置并开启")
 	}
@@ -207,13 +215,17 @@ func (userService *UserService) UpdateSelfContact(
 
 func contactVerificationCapability(
 	configured bool,
-	enabled bool,
+	masterEnabled bool,
+	channelEnabled bool,
 	unconfiguredReason string,
 	disabledReason string,
 	enabledReason string,
 ) systemRes.ContactVerificationChannelCapability {
+	enabled := masterEnabled && channelEnabled && configured
 	reason := enabledReason
-	if !configured {
+	if !masterEnabled {
+		reason = "联系方式验证总开关尚未开启"
+	} else if !configured {
 		reason = unconfiguredReason
 	} else if !enabled {
 		reason = disabledReason

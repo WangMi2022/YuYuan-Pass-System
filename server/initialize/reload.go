@@ -1,7 +1,10 @@
 package initialize
 
 import (
+	"context"
+
 	"github.com/WangMi2022/mit-assets-admin/server/global"
+	systemService "github.com/WangMi2022/mit-assets-admin/server/service/system"
 	"go.uber.org/zap"
 )
 
@@ -35,6 +38,12 @@ func Reload() error {
 	if global.GVA_DB != nil {
 		// 确保数据库表结构是最新的
 		RegisterTables()
+		if err := systemService.CasbinServiceApp.EnsureContactVerificationPermissions(context.Background(), global.GVA_DB); err != nil {
+			global.GVA_LOG.Error("reload contact verification permissions failed", zap.Error(err))
+		}
+		if err := systemService.CasbinServiceApp.FreshCasbin(); err != nil {
+			global.GVA_LOG.Warn("reload casbin policies failed", zap.Error(err))
+		}
 	}
 
 	// 重新初始化定时任务
