@@ -52,6 +52,43 @@ func (s *workScheduleService) List(ctx context.Context, userID uint) ([]schedule
 	return result, nil
 }
 
+// ListOccurrences expands a user's one-off and recurring schedules over an
+// inclusive date range. Consumers receive the actual occurrence date/time,
+// rather than the recurrence rule's original start date.
+func (s *workScheduleService) ListOccurrences(ctx context.Context, userID uint, from, to time.Time) ([]scheduleResponse.WorkSchedule, error) {
+	if userID == 0 {
+		return nil, errors.New("用户未登录")
+	}
+	from = startOfDay(from)
+	to = startOfDay(to)
+	if to.Before(from) {
+		return nil, errors.New("开始日期不能晚于结束日期")
+	}
+
+	var schedules []model.WorkSchedule
+	if err := global.GVA_DB.WithContext(ctx).
+		Where("user_id = ? AND schedule_date <= ?", userID, to.Format("2006-01-02")).
+		Order("schedule_date ASC, schedule_time ASC, id ASC").
+		Find(&schedules).Error; err != nil {
+		return nil, err
+	}
+
+	occurrences := make([]scheduleResponse.WorkSchedule, 0, len(schedules))
+	for day := from; !day.After(to); day = day.AddDate(0, 0, 1) {
+		for _, schedule := range schedules {
+			occurrence, ok := occurrenceAt(schedule, day)
+			if !ok {
+				continue
+			}
+			item := toScheduleResponse(schedule)
+			item.Date = occurrence.Format("2006-01-02")
+			item.Time = occurrence.Format("15:04")
+			occurrences = append(occurrences, item)
+		}
+	}
+	return occurrences, nil
+}
+
 func (s *workScheduleService) Create(ctx context.Context, userID uint, payload scheduleRequest.WorkScheduleUpsert) (scheduleResponse.WorkSchedule, error) {
 	if userID == 0 {
 		return scheduleResponse.WorkSchedule{}, errors.New("用户未登录")

@@ -25,39 +25,20 @@ import (
 	scheduleService "github.com/WangMi2022/mit-assets-admin/server/plugin/schedule/service"
 	"github.com/WangMi2022/mit-assets-admin/server/plugin/smart/model"
 	"github.com/WangMi2022/mit-assets-admin/server/utils"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
-var toolDefinitions = []ToolDefinition{
-	{Name: "asset.search", Description: "按编号、名称、品牌、型号或序列号查询资产", ReadOnly: true},
-	{Name: "asset.detail", Description: "查询单项资产详情", ReadOnly: true},
-	{Name: "asset.risk.list", Description: "查询开放资产风险和异常", ReadOnly: true},
-	{Name: "asset.warranty.expiring", Description: "查询即将到期的资产质保", ReadOnly: true},
-	{Name: "asset.custodian.summary", Description: "按保管人汇总资产数量和价值", ReadOnly: true},
-	{Name: "asset.operation.summary", Description: "汇总资产流转单据状态", ReadOnly: true},
-	{Name: "invoice.summary", Description: "查询当前权限范围内发票汇总", ReadOnly: true},
-	{Name: "invoice.pending_reviews", Description: "查询待复核发票", ReadOnly: true},
-	{Name: "invoice.failed_recognitions", Description: "查询识别失败发票", ReadOnly: true},
-	{Name: "invoice.provider_quality", Description: "查询发票识别 Provider 质量", ReadOnly: true},
-	{Name: "schedule.today", Description: "查询本人今日及近期日程", ReadOnly: true},
-	{Name: "announcement.unread", Description: "查询本人未读公告", ReadOnly: true},
-}
-
 func (s *smartService) Tools(authorityID uint) []ToolDefinition {
-	available := make([]ToolDefinition, 0, len(toolDefinitions))
-	for _, definition := range toolDefinitions {
-		if toolPermissionAllowed(authorityID, definition.Name) {
-			available = append(available, definition)
-		}
-	}
-	return available
+	return defaultToolRegistry.AvailableDefinitions(authorityID)
 }
 
 type toolResult struct {
 	Data      any
 	Answer    string
 	Citations []Citation
+	Coverage  []string
 }
 
 type invoiceProviderQualityRow struct {
@@ -68,39 +49,11 @@ type invoiceProviderQualityRow struct {
 }
 
 func classify(question string) (intent, tool string) {
-	q := strings.ToLower(strings.TrimSpace(question))
-	switch {
-	case strings.Contains(q, "质保") || strings.Contains(q, "保修"):
-		return "warranty", "asset.warranty.expiring"
-	case strings.Contains(q, "风险") || strings.Contains(q, "异常"):
-		return "risk", "asset.risk.list"
-	case strings.Contains(q, "保管人") || strings.Contains(q, "负责人"):
-		return "custodian", "asset.custodian.summary"
-	case strings.Contains(q, "流转") || strings.Contains(q, "维修") || strings.Contains(q, "领用") || strings.Contains(q, "报废"):
-		return "operation", "asset.operation.summary"
-	case strings.Contains(q, "资产") || strings.Contains(q, "设备") || strings.Contains(q, "电脑") || strings.Contains(q, "打印机"):
-		if strings.Contains(q, "详情") || strings.Contains(q, "明细") {
-			return "asset_detail", "asset.detail"
-		}
-		return "asset", "asset.search"
-	case strings.Contains(q, "发票") || strings.Contains(q, "金额") || strings.Contains(q, "报销"):
-		if strings.Contains(q, "质量") || strings.Contains(q, "provider") || strings.Contains(q, "供应商") {
-			return "invoice_quality", "invoice.provider_quality"
-		}
-		if strings.Contains(q, "待复核") || strings.Contains(q, "待审核") {
-			return "invoice_review", "invoice.pending_reviews"
-		}
-		if strings.Contains(q, "失败") || strings.Contains(q, "识别") {
-			return "invoice_failed", "invoice.failed_recognitions"
-		}
-		return "invoice", "invoice.summary"
-	case strings.Contains(q, "日程") || strings.Contains(q, "安排") || strings.Contains(q, "今天") || strings.Contains(q, "明天"):
-		return "schedule", "schedule.today"
-	case strings.Contains(q, "公告") || strings.Contains(q, "通知") || strings.Contains(q, "未读"):
-		return "announcement", "announcement.unread"
-	default:
+	plan, err := NewRulePlanner(nil).Plan(context.Background(), PlanRequest{Question: question})
+	if err != nil || len(plan.Calls) == 0 {
 		return "asset", "asset.search"
 	}
+	return plan.Calls[0].Intent, plan.Calls[0].Name
 }
 
 func extractKeyword(question string) string {
@@ -136,28 +89,46 @@ func (s *smartService) Query(ctx context.Context, userID, authorityID uint, ques
 	if isWriteIntent(question) {
 		return CopilotResult{}, errors.New("业务助手仅支持只读查询，不能创建、修改、提交或删除业务数据")
 	}
-	intent, tool := classify(question)
-	if !toolPermissionAllowed(authorityID, tool) {
-		return CopilotResult{}, errors.New("当前角色没有该业务数据的读取权限")
-	}
-	result, err := s.executeTool(ctx, userID, authorityID, tool, question)
+	orchestrator := NewAssistantOrchestrator(s, NewRulePlanner(nil), defaultToolRegistry)
+	assistantResult, err := orchestrator.Ask(ctx, AssistantActor{UserID: userID, AuthorityID: authorityID}, question)
 	if err != nil {
 		return CopilotResult{}, err
-	}
-	answer, modelUsed := s.tryModelSummary(ctx, userID, authorityID, question, tool, result.Answer, result.Data)
-	if answer == "" {
-		answer = result.Answer
 	}
 	session, err := s.ensureSession(userID, authorityID, question, sessionID)
 	if err != nil {
 		return CopilotResult{}, err
 	}
 	citationsJSON := common.JSONMap{}
-	for index, item := range result.Citations {
+	for index, item := range assistantResult.Citations {
 		citationsJSON[strconv.Itoa(index)] = item
 	}
-	userMessage := model.CopilotMessage{SessionID: session.ID, UserID: userID, AuthorityID: authorityID, Role: model.MessageRoleUser, Content: question, Intent: intent, Tool: tool}
-	assistantMessage := model.CopilotMessage{SessionID: session.ID, UserID: userID, AuthorityID: authorityID, Role: model.MessageRoleAssistant, Content: answer, Intent: intent, Tool: tool, Citations: citationsJSON}
+	tool := strings.Join(assistantResult.Tools, ",")
+	userMessage := model.CopilotMessage{SessionID: session.ID, UserID: userID, AuthorityID: authorityID, Role: model.MessageRoleUser, Content: question, Intent: assistantResult.Plan.Intent, Tool: tool}
+	assistantMessage := model.CopilotMessage{SessionID: session.ID, UserID: userID, AuthorityID: authorityID, Role: model.MessageRoleAssistant, Content: assistantResult.Answer, Intent: assistantResult.Plan.Intent, Tool: tool, Citations: citationsJSON}
+	plannedTools := common.JSONMap{}
+	executedTools := common.JSONMap{}
+	for index, call := range assistantResult.Plan.Calls {
+		plannedTools[strconv.Itoa(index)] = call
+	}
+	for index, execution := range assistantResult.Executions {
+		trace := common.JSONMap{"tool": execution.Call.Name, "durationMs": execution.DurationMS, "status": "success"}
+		if execution.Err != nil {
+			trace["status"] = "failed"
+			trace["error"] = execution.Err.Error()
+		}
+		executedTools[strconv.Itoa(index)] = trace
+	}
+	status := "success"
+	if assistantResult.Partial {
+		status = "partial"
+	}
+	run := model.CopilotRun{
+		RequestID: uuid.NewString(), SessionID: session.ID, UserID: userID, AuthorityID: authorityID,
+		Planner: assistantResult.Plan.Planner, Intent: assistantResult.Plan.Intent,
+		PlannedTools: plannedTools, ExecutedTools: executedTools, Status: status,
+		Partial: assistantResult.Partial, DurationMS: assistantResult.DurationMS,
+		ModelUsed: assistantResult.ModelUsed, FallbackReason: assistantResult.FallbackReason,
+	}
 	now := time.Now()
 	if err := global.GVA_DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&userMessage).Error; err != nil {
@@ -166,11 +137,20 @@ func (s *smartService) Query(ctx context.Context, userID, authorityID uint, ques
 		if err := tx.Create(&assistantMessage).Error; err != nil {
 			return err
 		}
+		if err := tx.Create(&run).Error; err != nil {
+			return err
+		}
 		return tx.Model(&model.CopilotSession{}).Where("id = ? AND user_id = ? AND authority_id = ?", session.ID, userID, authorityID).Update("last_message_at", now).Error
 	}); err != nil {
 		return CopilotResult{}, err
 	}
-	return CopilotResult{SessionID: session.ID, Question: question, Intent: intent, Tool: tool, Scope: "当前用户可访问的数据范围", Answer: answer, Data: result.Data, Citations: result.Citations, GeneratedAt: now.Format(time.RFC3339), ReadOnly: true, ModelUsed: modelUsed}, nil
+	return CopilotResult{
+		SessionID: session.ID, Question: question, Intent: assistantResult.Plan.Intent,
+		Tool: tool, Tools: assistantResult.Tools, Planner: assistantResult.Plan.Planner,
+		Partial: assistantResult.Partial, Scope: "当前用户可访问的数据范围",
+		Answer: assistantResult.Answer, Data: assistantResult.Data, Citations: assistantResult.Citations,
+		GeneratedAt: now.Format(time.RFC3339), ReadOnly: true, ModelUsed: assistantResult.ModelUsed,
+	}, nil
 }
 
 func (s *smartService) ensureSession(userID, authorityID uint, question string, sessionID uint) (model.CopilotSession, error) {
@@ -189,12 +169,16 @@ func (s *smartService) ensureSession(userID, authorityID uint, question string, 
 	return session, global.GVA_DB.Create(&session).Error
 }
 
-func (s *smartService) executeTool(ctx context.Context, userID, authorityID uint, tool, question string) (toolResult, error) {
+func (s *smartService) executeRegisteredTool(ctx context.Context, actor AssistantActor, call ToolCall) (toolResult, error) {
 	result := toolResult{}
-	if !toolPermissionAllowed(authorityID, tool) {
-		return result, errors.New("当前角色没有该业务数据的读取权限")
+	userID := actor.UserID
+	authorityID := actor.AuthorityID
+	tool := call.Name
+	question := call.Question
+	keyword := stringArgument(call.Arguments, "keyword")
+	if keyword == "" {
+		keyword = extractKeyword(question)
 	}
-	keyword := extractKeyword(question)
 	switch tool {
 	case "asset.search":
 		list, total, err := assetService.Asset.List(assetRequest.AssetSearch{PageInfo: commonRequest.PageInfo{Page: 1, PageSize: 20, Keyword: keyword}})
@@ -304,31 +288,77 @@ func (s *smartService) executeTool(ctx context.Context, userID, authorityID uint
 		result.Answer = fmt.Sprintf("已汇总 %d 个发票识别 Provider。", len(rows))
 		result.Citations = append(result.Citations, Citation{Type: "invoice_quality", Label: "发票识别质量", Path: "/invoiceQuality", Params: "view=provider"})
 	case "schedule.today":
-		items, err := scheduleService.WorkSchedule.List(ctx, userID)
+		from := stringArgument(call.Arguments, "from")
+		to := stringArgument(call.Arguments, "to")
+		if date := stringArgument(call.Arguments, "date"); date != "" {
+			from, to = date, date
+		}
+		if from == "" {
+			from = time.Now().In(mustShanghaiLocation()).Format("2006-01-02")
+		}
+		if to == "" {
+			to = from
+		}
+		label := stringArgument(call.Arguments, "label")
+		if label == "" {
+			label = from
+		}
+		fromDate, err := time.ParseInLocation("2006-01-02", from, time.Local)
+		if err != nil {
+			return result, errors.New("日程开始日期格式不正确")
+		}
+		toDate, err := time.ParseInLocation("2006-01-02", to, time.Local)
+		if err != nil {
+			return result, errors.New("日程结束日期格式不正确")
+		}
+		items, err := scheduleService.WorkSchedule.ListOccurrences(ctx, userID, fromDate, toDate)
 		if err != nil {
 			return result, err
 		}
-		today := time.Now().Format("2006-01-02")
-		filtered := make([]any, 0)
 		for _, item := range items {
-			if item.Date >= today {
-				filtered = append(filtered, item)
-				result.Citations = append(result.Citations, Citation{Type: "schedule", ID: item.ID, Label: item.Date + " " + item.Time + " " + item.Title, Path: "/workCalendar/schedule", Params: "date=" + item.Date})
-			}
+			result.Citations = append(result.Citations, Citation{Type: "schedule", ID: item.ID, Label: item.Date + " " + item.Time + " " + item.Title, Path: "/workCalendar/schedule", Params: "date=" + item.Date})
 		}
-		result.Data = map[string]any{"list": filtered, "from": today}
-		result.Answer = fmt.Sprintf("从今天开始共有 %d 项个人日程。", len(filtered))
+		result.Data = map[string]any{"list": items, "from": from, "to": to, "label": label}
+		if len(items) == 0 {
+			result.Answer = label + "暂无个人日程。"
+		} else {
+			result.Answer = fmt.Sprintf("%s共有 %d 项个人日程。", label, len(items))
+		}
+		result.Coverage = []string{"日程", strconv.Itoa(len(items))}
 	case "announcement.unread":
-		items, err := announcementService.Info.Notifications(userID, 20)
+		items, err := announcementService.Info.UnreadNotifications(userID, intArgument(call.Arguments, "limit", 20))
 		if err != nil {
 			return result, err
 		}
 		result.Data = items
-		result.Answer = fmt.Sprintf("你有 %d 条未读公告。", items.UnreadCount)
+		if items.UnreadCount == 0 {
+			result.Answer = "你目前没有未读公告。"
+		} else {
+			result.Answer = fmt.Sprintf("你有 %d 条未读公告。", items.UnreadCount)
+		}
+		result.Coverage = []string{"公告", strconv.FormatInt(items.UnreadCount, 10)}
 		for _, item := range items.List {
-			if !item.IsRead {
-				result.Citations = append(result.Citations, Citation{Type: "announcement", ID: item.ID, Label: item.Title, Path: "/info", Params: "id=" + strconv.Itoa(int(item.ID))})
-			}
+			result.Citations = append(result.Citations, Citation{Type: "announcement", ID: item.ID, Label: item.Title, Path: "/info", Params: "id=" + strconv.Itoa(int(item.ID))})
+		}
+	case "knowledge.search":
+		query := stringArgument(call.Arguments, "query")
+		if query == "" {
+			query = question
+		}
+		items, err := Knowledge.Search(ctx, actor, query, intArgument(call.Arguments, "limit", 5))
+		if err != nil {
+			return result, err
+		}
+		result.Data = map[string]any{"list": items, "total": len(items), "query": query}
+		if len(items) == 0 {
+			result.Answer = "当前明确授权的知识库中未找到相关内容。"
+		} else {
+			result.Answer = fmt.Sprintf("知识库检索命中 %d 条相关内容。", len(items))
+		}
+		result.Coverage = []string{"知识库", strconv.Itoa(len(items))}
+		for _, item := range items {
+			id, _ := strconv.ParseUint(item.SourceID, 10, 64)
+			result.Citations = append(result.Citations, Citation{Type: "knowledge", ID: uint(id), Label: item.Title, Path: "/documentManagement", Params: "id=" + item.SourceID})
 		}
 	default:
 		return result, errors.New("未注册的业务助手 Tool")
@@ -354,14 +384,6 @@ func loadInvoiceProviderQuality(userID, authorityID uint) ([]invoiceProviderQual
 	return rows, err
 }
 
-func toolPermissionAllowed(authorityID uint, tool string) bool {
-	path, registered := toolPermissionPath(tool)
-	if !registered {
-		return false
-	}
-	return permissionAllowed(authorityID, path, "GET")
-}
-
 func permissionAllowed(authorityID uint, path, method string) bool {
 	if authorityID == 0 || path == "" || method == "" {
 		return false
@@ -372,29 +394,6 @@ func permissionAllowed(authorityID uint, path, method string) bool {
 	}
 	allowed, _ := enforcer.Enforce(strconv.Itoa(int(authorityID)), path, method)
 	return allowed
-}
-
-func toolPermissionPath(tool string) (string, bool) {
-	switch tool {
-	case "asset.search", "asset.warranty.expiring", "asset.custodian.summary":
-		return "/asset/list", true
-	case "asset.detail":
-		return "/asset/detail", true
-	case "asset.risk.list":
-		return "/assetRisk/list", true
-	case "asset.operation.summary":
-		return "/assetOperation/list", true
-	case "invoice.summary", "invoice.pending_reviews", "invoice.failed_recognitions":
-		return "/invoice/list", true
-	case "invoice.provider_quality":
-		return "/invoiceQuality/providerMetrics", true
-	case "schedule.today":
-		return "/workSchedule/list", true
-	case "announcement.unread":
-		return "/info/notifications", true
-	default:
-		return "", false
-	}
 }
 
 func (s *smartService) tryModelSummary(ctx context.Context, userID, authorityID uint, question, tool, deterministic string, data any) (string, bool) {
@@ -438,7 +437,10 @@ func (s *smartService) DeleteSession(userID, authorityID, id uint) error {
 		} else if result.RowsAffected == 0 {
 			return gorm.ErrRecordNotFound
 		}
-		return tx.Where("session_id = ? AND user_id = ? AND authority_id = ?", id, userID, authorityID).Delete(&model.CopilotMessage{}).Error
+		if err := tx.Where("session_id = ? AND user_id = ? AND authority_id = ?", id, userID, authorityID).Delete(&model.CopilotMessage{}).Error; err != nil {
+			return err
+		}
+		return tx.Where("session_id = ? AND user_id = ? AND authority_id = ?", id, userID, authorityID).Delete(&model.CopilotRun{}).Error
 	})
 }
 

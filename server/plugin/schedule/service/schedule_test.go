@@ -141,6 +141,41 @@ func TestOccurrenceAtSupportsDailyAndMultipleRules(t *testing.T) {
 	}
 }
 
+func TestListOccurrencesExpandsRecurringSchedulesForTheRequestedUser(t *testing.T) {
+	originalDB := global.GVA_DB
+	t.Cleanup(func() { global.GVA_DB = originalDB })
+
+	db, err := gorm.Open(sqlite.Open("file:work-schedule-occurrences?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	if err = db.AutoMigrate(&model.WorkSchedule{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	global.GVA_DB = db
+
+	schedules := []model.WorkSchedule{
+		{UserID: 42, ClientKey: "daily-inspection", Title: "每日巡检", ScheduleDate: "2026-08-03", ScheduleTime: "09:15", Type: "task", RecurrenceEnabled: true, RecurrenceMode: model.RecurrenceDaily},
+		{UserID: 42, ClientKey: "one-off", Title: "当天会议", ScheduleDate: "2026-08-17", ScheduleTime: "10:00", Type: "meeting"},
+		{UserID: 43, ClientKey: "other-user", Title: "他人日程", ScheduleDate: "2026-08-17", ScheduleTime: "11:00", Type: "meeting", RecurrenceEnabled: true, RecurrenceMode: model.RecurrenceDaily},
+	}
+	if err = db.Create(&schedules).Error; err != nil {
+		t.Fatalf("create schedules: %v", err)
+	}
+
+	date := time.Date(2026, time.August, 17, 0, 0, 0, 0, time.Local)
+	items, err := WorkSchedule.ListOccurrences(context.Background(), 42, date, date)
+	if err != nil {
+		t.Fatalf("list occurrences: %v", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("occurrences = %#v, want two current-user items", items)
+	}
+	if items[0].Date != "2026-08-17" || items[1].Date != "2026-08-17" {
+		t.Fatalf("occurrence dates = %#v, want the requested date", items)
+	}
+}
+
 func TestScanDueNotificationsIsIdempotent(t *testing.T) {
 	originalDB := global.GVA_DB
 	t.Cleanup(func() { global.GVA_DB = originalDB })

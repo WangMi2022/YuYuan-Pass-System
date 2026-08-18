@@ -33,7 +33,7 @@ func setupSmartTestDB(t *testing.T) *gorm.DB {
 	if err := database.AutoMigrate(
 		&assetModel.Category{}, &assetModel.Asset{}, &assetModel.AssetOperationOrder{}, &assetModel.AssetRiskEvent{},
 		&invoiceModel.Invoice{}, &scheduleModel.WorkSchedule{}, &announcementModel.Info{}, &announcementModel.Read{},
-		&ai.ModelInvocation{}, &smartModel.CopilotSession{}, &smartModel.CopilotMessage{}, &smartModel.SmartDailyReport{},
+		&ai.ModelInvocation{}, &smartModel.CopilotSession{}, &smartModel.CopilotMessage{}, &smartModel.CopilotRun{}, &smartModel.KnowledgeChunk{}, &smartModel.SmartDailyReport{},
 		&smartModel.SmartReportSubscription{}, &smartModel.SmartReportDelivery{}, &smartModel.SmartDraft{},
 	); err != nil {
 		t.Fatalf("migrate smart test tables: %v", err)
@@ -88,8 +88,8 @@ func TestWriteIntentRejectsCommandsButAllowsReadOnlyQuestions(t *testing.T) {
 }
 
 func TestEveryCopilotToolHasPermissionMapping(t *testing.T) {
-	if len(toolDefinitions) != 12 {
-		t.Fatalf("tool count = %d, want 12", len(toolDefinitions))
+	if len(toolDefinitions) != 13 {
+		t.Fatalf("tool count = %d, want 13", len(toolDefinitions))
 	}
 	for _, definition := range toolDefinitions {
 		path, ok := toolPermissionPath(definition.Name)
@@ -134,6 +134,46 @@ func TestCopilotSessionsAndReportsAreScopedByAuthority(t *testing.T) {
 	}
 	if _, err := Smart.Report(1, 889, reports[0].ID); err == nil {
 		t.Fatal("expected cross-authority report access to be rejected")
+	}
+}
+
+func TestDeleteSessionAlsoDeletesScopedCopilotRuns(t *testing.T) {
+	database := setupSmartTestDB(t)
+	sessions := []smartModel.CopilotSession{
+		{UserID: 1, AuthorityID: 888, Title: "待删除", LastMessageAt: time.Now()},
+		{UserID: 1, AuthorityID: 889, Title: "保留", LastMessageAt: time.Now()},
+	}
+	if err := database.Create(&sessions).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Create(&[]smartModel.CopilotMessage{
+		{SessionID: sessions[0].ID, UserID: 1, AuthorityID: 888, Role: smartModel.MessageRoleUser, Content: "需要删除的消息"},
+		{SessionID: sessions[1].ID, UserID: 1, AuthorityID: 889, Role: smartModel.MessageRoleUser, Content: "需要保留的消息"},
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Create(&[]smartModel.CopilotRun{
+		{RequestID: "deleted-run", SessionID: sessions[0].ID, UserID: 1, AuthorityID: 888, Planner: rulePlannerName, Intent: "schedule", Status: "success"},
+		{RequestID: "retained-run", SessionID: sessions[1].ID, UserID: 1, AuthorityID: 889, Planner: rulePlannerName, Intent: "schedule", Status: "success"},
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Smart.DeleteSession(1, 888, sessions[0].ID); err != nil {
+		t.Fatalf("delete session: %v", err)
+	}
+	var deletedMessages, deletedRuns, retainedRuns int64
+	if err := database.Model(&smartModel.CopilotMessage{}).Where("session_id = ? AND user_id = ? AND authority_id = ?", sessions[0].ID, 1, 888).Count(&deletedMessages).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Model(&smartModel.CopilotRun{}).Where("session_id = ? AND user_id = ? AND authority_id = ?", sessions[0].ID, 1, 888).Count(&deletedRuns).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Model(&smartModel.CopilotRun{}).Where("session_id = ? AND user_id = ? AND authority_id = ?", sessions[1].ID, 1, 889).Count(&retainedRuns).Error; err != nil {
+		t.Fatal(err)
+	}
+	if deletedMessages != 0 || deletedRuns != 0 || retainedRuns != 1 {
+		t.Fatalf("unexpected delete counts: messages=%d deletedRuns=%d retainedRuns=%d", deletedMessages, deletedRuns, retainedRuns)
 	}
 }
 

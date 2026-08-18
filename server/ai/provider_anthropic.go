@@ -74,7 +74,8 @@ func (p anthropicProvider) Stream(ctx context.Context, call providerCall) (*http
 }
 
 func (p anthropicProvider) do(ctx context.Context, call providerCall, streaming bool) (*http.Response, error) {
-	messages := any([]map[string]string{{"role": "user", "content": call.Prompt}})
+	messageText := providerMessageText(call)
+	messages := any([]map[string]string{{"role": "user", "content": messageText}})
 	if len(call.Image) > 0 {
 		messages = []map[string]any{{
 			"role": "user",
@@ -82,7 +83,7 @@ func (p anthropicProvider) do(ctx context.Context, call providerCall, streaming 
 				{"type": "image", "source": map[string]any{
 					"type": "base64", "media_type": normalizedImageMIME(call.MIMEType), "data": base64.StdEncoding.EncodeToString(call.Image),
 				}},
-				{"type": "text", "text": call.Prompt},
+				{"type": "text", "text": messageText},
 			},
 		}}
 	}

@@ -156,6 +156,34 @@ func (s *info) Notifications(userID uint, limit int) (announcementResponse.Notif
 	return result, err
 }
 
+// UnreadNotifications returns only unread published announcements for one user.
+// It keeps the unread count and list on the same SQL predicate so callers never
+// receive a mixed read/unread list.
+func (s *info) UnreadNotifications(userID uint, limit int) (announcementResponse.NotificationResult, error) {
+	result := announcementResponse.NotificationResult{List: make([]announcementResponse.NotificationItem, 0)}
+	if userID == 0 {
+		return result, errors.New("用户信息无效")
+	}
+	if limit <= 0 || limit > 50 {
+		limit = 20
+	}
+	base := global.GVA_DB.Table("gva_announcements_info AS a").
+		Joins("LEFT JOIN gva_announcement_reads AS r ON r.announcement_id = a.id AND r.user_id = ? AND r.deleted_at IS NULL", userID).
+		Where("a.deleted_at IS NULL AND a.status = ? AND r.id IS NULL", "published")
+	if err := base.Session(&gorm.Session{}).Count(&result.UnreadCount).Error; err != nil {
+		return result, err
+	}
+	err := base.Session(&gorm.Session{}).
+		Select(`a.id, a.created_at, a.updated_at, a.title, a.content, a.attachments, a.published_at,
+			COALESCE(u.nick_name, u.username, '系统管理员') AS publisher,
+			false AS is_read`).
+		Joins("LEFT JOIN sys_users AS u ON u.id = a.user_id").
+		Order("COALESCE(a.published_at, a.created_at) DESC").
+		Limit(limit).
+		Scan(&result.List).Error
+	return result, err
+}
+
 func (s *info) MarkRead(userID, announcementID uint) error {
 	if userID == 0 || announcementID == 0 {
 		return errors.New("公告或用户信息无效")

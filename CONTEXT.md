@@ -58,3 +58,19 @@ _Avoid_: Data authority, menu permission
 ## Platform Administrator
 
 A Platform Administrator is the only actor allowed to operate across Tenant boundaries. Tenant administrators remain restricted to their own Tenant.
+
+## Business Assistant
+
+A Business Assistant is the read-only conversational entry point that plans one or more authorized Business Tool calls, combines their deterministic results, and optionally asks a model to improve wording without changing facts.
+
+## Business Tool
+
+A Business Tool is a registered, read-only query capability with a stable name, input schema, Casbin permission path, and real-time business-data implementation. Schedules, announcements, Assets, and Invoices remain Business Tools rather than Knowledge Sources.
+
+## Assistant Plan
+
+An Assistant Plan is the ordered, bounded set of Business Tool calls selected for one Business Assistant question. Each call is authorized and observed independently.
+
+## Knowledge Source
+
+A Knowledge Source is explicitly owned non-structured content such as a policy, handbook, contract, or meeting note. It may be chunked for retrieval only after its Tenant, Department, User, and Role ownership is known.

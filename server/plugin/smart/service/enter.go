@@ -7,9 +7,10 @@ var Smart = new(smartService)
 type smartService struct{}
 
 type ToolDefinition struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	ReadOnly    bool   `json:"readOnly"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	ReadOnly    bool           `json:"readOnly"`
+	InputSchema map[string]any `json:"inputSchema,omitempty"`
 }
 
 type Citation struct {
@@ -25,6 +26,9 @@ type CopilotResult struct {
 	Question    string                 `json:"question"`
 	Intent      string                 `json:"intent"`
 	Tool        string                 `json:"tool"`
+	Tools       []string               `json:"tools,omitempty"`
+	Planner     string                 `json:"planner,omitempty"`
+	Partial     bool                   `json:"partial,omitempty"`
 	Scope       string                 `json:"scope"`
 	Answer      string                 `json:"answer"`
 	Data        any                    `json:"data"`

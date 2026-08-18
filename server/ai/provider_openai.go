@@ -75,13 +75,14 @@ func (p openAICompatibleProvider) Stream(ctx context.Context, call providerCall)
 }
 
 func (p openAICompatibleProvider) do(ctx context.Context, call providerCall, streaming bool) (*http.Response, error) {
-	messages := any([]map[string]string{{"role": "user", "content": call.Prompt}})
+	messageText := providerMessageText(call)
+	messages := any([]map[string]string{{"role": "user", "content": messageText}})
 	if len(call.Image) > 0 {
 		mimeType := normalizedImageMIME(call.MIMEType)
 		messages = []map[string]any{{
 			"role": "user",
 			"content": []map[string]any{
-				{"type": "text", "text": call.Prompt},
+				{"type": "text", "text": messageText},
 				{"type": "image_url", "image_url": map[string]any{
 					"url": "data:" + mimeType + ";base64," + base64.StdEncoding.EncodeToString(call.Image), "detail": "high",
 				}},
