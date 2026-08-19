@@ -259,6 +259,9 @@ func (InvoiceService) List(search invoiceRequest.InvoiceSearch, scope AccessScop
 	if search.Status != "" {
 		db = db.Where("status = ?", search.Status)
 	}
+	if search.ExcludeStatus != "" {
+		db = db.Where("status <> ?", search.ExcludeStatus)
+	}
 	if search.CategoryID > 0 {
 		db = db.Where("category_id = ?", search.CategoryID)
 	}

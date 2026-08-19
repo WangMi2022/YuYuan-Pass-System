@@ -26,7 +26,7 @@
     </section>
 
     <section class="na-panel task-panel">
-      <div class="section-heading"><div><h2>我的识别任务</h2><p>任务完成后进入人工复核，确认后与正式资产建立不可变关联。</p></div><el-select v-model="statusFilter" clearable placeholder="全部状态" class="status-filter" @change="loadJobs"><el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" /></el-select></div>
+      <div class="section-heading"><div><h2>我的识别任务</h2><p>任务完成后进入人工复核，确认后与正式资产建立不可变关联。</p></div><el-select v-model="statusFilter" clearable placeholder="全部状态" class="status-filter" @change="filterJobs"><el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" /></el-select></div>
       <el-table :data="jobs" stripe class="task-table">
         <el-table-column label="任务" min-width="180"><template #default="{ row }"><div class="task-identity"><strong>#{{ row.ID }}</strong><span>{{ (row.fileKeys || []).length }} 张图片</span></div></template></el-table-column>
         <el-table-column label="识别结果" min-width="220"><template #default="{ row }"><div class="task-result"><strong>{{ row.draft?.name || row.result?.name || '等待识别' }}</strong><span>{{ row.draft?.serialNumber || row.result?.serialNumber || '序列号待确认' }}</span></div></template></el-table-column>
@@ -42,7 +42,7 @@
             :highlights="['最多上传 6 张图片', '确认前不写入正式资产', '任务保留识别与修正状态']"
           >
             <template v-if="statusFilter" #actions>
-              <el-button :icon="Refresh" @click="statusFilter = ''; loadJobs()">查看全部任务</el-button>
+              <el-button :icon="Refresh" @click="statusFilter = ''; filterJobs()">查看全部任务</el-button>
             </template>
           </AppEmptyState>
         </template>
@@ -168,6 +168,7 @@ const loadJobs = async () => {
     if (response?.code === 0) { jobs.value = response.data?.list || []; total.value = Number(response.data?.total || 0) }
   } finally { loading.value = false }
 }
+const filterJobs = () => { page.value = 1; return loadJobs() }
 const beforeUpload = (file) => {
   if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) { ElMessage.error('仅支持 JPG、PNG、WebP、GIF 图片'); return false }
   if (file.size > 10 * 1024 * 1024) { ElMessage.error('单张图片不能超过 10MB'); return false }
@@ -181,7 +182,7 @@ const createJob = async () => {
   creating.value = true
   try {
     const response = await createAssetRecognition(files)
-    if (response?.code === 0) { ElMessage.success('识别任务已创建'); clearUpload(); await loadJobs() }
+    if (response?.code === 0) { ElMessage.success('识别任务已创建'); clearUpload(); await filterJobs() }
   } finally { creating.value = false }
 }
 const normalizeJob = (job) => {
@@ -245,7 +246,7 @@ const deleteJob = async (row) => {
     const confirmed = await ElMessageBox.confirm('删除后会清理本次任务图片，不能恢复。', '删除任务', { type: 'warning', confirmButtonText: '确认删除', cancelButtonText: '取消' }).catch(() => false)
     if (!confirmed) return
     const response = await deleteAssetRecognition({ id: row.ID })
-    if (response?.code === 0) { ElMessage.success('识别任务已删除'); if (activeJob.value?.ID === row.ID) { detailVisible.value = false; stopPolling() } await loadJobs() }
+    if (response?.code === 0) { ElMessage.success('识别任务已删除'); if (activeJob.value?.ID === row.ID) { detailVisible.value = false; stopPolling() } if (jobs.value.length <= 1 && page.value > 1) page.value--; await loadJobs() }
   } finally {
     deletingId.value = null
   }

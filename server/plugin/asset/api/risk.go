@@ -53,6 +53,20 @@ func (a *riskAPI) Detail(c *gin.Context) {
 }
 
 func (a *riskAPI) Rules(c *gin.Context) {
+	var search assetRequest.RiskRuleSearch
+	if err := c.ShouldBindQuery(&search); err != nil {
+		response.FailWithMessage(err.Error(), c)
+		return
+	}
+	if search.Paged {
+		rules, total, err := serviceRisk.RulePage(c.Request.Context(), &search.PageInfo)
+		if err != nil {
+			response.FailWithMessage("获取风险规则失败", c)
+			return
+		}
+		response.OkWithDetailed(response.PageResult{List: rules, Total: total, Page: search.Page, PageSize: search.PageSize}, "获取成功", c)
+		return
+	}
 	rules, err := serviceRisk.Rules(c.Request.Context())
 	if err != nil {
 		response.FailWithMessage("获取风险规则失败", c)

@@ -209,13 +209,15 @@ const drawerTitle = computed(() => `${editing.value ? '编辑' : '新增'}${draw
 const {
   search: categorySearch, items: categories, total: categoryTotal, loading: categoryLoading,
   loaded: categoryLoaded, error: categoryError,
-  load: categoryLoad, submit: categorySubmit, changePage: categoryChangePage
-} = usePagedList({ defaults: { page: 1, pageSize: 20, keyword: '', enabled: undefined }, request: getInvoiceCategoryList })
+  load: categoryLoad, submit: categorySubmit, changePage: categoryChangePage,
+  reloadAfterRemoval: reloadCategoriesAfterRemoval
+} = usePagedList({ defaults: { page: 1, pageSize: 10, keyword: '', enabled: undefined }, request: getInvoiceCategoryList })
 const {
   search: ruleSearch, items: rules, total: ruleTotal, loading: ruleLoading,
   loaded: ruleLoaded, error: ruleError,
-  load: ruleLoad, submit: ruleSubmit, changePage: ruleChangePage
-} = usePagedList({ defaults: { page: 1, pageSize: 20, keyword: '', categoryId: undefined, enabled: undefined }, request: getInvoiceRuleList })
+  load: ruleLoad, submit: ruleSubmit, changePage: ruleChangePage,
+  reloadAfterRemoval: reloadRulesAfterRemoval
+} = usePagedList({ defaults: { page: 1, pageSize: 10, keyword: '', categoryId: undefined, enabled: undefined }, request: getInvoiceRuleList })
 const currentLoading = computed(() => activeView.value === 'categories' ? categoryLoading.value : ruleLoading.value)
 
 const loadCategoryOptions = async () => {
@@ -290,7 +292,7 @@ const removeCategory = async (item) => {
   try {
     await ElMessageBox.confirm(`确定删除分类“${item.name}”吗？`, '删除分类', { type: 'warning', confirmButtonText: '确认删除', cancelButtonText: '取消' })
     const res = await deleteInvoiceCategory({ id: item.ID })
-    if (res.code === 0) { ElMessage.success('分类已删除'); await Promise.all([categoryLoad(), loadCategoryOptions()]) }
+    if (res.code === 0) { ElMessage.success('分类已删除'); await Promise.all([reloadCategoriesAfterRemoval(), loadCategoryOptions()]) }
   } catch (action) {
     if (action !== 'cancel' && action !== 'close') ElMessage.error(action?.message || '分类删除失败')
   } finally {
@@ -303,7 +305,7 @@ const removeRule = async (item) => {
   try {
     await ElMessageBox.confirm(`确定删除规则“${item.name}”吗？`, '删除规则', { type: 'warning', confirmButtonText: '确认删除', cancelButtonText: '取消' })
     const res = await deleteInvoiceRule({ id: item.ID })
-    if (res.code === 0) { ElMessage.success('规则已删除'); await ruleLoad() }
+    if (res.code === 0) { ElMessage.success('规则已删除'); await reloadRulesAfterRemoval() }
   } catch (action) {
     if (action !== 'cancel' && action !== 'close') ElMessage.error(action?.message || '规则删除失败')
   } finally {

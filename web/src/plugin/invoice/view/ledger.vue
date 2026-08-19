@@ -141,7 +141,7 @@ const {
   changePage,
   reloadAfterRemoval
 } = usePagedList({
-  defaults: { page: 1, pageSize: 20, keyword: '', status: '', categoryId: undefined, direction: '', startDate: '', endDate: '' },
+  defaults: { page: 1, pageSize: 10, keyword: '', status: '', categoryId: undefined, direction: '', startDate: '', endDate: '' },
   request: getInvoiceList
 })
 

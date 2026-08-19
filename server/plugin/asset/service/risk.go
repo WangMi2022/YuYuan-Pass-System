@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/WangMi2022/mit-assets-admin/server/global"
+	commonRequest "github.com/WangMi2022/mit-assets-admin/server/model/common/request"
 	"github.com/WangMi2022/mit-assets-admin/server/model/system"
 	announcementService "github.com/WangMi2022/mit-assets-admin/server/plugin/announcement/service"
 	"github.com/WangMi2022/mit-assets-admin/server/plugin/asset/model"
@@ -52,7 +53,19 @@ func (s *riskService) SeedRules(ctx context.Context) {
 
 func (s *riskService) Rules(ctx context.Context) ([]model.AssetRiskRule, error) {
 	var rules []model.AssetRiskRule
-	return rules, global.GVA_DB.WithContext(ctx).Order("category ASC, severity DESC, code ASC").Find(&rules).Error
+	err := global.GVA_DB.WithContext(ctx).Order("category ASC, severity DESC, code ASC").Find(&rules).Error
+	return rules, err
+}
+
+func (s *riskService) RulePage(ctx context.Context, pageInfo *commonRequest.PageInfo) ([]model.AssetRiskRule, int64, error) {
+	var rules []model.AssetRiskRule
+	var total int64
+	db := global.GVA_DB.WithContext(ctx).Model(&model.AssetRiskRule{})
+	if err := db.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	err := db.Order("category ASC, severity DESC, code ASC").Scopes(pageInfo.Paginate()).Find(&rules).Error
+	return rules, total, err
 }
 
 func (s *riskService) UpdateRule(ctx context.Context, input assetRequest.RiskRuleUpdate) (model.AssetRiskRule, error) {

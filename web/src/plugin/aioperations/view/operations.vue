@@ -277,7 +277,18 @@
               <el-table-column label="状态" width="90" align="center"><template #default="{ row }"><el-tag :type="row.enabled ? 'success' : 'info'">{{ row.enabled ? '启用' : '停用' }}</el-tag></template></el-table-column>
               <el-table-column label="操作" width="90"><template #default="{ row }"><el-button text type="primary" :icon="Edit" @click="openQuota(row)">编辑</el-button></template></el-table-column>
             </el-table>
-            <AppEmptyState v-else class="quota-empty-state" compact title="尚未设置智能服务配额" description="可按全局、模块、角色或用户限制请求量、Token、预算和并发。" />
+            <div v-if="quotaTotal > 10" class="na-pagination">
+              <el-pagination
+                v-model:current-page="quotaSearch.page"
+                v-model:page-size="quotaSearch.pageSize"
+                :page-sizes="[10, 20, 50]"
+                :total="quotaTotal"
+                layout="total, sizes, prev, pager, next"
+                @change="loadQuotas"
+                @size-change="resetQuotaPage"
+              />
+            </div>
+            <AppEmptyState v-if="!quotaLoading && !quotas.length" class="quota-empty-state" compact title="尚未设置智能服务配额" description="可按全局、模块、角色或用户限制请求量、Token、预算和并发。" />
           </section>
         </template>
 
@@ -292,6 +303,17 @@
             <el-table-column label="操作" width="100"><template #default="{ row }"><el-button v-if="row.status !== 'active'" text type="primary" :icon="Check" :loading="activatingPromptId === row.ID" @click="activatePrompt(row)">激活</el-button></template></el-table-column>
             <template #empty><AppEmptyState compact title="还没有 Prompt 版本" description="创建草稿并人工激活后，Gateway 才会使用对应版本。"><template #actions><el-button type="primary" :icon="Plus" @click="openPrompt">创建第一个版本</el-button></template></AppEmptyState></template>
           </el-table>
+          <div v-if="promptTotal > 10" class="na-pagination">
+            <el-pagination
+              v-model:current-page="promptSearch.page"
+              v-model:page-size="promptSearch.pageSize"
+              :page-sizes="[10, 20, 50]"
+              :total="promptTotal"
+              layout="total, sizes, prev, pager, next"
+              @change="loadPrompts"
+              @size-change="resetPromptPage"
+            />
+          </div>
         </template>
 
         <template v-else>
@@ -306,7 +328,7 @@
             <el-input v-model="invocationSearch.module" clearable placeholder="业务模块" />
             <el-input v-model="invocationSearch.provider" clearable placeholder="Provider" />
             <el-input-number v-model="invocationSearch.userId" :min="1" :controls="false" placeholder="用户 ID" />
-            <el-button :icon="Search" :loading="invocationLoading" @click="loadInvocations">查询</el-button>
+            <el-button :icon="Search" :loading="invocationLoading" @click="searchInvocations">查询</el-button>
           </div>
           <el-table v-loading="invocationLoading && !invocationLoaded" :data="invocations" row-key="ID">
             <el-table-column prop="CreatedAt" label="时间" min-width="165"><template #default="{ row }">{{ dateTime(row.CreatedAt) }}</template></el-table-column>
@@ -322,7 +344,7 @@
             <el-table-column label="状态" width="100" align="center"><template #default="{ row }"><el-tag :type="statusMeta(row.status).type" effect="light">{{ statusMeta(row.status).label }}</el-tag></template></el-table-column>
             <template #empty><AppEmptyState compact title="暂无模型调用记录" description="智能业务通过统一 Gateway 调用模型后，这里会展示状态、用量、费用和耗时。" :highlights="['不保存 Prompt 原文', '不保存图片和模型输出']" /></template>
           </el-table>
-          <div class="na-pagination"><el-pagination v-model:current-page="invocationSearch.page" v-model:page-size="invocationSearch.pageSize" :total="invocationTotal" layout="total, sizes, prev, pager, next" :page-sizes="[10, 20, 50, 100]" @current-change="loadInvocations" @size-change="loadInvocations" /></div>
+          <div class="na-pagination"><el-pagination v-model:current-page="invocationSearch.page" v-model:page-size="invocationSearch.pageSize" :total="invocationTotal" layout="total, sizes, prev, pager, next" :page-sizes="[10, 20, 50, 100]" @change="loadInvocations" @size-change="resetInvocationPage" /></div>
         </template>
       </section>
     </div>
@@ -394,9 +416,11 @@ const invocationTotal = ref(0)
 const invocationLoading = ref(false)
 const invocationLoaded = ref(false)
 const quotas = ref([])
+const quotaTotal = ref(0)
 const quotaLoading = ref(false)
 const quotaLoaded = ref(false)
 const prompts = ref([])
+const promptTotal = ref(0)
 const promptLoading = ref(false)
 const promptLoaded = ref(false)
 const quotaDialogVisible = ref(false)
@@ -411,7 +435,9 @@ const providerList = [
   { key: 'openai-compatible', label: 'OpenAI Compatible', hint: '兼容 Chat Completions 的模型服务。' },
   { key: 'anthropic', label: 'Anthropic', hint: '使用 Anthropic Messages API。' }
 ]
-const invocationSearch = reactive({ page: 1, pageSize: 20, status: '', module: '', provider: '', userId: undefined })
+const invocationSearch = reactive({ page: 1, pageSize: 10, status: '', module: '', provider: '', userId: undefined })
+const quotaSearch = reactive({ page: 1, pageSize: 10 })
+const promptSearch = reactive({ page: 1, pageSize: 10 })
 const quotaForm = reactive(defaultQuota())
 const promptForm = reactive({ promptKey: '', content: '', outputSchema: '' })
 
@@ -421,8 +447,8 @@ const sectionBadge = computed(() => {
   if (activeSectionName.value === 'models') return { label: providerEnabledCount.value + ' 个 Provider 已启用', type: providerEnabledCount.value ? 'success' : 'info' }
   if (activeSectionName.value === 'recognition') return { label: recognitionEnabledCount.value + ' 项服务已启用', type: recognitionEnabledCount.value ? 'success' : 'info' }
   if (activeSectionName.value === 'security') return { label: providers.enabled ? 'Gateway 已启用' : 'Gateway 已关闭', type: providers.enabled ? 'success' : 'warning' }
-  if (activeSectionName.value === 'billing') return { label: quotas.value.length + ' 条配额', type: 'info' }
-  if (activeSectionName.value === 'prompts') return { label: prompts.value.length + ' 个版本', type: 'info' }
+  if (activeSectionName.value === 'billing') return { label: quotaTotal.value + ' 条配额', type: 'info' }
+  if (activeSectionName.value === 'prompts') return { label: promptTotal.value + ' 个版本', type: 'info' }
   return { label: number(usage.value.todayRequests) + ' 次今日调用', type: 'info' }
 })
 const saveActionLabel = computed(() => ({ models: '保存模型接入', recognition: '保存识别服务', security: '保存安全策略', billing: '保存模型单价' }[activeSectionName.value] || ''))
@@ -519,11 +545,23 @@ async function loadInvocations() {
   }
 }
 
+function searchInvocations() {
+  invocationSearch.page = 1
+  return loadInvocations()
+}
+
+function resetInvocationPage() {
+  invocationSearch.page = 1
+}
+
 async function loadQuotas() {
   quotaLoading.value = true
   try {
-    const response = await getAIQuotas()
-    if (response.code === 0) quotas.value = response.data || []
+    const response = await getAIQuotas({ paged: true, ...quotaSearch })
+    if (response.code === 0) {
+      quotas.value = response.data?.list || []
+      quotaTotal.value = Number(response.data?.total || 0)
+    }
     else ElMessage.error(response.msg || '无法读取用量配额')
   } finally {
     quotaLoading.value = false
@@ -531,16 +569,27 @@ async function loadQuotas() {
   }
 }
 
+function resetQuotaPage() {
+  quotaSearch.page = 1
+}
+
 async function loadPrompts() {
   promptLoading.value = true
   try {
-    const response = await getAIPrompts()
-    if (response.code === 0) prompts.value = response.data || []
+    const response = await getAIPrompts({ paged: true, ...promptSearch })
+    if (response.code === 0) {
+      prompts.value = response.data?.list || []
+      promptTotal.value = Number(response.data?.total || 0)
+    }
     else ElMessage.error(response.msg || '无法读取 Prompt 模板')
   } finally {
     promptLoading.value = false
     promptLoaded.value = true
   }
+}
+
+function resetPromptPage() {
+  promptSearch.page = 1
 }
 
 async function loadActiveSection(force = false) {
@@ -645,6 +694,7 @@ async function submitQuota() {
     if (response.code === 0) {
       ElMessage.success(response.msg || '智能服务配额已保存')
       quotaDialogVisible.value = false
+      quotaSearch.page = 1
       await loadQuotas()
     } else ElMessage.error(response.msg || '保存失败')
   } finally {
@@ -664,6 +714,7 @@ async function submitPrompt() {
     if (response.code === 0) {
       ElMessage.success(response.msg || 'Prompt 草稿已创建')
       promptDialogVisible.value = false
+      promptSearch.page = 1
       await loadPrompts()
     } else ElMessage.error(response.msg || '创建失败')
   } finally {

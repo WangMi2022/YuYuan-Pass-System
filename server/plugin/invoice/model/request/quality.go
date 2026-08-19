@@ -42,8 +42,8 @@ func (search *QualitySearch) Normalize() error {
 	if search.Page <= 0 {
 		search.Page = 1
 	}
-	if search.PageSize <= 0 || search.PageSize > 100 {
-		search.PageSize = 20
+	if search.PageSize <= 0 || search.PageSize > commonRequest.MaxPageSize {
+		search.PageSize = commonRequest.DefaultPageSize
 	}
 	return nil
 }

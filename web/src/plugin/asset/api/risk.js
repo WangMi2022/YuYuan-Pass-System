@@ -10,5 +10,5 @@ export const resolveAssetRisk = (data) => service({ url: '/assetRisk/resolve', m
 export const ignoreAssetRisk = (data) => service({ url: '/assetRisk/ignore', method: 'put', data })
 export const reopenAssetRisk = (data) => service({ url: '/assetRisk/reopen', method: 'put', data })
 export const assignAssetRisk = (data) => service({ url: '/assetRisk/assign', method: 'put', data })
-export const getAssetRiskRules = () => service({ url: '/assetRisk/rules', method: 'get' })
+export const getAssetRiskRules = (params) => service({ url: '/assetRisk/rules', method: 'get', params })
 export const updateAssetRiskRule = (data) => service({ url: '/assetRisk/rules', method: 'put', data })

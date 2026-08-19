@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/WangMi2022/mit-assets-admin/server/ai"
 	"github.com/WangMi2022/mit-assets-admin/server/config"
+	commonRequest "github.com/WangMi2022/mit-assets-admin/server/model/common/request"
 	"github.com/WangMi2022/mit-assets-admin/server/model/common/response"
 	aiService "github.com/WangMi2022/mit-assets-admin/server/plugin/aioperations/service"
 	systemService "github.com/WangMi2022/mit-assets-admin/server/service/system"
@@ -97,6 +98,20 @@ func (operationsAPI) Invocations(c *gin.Context) {
 }
 
 func (operationsAPI) Quotas(c *gin.Context) {
+	var search struct {
+		commonRequest.PageInfo
+		Paged bool `form:"paged"`
+	}
+	_ = c.ShouldBindQuery(&search)
+	if search.Paged {
+		list, total, err := serviceOperations.QuotaPage(c.Request.Context(), &search.PageInfo)
+		if err != nil {
+			response.FailWithMessage("获取 AI 配额失败", c)
+			return
+		}
+		response.OkWithDetailed(response.PageResult{List: list, Total: total, Page: search.Page, PageSize: search.PageSize}, "获取成功", c)
+		return
+	}
 	list, err := serviceOperations.Quotas(c.Request.Context())
 	if err != nil {
 		response.FailWithMessage("获取 AI 配额失败", c)
@@ -120,6 +135,20 @@ func (operationsAPI) SaveQuota(c *gin.Context) {
 }
 
 func (operationsAPI) Prompts(c *gin.Context) {
+	var search struct {
+		commonRequest.PageInfo
+		Paged bool `form:"paged"`
+	}
+	_ = c.ShouldBindQuery(&search)
+	if search.Paged {
+		list, total, err := serviceOperations.PromptPage(c.Request.Context(), &search.PageInfo)
+		if err != nil {
+			response.FailWithMessage("获取 Prompt 模板失败", c)
+			return
+		}
+		response.OkWithDetailed(response.PageResult{List: list, Total: total, Page: search.Page, PageSize: search.PageSize}, "获取成功", c)
+		return
+	}
 	list, err := serviceOperations.Prompts(c.Request.Context())
 	if err != nil {
 		response.FailWithMessage("获取 Prompt 模板失败", c)

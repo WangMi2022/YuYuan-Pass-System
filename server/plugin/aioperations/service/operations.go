@@ -124,6 +124,17 @@ func (operationsService) Quotas(ctx context.Context) ([]ai.UsageQuota, error) {
 	return list, global.GVA_DB.WithContext(ctx).Order("scope_type ASC, scope_id ASC").Find(&list).Error
 }
 
+func (operationsService) QuotaPage(ctx context.Context, pageInfo *commonRequest.PageInfo) ([]ai.UsageQuota, int64, error) {
+	query := global.GVA_DB.WithContext(ctx).Model(&ai.UsageQuota{})
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var list []ai.UsageQuota
+	err := query.Order("scope_type ASC, scope_id ASC").Scopes(pageInfo.Paginate()).Find(&list).Error
+	return list, total, err
+}
+
 func (operationsService) SaveQuota(ctx context.Context, quota ai.UsageQuota) (ai.UsageQuota, error) {
 	quota.ScopeType = strings.TrimSpace(quota.ScopeType)
 	quota.ScopeID = strings.TrimSpace(quota.ScopeID)
@@ -155,6 +166,17 @@ func (operationsService) SaveQuota(ctx context.Context, quota ai.UsageQuota) (ai
 func (operationsService) Prompts(ctx context.Context) ([]ai.PromptTemplate, error) {
 	var list []ai.PromptTemplate
 	return list, global.GVA_DB.WithContext(ctx).Order("prompt_key ASC, version DESC").Find(&list).Error
+}
+
+func (operationsService) PromptPage(ctx context.Context, pageInfo *commonRequest.PageInfo) ([]ai.PromptTemplate, int64, error) {
+	query := global.GVA_DB.WithContext(ctx).Model(&ai.PromptTemplate{})
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var list []ai.PromptTemplate
+	err := query.Order("prompt_key ASC, version DESC").Scopes(pageInfo.Paginate()).Find(&list).Error
+	return list, total, err
 }
 
 func (operationsService) CreatePrompt(ctx context.Context, input PromptInput, userID uint) (ai.PromptTemplate, error) {

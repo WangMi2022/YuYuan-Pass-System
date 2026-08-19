@@ -15,6 +15,11 @@ type RiskSearch struct {
 	AssignedTo uint   `json:"assignedTo" form:"assignedTo"`
 }
 
+type RiskRuleSearch struct {
+	commonRequest.PageInfo
+	Paged bool `json:"paged" form:"paged"`
+}
+
 type RiskScanSearch struct {
 	commonRequest.PageInfo
 	Status      string `json:"status" form:"status"`

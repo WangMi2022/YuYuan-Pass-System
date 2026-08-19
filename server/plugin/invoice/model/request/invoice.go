@@ -9,11 +9,12 @@ import (
 
 type InvoiceSearch struct {
 	commonRequest.PageInfo
-	Status     string     `json:"status" form:"status"`
-	CategoryID uint       `json:"categoryId" form:"categoryId"`
-	Direction  string     `json:"direction" form:"direction"`
-	StartDate  *time.Time `json:"startDate" form:"startDate" time_format:"2006-01-02"`
-	EndDate    *time.Time `json:"endDate" form:"endDate" time_format:"2006-01-02"`
+	Status        string     `json:"status" form:"status"`
+	ExcludeStatus string     `json:"excludeStatus" form:"excludeStatus"`
+	CategoryID    uint       `json:"categoryId" form:"categoryId"`
+	Direction     string     `json:"direction" form:"direction"`
+	StartDate     *time.Time `json:"startDate" form:"startDate" time_format:"2006-01-02"`
+	EndDate       *time.Time `json:"endDate" form:"endDate" time_format:"2006-01-02"`
 }
 
 // Normalize removes zero-value dates produced by Gin when optional query

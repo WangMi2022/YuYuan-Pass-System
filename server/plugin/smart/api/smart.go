@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	commonRequest "github.com/WangMi2022/mit-assets-admin/server/model/common/request"
 	commonResponse "github.com/WangMi2022/mit-assets-admin/server/model/common/response"
 	"github.com/WangMi2022/mit-assets-admin/server/plugin/smart/model"
 	"github.com/WangMi2022/mit-assets-admin/server/plugin/smart/service"
@@ -27,11 +28,18 @@ type reportSearchRequest struct {
 	PageSize int `form:"pageSize"`
 }
 
+type pagedListRequest struct {
+	commonRequest.PageInfo
+	Paged bool `form:"paged"`
+}
+
 type announcementDraftRequest struct {
 	AnnouncementID uint `json:"announcementId" binding:"required"`
 }
 
 type draftListRequest struct {
+	commonRequest.PageInfo
+	Paged     bool   `form:"paged"`
 	DraftType string `form:"draftType"`
 }
 
@@ -86,6 +94,17 @@ func (a *smartAPI) QueryStream(c *gin.Context) {
 }
 
 func (a *smartAPI) Sessions(c *gin.Context) {
+	var req pagedListRequest
+	_ = c.ShouldBindQuery(&req)
+	if req.Paged {
+		list, total, err := Smart.SessionPage(utils.GetUserID(c), utils.GetUserAuthorityId(c), &req.PageInfo)
+		if err != nil {
+			commonResponse.FailWithMessage("获取会话失败", c)
+			return
+		}
+		commonResponse.OkWithDetailed(commonResponse.PageResult{List: list, Total: total, Page: req.Page, PageSize: req.PageSize}, "获取成功", c)
+		return
+	}
 	list, err := Smart.Sessions(utils.GetUserID(c), utils.GetUserAuthorityId(c))
 	if err != nil {
 		commonResponse.FailWithMessage("获取会话失败", c)
@@ -192,6 +211,17 @@ func (a *smartAPI) SaveSubscription(c *gin.Context) {
 }
 
 func (a *smartAPI) Deliveries(c *gin.Context) {
+	var req pagedListRequest
+	_ = c.ShouldBindQuery(&req)
+	if req.Paged {
+		list, total, err := Smart.DeliveryPage(utils.GetUserID(c), &req.PageInfo)
+		if err != nil {
+			commonResponse.FailWithMessage("获取日报发送记录失败", c)
+			return
+		}
+		commonResponse.OkWithDetailed(commonResponse.PageResult{List: list, Total: total, Page: req.Page, PageSize: req.PageSize}, "获取成功", c)
+		return
+	}
 	list, err := Smart.Deliveries(utils.GetUserID(c), 30)
 	if err != nil {
 		commonResponse.FailWithMessage("获取日报发送记录失败", c)
@@ -242,6 +272,15 @@ func (a *smartAPI) OperationAssetCandidates(c *gin.Context) {
 func (a *smartAPI) Drafts(c *gin.Context) {
 	var req draftListRequest
 	_ = c.ShouldBindQuery(&req)
+	if req.Paged {
+		list, total, err := Smart.DraftPage(utils.GetUserID(c), req.DraftType, &req.PageInfo)
+		if err != nil {
+			commonResponse.FailWithMessage("获取智能草稿失败", c)
+			return
+		}
+		commonResponse.OkWithDetailed(commonResponse.PageResult{List: list, Total: total, Page: req.Page, PageSize: req.PageSize}, "获取成功", c)
+		return
+	}
 	list, err := Smart.Drafts(utils.GetUserID(c), req.DraftType)
 	if err != nil {
 		commonResponse.FailWithMessage("获取智能草稿失败", c)

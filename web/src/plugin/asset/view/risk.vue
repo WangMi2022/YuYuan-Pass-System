@@ -139,8 +139,8 @@
               :page-sizes="[10, 20, 50, 100]"
               :total="eventTotal"
               layout="total, sizes, prev, pager, next, jumper"
-              @current-change="loadEvents"
-              @size-change="handlePageSize"
+              @change="loadEvents"
+              @size-change="resetEventPage"
             />
           </div>
         </el-tab-pane>
@@ -162,6 +162,17 @@
             <el-table-column label="状态" width="90" align="center"><template #default="{ row }"><el-tag :type="row.enabled ? 'success' : 'info'">{{ row.enabled ? '启用' : '停用' }}</el-tag></template></el-table-column>
             <el-table-column label="操作" width="96" fixed="right" align="center"><template #default="{ row }"><el-button type="primary" link :icon="Edit" @click="openRule(row)">配置</el-button></template></el-table-column>
           </el-table>
+          <div class="na-pagination risk-pagination">
+            <el-pagination
+              v-model:current-page="ruleSearch.page"
+              v-model:page-size="ruleSearch.pageSize"
+              :page-sizes="[10, 20, 50]"
+              :total="ruleTotal"
+              layout="total, sizes, prev, pager, next"
+              @change="loadRules"
+              @size-change="resetRulePage"
+            />
+          </div>
         </el-tab-pane>
 
         <el-tab-pane name="scans">
@@ -185,6 +196,17 @@
               <template #default="{ row }"><el-button v-if="canResumeScan(row)" type="primary" link :icon="RefreshRight" :loading="scanStarting && resumingScanId === row.ID" @click="startScan(row.ID)">继续扫描</el-button><span v-else>—</span></template>
             </el-table-column>
           </el-table>
+          <div class="na-pagination risk-pagination">
+            <el-pagination
+              v-model:current-page="scanSearch.page"
+              v-model:page-size="scanSearch.pageSize"
+              :page-sizes="[10, 20, 50]"
+              :total="scanTotal"
+              layout="total, sizes, prev, pager, next"
+              @change="loadScans"
+              @size-change="resetScanPage"
+            />
+          </div>
         </el-tab-pane>
       </el-tabs>
     </section>
@@ -338,12 +360,16 @@ const dashboard = ref({ totalOpen: 0, highOpen: 0, todayNew: 0, overdue: 0, byCa
 const events = ref([])
 const eventTotal = ref(0)
 const rules = ref([])
+const ruleTotal = ref(0)
 const scans = ref([])
+const scanTotal = ref(0)
 const selectedEvents = ref([])
 const detailVisible = ref(false)
 const detail = ref({ event: null, logs: [] })
 const userOptions = ref([])
-const searchForm = reactive({ page: 1, pageSize: 20, keyword: '', status: '', severity: '', category: '' })
+const searchForm = reactive({ page: 1, pageSize: 10, keyword: '', status: '', severity: '', category: '' })
+const ruleSearch = reactive({ page: 1, pageSize: 10 })
+const scanSearch = reactive({ page: 1, pageSize: 10 })
 let scanPollErrorShown = false
 
 const severityOptions = [
@@ -447,8 +473,11 @@ const loadEvents = async () => {
 const loadRules = async () => {
   rulesLoading.value = true
   try {
-    const res = await getAssetRiskRules()
-    if (res.code === 0) rules.value = res.data || []
+    const res = await getAssetRiskRules({ paged: true, ...ruleSearch })
+    if (res.code === 0) {
+      rules.value = res.data?.list || []
+      ruleTotal.value = Number(res.data?.total || 0)
+    }
   } finally {
     rulesLoading.value = false
     rulesLoaded.value = true
@@ -457,8 +486,11 @@ const loadRules = async () => {
 const loadScans = async () => {
   scansLoading.value = true
   try {
-    const res = await getAssetRiskScans({ page: 1, pageSize: 50 })
-    if (res.code === 0) scans.value = res.data?.list || []
+    const res = await getAssetRiskScans({ ...scanSearch })
+    if (res.code === 0) {
+      scans.value = res.data?.list || []
+      scanTotal.value = Number(res.data?.total || 0)
+    }
   } finally {
     scansLoading.value = false
     scansLoaded.value = true
@@ -513,7 +545,9 @@ const refreshAll = async () => {
 }
 const submitSearch = () => { searchForm.page = 1; loadEvents() }
 const resetSearch = () => { Object.assign(searchForm, { page: 1, pageSize: searchForm.pageSize, keyword: '', status: '', severity: '', category: '' }); loadEvents() }
-const handlePageSize = () => { searchForm.page = 1; loadEvents() }
+const resetEventPage = () => { searchForm.page = 1 }
+const resetRulePage = () => { ruleSearch.page = 1 }
+const resetScanPage = () => { scanSearch.page = 1 }
 const handleTabChange = (name) => { if (name === 'rules' && !rules.value.length) loadRules(); if (name === 'scans') loadScans() }
 
 const startScan = async (runId = 0) => {

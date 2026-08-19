@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/WangMi2022/mit-assets-admin/server/global"
+	commonRequest "github.com/WangMi2022/mit-assets-admin/server/model/common/request"
 	"github.com/WangMi2022/mit-assets-admin/server/plugin/asset/model"
 	assetRequest "github.com/WangMi2022/mit-assets-admin/server/plugin/asset/model/request"
 	"github.com/glebarez/sqlite"
@@ -38,6 +39,30 @@ func setupRiskTestDB(t *testing.T) *gorm.DB {
 		}
 	})
 	return database
+}
+
+func TestRiskRulePageUsesTenItemDefaultPages(t *testing.T) {
+	setupRiskTestDB(t)
+	for index := 0; index < 12; index++ {
+		rule := model.AssetRiskRule{
+			Code: fmt.Sprintf("PAGE-%02d", index), Name: fmt.Sprintf("分页规则-%02d", index),
+			Category: "status", Severity: model.RiskSeverityMedium, Enabled: true, Version: 1,
+		}
+		if err := global.GVA_DB.Create(&rule).Error; err != nil {
+			t.Fatalf("create risk rule %d: %v", index, err)
+		}
+	}
+
+	pageInfo := commonRequest.PageInfo{}
+	list, total, err := Risk.RulePage(t.Context(), &pageInfo)
+	if err != nil || total != 12 || len(list) != 10 || pageInfo.Page != 1 || pageInfo.PageSize != 10 {
+		t.Fatalf("risk rule default page = %d/%d, total=%d, page=%d, err=%v", len(list), pageInfo.PageSize, total, pageInfo.Page, err)
+	}
+
+	legacyList, err := Risk.Rules(t.Context())
+	if err != nil || len(legacyList) != 12 {
+		t.Fatalf("legacy risk rules = %d, err=%v", len(legacyList), err)
+	}
 }
 
 func createRiskTestAsset(t *testing.T, status string, createdAt time.Time) model.Asset {

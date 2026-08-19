@@ -38,9 +38,10 @@
       <div class="na-panel-header queue-heading">
         <div><h2>待处理队列</h2><p>识别中的任务会自动刷新，失败任务可手动重试。</p></div>
         <div class="queue-counts">
-          <span><i class="warning" />待核对 {{ counts.pending }}</span>
-          <span><i class="primary" />处理中 {{ counts.processing }}</span>
-          <span><i class="danger" />失败 {{ counts.failed }}</span>
+          <span>队列共 {{ queueTotal }} 条</span>
+          <span><i class="warning" />本页待核对 {{ counts.pending }}</span>
+          <span><i class="primary" />本页处理中 {{ counts.processing }}</span>
+          <span><i class="danger" />本页失败 {{ counts.failed }}</span>
         </div>
       </div>
 
@@ -79,6 +80,17 @@
         description="当前没有上传中、识别中、待核对或识别失败的发票。"
         :highlights="['队列已处理完毕']"
       />
+      <div v-if="queueTotal > 10" class="na-pagination queue-pagination">
+        <el-pagination
+          v-model:current-page="queuePage"
+          v-model:page-size="queuePageSize"
+          :page-sizes="[10, 20, 50]"
+          :total="queueTotal"
+          layout="total, sizes, prev, pager, next"
+          @change="loadQueue"
+          @size-change="resetQueuePage"
+        />
+      </div>
     </section>
 
     <InvoiceReviewDrawer v-model="reviewVisible" :invoice-id="selectedId" @saved="loadQueue" @confirmed="loadQueue" />
@@ -104,6 +116,9 @@ const uploadRef = ref()
 const uploading = ref(false)
 const uploadTotal = ref(0)
 const queue = ref([])
+const queueTotal = ref(0)
+const queuePage = ref(1)
+const queuePageSize = ref(10)
 const queueLoaded = ref(false)
 const queueError = ref('')
 const reviewVisible = ref(false)
@@ -136,9 +151,17 @@ const runQueueRefreshes = async () => {
       queueRefreshPending = false
       queueError.value = ''
       try {
-        const res = await getInvoiceList({ page: 1, pageSize: 50 })
+        const res = await getInvoiceList({ page: queuePage.value, pageSize: queuePageSize.value, excludeStatus: 'confirmed' })
         if (res.code === 0) {
-          queue.value = (res.data?.list || []).filter((item) => item.status !== 'confirmed')
+          const nextQueue = res.data?.list || []
+          const nextTotal = Number(res.data?.total || 0)
+          if (!nextQueue.length && nextTotal > 0 && queuePage.value > 1) {
+            queuePage.value--
+            queueRefreshPending = true
+            continue
+          }
+          queue.value = nextQueue
+          queueTotal.value = nextTotal
           queueLoaded.value = true
         } else {
           queueError.value = res.msg || '无法读取识别队列，请稍后重试'
@@ -160,6 +183,10 @@ const loadQueue = () => {
     })
   }
   return queueLoadPromise
+}
+
+const resetQueuePage = () => {
+  queuePage.value = 1
 }
 
 const validateUploadFile = (file) => {
@@ -198,6 +225,7 @@ const uploadSelectedFiles = async () => {
     const failed = res.data?.failed || []
     if (succeeded.length) {
       selectedId.value = Number(succeeded[succeeded.length - 1]?.ID || 0)
+      queuePage.value = 1
       await loadQueue()
     }
     if (failed.length === 0 && succeeded.length) {
@@ -259,6 +287,7 @@ onUnmounted(() => {
 .queue-warning { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 14px; border-bottom: 1px solid var(--na-border); background: var(--na-warning-soft); font-size: .75rem; }
 .queue-warning span { min-width: 0; overflow-wrap: anywhere; }
 .queue-list { display: grid; }
+.queue-pagination { padding: 14px; }
 .queue-row { display: grid; min-width: 0; min-height: 54px; grid-template-columns: 32px minmax(180px, 1.5fr) minmax(130px, 1fr) 88px 86px 20px; align-items: center; gap: 10px; padding: 6px 14px; border: 0; border-bottom: 1px solid var(--na-border); background: var(--na-card); color: var(--na-foreground); text-align: left; transition: background-color 160ms ease; }
 .queue-row:hover { background: var(--na-table-hover); }
 .queue-row:focus-visible { position: relative; z-index: 1; outline: 2px solid var(--na-primary); outline-offset: -3px; }

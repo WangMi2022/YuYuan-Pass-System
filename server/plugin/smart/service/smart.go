@@ -420,6 +420,17 @@ func (s *smartService) Sessions(userID, authorityID uint) ([]model.CopilotSessio
 	return list, err
 }
 
+func (s *smartService) SessionPage(userID, authorityID uint, pageInfo *commonRequest.PageInfo) ([]model.CopilotSession, int64, error) {
+	query := global.GVA_DB.Model(&model.CopilotSession{}).Where("user_id = ? AND authority_id = ?", userID, authorityID)
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var list []model.CopilotSession
+	err := query.Order("last_message_at DESC, id DESC").Scopes(pageInfo.Paginate()).Find(&list).Error
+	return list, total, err
+}
+
 func (s *smartService) Session(userID, authorityID, id uint) (model.CopilotSession, []model.CopilotMessage, error) {
 	var session model.CopilotSession
 	if err := global.GVA_DB.Where("id = ? AND user_id = ? AND authority_id = ?", id, userID, authorityID).First(&session).Error; err != nil {
@@ -677,8 +688,8 @@ func (s *smartService) Reports(userID, authorityID uint, input ReportListInput) 
 	if input.Page <= 0 {
 		input.Page = 1
 	}
-	if input.PageSize <= 0 || input.PageSize > 100 {
-		input.PageSize = 20
+	if input.PageSize <= 0 || input.PageSize > commonRequest.MaxPageSize {
+		input.PageSize = commonRequest.DefaultPageSize
 	}
 	var total int64
 	db := global.GVA_DB.Model(&model.SmartDailyReport{}).Where("user_id = ? AND authority_id = ?", userID, authorityID)
@@ -762,6 +773,17 @@ func (s *smartService) Deliveries(userID uint, limit int) ([]model.SmartReportDe
 	var list []model.SmartReportDelivery
 	err := global.GVA_DB.Where("user_id = ?", userID).Order("created_at DESC").Limit(limit).Find(&list).Error
 	return list, err
+}
+
+func (s *smartService) DeliveryPage(userID uint, pageInfo *commonRequest.PageInfo) ([]model.SmartReportDelivery, int64, error) {
+	query := global.GVA_DB.Model(&model.SmartReportDelivery{}).Where("user_id = ?", userID)
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var list []model.SmartReportDelivery
+	err := query.Order("created_at DESC, id DESC").Scopes(pageInfo.Paginate()).Find(&list).Error
+	return list, total, err
 }
 
 var datePattern = regexp.MustCompile(`(?m)(20\d{2})[-/年](\d{1,2})[-/月](\d{1,2})日?`)
@@ -1079,4 +1101,18 @@ func (s *smartService) Drafts(userID uint, draftType string) ([]model.SmartDraft
 	}
 	err := db.Order("created_at DESC").Limit(100).Find(&list).Error
 	return list, err
+}
+
+func (s *smartService) DraftPage(userID uint, draftType string, pageInfo *commonRequest.PageInfo) ([]model.SmartDraft, int64, error) {
+	query := global.GVA_DB.Model(&model.SmartDraft{}).Where("user_id = ?", userID)
+	if draftType != "" {
+		query = query.Where("draft_type = ?", draftType)
+	}
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var list []model.SmartDraft
+	err := query.Order("created_at DESC, id DESC").Scopes(pageInfo.Paginate()).Find(&list).Error
+	return list, total, err
 }

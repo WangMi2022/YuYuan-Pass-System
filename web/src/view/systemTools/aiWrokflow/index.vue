@@ -167,7 +167,7 @@
                 class="flex-1 mr-2"
                 clearable
                 placeholder="搜索历史需求"
-                @keyup.enter="loadSessionList(activeTab)"
+                @keyup.enter="searchSessionList(activeTab)"
               />
               <el-button
                 plain
@@ -175,7 +175,7 @@
                 :icon="RefreshRight"
                 :loading="historyLoading"
                 title="刷新列表"
-                @click="loadSessionList(activeTab)"
+                @click="searchSessionList(activeTab)"
               />
               <el-button
                 plain
@@ -228,7 +228,17 @@
                 </div>
               </div>
             </div>
-            <el-empty v-else description="当前 tab 还没有保存的会话。" />
+            <el-pagination
+              v-if="currentSessionTotal > 10"
+              small
+              :current-page="sessionPages[activeTab]"
+              :page-size="10"
+              :pager-count="3"
+              :total="currentSessionTotal"
+              layout="total, prev, pager, next"
+              @current-change="changeSessionPage"
+            />
+            <el-empty v-if="!currentSessionList.length" description="当前 tab 还没有保存的会话。" />
           </div>
 
           <el-form label-position="top">
@@ -1112,6 +1122,8 @@ const activeSessionIds = reactive(
 )
 const historyKeywords = reactive({ analysis: '', workflow: '' })
 const sessionLists = reactive({ analysis: [], workflow: [] })
+const sessionPages = reactive({ analysis: 1, workflow: 1 })
+const sessionTotals = reactive({ analysis: 0, workflow: 0 })
 const sessions = reactive({
   analysis: newSession('analysis'),
   workflow: newSession('workflow')
@@ -1122,6 +1134,7 @@ const analysisResult = ref(emptyAnalysis())
 const workflowResult = ref(emptyWorkflow())
 const currentSession = computed(() => sessions[activeTab.value])
 const currentSessionList = computed(() => sessionLists[activeTab.value])
+const currentSessionTotal = computed(() => sessionTotals[activeTab.value])
 const currentLoading = computed(() =>
   activeTab.value === 'analysis' ? analysisLoading.value : workflowLoading.value
 )
@@ -1953,16 +1966,31 @@ const loadSessionList = async (tab = activeTab.value) => {
   try {
     const data = unwrap(
       await getAIWorkflowSessionList({
-        page: 1,
-        pageSize: 50,
+        page: sessionPages[tab],
+        pageSize: 10,
         tab,
         keyword: historyKeywords[tab]
       })
     )
     sessionLists[tab] = toArray(data.list)
+    sessionTotals[tab] = Number(data.total || 0)
+    if (!sessionLists[tab].length && sessionTotals[tab] > 0 && sessionPages[tab] > 1) {
+      sessionPages[tab]--
+      return loadSessionList(tab)
+    }
   } finally {
     historyLoading.value = false
   }
+}
+
+const searchSessionList = (tab = activeTab.value) => {
+  sessionPages[tab] = 1
+  return loadSessionList(tab)
+}
+
+const changeSessionPage = (page) => {
+  sessionPages[activeTab.value] = page
+  return loadSessionList(activeTab.value)
 }
 
 const openSession = async (item) => {
@@ -1979,7 +2007,7 @@ const persistSession = async (tab, refreshList = true) => {
   if (!sessions[tab].messages.length && !hasResult) return null
   const data = unwrap(await saveAIWorkflowSession(sessionPayload(tab)))
   if (data.session) hydrateSession(tab, data.session)
-  if (refreshList) await loadSessionList(tab)
+  if (refreshList) await searchSessionList(tab)
   return data.session || null
 }
 
@@ -1995,6 +2023,9 @@ const removeSession = async (item) => {
   )
   await deleteAIWorkflowSession({ id: Number(item.ID || item.id || 0) })
   if (isSessionActive(item)) startNewConversation(activeTab.value)
+  if (currentSessionList.value.length === 1 && sessionPages[activeTab.value] > 1) {
+    sessionPages[activeTab.value]--
+  }
   await loadSessionList(activeTab.value)
   ElMessage.success('已删除会话')
 }

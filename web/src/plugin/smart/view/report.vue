@@ -61,12 +61,12 @@
     </div>
     <section class="na-panel deliveries-panel">
       <header class="panel-header delivery-header">
-        <div><h2>发送记录</h2><p>最近 30 条投递结果，按发送时间倒序排列。</p></div>
+        <div><h2>发送记录</h2><p>全部投递结果，按发送时间倒序排列。</p></div>
         <div v-if="deliveries.length" class="delivery-summary" aria-label="投递结果汇总">
-          <span>共 {{ deliverySummary.total }} 条</span>
-          <span class="is-success"><i />成功 {{ deliverySummary.sent }}</span>
-          <span v-if="deliverySummary.sending" class="is-sending"><i />发送中 {{ deliverySummary.sending }}</span>
-          <span v-if="deliverySummary.failed" class="is-failed"><i />失败 {{ deliverySummary.failed }}</span>
+          <span>共 {{ deliveryTotal }} 条</span>
+          <span class="is-success"><i />本页成功 {{ deliverySummary.sent }}</span>
+          <span v-if="deliverySummary.sending" class="is-sending"><i />本页发送中 {{ deliverySummary.sending }}</span>
+          <span v-if="deliverySummary.failed" class="is-failed"><i />本页失败 {{ deliverySummary.failed }}</span>
         </div>
       </header>
       <el-table :data="deliveries" size="small" class="delivery-table" :row-class-name="deliveryRowClass">
@@ -95,6 +95,17 @@
         </el-table-column>
         <template #empty><AppEmptyState compact title="暂无日报发送记录" description="启用订阅并生成日报后，投递结果会显示在这里。" /></template>
       </el-table>
+      <div v-if="deliveryTotal > 10" class="pagination">
+        <el-pagination
+          v-model:current-page="deliveryPage"
+          v-model:page-size="deliveryPageSize"
+          :page-sizes="[10, 20, 50]"
+          :total="deliveryTotal"
+          layout="total, sizes, prev, pager, next"
+          @change="loadDeliveries"
+          @size-change="resetDeliveryPage"
+        />
+      </div>
     </section>
 
     <el-drawer v-model="detailVisible" :size="drawerSize" append-to-body destroy-on-close :close-on-click-modal="false" class="smart-report-drawer">
@@ -154,7 +165,7 @@ import { useAppStore } from '@/pinia'
 defineOptions({ name: 'SmartReport' })
 const router = useRouter()
 const appStore = useAppStore()
-const loading = ref(false); const loaded = ref(false); const generating = ref(false); const saving = ref(false); const report = ref(null); const reports = ref([]); const deliveries = ref([]); const total = ref(0); const page = ref(1); const pageSize = ref(10); const subscription = reactive({ enabled: true, deliveryTime: '09:00', channels: 'in_app' }); const deliveryTime = ref('09:00'); const channels = ref(['in_app'])
+const loading = ref(false); const loaded = ref(false); const generating = ref(false); const saving = ref(false); const report = ref(null); const reports = ref([]); const deliveries = ref([]); const deliveryTotal = ref(0); const deliveryPage = ref(1); const deliveryPageSize = ref(10); const total = ref(0); const page = ref(1); const pageSize = ref(10); const subscription = reactive({ enabled: true, deliveryTime: '09:00', channels: 'in_app' }); const deliveryTime = ref('09:00'); const channels = ref(['in_app'])
 const detailVisible = ref(false)
 const detailLoading = ref(false)
 const detailReport = ref(null)
@@ -315,7 +326,8 @@ function showReport(value) { detailReport.value = value; detailVisible.value = t
 async function loadToday() { const res = await getTodaySmartReport(); if (res.code === 0) report.value = res.data; else ElMessage.error(res.msg || '读取日报失败') }
 async function loadHistory() { const res = await getSmartReports({ page: page.value, pageSize: pageSize.value }); if (res.code === 0) { reports.value = res.data?.list || []; total.value = res.data?.total || 0 } }
 async function loadSubscription() { const res = await getSmartReportSubscription(); if (res.code === 0) { Object.assign(subscription, res.data || {}); deliveryTime.value = res.data?.deliveryTime || '09:00'; channels.value = (res.data?.channels || 'in_app').split(',').filter(Boolean) } }
-async function loadDeliveries() { const res = await getSmartReportDeliveries(); if (res.code === 0) deliveries.value = res.data || [] }
+async function loadDeliveries() { const res = await getSmartReportDeliveries({ paged: true, page: deliveryPage.value, pageSize: deliveryPageSize.value }); if (res.code === 0) { deliveries.value = res.data?.list || []; deliveryTotal.value = Number(res.data?.total || 0) } }
+function resetDeliveryPage() { deliveryPage.value = 1 }
 async function load() { loading.value = true; try { await Promise.all([loadToday(), loadHistory(), loadSubscription(), loadDeliveries()]) } finally { loading.value = false; loaded.value = true } }
 async function generate() { generating.value = true; try { const res = await generateSmartReport(); if (res.code === 0) { report.value = res.data; await loadHistory(); ElMessage.success(res.msg || '日报已生成') } else ElMessage.error(res.msg || '生成失败') } finally { generating.value = false } }
 async function saveSubscription() { saving.value = true; try { const res = await saveSmartReportSubscription({ enabled: subscription.enabled, deliveryTime: deliveryTime.value, channels: channels.value.join(',') }); if (res.code === 0) { ElMessage.success(res.msg || '订阅已保存'); await loadDeliveries() } else ElMessage.error(res.msg || '保存失败') } finally { saving.value = false } }

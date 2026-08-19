@@ -17,7 +17,7 @@
         <header class="panel-header">
           <div>
             <h2>会话</h2>
-            <span>{{ sessions.length }} 个最近记录</span>
+            <span>共 {{ sessionTotal }} 个会话</span>
           </div>
           <el-button text :icon="Plus" @click="newSession">新建</el-button>
         </header>
@@ -53,6 +53,18 @@
             </el-tooltip>
           </div>
         </div>
+
+        <el-pagination
+          v-if="sessionTotal > sessionPageSize"
+          v-model:current-page="sessionPage"
+          class="session-pagination"
+          small
+          :page-size="sessionPageSize"
+          :pager-count="3"
+          :total="sessionTotal"
+          layout="prev, pager, next"
+          @current-change="loadSessions"
+        />
 
         <AppEmptyState
           v-if="!sessions.length && !loading"
@@ -267,6 +279,9 @@ const sending = ref(false)
 const sessionLoading = ref(false)
 const deletingSessionId = ref(0)
 const sessions = ref([])
+const sessionTotal = ref(0)
+const sessionPage = ref(1)
+const sessionPageSize = ref(10)
 const messages = ref([])
 const tools = ref([])
 const sessionId = ref(0)
@@ -447,8 +462,11 @@ function openCitation(item) {
 async function loadSessions() {
   loading.value = true
   try {
-    const [sessionRes, toolRes] = await Promise.all([getCopilotSessions(), getCopilotTools()])
-    if (sessionRes.code === 0) sessions.value = sessionRes.data || []
+    const [sessionRes, toolRes] = await Promise.all([getCopilotSessions({ paged: true, page: sessionPage.value, pageSize: sessionPageSize.value }), getCopilotTools()])
+    if (sessionRes.code === 0) {
+      sessions.value = sessionRes.data?.list || []
+      sessionTotal.value = Number(sessionRes.data?.total || 0)
+    }
     else ElMessage.error(sessionRes.msg || '读取会话失败')
     if (toolRes.code === 0) tools.value = toolRes.data || []
     else ElMessage.error(toolRes.msg || '读取可查询范围失败')
@@ -496,6 +514,7 @@ async function removeSession(item) {
       return
     }
     if (sessionId.value === item.ID) newSession()
+    if (sessions.value.length === 1 && sessionPage.value > 1) sessionPage.value--
     await loadSessions()
     ElMessage.success(res.msg || '会话已删除')
   } catch (error) {
@@ -532,6 +551,7 @@ async function submitQuestion() {
     )
     sessionId.value = res.data.sessionId
     question.value = ''
+    sessionPage.value = 1
     await Promise.all([loadSessions(), scrollToLatest()])
   } catch (error) {
     ElMessage.error('查询失败，请稍后重试')
@@ -626,6 +646,7 @@ onMounted(loadSessions)
 .session-row:focus-within .session-delete,
 .session-row.is-active .session-delete { opacity: 1; }
 .session-delete:hover { color: var(--na-danger); }
+.session-pagination { justify-content: center; margin-top: var(--na-space-sm); }
 
 .chat-panel {
   display: flex;

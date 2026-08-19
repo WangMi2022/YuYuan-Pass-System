@@ -92,7 +92,7 @@
         <el-pagination
           v-model:current-page="search.page"
           v-model:page-size="search.pageSize"
-          :page-sizes="[12, 24, 48, 96]"
+          :page-sizes="[10, 20, 50, 100]"
           :total="total"
           layout="total, sizes, prev, pager, next, jumper"
           @current-change="loadSites"
@@ -196,7 +196,7 @@ const {
   reset: resetSearch,
   changePageSize: sizeChanged
 } = usePagedList({
-  defaults: { page: 1, pageSize: 12, keyword: '', category: '', enabled: '' },
+  defaults: { page: 1, pageSize: 10, keyword: '', category: '', enabled: '' },
   request: (params) => {
     if (params.enabled === '') delete params.enabled
     return getSiteList(params)
