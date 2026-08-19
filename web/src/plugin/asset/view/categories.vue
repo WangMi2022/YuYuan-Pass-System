@@ -219,6 +219,8 @@ const locationList = usePagedList({
   defaults: { page: 1, pageSize: 10, keyword: '' },
   request: (params) => getLocationList({ ...params, type: activeTab.value })
 })
+const categorySearch = categoryList.search
+const locationSearch = locationList.search
 const currentList = computed(() => activeTab.value === 'category' ? categoryList : locationList)
 const currentSearch = computed(() => currentList.value.search)
 const tableData = computed(() => currentList.value.items.value)
