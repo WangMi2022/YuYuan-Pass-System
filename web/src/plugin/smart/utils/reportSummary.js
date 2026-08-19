@@ -34,3 +34,14 @@ export function normalizeReportSummary(value) {
 
   return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim()
 }
+
+export function reportSummaryHeading(value) {
+  const normalized = normalizeReportSummary(value)
+  const firstLine = normalized.split('\n').find((line) => line.trim()) || ''
+  return /^#{1,6}\s+/.test(firstLine) ? firstLine.replace(/^#{1,6}\s+/, '').trim() : '今日业务摘要'
+}
+
+export function reportSummaryBody(value) {
+  const normalized = normalizeReportSummary(value)
+  return normalized.replace(/^#{1,6}\s+[^\n]*(?:\n+|$)/, '').trim()
+}

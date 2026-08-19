@@ -15,7 +15,9 @@
       <div class="report-hero__content">
         <span class="eyebrow">{{ report.reportDate?.slice?.(0, 10) || '今日' }}</span>
         <div class="report-hero__summary" aria-label="日报摘要">
-          <AssistantMarkdown :source="heroReportSummary" />
+          <h2 class="report-hero__title">{{ heroReportHeading }}</h2>
+          <AssistantMarkdown v-if="heroReportBody" :source="heroReportBody" />
+          <p v-else class="report-hero__empty">日报暂无摘要。</p>
         </div>
         <small>生成方式：{{ generationLabel(report.generatedBy) }} · {{ formatTime(report.generatedAt) }}</small>
       </div>
@@ -45,7 +47,9 @@
         <el-table v-loading="loading && !loaded" :data="reports" row-key="ID" class="report-table" @row-click="openReport">
           <el-table-column prop="reportDate" label="日期" min-width="120"><template #default="{ row }">{{ row.reportDate?.slice?.(0, 10) }}</template></el-table-column>
           <el-table-column label="生成方式" width="150"><template #default="{ row }">{{ generationLabel(row.generatedBy) }}</template></el-table-column>
-          <el-table-column prop="summary" label="摘要" min-width="280" show-overflow-tooltip />
+          <el-table-column label="摘要" min-width="280">
+            <template #default="{ row }"><span class="history-summary">{{ row.summary || '日报暂无摘要' }}</span></template>
+          </el-table-column>
           <el-table-column label="操作" width="112" fixed="right" align="center">
             <template #default="{ row }"><el-button type="primary" link :icon="View" :loading="detailLoading && openingReportId === row.ID" @click.stop="openReport(row)">查看日报</el-button></template>
           </el-table-column>
@@ -144,7 +148,7 @@ import AppPageHeader from '@/components/page/AppPageHeader.vue'
 import AssistantMarkdown from '@/plugin/smart/components/AssistantMarkdown.vue'
 import { generateSmartReport, getSmartReport, getSmartReportDeliveries, getSmartReportSubscription, getSmartReports, getTodaySmartReport, saveSmartReportSubscription } from '@/plugin/smart/api/smart'
 import { exportSmartReport, formatMicrosMoney, REPORT_EXPORT_FORMATS } from '@/plugin/smart/utils/reportExport'
-import { normalizeReportSummary } from '@/plugin/smart/utils/reportSummary'
+import { normalizeReportSummary, reportSummaryBody, reportSummaryHeading } from '@/plugin/smart/utils/reportSummary'
 import { useAppStore } from '@/pinia'
 
 defineOptions({ name: 'SmartReport' })
@@ -157,7 +161,8 @@ const detailReport = ref(null)
 const openingReportId = ref(null)
 const exportingFormat = ref('')
 const drawerSize = computed(() => appStore.drawerSize === '100%' ? '100%' : 'min(92vw, 780px)')
-const heroReportSummary = computed(() => normalizeReportSummary(report.value?.summary || '日报暂无摘要。'))
+const heroReportHeading = computed(() => reportSummaryHeading(report.value?.summary))
+const heroReportBody = computed(() => reportSummaryBody(report.value?.summary))
 const detailReportSummary = computed(() => normalizeReportSummary(detailReport.value?.summary || '日报暂无正文。'))
 const deliverySummary = computed(() => deliveries.value.reduce((summary, item) => {
   summary.total += 1
@@ -366,6 +371,15 @@ onMounted(load)
   overflow: hidden;
 }
 
+.report-hero__title {
+  margin: 0 0 6px;
+  color: var(--na-foreground);
+  font-size: 1.05rem;
+  line-height: 1.45;
+}
+
+.report-hero__empty { margin: 0; color: var(--na-muted-foreground); font-size: .84rem; }
+
 .report-hero__summary :deep(.assistant-markdown) {
   color: var(--na-foreground);
   font-size: .84rem;
@@ -557,6 +571,15 @@ onMounted(load)
 .delivery-time { font-style: normal; font-variant-numeric: tabular-nums; }
 .pagination { display: flex; justify-content: flex-end; margin-top: 14px; }
 .report-table :deep(.el-table__row) { cursor: pointer; }
+.history-summary {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--na-muted-foreground);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
 
 .report-detail-header {
   display: flex;
