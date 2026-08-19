@@ -63,8 +63,18 @@
       </aside>
 
       <section class="na-panel chat-panel" aria-labelledby="smart-copilot-title">
+        <header class="chat-panel-header">
+          <div class="chat-panel-title">
+            <span class="chat-panel-icon" aria-hidden="true"><el-icon><ChatDotRound /></el-icon></span>
+            <div>
+              <h2>{{ sessionId ? '当前会话' : '新会话' }}</h2>
+              <span>{{ sessionId ? '继续查看和追问业务数据' : '选择建议问题，或直接输入你的问题' }}</span>
+            </div>
+          </div>
+          <span class="access-state"><i aria-hidden="true" />{{ tools.length }} 项数据能力可用</span>
+        </header>
+
         <div ref="chatScroll" class="chat-scroll" aria-live="polite">
-          <el-skeleton v-if="sessionLoading" animated :rows="8" class="chat-loading-skeleton" />
           <div v-if="!messages.length && !sessionLoading" class="empty-chat">
             <div class="empty-chat-icon" aria-hidden="true"><el-icon><MagicStick /></el-icon></div>
             <div class="empty-chat-copy">
@@ -125,8 +135,9 @@
 
                 <details v-if="hasStructuredData(item)" class="message-result">
                   <summary>
-                    <span>查询结果</span>
+                    <span class="result-title">查询结果</span>
                     <small>{{ resultDescriptor(item) }}</small>
+                    <el-icon class="result-chevron" aria-hidden="true"><ArrowDown /></el-icon>
                   </summary>
                   <div class="result-content">
                     <div v-if="resultFacts(item).length" class="result-facts">
@@ -145,7 +156,7 @@
                           min-width="128"
                           show-overflow-tooltip
                         >
-                          <template #default="{ row }">{{ displayValue(row[column]) }}</template>
+                          <template #default="{ row }">{{ displayColumnValue(column, row[column]) }}</template>
                         </el-table-column>
                       </el-table>
                     </div>
@@ -153,15 +164,19 @@
                 </details>
 
                 <footer v-if="citationList(item.citations).length" class="message-citations">
-                  <span>相关记录</span>
-                  <el-button
-                    v-for="citation in citationList(item.citations)"
-                    :key="`${citation.type}-${citation.id || citation.label}`"
-                    link
-                    type="primary"
-                    :icon="ArrowRight"
-                    @click="openCitation(citation)"
-                  >{{ citation.label }}</el-button>
+                  <div class="citations-label"><el-icon aria-hidden="true"><Link /></el-icon>相关记录</div>
+                  <div class="citation-links">
+                    <el-button
+                      v-for="citation in citationList(item.citations)"
+                      :key="`${citation.type}-${citation.id || citation.label}`"
+                      link
+                      type="primary"
+                      @click="openCitation(citation)"
+                    >
+                      <span>{{ citation.label }}</span>
+                      <el-icon aria-hidden="true"><ArrowRight /></el-icon>
+                    </el-button>
+                  </div>
                 </footer>
               </div>
             </template>
@@ -177,30 +192,35 @@
         </div>
 
         <form class="composer" @submit.prevent="submitQuestion">
-          <label class="composer-label" for="smart-copilot-question">只读业务问题</label>
-          <el-input
-            id="smart-copilot-question"
-            v-model="question"
-            class="composer-input"
-            type="textarea"
-            :rows="2"
-            maxlength="2000"
-            show-word-limit
-            resize="none"
-            placeholder="例如：未来 30 天哪些资产质保到期？"
-            :disabled="sending"
-          />
-          <el-tooltip content="发送查询" placement="top">
-            <el-button
-              class="composer-submit"
-              type="primary"
-              circle
-              :icon="Position"
-              :loading="sending"
-              native-type="submit"
-              aria-label="发送查询"
+          <div class="composer-heading">
+            <label class="composer-label" for="smart-copilot-question">向业务助手提问</label>
+            <span>只读查询 · 数据范围跟随当前权限</span>
+          </div>
+          <div class="composer-control">
+            <el-input
+              id="smart-copilot-question"
+              v-model="question"
+              class="composer-input"
+              type="textarea"
+              :rows="2"
+              maxlength="2000"
+              show-word-limit
+              resize="none"
+              placeholder="例如：未来 30 天哪些资产质保到期？"
+              :disabled="sending"
             />
-          </el-tooltip>
+            <el-tooltip content="发送查询" placement="top">
+              <el-button
+                class="composer-submit"
+                type="primary"
+                circle
+                :icon="Position"
+                :loading="sending"
+                native-type="submit"
+                aria-label="发送查询"
+              />
+            </el-tooltip>
+          </div>
         </form>
       </section>
 
@@ -208,7 +228,7 @@
         <header class="panel-header">
           <div>
             <h2>可查询范围</h2>
-            <span>已按当前角色过滤</span>
+            <span>{{ tools.length }} 项能力，已按当前角色过滤</span>
           </div>
         </header>
         <div v-for="item in tools" :key="item.name" class="tool-item">
@@ -232,7 +252,7 @@
 <script setup>
 import { nextTick, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowRight, CircleCheck, Delete, Loading, MagicStick, Plus, Position, Refresh } from '@element-plus/icons-vue'
+import { ArrowDown, ArrowRight, ChatDotRound, CircleCheck, Delete, Link, Loading, MagicStick, Plus, Position, Refresh } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
 import AppEmptyState from '@/components/page/AppEmptyState.vue'
@@ -284,6 +304,18 @@ const columnLabels = {
   date: '日期', Date: '日期', time: '时间', Time: '时间', type: '类型', Type: '类型', note: '备注', Note: '备注'
 }
 
+const factLabels = {
+  confirmedCount: '已确认发票', ConfirmedCount: '已确认发票',
+  pendingCount: '待复核发票', PendingCount: '待复核发票',
+  failedCount: '识别失败', FailedCount: '识别失败',
+  unreadCount: '未读公告', UnreadCount: '未读公告',
+  totalCount: '记录总数', TotalCount: '记录总数',
+  total: '记录总数', count: '记录数量'
+}
+
+const countFactKeys = new Set(['confirmedCount', 'ConfirmedCount', 'pendingCount', 'PendingCount', 'failedCount', 'FailedCount'])
+const currencyFactKeys = new Set(['totalCents', 'TotalCents'])
+
 const hiddenColumns = new Set(['ID', 'id', 'CreatedAt', 'createdAt', 'UpdatedAt', 'updatedAt', 'DeletedAt', 'deletedAt', 'categoryId', 'CategoryID', 'userId', 'UserID'])
 const preferredColumns = ['assetCode', 'AssetCode', 'name', 'Name', 'title', 'Title', 'status', 'Status', 'severity', 'Severity', 'warrantyEndDate', 'WarrantyEndDate', 'date', 'Date', 'time', 'Time', 'sellerName', 'SellerName', 'invoiceNumber', 'InvoiceNumber']
 
@@ -324,6 +356,25 @@ function displayValue(value) {
   return String(value)
 }
 
+function displayColumnValue(key, value) {
+  if (currencyFactKeys.has(key) && Number.isFinite(Number(value))) {
+    return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(Number(value) / 100)
+  }
+  return displayValue(value)
+}
+
+function factLabel(key) {
+  return factLabels[key] || columnLabels[key] || toolLabels[key] || key
+}
+
+function displayFactValue(key, value) {
+  if (currencyFactKeys.has(key) && Number.isFinite(Number(value))) {
+    return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(Number(value) / 100)
+  }
+  if (countFactKeys.has(key) && Number.isFinite(Number(value))) return `${displayValue(value)} 张`
+  return displayValue(value)
+}
+
 function resultFacts(item) {
   const data = item?.data
   if (!data || Array.isArray(data) || typeof data !== 'object') return []
@@ -342,7 +393,7 @@ function resultFacts(item) {
         if (Array.isArray(value.list)) return { label: toolLabel(key), value: `${value.list.length} 条` }
         if (Number.isFinite(Number(value.total))) return { label: toolLabel(key), value: `${value.total} 条` }
       }
-      return { label: toolLabel(key), value: displayValue(value) }
+      return { label: factLabel(key), value: displayFactValue(key, value) }
     })
 }
 
@@ -410,7 +461,6 @@ async function loadSessions() {
 
 async function openSession(id) {
   sessionId.value = id
-  messages.value = []
   sessionLoading.value = true
   try {
     const res = await getCopilotSession({ id })
@@ -496,21 +546,28 @@ onMounted(loadSessions)
 <style scoped lang="scss">
 .copilot-layout {
   display: grid;
-  grid-template-columns: 224px minmax(0, 1fr) 252px;
+  grid-template-columns: 232px minmax(0, 1fr) 264px;
   align-items: start;
-  gap: var(--na-space-sm);
+  gap: 12px;
 }
 
 .na-panel {
   min-width: 0;
   border: 1px solid var(--na-border);
-  border-radius: var(--na-radius-lg);
+  border-radius: 12px;
   background: var(--na-card);
   box-shadow: var(--na-shadow-sm);
 }
 
 .session-panel,
-.tools-panel { max-height: calc(100dvh - 170px); overflow-y: auto; padding: var(--na-space-md); }
+.tools-panel {
+  position: sticky;
+  top: var(--na-space-sm);
+  max-height: calc(100dvh - 170px);
+  overflow-y: auto;
+  padding: var(--na-space-md);
+  background: color-mix(in srgb, var(--na-card) 96%, var(--na-muted));
+}
 
 .panel-header {
   display: flex;
@@ -520,27 +577,38 @@ onMounted(loadSessions)
   margin-bottom: var(--na-space-sm);
 }
 
-.panel-header h2 { margin: 0; color: var(--na-foreground); font-size: .9375rem; line-height: 1.4; }
+.panel-header h2 { margin: 0; color: var(--na-foreground); font-size: .875rem; font-weight: 700; line-height: 1.4; }
 .panel-header span { display: block; margin-top: 3px; color: var(--na-muted-foreground); font-size: .75rem; line-height: 1.4; }
 
-.session-list { display: grid; gap: 2px; }
+.session-list { display: grid; gap: 4px; }
 .session-row {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 30px;
   align-items: center;
-  border-radius: 7px;
+  border-radius: 8px;
   transition: background-color 180ms cubic-bezier(.22, 1, .36, 1);
 }
 
 .session-row:hover,
 .session-row.is-active { background: var(--na-primary-soft); }
+.session-row.is-active::before {
+  position: absolute;
+  top: 9px;
+  bottom: 9px;
+  left: 0;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--na-primary);
+  content: '';
+}
 
 .session-item {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 4px;
-  padding: 10px;
+  gap: 5px;
+  padding: 10px 8px 10px 12px;
   border: 0;
   border-radius: 7px;
   background: transparent;
@@ -553,7 +621,10 @@ onMounted(loadSessions)
 .session-item:focus-visible { outline: 3px solid var(--na-ring); outline-offset: -2px; }
 .session-item strong { overflow: hidden; font-size: .8125rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .session-item small { color: var(--na-muted-foreground); font-size: .6875rem; }
-.session-delete { width: 30px; height: 30px; margin: 0; color: var(--na-muted-foreground); }
+.session-delete { width: 28px; height: 28px; margin: 0; color: var(--na-muted-foreground); opacity: 0; transition: opacity 160ms ease, color 160ms ease; }
+.session-row:hover .session-delete,
+.session-row:focus-within .session-delete,
+.session-row.is-active .session-delete { opacity: 1; }
 .session-delete:hover { color: var(--na-danger); }
 
 .chat-panel {
@@ -563,23 +634,53 @@ onMounted(loadSessions)
   overflow: hidden;
 }
 
+.chat-panel-header {
+  display: flex;
+  min-height: 64px;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--na-space-md);
+  padding: 10px var(--na-space-lg);
+  border-bottom: 1px solid var(--na-border);
+  background: var(--na-card);
+}
+
+.chat-panel-title { display: flex; min-width: 0; align-items: center; gap: 10px; }
+.chat-panel-title > div { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.chat-panel-title h2 { margin: 0; color: var(--na-foreground); font-size: .875rem; font-weight: 700; line-height: 1.4; }
+.chat-panel-title span { overflow: hidden; color: var(--na-muted-foreground); font-size: .75rem; text-overflow: ellipsis; white-space: nowrap; }
+.chat-panel-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--na-primary-soft);
+  color: var(--na-primary);
+  font-size: 17px;
+}
+.access-state { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 6px; color: var(--na-muted-foreground); font-size: .75rem; white-space: nowrap; }
+.access-state i { width: 7px; height: 7px; border-radius: 50%; background: var(--na-success); box-shadow: 0 0 0 3px var(--na-success-soft); }
+
 .chat-scroll {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: var(--na-space-lg);
+  padding: 28px clamp(18px, 3vw, 44px);
+  background: color-mix(in srgb, var(--na-card) 97%, var(--na-muted));
   scroll-behavior: smooth;
 }
 
-.message { min-width: 0; margin: 0 0 var(--na-space-md); }
-.message--user { display: flex; max-width: min(72%, 680px); margin-left: auto; align-items: flex-end; flex-direction: column; }
+.message { min-width: 0; margin: 0 auto 26px; }
+.message--user { display: flex; width: min(100%, 960px); align-items: flex-end; flex-direction: column; }
 .message-role { margin: 0 4px 5px 0; color: var(--na-muted-foreground); font-size: .75rem; }
 
 .user-message-body {
-  max-width: 100%;
-  padding: 11px 13px;
+  max-width: min(72%, 680px);
+  padding: 10px 14px;
   border: 1px solid color-mix(in srgb, var(--na-primary) 16%, var(--na-border));
-  border-radius: 8px 8px 3px 8px;
+  border-radius: 10px 10px 3px 10px;
   background: var(--na-primary-soft);
   color: var(--na-foreground);
   font-size: .875rem;
@@ -591,7 +692,7 @@ onMounted(loadSessions)
 .message--user .message-time { margin: 5px 3px 0 0; }
 
 .message--assistant,
-.message--pending { display: flex; max-width: min(100%, 920px); align-items: flex-start; gap: var(--na-space-sm); }
+.message--pending { display: flex; width: min(100%, 960px); align-items: flex-start; gap: 12px; }
 
 .assistant-avatar {
   display: grid;
@@ -609,10 +710,7 @@ onMounted(loadSessions)
 .assistant-message-body {
   min-width: 0;
   flex: 1;
-  padding: 14px 16px;
-  border: 1px solid var(--na-border);
-  border-radius: 3px 8px 8px;
-  background: color-mix(in srgb, var(--na-card) 92%, var(--na-muted));
+  padding: 2px 0 0;
 }
 
 .assistant-message-header,
@@ -621,7 +719,7 @@ onMounted(loadSessions)
 .message-citations,
 .composer { display: flex; align-items: center; }
 
-.assistant-message-header { justify-content: space-between; gap: var(--na-space-sm); margin-bottom: var(--na-space-sm); }
+.assistant-message-header { min-height: 34px; justify-content: space-between; gap: var(--na-space-sm); margin-bottom: 10px; }
 .assistant-identity { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
 .assistant-identity strong { color: var(--na-foreground); font-size: .8125rem; font-weight: 650; }
 .assistant-identity span { color: var(--na-muted-foreground); font-size: .6875rem; }
@@ -642,7 +740,7 @@ onMounted(loadSessions)
 .message-status--complete { background: var(--na-success-soft); color: var(--na-action-success); }
 .message-status--partial { background: var(--na-warning-soft); color: var(--na-action-warning); }
 
-.tool-badges { flex-wrap: wrap; gap: 5px; margin: 0 0 var(--na-space-sm); }
+.tool-badges { flex-wrap: wrap; gap: 5px; margin: 0 0 10px; }
 .tool-badge {
   display: inline-flex;
   min-height: 21px;
@@ -665,14 +763,14 @@ onMounted(loadSessions)
   line-height: 1.55;
 }
 
-.message-result { margin-top: var(--na-space-md); border-top: 1px solid var(--na-border); }
+.message-result { margin-top: var(--na-space-md); border: 1px solid var(--na-border); border-radius: 8px; background: var(--na-card); overflow: hidden; }
 .message-result summary {
   display: flex;
   min-height: 40px;
   align-items: center;
   justify-content: space-between;
   gap: var(--na-space-xs);
-  padding: 0 var(--na-space-2xs);
+  padding: 0 12px;
   color: var(--na-foreground);
   font-size: .75rem;
   font-weight: 600;
@@ -681,21 +779,28 @@ onMounted(loadSessions)
 }
 
 .message-result summary::-webkit-details-marker { display: none; }
-.message-result summary::after { content: '⌄'; margin-left: var(--na-space-xs); color: var(--na-muted-foreground); font-size: 1rem; transition: transform 180ms ease; }
-.message-result[open] summary::after { transform: rotate(180deg); }
+.result-title { display: inline-flex; align-items: center; gap: 6px; }
+.result-title::before { width: 3px; height: 14px; border-radius: 2px; background: var(--na-primary); content: ''; }
+.result-chevron { margin-left: 3px; color: var(--na-muted-foreground); transition: transform 180ms ease; }
+.message-result[open] .result-chevron { transform: rotate(180deg); }
 .message-result summary small { margin-left: auto; color: var(--na-muted-foreground); font-size: .6875rem; font-weight: 400; }
 .message-result summary:focus-visible { outline: 3px solid var(--na-ring); outline-offset: -2px; }
 
-.result-content { padding: 0 0 var(--na-space-sm); }
-.result-facts { display: flex; flex-wrap: wrap; border-top: 1px solid var(--na-border); }
-.result-fact { display: flex; min-width: 132px; flex: 1 1 132px; flex-direction: column; gap: 4px; padding: 10px 12px; border-right: 1px solid var(--na-border); border-bottom: 1px solid var(--na-border); }
+.result-content { padding: 0 12px 12px; border-top: 1px solid var(--na-border); }
+.result-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.result-fact { display: flex; min-width: 0; flex-direction: column; gap: 5px; padding: 12px; border-right: 1px solid var(--na-border); }
+.result-fact:first-child { padding-left: 0; }
+.result-fact:last-child { padding-right: 0; border-right: 0; }
 .result-fact span { color: var(--na-muted-foreground); font-size: .6875rem; }
-.result-fact strong { color: var(--na-foreground); font-size: .8125rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.result-fact strong { color: var(--na-foreground); font-size: .9375rem; font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .result-table { overflow: hidden; margin-top: var(--na-space-sm); border: 1px solid var(--na-border); border-radius: var(--na-radius-sm); }
 
-.message-citations { flex-wrap: wrap; gap: 3px var(--na-space-xs); margin-top: var(--na-space-md); padding-top: var(--na-space-sm); border-top: 1px solid var(--na-border); }
-.message-citations > span { margin-right: 2px; color: var(--na-muted-foreground); font-size: .6875rem; }
-.message-citations .el-button { max-width: 100%; margin: 0; white-space: normal; text-align: left; }
+.message-citations { align-items: flex-start; gap: 10px; margin-top: var(--na-space-md); padding-top: var(--na-space-sm); border-top: 1px solid var(--na-border); }
+.citations-label { display: inline-flex; min-height: 24px; flex: 0 0 auto; align-items: center; gap: 5px; color: var(--na-muted-foreground); font-size: .6875rem; }
+.citation-links { display: flex; min-width: 0; flex: 1; flex-wrap: wrap; gap: 4px 16px; }
+.message-citations .el-button { display: inline-flex; max-width: 100%; min-height: 24px; align-items: center; gap: 5px; margin: 0; font-size: .75rem; white-space: normal; text-align: left; }
+.message-citations .el-button span { overflow-wrap: anywhere; }
+.message-citations .el-button .el-icon { flex: 0 0 auto; }
 
 .message--pending { animation: message-enter 180ms cubic-bezier(.22, 1, .36, 1); }
 .pending-copy { display: inline-flex; min-height: 34px; align-items: center; gap: var(--na-space-xs); color: var(--na-muted-foreground); font-size: .8125rem; }
@@ -706,11 +811,13 @@ onMounted(loadSessions)
 
 .empty-chat {
   display: grid;
+  width: min(100%, 760px);
   min-height: 460px;
   grid-template-columns: 42px minmax(0, 1fr);
   align-content: center;
   gap: 6px var(--na-space-sm);
-  padding: var(--na-space-xl);
+  margin: 0 auto;
+  padding: var(--na-space-xl) 0;
 }
 
 .empty-chat-icon { display: grid; width: 42px; height: 42px; grid-row: 1 / span 2; place-items: center; border-radius: 8px; background: var(--na-primary-soft); color: var(--na-primary); font-size: 20px; }
@@ -745,19 +852,25 @@ onMounted(loadSessions)
 .question-suggestions button .el-icon { flex: 0 0 auto; color: var(--na-primary); }
 
 .composer {
-  gap: var(--na-space-sm);
-  padding: var(--na-space-sm) var(--na-space-lg) var(--na-space-md);
+  display: block;
+  padding: 12px var(--na-space-lg) 14px;
   border-top: 1px solid var(--na-border);
   background: var(--na-card);
 }
 
-.composer-label { flex: 0 0 auto; color: var(--na-muted-foreground); font-size: .75rem; font-weight: 600; white-space: nowrap; }
+.composer-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--na-space-sm); margin-bottom: 7px; }
+.composer-label { color: var(--na-foreground); font-size: .75rem; font-weight: 700; white-space: nowrap; }
+.composer-heading span { color: var(--na-muted-foreground); font-size: .6875rem; }
+.composer-control { display: flex; align-items: flex-end; gap: 10px; }
 .composer-input { flex: 1; min-width: 0; }
-.composer-submit { width: 42px; min-width: 42px; height: 42px; }
+.composer-input :deep(.el-textarea__inner) { min-height: 58px !important; padding: 10px 58px 10px 12px; border-radius: 8px; box-shadow: 0 0 0 1px var(--na-border) inset; background: color-mix(in srgb, var(--na-card) 96%, var(--na-muted)); line-height: 1.55; }
+.composer-input :deep(.el-textarea__inner:focus) { box-shadow: 0 0 0 1px var(--na-primary) inset, 0 0 0 3px var(--na-ring); }
+.composer-input :deep(.el-input__count) { right: 10px; bottom: 7px; background: transparent; color: var(--na-muted-foreground); }
+.composer-submit { width: 42px; min-width: 42px; height: 42px; margin-bottom: 8px; box-shadow: 0 5px 14px color-mix(in srgb, var(--na-primary) 24%, transparent); }
 
-.tool-item { display: flex; gap: var(--na-space-xs); padding: 10px 0; border-bottom: 1px solid var(--na-border); }
+.tool-item { display: flex; gap: 9px; padding: 9px 0; border-bottom: 1px solid var(--na-border); }
 .tool-item:last-child { border-bottom: 0; }
-.tool-item > .el-icon { flex: 0 0 auto; margin-top: 2px; color: var(--na-success); }
+.tool-item > .el-icon { flex: 0 0 auto; margin-top: 2px; color: var(--na-success); font-size: 14px; }
 .tool-item div { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
 .tool-item strong { color: var(--na-foreground); font-size: .75rem; font-weight: 650; }
 .tool-item span { color: var(--na-muted-foreground); font-size: .6875rem; line-height: 1.45; }
@@ -766,7 +879,7 @@ onMounted(loadSessions)
 @keyframes assistant-dot { 0%, 80%, 100% { opacity: .35; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-2px); } }
 
 @media (max-width: 1100px) {
-  .copilot-layout { grid-template-columns: 204px minmax(0, 1fr); }
+  .copilot-layout { grid-template-columns: 212px minmax(0, 1fr); }
   .tools-panel { display: none; }
 }
 
@@ -774,12 +887,14 @@ onMounted(loadSessions)
   .copilot-layout { display: flex; min-height: 0; flex-direction: column; }
   .session-panel { width: 100%; max-height: 210px; }
   .chat-panel { width: 100%; min-height: calc(100dvh - 330px); }
-  .empty-chat { min-height: 390px; padding: var(--na-space-lg) var(--na-space-md); }
+  .empty-chat { min-height: 390px; padding: var(--na-space-lg) 0; }
 }
 
 @media (max-width: 620px) {
   .chat-scroll { padding: var(--na-space-md); }
-  .message--user { max-width: 94%; }
+  .chat-panel-header { padding: 9px var(--na-space-md); }
+  .access-state { display: none; }
+  .user-message-body { max-width: 92%; }
   .message--assistant,
   .message--pending { gap: var(--na-space-xs); }
   .assistant-avatar { width: 30px; height: 30px; flex-basis: 30px; font-size: 15px; }
@@ -787,17 +902,19 @@ onMounted(loadSessions)
   .assistant-message-header { align-items: flex-start; flex-direction: column; }
   .assistant-meta { width: 100%; justify-content: space-between; }
   .question-suggestions { grid-template-columns: 1fr; }
-  .composer { align-items: flex-end; flex-wrap: wrap; padding: var(--na-space-sm) var(--na-space-md) var(--na-space-md); }
-  .composer-label { width: 100%; }
-  .composer-input { flex-basis: calc(100% - 54px); }
-  .result-fact { min-width: 50%; }
+  .composer { padding: var(--na-space-sm) var(--na-space-md) var(--na-space-md); }
+  .composer-heading span { display: none; }
+  .result-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .result-fact:nth-child(2) { border-right: 0; }
+  .result-fact:nth-child(n + 3) { border-top: 1px solid var(--na-border); }
+  .message-citations { flex-direction: column; gap: 4px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .chat-scroll { scroll-behavior: auto; }
   .session-row,
   .question-suggestions button,
-  .message-result summary::after,
+  .result-chevron,
   .message--pending,
   .assistant-dots i { transition: none; animation: none; }
 }
