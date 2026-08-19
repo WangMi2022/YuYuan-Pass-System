@@ -3,6 +3,7 @@ import test from 'node:test'
 import ExcelJS from 'exceljs'
 import mammoth from 'mammoth'
 import { buildReportExportBlob, buildReportFilename, buildReportMarkdown } from './reportExport.js'
+import { normalizeReportSummary } from './reportSummary.js'
 
 const report = {
   reportDate: '2026-08-19T00:00:00+08:00',
@@ -32,6 +33,23 @@ test('buildReportMarkdown contains metadata, full summary and grouped metrics', 
   assert.match(markdown, /## 重点/)
   assert.match(markdown, /### 风险处置/)
   assert.match(markdown, /\| 开放风险 \| 2 \|/)
+})
+
+test('normalizeReportSummary restores headings and lists from compressed model output', () => {
+  const compressed = '# 今日智能日报 ## 一、资产运营 - **今日动态**：新增资产 0 项。 - **存量情况**：在用长期资产 51 项。 - **待办提醒**： - 待入库 9 项 - 维护逾期 10 项 ## 二、风险管控 - **当前开放风险**：1820 条'
+  const normalized = normalizeReportSummary(compressed)
+
+  assert.match(normalized, /^# 今日智能日报\n\n## 一、资产运营/m)
+  assert.match(normalized, /\n\n- \*\*今日动态\*\*：新增资产 0 项。/)
+  assert.match(normalized, /\n- 待入库 9 项/)
+  assert.match(normalized, /\n\n## 二、风险管控\n\n- \*\*当前开放风险\*\*：1820 条$/)
+  assert.doesNotMatch(normalized, /## .+ ##/)
+})
+
+test('normalizeReportSummary preserves already formatted markdown and prose hyphens', () => {
+  const formatted = '# 今日智能日报\n\n## 一、资产运营\n\n- **今日动态**：新增资产 0 项。\n- 待入库 9 项'
+  assert.equal(normalizeReportSummary(formatted), formatted)
+  assert.equal(normalizeReportSummary('方案 A - 方案 B'), '方案 A - 方案 B')
 })
 
 test('Office exports create real docx and xlsx zip packages', async () => {

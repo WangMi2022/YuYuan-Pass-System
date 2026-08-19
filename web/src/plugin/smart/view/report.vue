@@ -14,7 +14,9 @@
     <section v-if="report" class="na-panel report-hero">
       <div class="report-hero__content">
         <span class="eyebrow">{{ report.reportDate?.slice?.(0, 10) || '今日' }}</span>
-        <h2>{{ report.summary || '日报暂无摘要' }}</h2>
+        <div class="report-hero__summary" aria-label="日报摘要">
+          <AssistantMarkdown :source="heroReportSummary" />
+        </div>
         <small>生成方式：{{ generationLabel(report.generatedBy) }} · {{ formatTime(report.generatedAt) }}</small>
       </div>
       <div class="report-hero__actions">
@@ -118,7 +120,7 @@
       <div v-else-if="detailReport" class="report-reader">
         <section class="report-reader__section report-reader__summary">
           <div class="report-section-heading"><h3>日报正文</h3><el-tag type="success" effect="plain">已生成</el-tag></div>
-          <AssistantMarkdown :source="detailReport.summary || '日报暂无正文。'" />
+          <AssistantMarkdown :source="detailReportSummary" />
         </section>
         <section v-for="group in detailMetricGroups" :key="group.key" class="report-reader__section">
           <div class="report-section-heading"><h3>{{ group.label }}</h3><span>{{ group.description }}</span></div>
@@ -142,6 +144,7 @@ import AppPageHeader from '@/components/page/AppPageHeader.vue'
 import AssistantMarkdown from '@/plugin/smart/components/AssistantMarkdown.vue'
 import { generateSmartReport, getSmartReport, getSmartReportDeliveries, getSmartReportSubscription, getSmartReports, getTodaySmartReport, saveSmartReportSubscription } from '@/plugin/smart/api/smart'
 import { exportSmartReport, REPORT_EXPORT_FORMATS } from '@/plugin/smart/utils/reportExport'
+import { normalizeReportSummary } from '@/plugin/smart/utils/reportSummary'
 import { useAppStore } from '@/pinia'
 
 defineOptions({ name: 'SmartReport' })
@@ -154,6 +157,8 @@ const detailReport = ref(null)
 const openingReportId = ref(null)
 const exportingFormat = ref('')
 const drawerSize = computed(() => appStore.drawerSize === '100%' ? '100%' : 'min(92vw, 780px)')
+const heroReportSummary = computed(() => normalizeReportSummary(report.value?.summary || '日报暂无摘要。'))
+const detailReportSummary = computed(() => normalizeReportSummary(detailReport.value?.summary || '日报暂无正文。'))
 const deliverySummary = computed(() => deliveries.value.reduce((summary, item) => {
   summary.total += 1
   if (Object.hasOwn(summary, item.status)) summary[item.status] += 1
@@ -341,7 +346,10 @@ onMounted(load)
   padding: 20px;
 }
 
-.report-hero__content { min-width: 0; }
+.report-hero__content {
+  min-width: 0;
+  flex: 1 1 auto;
+}
 
 .report-hero__actions {
   display: flex;
@@ -352,17 +360,36 @@ onMounted(load)
 
 .eyebrow { color: var(--el-color-primary); font-size: .75rem; }
 
-.report-hero h2 {
-  display: -webkit-box;
-  max-width: 900px;
-  margin: 8px 0;
+.report-hero__summary {
+  max-width: 920px;
+  max-height: 8rem;
+  margin: 8px 0 10px;
   overflow: hidden;
-  font-size: 1.1rem;
-  line-height: 1.6;
-  overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
 }
+
+.report-hero__summary :deep(.assistant-markdown) {
+  color: var(--na-foreground);
+  font-size: .84rem;
+  line-height: 1.58;
+}
+
+.report-hero__summary :deep(h1) {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  line-height: 1.45;
+}
+
+.report-hero__summary :deep(h2),
+.report-hero__summary :deep(h3),
+.report-hero__summary :deep(h4) {
+  margin: 6px 0 3px;
+  font-size: .875rem;
+  line-height: 1.45;
+}
+
+.report-hero__summary :deep(p),
+.report-hero__summary :deep(ul),
+.report-hero__summary :deep(ol) { margin-bottom: 4px; }
 
 .report-hero small,
 .panel-header p,
@@ -653,6 +680,7 @@ onMounted(load)
   .metric-grid,
   .detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .report-hero { flex-direction: column; }
+  .report-hero__summary { max-height: 10rem; }
   .report-hero__actions { width: 100%; flex-wrap: wrap; }
   .metric-card strong { font-size: 1.2rem; }
   .report-section-heading { flex-direction: column; gap: 4px; }
