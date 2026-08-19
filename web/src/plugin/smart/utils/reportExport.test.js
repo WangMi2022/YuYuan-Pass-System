@@ -1,0 +1,57 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import ExcelJS from 'exceljs'
+import mammoth from 'mammoth'
+import { buildReportExportBlob, buildReportFilename, buildReportMarkdown } from './reportExport.js'
+
+const report = {
+  reportDate: '2026-08-19T00:00:00+08:00',
+  generatedAt: '2026-08-19T09:30:00+08:00',
+  generatedBy: 'deterministic+model',
+  summary: '## 重点\n\n- 待处理风险 2 项'
+}
+
+const groups = [{
+  label: '风险处置',
+  description: '开放风险及当日处理进度',
+  items: [{ label: '开放风险', value: '2' }, { label: '当日处理', value: '1' }]
+}]
+
+test('buildReportFilename uses the report date and selected Office extension', () => {
+  assert.equal(buildReportFilename(report, 'docx'), '智能日报-2026-08-19.docx')
+  assert.equal(buildReportFilename(report, 'xlsx'), '智能日报-2026-08-19.xlsx')
+  assert.equal(buildReportFilename(report, 'md'), '智能日报-2026-08-19.md')
+  assert.throws(() => buildReportFilename(report, 'pdf'), /不支持的日报格式/)
+})
+
+test('buildReportMarkdown contains metadata, full summary and grouped metrics', () => {
+  const markdown = buildReportMarkdown(report, groups, { generationLabel: '业务统计 + AI 摘要' })
+  assert.match(markdown, /^# 智能日报/m)
+  assert.match(markdown, /报告日期：2026-08-19/)
+  assert.match(markdown, /生成方式：业务统计 \+ AI 摘要/)
+  assert.match(markdown, /## 重点/)
+  assert.match(markdown, /### 风险处置/)
+  assert.match(markdown, /\| 开放风险 \| 2 \|/)
+})
+
+test('Office exports create real docx and xlsx zip packages', async () => {
+  const [word, excel] = await Promise.all([
+    buildReportExportBlob(report, groups, 'docx', { generationLabel: '业务统计 + AI 摘要' }),
+    buildReportExportBlob(report, groups, 'xlsx', { generationLabel: '业务统计 + AI 摘要' })
+  ])
+  assert.equal(word.type, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+  assert.equal(excel.type, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  const wordBuffer = await word.arrayBuffer()
+  const excelBuffer = await excel.arrayBuffer()
+  assert.deepEqual([...new Uint8Array(wordBuffer).slice(0, 2)], [0x50, 0x4b])
+  assert.deepEqual([...new Uint8Array(excelBuffer).slice(0, 2)], [0x50, 0x4b])
+
+  const wordResult = await mammoth.extractRawText({ buffer: Buffer.from(wordBuffer) })
+  assert.match(wordResult.value, /智能日报/)
+  assert.match(wordResult.value, /开放风险/)
+
+  const workbook = new ExcelJS.Workbook()
+  await workbook.xlsx.load(excelBuffer)
+  assert.deepEqual(workbook.worksheets.map((sheet) => sheet.name), ['日报摘要', '业务指标'])
+  assert.equal(workbook.getWorksheet('业务指标').getCell('C2').value, '开放风险')
+})
