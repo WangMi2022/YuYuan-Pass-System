@@ -12,6 +12,10 @@ export const REPORT_EXPORT_FORMATS = [
   { value: 'md', label: 'Markdown 文档', extension: '.md' }
 ]
 
+export function formatMicrosMoney(value) {
+  return `¥${(Number(value || 0) / 1000000).toFixed(4)}`
+}
+
 const reportDate = (report = {}) => String(report.reportDate || report.generatedAt || '')
   .slice(0, 10)
   .replace(/[^0-9-]/g, '') || new Date().toISOString().slice(0, 10)

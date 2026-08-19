@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import ExcelJS from 'exceljs'
 import mammoth from 'mammoth'
-import { buildReportExportBlob, buildReportFilename, buildReportMarkdown } from './reportExport.js'
+import { buildReportExportBlob, buildReportFilename, buildReportMarkdown, formatMicrosMoney } from './reportExport.js'
 import { normalizeReportSummary } from './reportSummary.js'
 
 const report = {
@@ -23,6 +23,11 @@ test('buildReportFilename uses the report date and selected Office extension', (
   assert.equal(buildReportFilename(report, 'xlsx'), '智能日报-2026-08-19.xlsx')
   assert.equal(buildReportFilename(report, 'md'), '智能日报-2026-08-19.md')
   assert.throws(() => buildReportFilename(report, 'pdf'), /不支持的日报格式/)
+})
+
+test('formatMicrosMoney converts internal cost micros to a readable yuan amount', () => {
+  assert.equal(formatMicrosMoney(25824), '¥0.0258')
+  assert.equal(formatMicrosMoney(null), '¥0.0000')
 })
 
 test('buildReportMarkdown contains metadata, full summary and grouped metrics', () => {

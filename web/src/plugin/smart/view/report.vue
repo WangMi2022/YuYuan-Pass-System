@@ -143,7 +143,7 @@ import AppEmptyState from '@/components/page/AppEmptyState.vue'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
 import AssistantMarkdown from '@/plugin/smart/components/AssistantMarkdown.vue'
 import { generateSmartReport, getSmartReport, getSmartReportDeliveries, getSmartReportSubscription, getSmartReports, getTodaySmartReport, saveSmartReportSubscription } from '@/plugin/smart/api/smart'
-import { exportSmartReport, REPORT_EXPORT_FORMATS } from '@/plugin/smart/utils/reportExport'
+import { exportSmartReport, formatMicrosMoney, REPORT_EXPORT_FORMATS } from '@/plugin/smart/utils/reportExport'
 import { normalizeReportSummary } from '@/plugin/smart/utils/reportSummary'
 import { useAppStore } from '@/pinia'
 
@@ -165,7 +165,7 @@ const deliverySummary = computed(() => deliveries.value.reduce((summary, item) =
   return summary
 }, { total: 0, sent: 0, sending: 0, failed: 0 }))
 const metricCards = computed(() => { const m = report.value?.metrics || {}; return [{ key: 'assets', label: '资产新增', value: m.assets?.created || 0, hint: `今日完成流转 ${m.assets?.todayOperationTotal || 0} 单`, route: 'assetInventory' }, { key: 'risks', label: '开放风险', value: m.risks?.open || 0, hint: `今日新增 ${m.risks?.new || 0} · 处理 ${m.risks?.resolved || 0}`, route: 'assetRiskCenter' }, { key: 'invoices', label: '待复核发票', value: m.invoices?.pendingReview || 0, hint: `低置信度 ${m.invoices?.lowConfidence || 0} · 失败 ${m.invoices?.recognitionFailed || 0}`, route: 'invoiceLedger', query: { status: 'pending_review' } }, { key: 'collaboration', label: '今日待办', value: m.collaboration?.todaySchedules || 0, hint: `未读公告 ${m.collaboration?.unreadAnnouncements || 0} 条`, route: 'workSchedule' }, { key: 'system', label: 'AI 调用', value: m.system?.aiCalls || 0, hint: `失败率 ${percentage(m.system?.aiFailureRate)}`, route: 'aiOperations' }] })
-const detailMetrics = computed(() => { const m = report.value?.metrics || {}; return [{ key: 'pending', label: '待入库资产', value: m.assets?.pendingInbound || 0 }, { key: 'long-use', label: '长期在用', value: m.assets?.longTermInUse || 0 }, { key: 'maintenance', label: '维修超期', value: m.assets?.maintenanceOverdue || 0 }, { key: 'warranty-60', label: '60 天内过保', value: m.assets?.warrantyExpiring60d || 0 }, { key: 'warranty-90', label: '90 天内过保', value: m.assets?.warrantyExpiring90d || 0 }, { key: 'recognized', label: '今日识别发票', value: m.invoices?.todayRecognized || 0 }, { key: 'reviewed', label: '今日复核发票', value: m.invoices?.todayReviewed || 0 }, { key: 'confirmed', label: '今日确认发票', value: m.invoices?.todayConfirmed || 0 }, { key: 'backlog', label: '识别积压', value: m.invoices?.recognitionBacklog || 0 }, { key: 'today-amount', label: '今日确认金额', value: money(m.invoices?.confirmedTodayCents) }, { key: 'month-amount', label: '本月确认金额', value: money(m.invoices?.confirmedMonthCents) }, { key: 'ai-duration', label: 'AI 平均耗时', value: `${m.system?.aiAverageDurationMs || 0} ms` }, { key: 'ai-cost', label: 'AI 估算费用', value: `${m.system?.aiEstimatedCostMicros || 0} 微单位` }] })
+const detailMetrics = computed(() => { const m = report.value?.metrics || {}; return [{ key: 'pending', label: '待入库资产', value: m.assets?.pendingInbound || 0 }, { key: 'long-use', label: '长期在用', value: m.assets?.longTermInUse || 0 }, { key: 'maintenance', label: '维修超期', value: m.assets?.maintenanceOverdue || 0 }, { key: 'warranty-60', label: '60 天内过保', value: m.assets?.warrantyExpiring60d || 0 }, { key: 'warranty-90', label: '90 天内过保', value: m.assets?.warrantyExpiring90d || 0 }, { key: 'recognized', label: '今日识别发票', value: m.invoices?.todayRecognized || 0 }, { key: 'reviewed', label: '今日复核发票', value: m.invoices?.todayReviewed || 0 }, { key: 'confirmed', label: '今日确认发票', value: m.invoices?.todayConfirmed || 0 }, { key: 'backlog', label: '识别积压', value: m.invoices?.recognitionBacklog || 0 }, { key: 'today-amount', label: '今日确认金额', value: money(m.invoices?.confirmedTodayCents) }, { key: 'month-amount', label: '本月确认金额', value: money(m.invoices?.confirmedMonthCents) }, { key: 'ai-duration', label: 'AI 平均耗时', value: `${m.system?.aiAverageDurationMs || 0} ms` }, { key: 'ai-cost', label: 'AI 估算费用', value: formatMicrosMoney(m.system?.aiEstimatedCostMicros) }] })
 const detailMetricGroups = computed(() => reportMetricGroups(detailReport.value))
 function reportMetricGroups(reportValue) {
   const m = reportValue?.metrics || {}
@@ -224,14 +224,13 @@ function reportMetricGroups(reportValue) {
         { key: 'failures', label: '失败次数', value: count(m.system?.aiFailures) },
         { key: 'failure-rate', label: '失败率', value: percentage(m.system?.aiFailureRate) },
         { key: 'duration', label: '平均耗时', value: `${count(m.system?.aiAverageDurationMs)} ms` },
-        { key: 'cost', label: '估算费用', value: microsMoney(m.system?.aiEstimatedCostMicros) }
+        { key: 'cost', label: '估算费用', value: formatMicrosMoney(m.system?.aiEstimatedCostMicros) }
       ]
     }
   ]
 }
 function percentage(value) { return `${Number(value || 0).toFixed(1)}%` }
 function money(cents) { return `¥${(Number(cents || 0) / 100).toFixed(2)}` }
-function microsMoney(value) { return `¥${(Number(value || 0) / 1000000).toFixed(4)}` }
 function count(value) { return Number(value || 0).toLocaleString('zh-CN') }
 function generationLabel(value) {
   if (value === 'deterministic+model') return '业务统计 + AI 摘要'
