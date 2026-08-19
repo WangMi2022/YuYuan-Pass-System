@@ -93,10 +93,7 @@ func (s *assetService) createWithDB(db *gorm.DB, asset *model.Asset) error {
 		}
 		return err
 	}
-	for index := range asset.Photos {
-		asset.Photos[index].AssetID = asset.ID
-		asset.Photos[index].AccessToken = ""
-	}
+	model.NormalizeAssetPhotos(asset)
 	if len(asset.Photos) > 0 {
 		if err := db.Model(&model.Asset{}).Where("id = ?", asset.ID).Select("Photos").Updates(asset).Error; err != nil {
 			return err
@@ -112,10 +109,7 @@ func (s *assetService) Update(asset *model.Asset) error {
 	if err := prepareAsset(asset, false); err != nil {
 		return err
 	}
-	for index := range asset.Photos {
-		asset.Photos[index].AssetID = asset.ID
-		asset.Photos[index].AccessToken = ""
-	}
+	model.NormalizeAssetPhotos(asset)
 	fields := []string{
 		"AssetCode", "Name", "CategoryID", "Brand", "Model", "SerialNumber", "Specifications", "ProductionDate",
 		"Quantity", "Unit", "UnitPrice", "OriginalValue", "CurrentValue",
@@ -165,6 +159,9 @@ func (s *assetService) Delete(id uint) error {
 func (s *assetService) Get(id uint) (model.Asset, error) {
 	var asset model.Asset
 	err := global.GVA_DB.Preload("Category").First(&asset, id).Error
+	if err == nil {
+		model.NormalizeAssetPhotos(&asset)
+	}
 	return asset, err
 }
 
@@ -196,6 +193,9 @@ func (s *assetService) List(search assetRequest.AssetSearch) ([]model.Asset, int
 	}
 	if err := db.Preload("Category").Order("created_at DESC").Scopes(search.Paginate()).Find(&list).Error; err != nil {
 		return nil, 0, err
+	}
+	for index := range list {
+		model.NormalizeAssetPhotos(&list[index])
 	}
 	return list, total, nil
 }
@@ -250,6 +250,9 @@ func (s *assetService) Dashboard() (assetResponse.Dashboard, error) {
 	}
 	if err := global.GVA_DB.Preload("Category").Order("created_at DESC").Limit(8).Find(&result.RecentAssets).Error; err != nil {
 		return result, err
+	}
+	for index := range result.RecentAssets {
+		model.NormalizeAssetPhotos(&result.RecentAssets[index])
 	}
 	return result, nil
 }

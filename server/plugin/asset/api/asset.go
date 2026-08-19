@@ -155,11 +155,7 @@ func (a *assetAPI) UploadPhoto(c *gin.Context) {
 }
 
 func validObjectKey(key string) bool {
-	prefix := strings.Trim(strings.TrimSpace(global.GVA_CONFIG.Minio.BasePath), "/")
-	if prefix == "" {
-		prefix = "uploads"
-	}
-	return strings.HasPrefix(key, prefix+"/") && !strings.Contains(key, "..")
+	return model.ValidPhotoObjectKey(key)
 }
 
 func (a *assetAPI) DeletePhoto(c *gin.Context) {
@@ -238,7 +234,8 @@ func isAllowedAssetPhotoContentType(value string) bool {
 
 func assetPhotoBelongsToAsset(photos []model.Photo, key string) bool {
 	for _, photo := range photos {
-		if photo.Key == key {
+		photoKey, ok := model.ResolvePhotoObjectKey(photo)
+		if ok && photoKey == key {
 			return true
 		}
 	}

@@ -29,6 +29,82 @@ type Photo struct {
 	AccessToken string `json:"accessToken,omitempty"`
 }
 
+func photoObjectPrefix() string {
+	prefix := strings.Trim(strings.TrimSpace(global.GVA_CONFIG.Minio.BasePath), "/")
+	if prefix == "" {
+		return "uploads"
+	}
+	return prefix
+}
+
+// ValidPhotoObjectKey 只允许访问当前资产图片目录中的规范对象路径。
+func ValidPhotoObjectKey(key string) bool {
+	if key == "" || key != strings.TrimSpace(key) || strings.Contains(key, "..") || strings.ContainsAny(key, "\\\x00\r\n") {
+		return false
+	}
+	parts := strings.Split(key, "/")
+	if !strings.HasPrefix(key, photoObjectPrefix()+"/") {
+		return false
+	}
+	for _, part := range parts {
+		if part == "" || part == "." || part == ".." {
+			return false
+		}
+	}
+	return true
+}
+
+// managedPhotoObjectKeyFromURL 仅从当前配置的 MinIO Bucket 直链中恢复旧记录的对象 key。
+func managedPhotoObjectKeyFromURL(rawURL string) (string, bool) {
+	bucketURL, err := url.Parse(strings.TrimSpace(global.GVA_CONFIG.Minio.BucketUrl))
+	if err != nil || bucketURL.Scheme == "" || bucketURL.Host == "" || bucketURL.User != nil || bucketURL.RawQuery != "" || bucketURL.Fragment != "" {
+		return "", false
+	}
+	candidate, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil || candidate.Scheme == "" || candidate.Host == "" || candidate.User != nil || candidate.RawQuery != "" || candidate.Fragment != "" {
+		return "", false
+	}
+	if !strings.EqualFold(candidate.Scheme, bucketURL.Scheme) || !strings.EqualFold(candidate.Host, bucketURL.Host) {
+		return "", false
+	}
+	bucketPath := strings.TrimRight(bucketURL.Path, "/")
+	objectPrefix := bucketPath + "/"
+	if bucketPath == "" || !strings.HasPrefix(candidate.Path, objectPrefix) {
+		return "", false
+	}
+	key := strings.TrimPrefix(candidate.Path, objectPrefix)
+	if !ValidPhotoObjectKey(key) {
+		return "", false
+	}
+	return key, true
+}
+
+// ResolvePhotoObjectKey 兼容新记录的 key 与旧记录中可信的 MinIO 直链。
+func ResolvePhotoObjectKey(photo Photo) (string, bool) {
+	key := strings.TrimSpace(photo.Key)
+	if ValidPhotoObjectKey(key) {
+		return key, true
+	}
+	return managedPhotoObjectKeyFromURL(photo.URL)
+}
+
+// NormalizeAssetPhoto 将旧图片记录在内存中规范化为受鉴权的后端代理地址。
+func NormalizeAssetPhoto(photo *Photo, assetID uint) {
+	if photo == nil {
+		return
+	}
+	if assetID > 0 {
+		photo.AssetID = assetID
+		photo.AccessToken = ""
+	}
+	key, ok := ResolvePhotoObjectKey(*photo)
+	if !ok {
+		return
+	}
+	photo.Key = key
+	photo.URL = BuildPhotoURL(photo.AssetID, key, photo.AccessToken)
+}
+
 type photoTokenClaims struct {
 	UserID  uint   `json:"uid"`
 	Key     string `json:"key"`
@@ -124,6 +200,16 @@ type Asset struct {
 	WarrantyEndDate *time.Time `json:"warrantyEndDate" form:"warrantyEndDate" gorm:"type:date;comment:质保到期日"`
 	Photos          []Photo    `json:"photos" gorm:"serializer:json;type:jsonb;comment:资产图片"`
 	Remarks         string     `json:"remarks" form:"remarks" gorm:"type:text;comment:备注"`
+}
+
+// NormalizeAssetPhotos 在内存中补齐旧资产图片的 key、资产归属与代理 URL。
+func NormalizeAssetPhotos(asset *Asset) {
+	if asset == nil {
+		return
+	}
+	for index := range asset.Photos {
+		NormalizeAssetPhoto(&asset.Photos[index], asset.ID)
+	}
 }
 
 func (Asset) TableName() string { return "assets" }
