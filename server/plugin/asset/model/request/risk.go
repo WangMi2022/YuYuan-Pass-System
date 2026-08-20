@@ -30,6 +30,11 @@ type StartRiskScan struct {
 	RunID uint `json:"runId"`
 }
 
+type RiskScanDelete struct {
+	IDs           []uint `json:"ids"`
+	ClearFinished bool   `json:"clearFinished"`
+}
+
 type RiskRuleUpdate struct {
 	ID         uint           `json:"ID"`
 	Severity   string         `json:"severity"`

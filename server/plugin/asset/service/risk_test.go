@@ -65,6 +65,81 @@ func TestRiskRulePageUsesTenItemDefaultPages(t *testing.T) {
 	}
 }
 
+func TestDeleteRiskScanRunsRemovesHistoryWithoutDeletingRiskEvents(t *testing.T) {
+	setupRiskTestDB(t)
+	now := time.Now()
+	asset := createRiskTestAsset(t, model.AssetStatusIdle, now)
+	run := createRiskScanRun(t, now)
+	if err := global.GVA_DB.Model(&run).Updates(map[string]any{"status": model.RiskScanStatusSuccess, "finished_at": now}).Error; err != nil {
+		t.Fatalf("finish risk scan run: %v", err)
+	}
+	event := model.AssetRiskEvent{
+		Fingerprint: strings.Repeat("d", 64), AssetID: asset.ID, RuleCode: riskRuleHighValueIdle, RuleVersion: 1,
+		Category: "value", Severity: model.RiskSeverityHigh, Status: model.RiskStatusOpen,
+		Title: "扫描记录清理测试", FirstDetectedAt: now, LastDetectedAt: now, LastScanRunID: run.ID,
+	}
+	if err := global.GVA_DB.Create(&event).Error; err != nil {
+		t.Fatalf("create risk event: %v", err)
+	}
+
+	deleted, err := Risk.DeleteScanRuns(t.Context(), assetRequest.RiskScanDelete{IDs: []uint{run.ID}})
+	if err != nil || deleted != 1 {
+		t.Fatalf("delete scan runs: deleted=%d err=%v", deleted, err)
+	}
+	var visibleRuns int64
+	if err := global.GVA_DB.Model(&model.AssetRiskScanRun{}).Where("id = ?", run.ID).Count(&visibleRuns).Error; err != nil || visibleRuns != 0 {
+		t.Fatalf("visible scan runs after delete = %d, err=%v", visibleRuns, err)
+	}
+	var retainedRuns int64
+	if err := global.GVA_DB.Unscoped().Model(&model.AssetRiskScanRun{}).Where("id = ?", run.ID).Count(&retainedRuns).Error; err != nil || retainedRuns != 1 {
+		t.Fatalf("retained scan runs after safe delete = %d, err=%v", retainedRuns, err)
+	}
+	var retainedEvent model.AssetRiskEvent
+	if err := global.GVA_DB.First(&retainedEvent, event.ID).Error; err != nil || retainedEvent.LastScanRunID != run.ID {
+		t.Fatalf("risk event changed during scan cleanup: %#v err=%v", retainedEvent, err)
+	}
+}
+
+func TestDeleteRiskScanRunsRejectsRunningRecordsAtomically(t *testing.T) {
+	setupRiskTestDB(t)
+	now := time.Now()
+	finished := createRiskScanRun(t, now.Add(-time.Minute))
+	if err := global.GVA_DB.Model(&finished).Update("status", model.RiskScanStatusSuccess).Error; err != nil {
+		t.Fatalf("finish historical scan: %v", err)
+	}
+	running := createRiskScanRun(t, now)
+
+	deleted, err := Risk.DeleteScanRuns(t.Context(), assetRequest.RiskScanDelete{IDs: []uint{finished.ID, running.ID}})
+	if err == nil || deleted != 0 {
+		t.Fatalf("delete mixed scan runs: deleted=%d err=%v", deleted, err)
+	}
+	var count int64
+	if err := global.GVA_DB.Model(&model.AssetRiskScanRun{}).Where("id IN ?", []uint{finished.ID, running.ID}).Count(&count).Error; err != nil || count != 2 {
+		t.Fatalf("mixed delete was not atomic: count=%d err=%v", count, err)
+	}
+}
+
+func TestClearFinishedRiskScanRunsKeepsRunningTask(t *testing.T) {
+	setupRiskTestDB(t)
+	now := time.Now()
+	for _, status := range []string{model.RiskScanStatusSuccess, model.RiskScanStatusFailed} {
+		run := createRiskScanRun(t, now.Add(-time.Minute))
+		if err := global.GVA_DB.Model(&run).Update("status", status).Error; err != nil {
+			t.Fatalf("set historical scan status %s: %v", status, err)
+		}
+	}
+	running := createRiskScanRun(t, now)
+
+	deleted, err := Risk.DeleteScanRuns(t.Context(), assetRequest.RiskScanDelete{ClearFinished: true})
+	if err != nil || deleted != 2 {
+		t.Fatalf("clear finished scan runs: deleted=%d err=%v", deleted, err)
+	}
+	var remaining []model.AssetRiskScanRun
+	if err := global.GVA_DB.Find(&remaining).Error; err != nil || len(remaining) != 1 || remaining[0].ID != running.ID {
+		t.Fatalf("remaining scan runs = %#v, err=%v", remaining, err)
+	}
+}
+
 func createRiskTestAsset(t *testing.T, status string, createdAt time.Time) model.Asset {
 	t.Helper()
 	category := model.Category{Name: "风险测试分类", Code: fmt.Sprintf("RISK-%d", time.Now().UnixNano()), Enabled: true}

@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/WangMi2022/mit-assets-admin/server/global"
@@ -115,6 +116,20 @@ func (a *riskAPI) ScanRuns(c *gin.Context) {
 		return
 	}
 	response.OkWithDetailed(response.PageResult{List: list, Total: total, Page: search.Page, PageSize: search.PageSize}, "获取成功", c)
+}
+
+func (a *riskAPI) DeleteScanRuns(c *gin.Context) {
+	var input assetRequest.RiskScanDelete
+	if err := c.ShouldBindJSON(&input); err != nil {
+		response.FailWithMessage("扫描记录清理参数不正确", c)
+		return
+	}
+	deleted, err := serviceRisk.DeleteScanRuns(c.Request.Context(), input)
+	if err != nil {
+		response.FailWithMessage(err.Error(), c)
+		return
+	}
+	response.OkWithDetailed(gin.H{"deleted": deleted}, fmt.Sprintf("已清理 %d 条扫描记录", deleted), c)
 }
 
 func (a *riskAPI) Acknowledge(c *gin.Context) { a.handleAction(c, "acknowledge") }

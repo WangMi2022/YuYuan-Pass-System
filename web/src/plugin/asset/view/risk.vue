@@ -179,9 +179,33 @@
           <template #label><span class="tab-label"><el-icon><Clock /></el-icon>扫描记录</span></template>
           <header class="workspace-header">
             <div><h2>扫描运行</h2><p>扫描按批次提交并记录游标，失败任务可从上次完成位置继续。</p></div>
-            <el-button :icon="Refresh" :loading="scansLoading" @click="loadScans">刷新记录</el-button>
+            <div class="workspace-actions">
+              <el-button :icon="Refresh" :loading="scansLoading" :disabled="Boolean(scanDeleteTarget)" @click="loadScans">刷新记录</el-button>
+              <el-button
+                :icon="Delete"
+                :loading="scanDeleteTarget === 'selected'"
+                :disabled="!selectedScans.length || Boolean(scanDeleteTarget)"
+                @click="deleteSelectedScans"
+              >删除所选</el-button>
+              <el-button
+                type="danger"
+                plain
+                :icon="DeleteFilled"
+                :loading="scanDeleteTarget === 'finished'"
+                :disabled="scanTotal === 0 || Boolean(scanDeleteTarget)"
+                @click="clearFinishedScans"
+              >清理历史</el-button>
+            </div>
           </header>
-          <el-table v-loading="scansLoading && !scansLoaded" :data="scans" row-key="ID" stripe class="risk-table">
+          <el-table
+            v-loading="scansLoading && !scansLoaded"
+            :data="scans"
+            row-key="ID"
+            stripe
+            class="risk-table"
+            @selection-change="selectedScans = $event"
+          >
+            <el-table-column type="selection" width="44" :selectable="isDeletableScan" />
             <el-table-column label="运行 ID" width="100"><template #default="{ row }">#{{ row.ID }}</template></el-table-column>
             <el-table-column label="触发方式" min-width="100"><template #default="{ row }">{{ row.triggerType === 'scheduled' ? '定时扫描' : '手动扫描' }}</template></el-table-column>
             <el-table-column label="状态" width="100" align="center"><template #default="{ row }"><el-tag :type="scanStatusMeta(row.status).type">{{ scanStatusMeta(row.status).label }}</el-tag></template></el-table-column>
@@ -192,8 +216,14 @@
             <el-table-column label="开始时间" min-width="166"><template #default="{ row }">{{ formatDate(row.startedAt) }}</template></el-table-column>
             <el-table-column label="完成时间" min-width="166"><template #default="{ row }">{{ formatDate(row.finishedAt) || '—' }}</template></el-table-column>
             <el-table-column label="结果" min-width="220" fixed="right"><template #default="{ row }"><span class="scan-error">{{ row.errorMessage || '扫描过程正常' }}</span></template></el-table-column>
-            <el-table-column label="操作" width="96" fixed="right" align="center">
-              <template #default="{ row }"><el-button v-if="canResumeScan(row)" type="primary" link :icon="RefreshRight" :loading="scanStarting && resumingScanId === row.ID" @click="startScan(row.ID)">继续扫描</el-button><span v-else>—</span></template>
+            <el-table-column label="操作" width="176" fixed="right" align="center">
+              <template #default="{ row }">
+                <div class="scan-row-actions">
+                  <el-button v-if="canResumeScan(row)" type="primary" link :icon="RefreshRight" :loading="scanStarting && resumingScanId === row.ID" :disabled="Boolean(scanDeleteTarget)" @click="startScan(row.ID)">继续扫描</el-button>
+                  <el-button v-if="isDeletableScan(row)" type="danger" link :icon="Delete" :loading="scanDeleteTarget === `row:${row.ID}`" :disabled="Boolean(scanDeleteTarget) && scanDeleteTarget !== `row:${row.ID}`" @click="deleteScan(row)">删除</el-button>
+                  <span v-if="row.status === 'running'">—</span>
+                </div>
+              </template>
             </el-table-column>
           </el-table>
           <div class="na-pagination risk-pagination">
@@ -318,7 +348,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  ArrowRight, Check, CircleCheck, Clock, Edit, Hide, Opportunity, Refresh,
+  ArrowRight, Check, CircleCheck, Clock, Delete, DeleteFilled, Edit, Hide, Opportunity, Refresh,
   RefreshRight, Search, Setting, User, View, Warning
 } from '@element-plus/icons-vue'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
@@ -331,7 +361,7 @@ import { formatCurrency, formatDate, formatNumber } from '@/utils/format'
 import { createRiskScanPoller } from '@/plugin/asset/utils/riskScan'
 import {
   acknowledgeAssetRisk, assignAssetRisk, getAssetRiskDashboard, getAssetRiskDetail,
-  getAssetRiskList, getAssetRiskRules, getAssetRiskScans, ignoreAssetRisk,
+  getAssetRiskList, getAssetRiskRules, getAssetRiskScans, deleteAssetRiskScans, ignoreAssetRisk,
   reopenAssetRisk, resolveAssetRisk, startAssetRiskScan, updateAssetRiskRule
 } from '@/plugin/asset/api/risk'
 
@@ -363,6 +393,8 @@ const rules = ref([])
 const ruleTotal = ref(0)
 const scans = ref([])
 const scanTotal = ref(0)
+const selectedScans = ref([])
+const scanDeleteTarget = ref('')
 const selectedEvents = ref([])
 const detailVisible = ref(false)
 const detail = ref({ event: null, logs: [] })
@@ -446,6 +478,7 @@ const categoryLabel = (value) => categoryFilters.find((item) => item.value === v
 const assetStatusLabel = (value) => assetStatusLabels[value] || value || '未知'
 const actionLabel = (value) => actionLabels[value] || value
 const canResumeScan = (scan) => scan.status === 'failed' && scans.value[0]?.ID === scan.ID
+const isDeletableScan = (scan) => scan.status !== 'running'
 
 const loadDashboard = async () => {
   dashboardLoading.value = true
@@ -488,6 +521,7 @@ const loadScans = async () => {
   try {
     const res = await getAssetRiskScans({ ...scanSearch })
     if (res.code === 0) {
+      selectedScans.value = []
       scans.value = res.data?.list || []
       scanTotal.value = Number(res.data?.total || 0)
     }
@@ -549,6 +583,57 @@ const resetEventPage = () => { searchForm.page = 1 }
 const resetRulePage = () => { ruleSearch.page = 1 }
 const resetScanPage = () => { scanSearch.page = 1 }
 const handleTabChange = (name) => { if (name === 'rules' && !rules.value.length) loadRules(); if (name === 'scans') loadScans() }
+
+const refreshAfterScanDelete = async (deleted) => {
+  const remaining = Math.max(0, scanTotal.value - deleted)
+  const lastPage = Math.max(1, Math.ceil(remaining / scanSearch.pageSize))
+  scanSearch.page = Math.min(scanSearch.page, lastPage)
+  selectedScans.value = []
+  await Promise.all([loadScans(), loadDashboard()])
+}
+const deleteScanRecords = async (data, target) => {
+  if (scanDeleteTarget.value) return
+  scanDeleteTarget.value = target
+  try {
+    const res = await deleteAssetRiskScans(data)
+    if (res.code !== 0) return
+    const deleted = Number(res.data?.deleted || 0)
+    if (deleted > 0) ElMessage.success(`已清理 ${deleted} 条扫描记录`)
+    else ElMessage.info('没有可清理的已结束扫描记录')
+    await refreshAfterScanDelete(deleted)
+  } finally {
+    scanDeleteTarget.value = ''
+  }
+}
+const deleteScan = async (scan) => {
+  const confirmed = await ElMessageBox.confirm(
+    `仅删除扫描记录 #${scan.ID}，不会删除资产、风险事件或处理记录。`,
+    '删除扫描记录',
+    { type: 'warning', confirmButtonText: '确认删除', cancelButtonText: '取消' }
+  ).catch(() => false)
+  if (!confirmed) return
+  await deleteScanRecords({ ids: [scan.ID] }, `row:${scan.ID}`)
+}
+const deleteSelectedScans = async () => {
+  const ids = selectedScans.value.map((scan) => scan.ID)
+  if (!ids.length) return
+  const confirmed = await ElMessageBox.confirm(
+    `确定删除所选 ${ids.length} 条扫描记录？此操作不会影响资产和风险事件。`,
+    '批量删除扫描记录',
+    { type: 'warning', confirmButtonText: '确认删除', cancelButtonText: '取消' }
+  ).catch(() => false)
+  if (!confirmed) return
+  await deleteScanRecords({ ids }, 'selected')
+}
+const clearFinishedScans = async () => {
+  const confirmed = await ElMessageBox.confirm(
+    '将清理全部已完成和失败的扫描记录，运行中的任务会保留，资产和风险事件不受影响。',
+    '清理扫描历史',
+    { type: 'warning', confirmButtonText: '确认清理', cancelButtonText: '取消' }
+  ).catch(() => false)
+  if (!confirmed) return
+  await deleteScanRecords({ clearFinished: true }, 'finished')
+}
 
 const startScan = async (runId = 0) => {
   if (scanInProgress.value) return
@@ -780,6 +865,10 @@ onBeforeUnmount(scanPoller.stop)
 .severity-mark.is-low { background: var(--na-info); }
 .risk-pagination { padding-top: 16px; }
 .workspace-header { align-items: center; margin-bottom: 14px; }
+.workspace-actions, .scan-row-actions { display: flex; align-items: center; gap: 8px; }
+.workspace-actions { flex-wrap: wrap; justify-content: flex-end; }
+.workspace-actions .el-button + .el-button, .scan-row-actions .el-button + .el-button { margin-left: 0; }
+.scan-row-actions { justify-content: center; }
 .rule-cell code, .rule-dialog code { color: var(--na-muted-foreground); font-size: 11px; }
 .parameter-summary, .scan-error { display: block; overflow: hidden; color: var(--na-muted-foreground); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -844,6 +933,8 @@ dd { margin: 0; color: var(--na-foreground); font-size: 13px; overflow-wrap: any
   .evidence-list > div { grid-template-columns: 1fr; gap: 4px; }
   .detail-status-row { flex-wrap: wrap; }
   .detail-status-row > span:last-child { width: 100%; margin-left: 0; }
+  .workspace-header { align-items: stretch; flex-direction: column; }
+  .workspace-actions { justify-content: flex-start; }
 }
 @media (prefers-reduced-motion: reduce) { .scan-state.is-running i { animation: none; } }
 </style>

@@ -208,6 +208,7 @@ JWT 无效或过期通常返回 HTTP `401`。部分文件接口直接返回文�
 | PUT | `/assetRisk/rules` | 规则更新 JSON | 修改等级、阈值和启用状态，版本自动递增 |
 | POST | `/assetRisk/scan` | 可选 `{"runId": 12}` | 启动新扫描，或从失败任务游标续扫；允许空请求体 |
 | GET | `/assetRisk/scans` | 分页、`status/triggerType` | 扫描运行记录 |
+| DELETE | `/assetRisk/scans` | `{"ids":[12,13]}` 或 `{"clearFinished":true}` | 删除所选记录，或清理全部已结束扫描历史；运行中任务不会被删除 |
 | PUT | `/assetRisk/acknowledge` | 风险动作 JSON | 确认已接手风险 |
 | PUT | `/assetRisk/resolve` | 风险动作 JSON | 标记解决，必须填写处理说明 |
 | PUT | `/assetRisk/ignore` | 风险动作 JSON | 忽略风险，必须填写原因且只能单条操作 |

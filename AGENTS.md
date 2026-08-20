@@ -25,6 +25,10 @@ Do not auto-publish when the user requested only diagnosis, review, explanation,
 
 ## Production deployment facts
 
+- Production server: `192.166.20.103`.
+- Production web entry: `http://192.166.20.103:8080/`.
+- Treat this server and web entry as the only production target unless the user explicitly replaces them.
+- Do not use `172.30.3.135:8080`; it is not this asset-management production application.
 - The production deployment still uses the legacy compatibility path and SSH alias below; migrate them only as a coordinated runtime operation.
 - SSH is available from WSL through the alias `gin-vue-admin-remote`.
 - Production root: `/data/gin-vue-admin`.

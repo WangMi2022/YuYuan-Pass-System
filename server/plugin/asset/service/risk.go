@@ -163,6 +163,65 @@ func (s *riskService) ScanRuns(ctx context.Context, search assetRequest.RiskScan
 	return list, total, err
 }
 
+func (s *riskService) DeleteScanRuns(ctx context.Context, input assetRequest.RiskScanDelete) (int64, error) {
+	if input.ClearFinished && len(input.IDs) > 0 {
+		return 0, errors.New("清理全部历史时不能同时指定扫描记录")
+	}
+	if !input.ClearFinished && len(input.IDs) == 0 {
+		return 0, errors.New("请选择要删除的扫描记录")
+	}
+	ids, err := normalizedRiskScanIDs(input.IDs)
+	if err != nil {
+		return 0, err
+	}
+
+	var deleted int64
+	err = withRiskWriteTransaction(ctx, func(tx *gorm.DB) error {
+		terminalStatuses := []string{model.RiskScanStatusSuccess, model.RiskScanStatusFailed}
+		var runs []model.AssetRiskScanRun
+		query := tx.Clauses(clause.Locking{Strength: "UPDATE"})
+		if input.ClearFinished {
+			query = query.Where("status IN ?", terminalStatuses)
+		} else {
+			query = query.Where("id IN ?", ids)
+		}
+		if err := query.Find(&runs).Error; err != nil {
+			return err
+		}
+		if !input.ClearFinished && len(runs) != len(ids) {
+			return errors.New("部分扫描记录不存在或已被清理")
+		}
+		for _, run := range runs {
+			if run.Status == model.RiskScanStatusRunning {
+				return errors.New("运行中的扫描任务不能删除")
+			}
+			if run.Status != model.RiskScanStatusSuccess && run.Status != model.RiskScanStatusFailed {
+				return errors.New("只有已完成或失败的扫描记录可以删除")
+			}
+		}
+		if input.ClearFinished {
+			ids = make([]uint, 0, len(runs))
+			for _, run := range runs {
+				ids = append(ids, run.ID)
+			}
+		}
+		if len(ids) == 0 {
+			deleted = 0
+			return nil
+		}
+		result := tx.Where("id IN ?", ids).Delete(&model.AssetRiskScanRun{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if !input.ClearFinished && result.RowsAffected != int64(len(ids)) {
+			return errors.New("扫描记录删除数量与请求不一致")
+		}
+		deleted = result.RowsAffected
+		return nil
+	})
+	return deleted, err
+}
+
 func (s *riskService) Dashboard(ctx context.Context) (assetResponse.RiskDashboard, error) {
 	now := time.Now()
 	activeStatuses := []string{model.RiskStatusOpen, model.RiskStatusAcknowledged}
@@ -420,6 +479,29 @@ func normalizedRiskIDs(input []uint) ([]uint, error) {
 	for _, id := range input {
 		if id == 0 {
 			return nil, errors.New("风险事件 ID 不正确")
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		result = append(result, id)
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i] < result[j] })
+	return result, nil
+}
+
+func normalizedRiskScanIDs(input []uint) ([]uint, error) {
+	if len(input) == 0 {
+		return nil, nil
+	}
+	if len(input) > 100 {
+		return nil, errors.New("每次最多删除 100 条扫描记录")
+	}
+	seen := make(map[uint]struct{}, len(input))
+	result := make([]uint, 0, len(input))
+	for _, id := range input {
+		if id == 0 {
+			return nil, errors.New("扫描记录 ID 不正确")
 		}
 		if _, exists := seen[id]; exists {
 			continue

@@ -27,6 +27,23 @@ test('scan history keeps multiple flexible columns so the table fills its worksp
   )
 })
 
+test('scan history exposes guarded selected and finished-record cleanup actions', async () => {
+  const viewFilename = fileURLToPath(new URL('../view/risk.vue', import.meta.url))
+  const apiFilename = fileURLToPath(new URL('../api/risk.js', import.meta.url))
+  const [source, apiSource] = await Promise.all([
+    readFile(viewFilename, 'utf8'),
+    readFile(apiFilename, 'utf8')
+  ])
+  const scanPane = source.match(/<el-tab-pane name="scans">([\s\S]*?)<\/el-tab-pane>/)?.[1] || ''
+
+  assert.match(scanPane, /type="selection"[^>]+:selectable="isDeletableScan"/)
+  assert.match(scanPane, /@click="deleteSelectedScans"/)
+  assert.match(scanPane, /@click="clearFinishedScans"/)
+  assert.match(scanPane, /@click="deleteScan\(row\)"/)
+  assert.match(source, /scan\.status !== 'running'/)
+  assert.match(apiSource, /url: '\/assetRisk\/scans', method: 'delete', data/)
+})
+
 test('risk scan polling waits for each request and refreshes once after completion', async () => {
   const scheduled = []
   const requests = []
