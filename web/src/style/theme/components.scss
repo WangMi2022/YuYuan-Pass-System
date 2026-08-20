@@ -242,6 +242,8 @@
 .el-form-item__error { padding-top: 4px; font-size: 12px; }
 .el-checkbox__inner,
 .el-radio__inner { border-color: var(--na-input); }
+.el-switch { flex: 0 0 auto; }
+.el-switch__label { white-space: nowrap; }
 .el-switch__core { border-color: var(--na-border-strong); background: var(--na-muted); }
 .el-switch.is-checked .el-switch__core { border-color: var(--na-primary); background: var(--na-primary); }
 

@@ -782,7 +782,7 @@ onMounted(() => loadActiveSection(true))
 .policy-row :deep(.el-input-number) { width: 100%; }
 .setting-list { border-top: 1px solid var(--na-border); }
 .setting-toggle { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 20px; padding: 14px 0; border-bottom: 1px solid var(--na-border); }
-.setting-toggle div { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
+.setting-toggle > div { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
 .setting-toggle strong { color: var(--na-foreground); font-size: .84rem; }
 .setting-toggle small { color: var(--na-muted-foreground); font-size: .73rem; line-height: 1.45; }
 .security-form { margin-top: 18px; }

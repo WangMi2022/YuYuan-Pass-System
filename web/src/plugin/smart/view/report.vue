@@ -483,6 +483,7 @@ onMounted(load)
 .panel-header h2 { margin: 0; font-size: .95rem; }
 .panel-header p { margin: 5px 0 0; font-size: .75rem; }
 .subscription-panel { align-self: start; }
+.subscription-panel .panel-header > div { min-width: 0; flex: 1 1 auto; }
 .subscription-panel .el-time-picker { width: 100%; }
 .deliveries-panel { margin-top: 14px; }
 .delivery-header { align-items: center; }
