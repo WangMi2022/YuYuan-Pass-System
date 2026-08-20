@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
 import test from 'node:test'
+import { fileURLToPath } from 'node:url'
 
 import { createRiskScanPoller } from './riskScan.js'
 
@@ -10,6 +12,20 @@ const deferred = () => {
 }
 
 const flushPromises = () => new Promise((resolve) => setImmediate(resolve))
+
+test('scan history keeps multiple flexible columns so the table fills its workspace', async () => {
+  const filename = fileURLToPath(new URL('../view/risk.vue', import.meta.url))
+  const source = await readFile(filename, 'utf8')
+  const scanPane = source.match(/<el-tab-pane name="scans">([\s\S]*?)<\/el-tab-pane>/)?.[1] || ''
+  const columns = [...scanPane.matchAll(/<el-table-column\b([^>]*)>/g)].map((match) => match[1])
+  const flexibleColumns = columns.filter((attributes) => /\bmin-width=/.test(attributes))
+
+  assert.ok(columns.length > 0, 'scan history columns must be present')
+  assert.ok(
+    flexibleColumns.length >= 4,
+    `expected at least 4 flexible scan columns, received ${flexibleColumns.length}`
+  )
+})
 
 test('risk scan polling waits for each request and refreshes once after completion', async () => {
   const scheduled = []

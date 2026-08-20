@@ -183,15 +183,15 @@
           </header>
           <el-table v-loading="scansLoading && !scansLoaded" :data="scans" row-key="ID" stripe class="risk-table">
             <el-table-column label="运行 ID" width="100"><template #default="{ row }">#{{ row.ID }}</template></el-table-column>
-            <el-table-column label="触发方式" width="100"><template #default="{ row }">{{ row.triggerType === 'scheduled' ? '定时扫描' : '手动扫描' }}</template></el-table-column>
+            <el-table-column label="触发方式" min-width="100"><template #default="{ row }">{{ row.triggerType === 'scheduled' ? '定时扫描' : '手动扫描' }}</template></el-table-column>
             <el-table-column label="状态" width="100" align="center"><template #default="{ row }"><el-tag :type="scanStatusMeta(row.status).type">{{ scanStatusMeta(row.status).label }}</el-tag></template></el-table-column>
-            <el-table-column prop="scannedAssets" label="扫描资产" width="100" align="right" />
-            <el-table-column prop="newEvents" label="新增" width="86" align="right" />
-            <el-table-column prop="updatedEvents" label="更新" width="86" align="right" />
-            <el-table-column prop="closedEvents" label="关闭" width="86" align="right" />
-            <el-table-column label="开始时间" width="166"><template #default="{ row }">{{ formatDate(row.startedAt) }}</template></el-table-column>
-            <el-table-column label="完成时间" width="166"><template #default="{ row }">{{ formatDate(row.finishedAt) || '—' }}</template></el-table-column>
-            <el-table-column label="结果" width="240" fixed="right"><template #default="{ row }"><span class="scan-error">{{ row.errorMessage || '扫描过程正常' }}</span></template></el-table-column>
+            <el-table-column prop="scannedAssets" label="扫描资产" min-width="100" align="right" />
+            <el-table-column prop="newEvents" label="新增" min-width="86" align="right" />
+            <el-table-column prop="updatedEvents" label="更新" min-width="86" align="right" />
+            <el-table-column prop="closedEvents" label="关闭" min-width="86" align="right" />
+            <el-table-column label="开始时间" min-width="166"><template #default="{ row }">{{ formatDate(row.startedAt) }}</template></el-table-column>
+            <el-table-column label="完成时间" min-width="166"><template #default="{ row }">{{ formatDate(row.finishedAt) || '—' }}</template></el-table-column>
+            <el-table-column label="结果" min-width="220" fixed="right"><template #default="{ row }"><span class="scan-error">{{ row.errorMessage || '扫描过程正常' }}</span></template></el-table-column>
             <el-table-column label="操作" width="96" fixed="right" align="center">
               <template #default="{ row }"><el-button v-if="canResumeScan(row)" type="primary" link :icon="RefreshRight" :loading="scanStarting && resumingScanId === row.ID" @click="startScan(row.ID)">继续扫描</el-button><span v-else>—</span></template>
             </el-table-column>
