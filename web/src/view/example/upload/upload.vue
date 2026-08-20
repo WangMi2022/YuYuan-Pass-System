@@ -182,6 +182,7 @@
     importURL
   } from '@/api/fileUploadAndDownload'
   import { downloadImage } from '@/utils/downloadImg'
+  import { getUrl } from '@/utils/image'
   import CustomPic from '@/components/customPic/index.vue'
   import UploadImage from '@/components/upload/image.vue'
   import UploadCommon from '@/components/upload/common.vue'
@@ -208,8 +209,6 @@
   defineOptions({
     name: 'Upload'
   })
-
-  const path = ref(import.meta.env.VITE_BASE_API)
 
   const imageUrl = ref('')
   const imageCommon = ref('')
@@ -341,11 +340,7 @@
 
   const downloadFile = (row) => {
     const downloadUrl = row.previewUrl || row.url
-    if (downloadUrl.indexOf('http://') > -1 || downloadUrl.indexOf('https://') > -1) {
-      downloadImage(downloadUrl, row.name)
-    } else {
-      downloadImage(path.value + '/' + downloadUrl, row.name)
-    }
+    downloadImage(getUrl(downloadUrl), row.name)
   }
 
   /**

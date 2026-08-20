@@ -1,3 +1,5 @@
+import { normalizeFileUrl } from './avatar.js'
+
 export default class ImageCompress {
   constructor(file, fileSize, maxWH = 1920) {
     this.file = file
@@ -93,17 +95,7 @@ export default class ImageCompress {
 
 const path = import.meta.env.VITE_FILE_API
 export const getUrl = (url) => {
-  if (url && url.slice(0, 4) !== 'http') {
-    if (path === '/') {
-      return url
-    }
-    if (url.slice(0, 1) === '/') {
-      return path + url
-    }
-    return path + '/' + url
-  } else {
-    return url
-  }
+  return normalizeFileUrl(url, path)
 }
 
 const VIDEO_EXTENSIONS = ['.mp4', '.mov', '.webm', '.ogg']

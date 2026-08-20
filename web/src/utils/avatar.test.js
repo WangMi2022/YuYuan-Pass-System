@@ -21,6 +21,16 @@ test('avatar resolves relative canonical paths against the file API', () => {
   )
 })
 
+test('same-origin media preview paths are not prefixed with the file API twice', () => {
+  assert.equal(
+    resolveAvatarUrl({
+      headerImgPreviewUrl: '/api/fileUploadAndDownload/preview?key=avatar.png&token=signed',
+      fileBaseUrl: '/api'
+    }),
+    '/api/fileUploadAndDownload/preview?key=avatar.png&token=signed'
+  )
+})
+
 test('explicit picture source wins and safe browser URLs stay intact', () => {
   assert.equal(
     resolveAvatarUrl({
