@@ -242,8 +242,26 @@
 .el-form-item__error { padding-top: 4px; font-size: 12px; }
 .el-checkbox__inner,
 .el-radio__inner { border-color: var(--na-input); }
-.el-switch { flex: 0 0 auto; }
-.el-switch__label { white-space: nowrap; }
+.el-switch.el-switch {
+  display: inline-flex;
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: center;
+  max-width: 100%;
+  white-space: nowrap;
+  writing-mode: horizontal-tb;
+}
+.el-switch.el-switch .el-switch__label {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  white-space: nowrap;
+  writing-mode: horizontal-tb;
+}
+.el-switch.el-switch .el-switch__core,
+.el-switch.el-switch .el-switch__inner,
+.el-switch.el-switch .el-switch__inner-wrapper { flex-direction: row; }
+.el-switch.el-switch .el-switch__core { flex: 0 0 auto; }
 .el-switch__core { border-color: var(--na-border-strong); background: var(--na-muted); }
 .el-switch.is-checked .el-switch__core { border-color: var(--na-primary); background: var(--na-primary); }
 

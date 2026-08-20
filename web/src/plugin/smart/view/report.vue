@@ -57,7 +57,7 @@
         </el-table>
         <div class="pagination"><el-pagination v-model:current-page="page" v-model:page-size="pageSize" :total="total" layout="total, prev, pager, next" @current-change="loadHistory" /></div>
       </section>
-      <section class="na-panel subscription-panel"><header class="panel-header"><div><h2>日报订阅</h2><p>保留应用内提醒，发送时间可按用户调整。</p></div><el-switch v-model="subscription.enabled" active-text="启用" /></header><el-form label-position="top"><el-form-item label="发送时间"><el-time-picker v-model="deliveryTime" format="HH:mm" value-format="HH:mm" placeholder="选择时间" /></el-form-item><el-form-item label="渠道"><el-checkbox-group v-model="channels"><el-checkbox label="in_app">应用内</el-checkbox><el-checkbox label="email">邮件</el-checkbox></el-checkbox-group></el-form-item><el-button type="primary" :loading="saving" @click="saveSubscription">保存订阅</el-button></el-form></section>
+      <section class="na-panel subscription-panel"><header class="panel-header"><div class="panel-header__copy"><h2>日报订阅</h2><p>保留应用内提醒，发送时间可按用户调整。</p></div><el-switch v-model="subscription.enabled" active-text="启用" /></header><el-form label-position="top"><el-form-item label="发送时间"><el-time-picker v-model="deliveryTime" format="HH:mm" value-format="HH:mm" placeholder="选择时间" /></el-form-item><el-form-item label="渠道"><el-checkbox-group v-model="channels"><el-checkbox label="in_app">应用内</el-checkbox><el-checkbox label="email">邮件</el-checkbox></el-checkbox-group></el-form-item><el-button type="primary" :loading="saving" @click="saveSubscription">保存订阅</el-button></el-form></section>
     </div>
     <section class="na-panel deliveries-panel">
       <header class="panel-header delivery-header">
@@ -483,7 +483,7 @@ onMounted(load)
 .panel-header h2 { margin: 0; font-size: .95rem; }
 .panel-header p { margin: 5px 0 0; font-size: .75rem; }
 .subscription-panel { align-self: start; }
-.subscription-panel .panel-header > div { min-width: 0; flex: 1 1 auto; }
+.subscription-panel .panel-header__copy { min-width: 0; flex: 1 1 auto; }
 .subscription-panel .el-time-picker { width: 100%; }
 .deliveries-panel { margin-top: 14px; }
 .delivery-header { align-items: center; }

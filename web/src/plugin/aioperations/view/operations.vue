@@ -138,7 +138,7 @@
                   />
                 </el-form-item>
                 <div class="setting-toggle">
-                  <div><strong>允许识别服务使用内网地址</strong><small>仅限受控企业内网 OCR、验真或模型网关。</small></div>
+                  <div class="setting-toggle__copy"><strong>允许识别服务使用内网地址</strong><small>仅限受控企业内网 OCR、验真或模型网关。</small></div>
                   <el-switch v-model="invoice['allow-private-endpoints']" active-text="允许" inactive-text="拒绝" />
                 </div>
               </div>
@@ -216,11 +216,11 @@
         <template v-else-if="activeSectionName === 'security'">
           <div class="setting-list">
             <div class="setting-toggle">
-              <div><strong>统一 AI Gateway</strong><small>所有智能业务通过统一入口执行策略、配额、脱敏和审计。</small></div>
+              <div class="setting-toggle__copy"><strong>统一 AI Gateway</strong><small>所有智能业务通过统一入口执行策略、配额、脱敏和审计。</small></div>
               <el-switch v-model="providers.enabled" active-text="启用" inactive-text="关闭" />
             </div>
             <div class="setting-toggle">
-              <div><strong>允许模型服务使用内网地址</strong><small>仅在模型部署于受控企业网络时启用。</small></div>
+              <div class="setting-toggle__copy"><strong>允许模型服务使用内网地址</strong><small>仅在模型部署于受控企业网络时启用。</small></div>
               <el-switch v-model="providers['allow-private-endpoints']" active-text="允许" inactive-text="拒绝" />
             </div>
           </div>
@@ -782,7 +782,7 @@ onMounted(() => loadActiveSection(true))
 .policy-row :deep(.el-input-number) { width: 100%; }
 .setting-list { border-top: 1px solid var(--na-border); }
 .setting-toggle { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 20px; padding: 14px 0; border-bottom: 1px solid var(--na-border); }
-.setting-toggle > div { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
+.setting-toggle__copy { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
 .setting-toggle strong { color: var(--na-foreground); font-size: .84rem; }
 .setting-toggle small { color: var(--na-muted-foreground); font-size: .73rem; line-height: 1.45; }
 .security-form { margin-top: 18px; }
