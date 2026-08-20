@@ -191,8 +191,8 @@
             <el-table-column prop="closedEvents" label="关闭" width="86" align="right" />
             <el-table-column label="开始时间" width="166"><template #default="{ row }">{{ formatDate(row.startedAt) }}</template></el-table-column>
             <el-table-column label="完成时间" width="166"><template #default="{ row }">{{ formatDate(row.finishedAt) || '—' }}</template></el-table-column>
-            <el-table-column label="结果" min-width="220"><template #default="{ row }"><span class="scan-error">{{ row.errorMessage || '扫描过程正常' }}</span></template></el-table-column>
-            <el-table-column label="操作" width="100" fixed="right" align="center">
+            <el-table-column label="结果" width="240" fixed="right"><template #default="{ row }"><span class="scan-error">{{ row.errorMessage || '扫描过程正常' }}</span></template></el-table-column>
+            <el-table-column label="操作" width="96" fixed="right" align="center">
               <template #default="{ row }"><el-button v-if="canResumeScan(row)" type="primary" link :icon="RefreshRight" :loading="scanStarting && resumingScanId === row.ID" @click="startScan(row.ID)">继续扫描</el-button><span v-else>—</span></template>
             </el-table-column>
           </el-table>
