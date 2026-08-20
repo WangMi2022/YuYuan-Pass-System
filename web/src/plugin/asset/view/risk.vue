@@ -151,7 +151,7 @@
             <div><h2>检测规则</h2><p>阈值或等级变更会生成新版本，历史事件继续保留原版本证据。</p></div>
             <el-button :icon="Refresh" :loading="rulesLoading" @click="loadRules">刷新规则</el-button>
           </header>
-          <el-table v-loading="rulesLoading && !rulesLoaded" :data="rules" row-key="ID" stripe>
+          <el-table v-loading="rulesLoading && !rulesLoaded" :data="rules" row-key="ID" stripe class="risk-table">
             <el-table-column label="规则" min-width="260">
               <template #default="{ row }"><div class="rule-cell"><strong>{{ row.name }}</strong><code>{{ row.code }}</code></div></template>
             </el-table-column>
@@ -181,7 +181,7 @@
             <div><h2>扫描运行</h2><p>扫描按批次提交并记录游标，失败任务可从上次完成位置继续。</p></div>
             <el-button :icon="Refresh" :loading="scansLoading" @click="loadScans">刷新记录</el-button>
           </header>
-          <el-table v-loading="scansLoading && !scansLoaded" :data="scans" row-key="ID" stripe>
+          <el-table v-loading="scansLoading && !scansLoaded" :data="scans" row-key="ID" stripe class="risk-table">
             <el-table-column label="运行 ID" width="100"><template #default="{ row }">#{{ row.ID }}</template></el-table-column>
             <el-table-column label="触发方式" width="100"><template #default="{ row }">{{ row.triggerType === 'scheduled' ? '定时扫描' : '手动扫描' }}</template></el-table-column>
             <el-table-column label="状态" width="100" align="center"><template #default="{ row }"><el-tag :type="scanStatusMeta(row.status).type">{{ scanStatusMeta(row.status).label }}</el-tag></template></el-table-column>
