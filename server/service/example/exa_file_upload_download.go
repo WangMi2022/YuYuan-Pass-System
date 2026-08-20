@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"mime/multipart"
+	"net/url"
 	"strings"
 	"time"
 
@@ -12,13 +13,118 @@ import (
 	"github.com/WangMi2022/mit-assets-admin/server/model/example"
 	"github.com/WangMi2022/mit-assets-admin/server/model/example/request"
 	"github.com/WangMi2022/mit-assets-admin/server/utils/upload"
+	"github.com/golang-jwt/jwt/v5"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
-const mediaPreviewURLTTL = 15 * time.Minute
+const mediaPreviewURLTTL = 12 * time.Hour
+
+const (
+	mediaPreviewPurposeRecord     = "media-preview"
+	mediaPreviewPurposeConfigured = "configured-media-preview"
+)
+
+var (
+	ErrInvalidMediaPreview = errors.New("媒体预览凭证无效")
+	ErrMediaPreviewMissing = errors.New("媒体预览文件不存在")
+)
 
 type mediaPreviewURLSigner func(context.Context, string, time.Duration) (string, error)
+
+type mediaPreviewClaims struct {
+	Key     string `json:"key"`
+	Purpose string `json:"purpose"`
+	jwt.RegisteredClaims
+}
+
+func validMediaObjectKey(key string) bool {
+	if key == "" || key != strings.TrimSpace(key) || len(key) > 1024 || strings.HasPrefix(key, "/") ||
+		strings.Contains(key, "..") || strings.ContainsAny(key, "\\\x00\r\n") {
+		return false
+	}
+	for _, part := range strings.Split(key, "/") {
+		if part == "" || part == "." || part == ".." {
+			return false
+		}
+	}
+	return true
+}
+
+func createMediaPreviewURL(_ context.Context, key string, expires time.Duration) (string, error) {
+	return createMediaPreviewURLForPurpose(key, mediaPreviewPurposeRecord, expires)
+}
+
+func createMediaPreviewURLForPurpose(key, purpose string, expires time.Duration) (string, error) {
+	key = strings.TrimSpace(key)
+	secret := strings.TrimSpace(global.GVA_CONFIG.JWT.SigningKey)
+	if !validMediaObjectKey(key) || secret == "" ||
+		(purpose != mediaPreviewPurposeRecord && purpose != mediaPreviewPurposeConfigured) {
+		return "", ErrInvalidMediaPreview
+	}
+	if expires <= 0 {
+		expires = mediaPreviewURLTTL
+	}
+	now := time.Now()
+	claims := mediaPreviewClaims{
+		Key: key, Purpose: purpose,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer: "media-preview", Subject: key,
+			IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(expires)),
+		},
+	}
+	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(secret))
+	if err != nil {
+		return "", err
+	}
+	query := url.Values{"key": []string{key}, "token": []string{token}}
+	return "/api/fileUploadAndDownload/preview?" + query.Encode(), nil
+}
+
+func validateMediaPreviewToken(tokenString, key string) bool {
+	_, ok := parseMediaPreviewToken(tokenString, key)
+	return ok
+}
+
+func parseMediaPreviewToken(tokenString, key string) (*mediaPreviewClaims, bool) {
+	secret := strings.TrimSpace(global.GVA_CONFIG.JWT.SigningKey)
+	key = strings.TrimSpace(key)
+	if secret == "" || tokenString == "" || !validMediaObjectKey(key) {
+		return nil, false
+	}
+	claims := new(mediaPreviewClaims)
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (any, error) {
+		if token.Method != jwt.SigningMethodHS256 {
+			return nil, ErrInvalidMediaPreview
+		}
+		return []byte(secret), nil
+	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
+	validPurpose := claims.Purpose == mediaPreviewPurposeRecord || claims.Purpose == mediaPreviewPurposeConfigured
+	if err != nil || !token.Valid || !validPurpose || claims.Key != key || claims.Subject != key {
+		return nil, false
+	}
+	return claims, true
+}
+
+// ResolveConfiguredMediaPreviewURL signs a URL already trusted by an
+// administrator-owned configuration record, such as the public brand logo.
+// External URLs remain untouched.
+func ResolveConfiguredMediaPreviewURL(rawURL string) (string, error) {
+	rawURL = strings.TrimSpace(rawURL)
+	if rawURL == "" || !strings.EqualFold(global.GVA_CONFIG.System.OssType, "minio") {
+		return rawURL, nil
+	}
+	bucketURL := strings.TrimRight(strings.TrimSpace(global.GVA_CONFIG.Minio.BucketUrl), "/")
+	prefix := bucketURL + "/"
+	if bucketURL == "" || !strings.HasPrefix(rawURL, prefix) {
+		return rawURL, nil
+	}
+	key := strings.TrimPrefix(rawURL, prefix)
+	if !validMediaObjectKey(key) || rawURL != prefix+key {
+		return "", ErrInvalidMediaPreview
+	}
+	return createMediaPreviewURLForPurpose(key, mediaPreviewPurposeConfigured, mediaPreviewURLTTL)
+}
 
 //@author: [piexlmax](https://github.com/piexlmax)
 //@function: Upload
@@ -100,18 +206,7 @@ func (e *FileUploadAndDownloadService) GetFileRecordInfoList(ctx context.Context
 
 	var signer mediaPreviewURLSigner
 	if strings.EqualFold(global.GVA_CONFIG.System.OssType, "minio") {
-		minioClient, minioErr := upload.GetMinio(
-			global.GVA_CONFIG.Minio.Endpoint,
-			global.GVA_CONFIG.Minio.AccessKeyId,
-			global.GVA_CONFIG.Minio.AccessKeySecret,
-			global.GVA_CONFIG.Minio.BucketName,
-			global.GVA_CONFIG.Minio.UseSSL,
-		)
-		if minioErr != nil {
-			err = fmt.Errorf("初始化媒体预览存储: %w", minioErr)
-			return
-		}
-		signer = minioClient.PreviewURL
+		signer = createMediaPreviewURL
 	}
 	if previewErr := attachMediaPreviewURLs(ctx, list, global.GVA_CONFIG.System.OssType, global.GVA_CONFIG.Minio.BucketUrl, signer); previewErr != nil {
 		global.GVA_LOG.Warn("部分媒体预览链接签发失败", zap.Error(previewErr))
@@ -164,8 +259,8 @@ func resolveMediaPreviewURL(ctx context.Context, rawURL, ossType, bucketURL stri
 	return previewURL, nil
 }
 
-// ResolveMediaPreviewURL returns a short-lived browser URL for managed private
-// MinIO objects while leaving local and external URLs unchanged.
+// ResolveMediaPreviewURL returns a short-lived same-origin browser URL for a
+// managed private MinIO object while leaving local and external URLs unchanged.
 func (e *FileUploadAndDownloadService) ResolveMediaPreviewURL(ctx context.Context, rawURL string) (string, error) {
 	rawURL = strings.TrimSpace(rawURL)
 	ossType := global.GVA_CONFIG.System.OssType
@@ -182,21 +277,37 @@ func (e *FileUploadAndDownloadService) ResolveMediaPreviewURL(ctx context.Contex
 		return rawURL, fmt.Errorf("查询头像媒体记录: %w", err)
 	}
 
-	minioClient, err := upload.GetMinio(
-		global.GVA_CONFIG.Minio.Endpoint,
-		global.GVA_CONFIG.Minio.AccessKeyId,
-		global.GVA_CONFIG.Minio.AccessKeySecret,
-		global.GVA_CONFIG.Minio.BucketName,
-		global.GVA_CONFIG.Minio.UseSSL,
-	)
-	if err != nil {
-		return rawURL, fmt.Errorf("初始化头像预览存储: %w", err)
-	}
 	files := []example.ExaFileUploadAndDownload{file}
-	if err := attachMediaPreviewURLs(ctx, files, ossType, bucketURL, minioClient.PreviewURL); err != nil {
+	if err := attachMediaPreviewURLs(ctx, files, ossType, bucketURL, createMediaPreviewURL); err != nil {
 		return rawURL, err
 	}
 	return files[0].PreviewURL, nil
+}
+
+// ResolveMediaPreviewObject validates the short-lived application token and
+// resolves only a media record that belongs to the configured private bucket.
+func (e *FileUploadAndDownloadService) ResolveMediaPreviewObject(ctx context.Context, key, token string) (example.ExaFileUploadAndDownload, error) {
+	key = strings.TrimSpace(key)
+	claims, validToken := parseMediaPreviewToken(token, key)
+	if !strings.EqualFold(global.GVA_CONFIG.System.OssType, "minio") || !validToken {
+		return example.ExaFileUploadAndDownload{}, ErrInvalidMediaPreview
+	}
+	if claims.Purpose == mediaPreviewPurposeConfigured {
+		return example.ExaFileUploadAndDownload{Key: key}, nil
+	}
+	bucketURL := strings.TrimRight(strings.TrimSpace(global.GVA_CONFIG.Minio.BucketUrl), "/")
+	if bucketURL == "" {
+		return example.ExaFileUploadAndDownload{}, ErrInvalidMediaPreview
+	}
+	var file example.ExaFileUploadAndDownload
+	err := global.GVA_DB.WithContext(ctx).Where("key = ? AND url = ?", key, bucketURL+"/"+key).First(&file).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return example.ExaFileUploadAndDownload{}, ErrMediaPreviewMissing
+	}
+	if err != nil {
+		return example.ExaFileUploadAndDownload{}, fmt.Errorf("查询媒体预览文件: %w", err)
+	}
+	return file, nil
 }
 
 //@author: [piexlmax](https://github.com/piexlmax)

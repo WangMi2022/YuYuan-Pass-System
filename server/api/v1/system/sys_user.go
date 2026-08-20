@@ -255,6 +255,12 @@ func (b *BaseApi) GetUserList(c *gin.Context) {
 		response.FailWithMessage("获取失败", c)
 		return
 	}
+	if users, ok := list.([]system.SysUser); ok {
+		for index := range users {
+			attachUserAvatarPreview(c, &users[index])
+		}
+		list = users
+	}
 	response.OkWithDetailed(response.PageResult{
 		List:     list,
 		Total:    total,

@@ -105,3 +105,26 @@ func TestSaveBrandingValidatesNameAndRuneLimits(t *testing.T) {
 		})
 	}
 }
+
+func TestCurrentLoginLogoDoesNotExposeManagedStorageOrigin(t *testing.T) {
+	db := setupLoginLogoTestDB(t)
+	previousConfig := global.GVA_CONFIG
+	t.Cleanup(func() { global.GVA_CONFIG = previousConfig })
+	global.GVA_CONFIG.System.OssType = "minio"
+	global.GVA_CONFIG.Minio.BucketUrl = "http://172.30.3.135:9000/gva-assets"
+	global.GVA_CONFIG.JWT.SigningKey = "login-logo-preview-test-key"
+
+	const key = "assets/2026-07-16/brand-logo.jpg"
+	const rawURL = "http://172.30.3.135:9000/gva-assets/" + key
+	if err := db.Create(&model.LoginLogo{Name: "brand-logo.jpg", URL: rawURL}).Error; err != nil {
+		t.Fatalf("create login logo: %v", err)
+	}
+
+	current, err := LoginLogo.Current()
+	if err != nil {
+		t.Fatalf("read current login logo: %v", err)
+	}
+	if strings.Contains(current.URL, "172.30.3.135") || !strings.HasPrefix(current.URL, "/api/fileUploadAndDownload/preview?") {
+		t.Fatalf("login logo exposed storage URL: %q", current.URL)
+	}
+}

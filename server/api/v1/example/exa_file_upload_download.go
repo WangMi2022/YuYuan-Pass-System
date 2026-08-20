@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"mime"
 	"mime/multipart"
 	"net/http"
 	"path/filepath"
@@ -15,7 +16,10 @@ import (
 	"github.com/WangMi2022/mit-assets-admin/server/model/example"
 	"github.com/WangMi2022/mit-assets-admin/server/model/example/request"
 	exampleRes "github.com/WangMi2022/mit-assets-admin/server/model/example/response"
+	exampleService "github.com/WangMi2022/mit-assets-admin/server/service/example"
+	"github.com/WangMi2022/mit-assets-admin/server/utils/upload"
 	"github.com/gin-gonic/gin"
+	"github.com/minio/minio-go/v7"
 	"go.uber.org/zap"
 )
 
@@ -115,6 +119,69 @@ func isAllowedImageExt(ext string) bool {
 func imageExtFromURL(rawURL string) string {
 	clean := strings.Split(strings.Split(rawURL, "?")[0], "#")[0]
 	return strings.ToLower(filepath.Ext(clean))
+}
+
+// PreviewFile proxies a token-authorized private object through the current
+// application origin so browsers never connect to the internal storage host.
+func (b *FileUploadAndDownloadApi) PreviewFile(c *gin.Context) {
+	file, err := fileUploadAndDownloadService.ResolveMediaPreviewObject(
+		c.Request.Context(), c.Query("key"), c.Query("token"),
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, exampleService.ErrInvalidMediaPreview):
+			c.Status(http.StatusForbidden)
+		case errors.Is(err, exampleService.ErrMediaPreviewMissing):
+			c.Status(http.StatusNotFound)
+		default:
+			global.GVA_LOG.Error("解析媒体预览失败", zap.Error(err))
+			c.Status(http.StatusServiceUnavailable)
+		}
+		return
+	}
+
+	client, err := upload.GetMinio(
+		global.GVA_CONFIG.Minio.Endpoint,
+		global.GVA_CONFIG.Minio.AccessKeyId,
+		global.GVA_CONFIG.Minio.AccessKeySecret,
+		global.GVA_CONFIG.Minio.BucketName,
+		global.GVA_CONFIG.Minio.UseSSL,
+	)
+	if err != nil {
+		global.GVA_LOG.Error("初始化媒体预览存储失败", zap.Error(err))
+		c.Status(http.StatusServiceUnavailable)
+		return
+	}
+	object, err := client.Client.GetObject(c.Request.Context(), global.GVA_CONFIG.Minio.BucketName, file.Key, minio.GetObjectOptions{})
+	if err != nil {
+		c.Status(http.StatusNotFound)
+		return
+	}
+	defer object.Close()
+	stat, err := object.Stat()
+	if err != nil || stat.Size <= 0 || stat.Size > maxMediaUploadBytes || !isAllowedMediaPreviewContentType(stat.ContentType) {
+		c.Status(http.StatusNotFound)
+		return
+	}
+	contentType, _, _ := mime.ParseMediaType(stat.ContentType)
+	c.Header("Cache-Control", "private, max-age=3600")
+	c.Header("Content-Disposition", "inline")
+	c.Header("Referrer-Policy", "no-referrer")
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.DataFromReader(http.StatusOK, stat.Size, contentType, object, nil)
+}
+
+func isAllowedMediaPreviewContentType(value string) bool {
+	contentType, _, err := mime.ParseMediaType(value)
+	if err != nil {
+		return false
+	}
+	switch strings.ToLower(contentType) {
+	case "image/jpeg", "image/png", "image/gif", "image/bmp", "image/webp", "image/avif":
+		return true
+	default:
+		return false
+	}
 }
 
 // EditFileName 编辑文件名或者备注

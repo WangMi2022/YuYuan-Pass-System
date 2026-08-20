@@ -8,6 +8,7 @@ import (
 
 	"github.com/WangMi2022/mit-assets-admin/server/global"
 	"github.com/WangMi2022/mit-assets-admin/server/plugin/systemsetting/model"
+	exampleService "github.com/WangMi2022/mit-assets-admin/server/service/example"
 	"gorm.io/gorm"
 )
 
@@ -52,6 +53,13 @@ func (s *loginLogoService) Current() (model.LoginLogo, error) {
 		} else {
 			subtitle := strings.TrimSpace(*item.Subtitle)
 			item.Subtitle = &subtitle
+		}
+		if item.URL != "" {
+			previewURL, previewErr := exampleService.ResolveConfiguredMediaPreviewURL(item.URL)
+			if previewErr != nil {
+				return model.LoginLogo{}, previewErr
+			}
+			item.URL = previewURL
 		}
 	}
 	return item, err

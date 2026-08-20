@@ -135,6 +135,9 @@ func (s *riskService) List(ctx context.Context, search assetRequest.RiskSearch) 
 	}
 	err := db.Preload("Asset.Category").Order("CASE severity WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END, last_detected_at DESC, id DESC").
 		Scopes(search.Paginate()).Find(&list).Error
+	if err == nil {
+		normalizeRiskEventAssets(list)
+	}
 	return list, total, err
 }
 
@@ -146,6 +149,7 @@ func (s *riskService) Detail(ctx context.Context, id uint) (assetResponse.RiskDe
 	if err := global.GVA_DB.WithContext(ctx).Preload("Asset.Category").First(&detail.Event, id).Error; err != nil {
 		return assetResponse.RiskDetail{}, errors.New("风险事件不存在")
 	}
+	model.NormalizeAssetPhotos(&detail.Event.Asset)
 	if err := global.GVA_DB.WithContext(ctx).Where("event_id = ?", id).Order("created_at DESC, id DESC").Find(&detail.Logs).Error; err != nil {
 		return assetResponse.RiskDetail{}, err
 	}
@@ -355,6 +359,7 @@ func (s *riskService) Dashboard(ctx context.Context) (assetResponse.RiskDashboar
 	if err = global.GVA_DB.WithContext(ctx).Preload("Asset.Category").Order("last_detected_at DESC, id DESC").Limit(8).Find(&result.RecentEvents).Error; err != nil {
 		return result, err
 	}
+	normalizeRiskEventAssets(result.RecentEvents)
 	var latest model.AssetRiskScanRun
 	if err = global.GVA_DB.WithContext(ctx).Order("started_at DESC, id DESC").First(&latest).Error; err == nil {
 		result.LatestScan = &latest
@@ -362,6 +367,12 @@ func (s *riskService) Dashboard(ctx context.Context) (assetResponse.RiskDashboar
 		return result, err
 	}
 	return result, nil
+}
+
+func normalizeRiskEventAssets(events []model.AssetRiskEvent) {
+	for index := range events {
+		model.NormalizeAssetPhotos(&events[index].Asset)
+	}
 }
 
 func (s *riskService) groupRiskMetrics(ctx context.Context, column string, statuses []string) ([]assetResponse.RiskMetric, error) {

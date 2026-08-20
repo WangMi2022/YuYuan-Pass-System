@@ -7,6 +7,7 @@ import (
 
 	"github.com/WangMi2022/mit-assets-admin/server/global"
 	"github.com/WangMi2022/mit-assets-admin/server/plugin/systemsetting/model"
+	exampleService "github.com/WangMi2022/mit-assets-admin/server/service/example"
 	"gorm.io/gorm"
 )
 
@@ -40,6 +41,13 @@ func (s *loginBackgroundService) Create(item *model.LoginBackground) error {
 func (s *loginBackgroundService) List() ([]model.LoginBackground, error) {
 	var list []model.LoginBackground
 	err := global.GVA_DB.Order("is_active DESC, created_at DESC").Find(&list).Error
+	if err == nil {
+		for index := range list {
+			if err = attachLoginBackgroundPreview(&list[index]); err != nil {
+				return nil, err
+			}
+		}
+	}
 	return list, err
 }
 
@@ -49,7 +57,22 @@ func (s *loginBackgroundService) Current() (model.LoginBackground, error) {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return model.LoginBackground{}, nil
 	}
+	if err == nil {
+		err = attachLoginBackgroundPreview(&item)
+	}
 	return item, err
+}
+
+func attachLoginBackgroundPreview(item *model.LoginBackground) error {
+	if item == nil || strings.TrimSpace(item.URL) == "" {
+		return nil
+	}
+	previewURL, err := exampleService.ResolveConfiguredMediaPreviewURL(item.URL)
+	if err != nil {
+		return err
+	}
+	item.URL = previewURL
+	return nil
 }
 
 func (s *loginBackgroundService) Activate(id uint) error {

@@ -6,7 +6,7 @@ import (
 
 type FileUploadAndDownloadRouter struct{}
 
-func (e *FileUploadAndDownloadRouter) InitFileUploadAndDownloadRouter(Router *gin.RouterGroup) {
+func (e *FileUploadAndDownloadRouter) InitFileUploadAndDownloadRouter(Router, PublicRouter *gin.RouterGroup) {
 	fileUploadAndDownloadRouter := Router.Group("fileUploadAndDownload")
 	{
 		fileUploadAndDownloadRouter.POST("upload", exaFileUploadAndDownloadApi.UploadFile)                                 // 上传文件
@@ -19,4 +19,5 @@ func (e *FileUploadAndDownloadRouter) InitFileUploadAndDownloadRouter(Router *gi
 		fileUploadAndDownloadRouter.POST("removeChunk", exaFileUploadAndDownloadApi.RemoveChunk)                           // 删除切片
 		fileUploadAndDownloadRouter.POST("importURL", exaFileUploadAndDownloadApi.ImportURL)                               // 导入URL
 	}
+	PublicRouter.GET("fileUploadAndDownload/preview", exaFileUploadAndDownloadApi.PreviewFile)
 }

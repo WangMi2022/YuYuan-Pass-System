@@ -65,6 +65,56 @@ func TestRiskRulePageUsesTenItemDefaultPages(t *testing.T) {
 	}
 }
 
+func TestRiskResponsesNormalizeManagedAssetPhotoURLs(t *testing.T) {
+	setupRiskTestDB(t)
+	previousMinio := global.GVA_CONFIG.Minio
+	t.Cleanup(func() { global.GVA_CONFIG.Minio = previousMinio })
+	global.GVA_CONFIG.Minio.BucketUrl = "http://172.30.3.135:9000/gva-assets"
+	global.GVA_CONFIG.Minio.BasePath = "assets"
+
+	now := time.Now()
+	asset := createRiskTestAsset(t, model.AssetStatusIdle, now)
+	legacyURL := "http://172.30.3.135:9000/gva-assets/assets/2026-07-16/risk-photo.jpg"
+	asset.Photos = []model.Photo{{Name: "risk-photo.jpg", URL: legacyURL}}
+	if err := global.GVA_DB.Select("Photos").Save(&asset).Error; err != nil {
+		t.Fatalf("attach legacy asset photo: %v", err)
+	}
+	event := model.AssetRiskEvent{
+		Fingerprint: strings.Repeat("f", 64), AssetID: asset.ID, RuleCode: riskRuleHighValueIdle, RuleVersion: 1,
+		Category: "value", Severity: model.RiskSeverityHigh, Status: model.RiskStatusOpen,
+		Title: "图片地址规范化测试", FirstDetectedAt: now, LastDetectedAt: now,
+	}
+	if err := global.GVA_DB.Create(&event).Error; err != nil {
+		t.Fatalf("create risk event: %v", err)
+	}
+
+	list, total, err := Risk.List(t.Context(), assetRequest.RiskSearch{})
+	if err != nil || total != 1 || len(list) != 1 {
+		t.Fatalf("list risk events: total=%d len=%d err=%v", total, len(list), err)
+	}
+	assertRiskPhotoUsesProxy(t, list[0].Asset.Photos, asset.ID, legacyURL)
+
+	detail, err := Risk.Detail(t.Context(), event.ID)
+	if err != nil {
+		t.Fatalf("get risk detail: %v", err)
+	}
+	assertRiskPhotoUsesProxy(t, detail.Event.Asset.Photos, asset.ID, legacyURL)
+}
+
+func assertRiskPhotoUsesProxy(t *testing.T, photos []model.Photo, assetID uint, legacyURL string) {
+	t.Helper()
+	if len(photos) != 1 {
+		t.Fatalf("risk asset photos = %#v", photos)
+	}
+	photo := photos[0]
+	if photo.URL == legacyURL || !strings.HasPrefix(photo.URL, "/api/asset/photo?") {
+		t.Fatalf("risk response exposed storage URL: %#v", photo)
+	}
+	if photo.Key != "assets/2026-07-16/risk-photo.jpg" || photo.AssetID != assetID {
+		t.Fatalf("risk response did not recover photo ownership: %#v", photo)
+	}
+}
+
 func TestDeleteRiskScanRunsRemovesHistoryWithoutDeletingRiskEvents(t *testing.T) {
 	setupRiskTestDB(t)
 	now := time.Now()
