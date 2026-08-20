@@ -37,8 +37,16 @@ Do not auto-publish when the user requested only diagnosis, review, explanation,
 - Deployment backups: `/data/gin-vue-admin/.deploy/backups`.
 - Revision marker: `/data/gin-vue-admin/.deploy/current-commit`.
 - Compose directory: `/data/gin-vue-admin/deploy/docker-dev`.
+- Server-side temporary workspace: `/data/gin-vue-admin/workspace`.
 
-Publish with an archive created from the committed Git revision, never from an uncommitted working tree. Upload it through the WSL SSH alias, create a timestamped backup of the affected source directories, extract the archive over `/data/gin-vue-admin`, and preserve ignored runtime files such as:
+## Temporary workspace
+
+- Keep every task or deployment temporary artifact under `/data/gin-vue-admin/workspace/` on the production server. Use `/data/gin-vue-admin/workspace/releases/` for release archives and `/data/gin-vue-admin/workspace/tmp/` for disposable working files.
+- Never create release archives, generated patches, scratch directories, or other temporary artifacts on the Windows workstation, including the repository and `%TEMP%`.
+- The repository-level `/workspace/` path is ignored and must never be committed to GitHub. Do not place source files or required runtime data there.
+- Stream release archives from WSL directly to `/data/gin-vue-admin/workspace/releases/release-<short-sha>.tar.gz` through the `gin-vue-admin-remote` SSH alias; do not stage an archive on Windows first.
+
+Publish with an archive created from the committed Git revision, never from an uncommitted working tree. Stream it through the WSL SSH alias directly into `/data/gin-vue-admin/workspace/releases/`, create a timestamped backup of the affected source directories, extract the archive over `/data/gin-vue-admin`, and preserve ignored runtime files such as:
 
 - `deploy/docker-dev/.env`
 - `deploy/docker-dev/config.yaml`

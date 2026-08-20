@@ -45,6 +45,7 @@ server/server
 Thumbs.db
 
 # Temporary files
+/workspace/
 tmp/
 temp/
 *.tmp
