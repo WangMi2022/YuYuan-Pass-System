@@ -60,6 +60,18 @@ test('risk events expose terminal-only selected and history cleanup actions', as
   assert.match(apiSource, /url: '\/assetRisk\/events', method: 'delete', data/)
 })
 
+test('risk tables keep horizontal overflow local and fixed columns non-overlapping', async () => {
+  const filename = fileURLToPath(new URL('../view/risk.vue', import.meta.url))
+  const source = await readFile(filename, 'utf8')
+  const eventPane = source.match(/<el-tab-pane name="events">([\s\S]*?)<el-tab-pane name="rules">/)?.[1] || ''
+  const scanPane = source.match(/<el-tab-pane name="scans">([\s\S]*?)<\/el-tab-pane>/)?.[1] || ''
+
+  assert.equal((source.match(/class="risk-table-shell"/g) || []).length, 3)
+  assert.match(eventPane, /type="selection"[^>]+fixed="left"/)
+  assert.match(scanPane, /label="结果" min-width="220"(?![^>]*fixed="right")/)
+  assert.match(scanPane, /label="操作" width="176" fixed="right"/)
+})
+
 test('risk scan polling waits for each request and refreshes once after completion', async () => {
   const scheduled = []
   const requests = []

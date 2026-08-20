@@ -96,16 +96,17 @@
             <el-button type="danger" plain :icon="Delete" :loading="eventDeleteTarget === 'selected'" :disabled="!selectedHistoryEvents.length || scanInProgress || Boolean(eventDeleteTarget)" @click="deleteSelectedEvents">删除历史 {{ selectedHistoryEvents.length }}</el-button>
           </div>
 
-          <el-table
-            v-loading="eventsLoading && !eventsLoaded"
-            :data="events"
-            row-key="ID"
-            stripe
-            class="risk-table"
-            @selection-change="selectedEvents = $event"
-            @row-dblclick="openDetail"
-          >
-            <el-table-column type="selection" width="44" :selectable="isSelectableRisk" />
+          <div class="risk-table-shell">
+            <el-table
+              v-loading="eventsLoading && !eventsLoaded"
+              :data="events"
+              row-key="ID"
+              stripe
+              class="risk-table"
+              @selection-change="selectedEvents = $event"
+              @row-dblclick="openDetail"
+            >
+            <el-table-column type="selection" width="44" fixed="left" :selectable="isSelectableRisk" />
             <el-table-column label="风险" min-width="300" fixed="left">
               <template #default="{ row }">
                 <button type="button" class="risk-identity" @click="openDetail(row)">
@@ -150,7 +151,8 @@
                 <template #actions><el-button type="primary" :icon="Search" :loading="scanInProgress" @click="startScan()">运行风险扫描</el-button></template>
               </AppEmptyState>
             </template>
-          </el-table>
+            </el-table>
+          </div>
           <div class="na-pagination risk-pagination">
             <el-pagination
               v-model:current-page="searchForm.page"
@@ -170,7 +172,8 @@
             <div><h2>检测规则</h2><p>阈值或等级变更会生成新版本，历史事件继续保留原版本证据。</p></div>
             <el-button :icon="Refresh" :loading="rulesLoading" @click="loadRules">刷新规则</el-button>
           </header>
-          <el-table v-loading="rulesLoading && !rulesLoaded" :data="rules" row-key="ID" stripe class="risk-table">
+          <div class="risk-table-shell">
+            <el-table v-loading="rulesLoading && !rulesLoaded" :data="rules" row-key="ID" stripe class="risk-table">
             <el-table-column label="规则" min-width="260">
               <template #default="{ row }"><div class="rule-cell"><strong>{{ row.name }}</strong><code>{{ row.code }}</code></div></template>
             </el-table-column>
@@ -180,7 +183,8 @@
             <el-table-column label="版本" width="80" align="center"><template #default="{ row }">v{{ row.version }}</template></el-table-column>
             <el-table-column label="状态" width="90" align="center"><template #default="{ row }"><el-tag :type="row.enabled ? 'success' : 'info'">{{ row.enabled ? '启用' : '停用' }}</el-tag></template></el-table-column>
             <el-table-column label="操作" width="96" fixed="right" align="center"><template #default="{ row }"><el-button type="primary" link :icon="Edit" @click="openRule(row)">配置</el-button></template></el-table-column>
-          </el-table>
+            </el-table>
+          </div>
           <div class="na-pagination risk-pagination">
             <el-pagination
               v-model:current-page="ruleSearch.page"
@@ -216,14 +220,15 @@
               >清理历史</el-button>
             </div>
           </header>
-          <el-table
-            v-loading="scansLoading && !scansLoaded"
-            :data="scans"
-            row-key="ID"
-            stripe
-            class="risk-table"
-            @selection-change="selectedScans = $event"
-          >
+          <div class="risk-table-shell">
+            <el-table
+              v-loading="scansLoading && !scansLoaded"
+              :data="scans"
+              row-key="ID"
+              stripe
+              class="risk-table"
+              @selection-change="selectedScans = $event"
+            >
             <el-table-column type="selection" width="44" :selectable="isDeletableScan" />
             <el-table-column label="运行 ID" width="100"><template #default="{ row }">#{{ row.ID }}</template></el-table-column>
             <el-table-column label="触发方式" min-width="100"><template #default="{ row }">{{ row.triggerType === 'scheduled' ? '定时扫描' : '手动扫描' }}</template></el-table-column>
@@ -234,7 +239,7 @@
             <el-table-column prop="closedEvents" label="关闭" min-width="86" align="right" />
             <el-table-column label="开始时间" min-width="166"><template #default="{ row }">{{ formatDate(row.startedAt) }}</template></el-table-column>
             <el-table-column label="完成时间" min-width="166"><template #default="{ row }">{{ formatDate(row.finishedAt) || '—' }}</template></el-table-column>
-            <el-table-column label="结果" min-width="220" fixed="right"><template #default="{ row }"><span class="scan-error">{{ row.errorMessage || '扫描过程正常' }}</span></template></el-table-column>
+            <el-table-column label="结果" min-width="220"><template #default="{ row }"><span class="scan-error">{{ row.errorMessage || '扫描过程正常' }}</span></template></el-table-column>
             <el-table-column label="操作" width="176" fixed="right" align="center">
               <template #default="{ row }">
                 <div class="scan-row-actions">
@@ -244,7 +249,8 @@
                 </div>
               </template>
             </el-table-column>
-          </el-table>
+            </el-table>
+          </div>
           <div class="na-pagination risk-pagination">
             <el-pagination
               v-model:current-page="scanSearch.page"
@@ -934,13 +940,24 @@ onBeforeUnmount(scanPoller.stop)
 .chart-region > header > span { color: var(--na-muted-foreground); font-size: 11px; }
 
 .risk-workspace { overflow: hidden; padding: 0 18px 18px; border-radius: 8px; }
+.risk-tabs,
+.risk-tabs :deep(.el-tabs__content),
+.risk-tabs :deep(.el-tab-pane) { min-width: 0; }
 .risk-tabs :deep(.el-tabs__header) { margin: 0 0 16px; }
 .risk-tabs :deep(.el-tabs__nav-wrap::after) { height: 1px; background: var(--na-border); }
 .tab-label { display: inline-flex; align-items: center; gap: 6px; }
 .event-toolbar { display: grid; grid-template-columns: minmax(260px, 1fr) repeat(3, minmax(130px, 170px)) auto auto; gap: 10px; margin-bottom: 14px; }
 .batch-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: -2px 0 12px; padding: 9px 12px; border: 1px solid var(--na-border); border-radius: 6px; background: var(--na-primary-soft); }
 .batch-toolbar span { margin-right: auto; color: var(--na-accent-foreground); font-size: 13px; font-weight: 650; }
-.risk-table { width: 100%; }
+.risk-table-shell {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.risk-table-shell :deep(.risk-table) { min-width: 100%; }
+.risk-table { width: 100%; min-width: 0; }
 .risk-identity { display: flex; width: 100%; align-items: flex-start; gap: 10px; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; }
 .risk-identity > span:last-child, .asset-cell, .rule-cell { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
 .risk-identity strong, .asset-cell strong, .rule-cell strong { overflow: hidden; color: var(--na-foreground); font-size: 13px; font-weight: 680; text-overflow: ellipsis; white-space: nowrap; }
