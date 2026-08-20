@@ -35,6 +35,11 @@ type RiskScanDelete struct {
 	ClearFinished bool   `json:"clearFinished"`
 }
 
+type RiskEventDelete struct {
+	IDs          []uint `json:"ids"`
+	ClearHistory bool   `json:"clearHistory"`
+}
+
 type RiskRuleUpdate struct {
 	ID         uint           `json:"ID"`
 	Severity   string         `json:"severity"`

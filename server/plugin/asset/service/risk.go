@@ -26,7 +26,13 @@ type riskService struct{}
 
 const riskWriteTimeout = 5 * time.Second
 
+const riskEventDeleteBatchSize = 200
+
+const riskHistoryDeleteTimeout = 30 * time.Second
+
 var errRiskWriteBusy = errors.New("风险数据正在被扫描更新，请稍后重试")
+
+var errRiskHistoryBusy = errors.New("资产风险扫描正在运行，请稍后清理风险历史")
 
 func withRiskWriteTransaction(ctx context.Context, transaction func(*gorm.DB) error) error {
 	return withRiskWriteTransactionTimeout(ctx, riskWriteTimeout, transaction)
@@ -218,6 +224,96 @@ func (s *riskService) DeleteScanRuns(ctx context.Context, input assetRequest.Ris
 		}
 		deleted = result.RowsAffected
 		return nil
+	})
+	return deleted, err
+}
+
+func (s *riskService) DeleteEvents(ctx context.Context, input assetRequest.RiskEventDelete) (int64, error) {
+	if input.ClearHistory && len(input.IDs) > 0 {
+		return 0, errors.New("清理全部历史时不能同时指定风险事件")
+	}
+	if !input.ClearHistory && len(input.IDs) == 0 {
+		return 0, errors.New("请选择要删除的风险事件")
+	}
+	var ids []uint
+	var err error
+	if !input.ClearHistory {
+		ids, err = normalizedRiskIDs(input.IDs)
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	// 与本进程内的扫描互斥，并同时检查数据库中的活跃任务，避免扫描更新
+	// 与事件、处理日志清理交错后留下不完整的风险链路。
+	if !riskScanActive.CompareAndSwap(false, true) {
+		return 0, errRiskHistoryBusy
+	}
+	defer riskScanActive.Store(false)
+	var activeScans int64
+	if err := global.GVA_DB.WithContext(ctx).Model(&model.AssetRiskScanRun{}).
+		Where("status = ? AND heartbeat_at >= ?", model.RiskScanStatusRunning, time.Now().Add(-riskScanHeartbeatTimeout)).
+		Count(&activeScans).Error; err != nil {
+		return 0, err
+	}
+	if activeScans > 0 {
+		return 0, errRiskHistoryBusy
+	}
+
+	terminalStatuses := []string{model.RiskStatusResolved, model.RiskStatusIgnored}
+	var deleted int64
+	err = withRiskWriteTransactionTimeout(ctx, riskHistoryDeleteTimeout, func(tx *gorm.DB) error {
+		deleteBatch := func(batchIDs []uint) error {
+			if len(batchIDs) == 0 {
+				return nil
+			}
+			if err := tx.Unscoped().Where("event_id IN ?", batchIDs).Delete(&model.AssetRiskEventLog{}).Error; err != nil {
+				return err
+			}
+			result := tx.Unscoped().Where("id IN ? AND status IN ?", batchIDs, terminalStatuses).Delete(&model.AssetRiskEvent{})
+			if result.Error != nil {
+				return result.Error
+			}
+			if result.RowsAffected != int64(len(batchIDs)) {
+				return errors.New("风险事件删除数量与请求不一致")
+			}
+			deleted += result.RowsAffected
+			return nil
+		}
+
+		if !input.ClearHistory {
+			var events []model.AssetRiskEvent
+			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id IN ?", ids).Order("id ASC").Find(&events).Error; err != nil {
+				return err
+			}
+			if len(events) != len(ids) {
+				return errors.New("部分风险事件不存在或已被清理")
+			}
+			for _, event := range events {
+				if event.Status != model.RiskStatusResolved && event.Status != model.RiskStatusIgnored {
+					return fmt.Errorf("风险 %d 仍处于%s状态，只有已解决或已忽略的历史风险可以删除", event.ID, riskMetricLabel("status", event.Status))
+				}
+			}
+			return deleteBatch(ids)
+		}
+
+		for {
+			var events []model.AssetRiskEvent
+			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Select("id", "status").
+				Where("status IN ?", terminalStatuses).Order("id ASC").Limit(riskEventDeleteBatchSize).Find(&events).Error; err != nil {
+				return err
+			}
+			if len(events) == 0 {
+				return nil
+			}
+			batchIDs := make([]uint, 0, len(events))
+			for _, event := range events {
+				batchIDs = append(batchIDs, event.ID)
+			}
+			if err := deleteBatch(batchIDs); err != nil {
+				return err
+			}
+		}
 	})
 	return deleted, err
 }

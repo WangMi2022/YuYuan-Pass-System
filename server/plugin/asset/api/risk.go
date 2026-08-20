@@ -132,6 +132,20 @@ func (a *riskAPI) DeleteScanRuns(c *gin.Context) {
 	response.OkWithDetailed(gin.H{"deleted": deleted}, fmt.Sprintf("已清理 %d 条扫描记录", deleted), c)
 }
 
+func (a *riskAPI) DeleteEvents(c *gin.Context) {
+	var input assetRequest.RiskEventDelete
+	if err := c.ShouldBindJSON(&input); err != nil {
+		response.FailWithMessage("风险事件清理参数不正确", c)
+		return
+	}
+	deleted, err := serviceRisk.DeleteEvents(c.Request.Context(), input)
+	if err != nil {
+		response.FailWithMessage(err.Error(), c)
+		return
+	}
+	response.OkWithDetailed(gin.H{"deleted": deleted}, fmt.Sprintf("已清理 %d 条风险事件", deleted), c)
+}
+
 func (a *riskAPI) Acknowledge(c *gin.Context) { a.handleAction(c, "acknowledge") }
 func (a *riskAPI) Resolve(c *gin.Context)     { a.handleAction(c, "resolve") }
 func (a *riskAPI) Ignore(c *gin.Context)      { a.handleAction(c, "ignore") }

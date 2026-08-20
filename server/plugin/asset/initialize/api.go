@@ -43,6 +43,7 @@ var apiRules = []system.SysApi{
 	{Path: "/assetRisk/dashboard", Description: "资产风险总览", ApiGroup: "资产风险", Method: "GET"},
 	{Path: "/assetRisk/list", Description: "资产风险列表", ApiGroup: "资产风险", Method: "GET"},
 	{Path: "/assetRisk/detail", Description: "资产风险详情", ApiGroup: "资产风险", Method: "GET"},
+	{Path: "/assetRisk/events", Description: "清理资产风险事件历史", ApiGroup: "资产风险", Method: "DELETE"},
 	{Path: "/assetRisk/scan", Description: "启动资产风险扫描", ApiGroup: "资产风险", Method: "POST"},
 	{Path: "/assetRisk/scans", Description: "资产风险扫描记录", ApiGroup: "资产风险", Method: "GET"},
 	{Path: "/assetRisk/scans", Description: "清理资产风险扫描记录", ApiGroup: "资产风险", Method: "DELETE"},

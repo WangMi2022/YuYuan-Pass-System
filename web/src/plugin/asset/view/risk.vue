@@ -61,6 +61,19 @@
       <el-tabs v-model="activeTab" class="risk-tabs" @tab-change="handleTabChange">
         <el-tab-pane name="events">
           <template #label><span class="tab-label"><el-icon><Warning /></el-icon>风险事件</span></template>
+          <header class="workspace-header event-header">
+            <div><h2>事件清单</h2><p>当前风险用于持续跟踪；已解决、已忽略的终态事件可作为历史记录清理。</p></div>
+            <div class="workspace-actions">
+              <el-button
+                type="danger"
+                plain
+                :icon="DeleteFilled"
+                :loading="eventDeleteTarget === 'history'"
+                :disabled="scanInProgress || Boolean(eventDeleteTarget)"
+                @click="clearRiskHistory"
+              >清理历史</el-button>
+            </div>
+          </header>
           <div class="event-toolbar">
             <el-input v-model="searchForm.keyword" clearable :prefix-icon="Search" placeholder="资产编号、名称、规则或保管人" @keyup.enter="submitSearch" />
             <el-select v-model="searchForm.status" clearable placeholder="全部状态">
@@ -78,8 +91,9 @@
 
           <div v-if="selectedEvents.length" class="batch-toolbar">
             <span>已选择 {{ selectedEvents.length }} 条</span>
-            <el-button type="primary" plain :icon="Check" :loading="batchAcknowledging" @click="acknowledgeSelected">批量确认</el-button>
-            <el-button :icon="User" @click="openAssign(selectedEvents)">批量分配</el-button>
+            <el-button type="primary" plain :icon="Check" :loading="batchAcknowledging" :disabled="!selectedOpenEvents.length || Boolean(eventDeleteTarget)" @click="acknowledgeSelected">批量确认 {{ selectedOpenEvents.length }}</el-button>
+            <el-button :icon="User" :disabled="!selectedActiveEvents.length || Boolean(eventDeleteTarget)" @click="openAssign(selectedActiveEvents)">批量分配 {{ selectedActiveEvents.length }}</el-button>
+            <el-button type="danger" plain :icon="Delete" :loading="eventDeleteTarget === 'selected'" :disabled="!selectedHistoryEvents.length || scanInProgress || Boolean(eventDeleteTarget)" @click="deleteSelectedEvents">删除历史 {{ selectedHistoryEvents.length }}</el-button>
           </div>
 
           <el-table
@@ -123,8 +137,13 @@
             <el-table-column label="处理人" min-width="110">
               <template #default="{ row }">{{ row.assignedToName || '未分配' }}</template>
             </el-table-column>
-            <el-table-column label="操作" width="110" fixed="right" align="center">
-              <template #default="{ row }"><el-button type="primary" link :icon="View" @click="openDetail(row)">查看</el-button></template>
+            <el-table-column label="操作" width="160" fixed="right" align="center">
+              <template #default="{ row }">
+                <div class="event-row-actions">
+                  <el-button type="primary" link :icon="View" @click="openDetail(row)">查看</el-button>
+                  <el-button v-if="isHistoricalRisk(row)" type="danger" link :icon="Delete" :loading="eventDeleteTarget === `row:${row.ID}`" :disabled="scanInProgress || (Boolean(eventDeleteTarget) && eventDeleteTarget !== `row:${row.ID}`)" @click.stop="deleteEvent(row)">删除</el-button>
+                </div>
+              </template>
             </el-table-column>
             <template #empty>
               <AppEmptyState compact title="当前筛选下没有风险事件" description="调整筛选条件，或重新运行风险扫描。">
@@ -296,6 +315,7 @@
           <el-button v-if="['open', 'acknowledged'].includes(detail.event.status)" type="success" :icon="CircleCheck" @click="openAction('resolve')">标记解决</el-button>
           <el-button v-if="['open', 'acknowledged'].includes(detail.event.status)" type="warning" plain :icon="Hide" @click="openAction('ignore')">忽略</el-button>
           <el-button v-if="['resolved', 'ignored'].includes(detail.event.status)" type="primary" :icon="RefreshRight" @click="openAction('reopen')">重新打开</el-button>
+          <el-button v-if="isHistoricalRisk(detail.event)" type="danger" plain :icon="Delete" :loading="eventDeleteTarget === `row:${detail.event.ID}`" :disabled="scanInProgress || Boolean(eventDeleteTarget)" @click="deleteEvent(detail.event)">删除历史</el-button>
         </div>
       </template>
     </el-drawer>
@@ -361,7 +381,7 @@ import { formatCurrency, formatDate, formatNumber } from '@/utils/format'
 import { createRiskScanPoller } from '@/plugin/asset/utils/riskScan'
 import {
   acknowledgeAssetRisk, assignAssetRisk, getAssetRiskDashboard, getAssetRiskDetail,
-  getAssetRiskList, getAssetRiskRules, getAssetRiskScans, deleteAssetRiskScans, ignoreAssetRisk,
+  getAssetRiskList, getAssetRiskRules, getAssetRiskScans, deleteAssetRiskEvents, deleteAssetRiskScans, ignoreAssetRisk,
   reopenAssetRisk, resolveAssetRisk, startAssetRiskScan, updateAssetRiskRule
 } from '@/plugin/asset/api/risk'
 
@@ -396,6 +416,7 @@ const scanTotal = ref(0)
 const selectedScans = ref([])
 const scanDeleteTarget = ref('')
 const selectedEvents = ref([])
+const eventDeleteTarget = ref('')
 const detailVisible = ref(false)
 const detail = ref({ event: null, logs: [] })
 const userOptions = ref([])
@@ -435,6 +456,9 @@ const latestScanText = computed(() => {
 })
 const hasTrend = computed(() => dashboard.value.trend.some((item) => Number(item.new) || Number(item.resolved)))
 const drawerSize = computed(() => window.innerWidth < 768 ? '96%' : '720px')
+const selectedOpenEvents = computed(() => selectedEvents.value.filter((item) => item.status === 'open'))
+const selectedActiveEvents = computed(() => selectedEvents.value.filter((item) => ['open', 'acknowledged'].includes(item.status)))
+const selectedHistoryEvents = computed(() => selectedEvents.value.filter((item) => ['resolved', 'ignored'].includes(item.status)))
 
 const trendOptions = computed(() => {
   void appStore.isDark
@@ -479,6 +503,7 @@ const assetStatusLabel = (value) => assetStatusLabels[value] || value || '未知
 const actionLabel = (value) => actionLabels[value] || value
 const canResumeScan = (scan) => scan.status === 'failed' && scans.value[0]?.ID === scan.ID
 const isDeletableScan = (scan) => scan.status !== 'running'
+const isHistoricalRisk = (risk) => ['resolved', 'ignored'].includes(risk?.status)
 
 const loadDashboard = async () => {
   dashboardLoading.value = true
@@ -495,6 +520,7 @@ const loadEvents = async () => {
   try {
     const res = await getAssetRiskList({ ...searchForm })
     if (res.code === 0) {
+      selectedEvents.value = []
       events.value = res.data?.list || []
       eventTotal.value = Number(res.data?.total || 0)
     }
@@ -583,6 +609,67 @@ const resetEventPage = () => { searchForm.page = 1 }
 const resetRulePage = () => { ruleSearch.page = 1 }
 const resetScanPage = () => { scanSearch.page = 1 }
 const handleTabChange = (name) => { if (name === 'rules' && !rules.value.length) loadRules(); if (name === 'scans') loadScans() }
+
+const refreshAfterEventDelete = async () => {
+  selectedEvents.value = []
+  await Promise.all([loadEvents(), loadDashboard()])
+  const lastPage = Math.max(1, Math.ceil(eventTotal.value / searchForm.pageSize))
+  if (searchForm.page > lastPage) {
+    searchForm.page = lastPage
+    await loadEvents()
+  }
+}
+const deleteEventRecords = async (data, target) => {
+  if (eventDeleteTarget.value) return
+  eventDeleteTarget.value = target
+  try {
+    const res = await deleteAssetRiskEvents(data)
+    if (res.code !== 0) return
+    const deleted = Number(res.data?.deleted || 0)
+    if (deleted > 0) ElMessage.success(`已清理 ${deleted} 条风险事件及其处理记录`)
+    else ElMessage.info('没有可清理的已解决或已忽略风险')
+    const detailID = Number(detail.value.event?.ID)
+    const detailDeleted = data.clearHistory
+      ? isHistoricalRisk(detail.value.event)
+      : (data.ids || []).some((id) => Number(id) === detailID)
+    if (detailDeleted) {
+      detailVisible.value = false
+      detail.value = { event: null, logs: [] }
+    }
+    await refreshAfterEventDelete()
+  } finally {
+    eventDeleteTarget.value = ''
+  }
+}
+const deleteEvent = async (event) => {
+  const confirmed = await ElMessageBox.confirm(
+    `将永久删除“${event.title}”及其处理记录，关联资产不会被删除；以后同一风险再次命中时会生成新事件。`,
+    '删除风险历史',
+    { type: 'warning', confirmButtonText: '确认删除', cancelButtonText: '取消' }
+  ).catch(() => false)
+  if (!confirmed) return
+  await deleteEventRecords({ ids: [event.ID] }, `row:${event.ID}`)
+}
+const deleteSelectedEvents = async () => {
+  const ids = selectedHistoryEvents.value.map((event) => event.ID)
+  if (!ids.length) return
+  const confirmed = await ElMessageBox.confirm(
+    `将永久删除所选 ${ids.length} 条已解决或已忽略风险及其处理记录，当前风险和关联资产会保留。`,
+    '批量删除风险历史',
+    { type: 'warning', confirmButtonText: '确认删除', cancelButtonText: '取消' }
+  ).catch(() => false)
+  if (!confirmed) return
+  await deleteEventRecords({ ids }, 'selected')
+}
+const clearRiskHistory = async () => {
+  const confirmed = await ElMessageBox.confirm(
+    '将永久清理全部已解决、已忽略的风险事件及其处理记录；待处理和已确认风险会保留。以后同一风险再次命中时会生成新事件。',
+    '清理风险历史',
+    { type: 'warning', confirmButtonText: '确认清理', cancelButtonText: '取消' }
+  ).catch(() => false)
+  if (!confirmed) return
+  await deleteEventRecords({ clearHistory: true }, 'history')
+}
 
 const refreshAfterScanDelete = async (deleted) => {
   const remaining = Math.max(0, scanTotal.value - deleted)
@@ -693,10 +780,10 @@ const formatEvidence = (value) => {
   return String(value)
 }
 
-const isSelectableRisk = (row) => row.status === 'open'
+const isSelectableRisk = (row) => ['open', 'acknowledged', 'resolved', 'ignored'].includes(row.status)
 const acknowledgeSelected = async () => {
   if (batchAcknowledging.value) return
-  const ids = selectedEvents.value.filter((item) => item.status === 'open').map((item) => item.ID)
+  const ids = selectedOpenEvents.value.map((item) => item.ID)
   if (!ids.length) return ElMessage.warning('请选择待处理风险')
   batchAcknowledging.value = true
   try {
@@ -851,7 +938,7 @@ onBeforeUnmount(scanPoller.stop)
 .risk-tabs :deep(.el-tabs__nav-wrap::after) { height: 1px; background: var(--na-border); }
 .tab-label { display: inline-flex; align-items: center; gap: 6px; }
 .event-toolbar { display: grid; grid-template-columns: minmax(260px, 1fr) repeat(3, minmax(130px, 170px)) auto auto; gap: 10px; margin-bottom: 14px; }
-.batch-toolbar { display: flex; align-items: center; gap: 10px; margin: -2px 0 12px; padding: 9px 12px; border: 1px solid var(--na-border); border-radius: 6px; background: var(--na-primary-soft); }
+.batch-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: -2px 0 12px; padding: 9px 12px; border: 1px solid var(--na-border); border-radius: 6px; background: var(--na-primary-soft); }
 .batch-toolbar span { margin-right: auto; color: var(--na-accent-foreground); font-size: 13px; font-weight: 650; }
 .risk-table { width: 100%; }
 .risk-identity { display: flex; width: 100%; align-items: flex-start; gap: 10px; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; }
@@ -865,10 +952,10 @@ onBeforeUnmount(scanPoller.stop)
 .severity-mark.is-low { background: var(--na-info); }
 .risk-pagination { padding-top: 16px; }
 .workspace-header { align-items: center; margin-bottom: 14px; }
-.workspace-actions, .scan-row-actions { display: flex; align-items: center; gap: 8px; }
+.workspace-actions, .scan-row-actions, .event-row-actions { display: flex; align-items: center; gap: 8px; }
 .workspace-actions { flex-wrap: wrap; justify-content: flex-end; }
-.workspace-actions .el-button + .el-button, .scan-row-actions .el-button + .el-button { margin-left: 0; }
-.scan-row-actions { justify-content: center; }
+.workspace-actions .el-button + .el-button, .scan-row-actions .el-button + .el-button, .event-row-actions .el-button + .el-button { margin-left: 0; }
+.scan-row-actions, .event-row-actions { justify-content: center; }
 .rule-cell code, .rule-dialog code { color: var(--na-muted-foreground); font-size: 11px; }
 .parameter-summary, .scan-error { display: block; overflow: hidden; color: var(--na-muted-foreground); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 

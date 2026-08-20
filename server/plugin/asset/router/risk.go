@@ -19,6 +19,7 @@ func (r *riskRouter) Init(_ *gin.RouterGroup, private *gin.RouterGroup) {
 	write := private.Group("assetRisk").Use(middleware.OperationRecord())
 	{
 		write.POST("scan", apiRisk.StartScan)
+		write.DELETE("events", apiRisk.DeleteEvents)
 		write.DELETE("scans", apiRisk.DeleteScanRuns)
 		write.PUT("rules", apiRisk.UpdateRule)
 		write.PUT("acknowledge", apiRisk.Acknowledge)

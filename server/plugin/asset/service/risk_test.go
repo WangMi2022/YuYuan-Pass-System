@@ -140,6 +140,116 @@ func TestClearFinishedRiskScanRunsKeepsRunningTask(t *testing.T) {
 	}
 }
 
+func TestDeleteRiskEventsPermanentlyRemovesTerminalEventsAndLogs(t *testing.T) {
+	setupRiskTestDB(t)
+	now := time.Now()
+	asset := createRiskTestAsset(t, model.AssetStatusIdle, now)
+	resolved := createRiskEventForDelete(t, asset.ID, model.RiskStatusResolved, "resolved-event", now)
+	ignored := createRiskEventForDelete(t, asset.ID, model.RiskStatusIgnored, "ignored-event", now)
+	open := createRiskEventForDelete(t, asset.ID, model.RiskStatusOpen, "open-event", now)
+	for _, event := range []model.AssetRiskEvent{resolved, ignored, open} {
+		if err := global.GVA_DB.Create(&model.AssetRiskEventLog{EventID: event.ID, Action: "test", ToState: event.Status, ActorName: "测试"}).Error; err != nil {
+			t.Fatalf("create risk log for event %d: %v", event.ID, err)
+		}
+	}
+
+	deleted, err := Risk.DeleteEvents(t.Context(), assetRequest.RiskEventDelete{IDs: []uint{ignored.ID, resolved.ID}})
+	if err != nil || deleted != 2 {
+		t.Fatalf("delete terminal risk events: deleted=%d err=%v", deleted, err)
+	}
+	var deletedEvents int64
+	if err := global.GVA_DB.Unscoped().Model(&model.AssetRiskEvent{}).Where("id IN ?", []uint{resolved.ID, ignored.ID}).Count(&deletedEvents).Error; err != nil || deletedEvents != 0 {
+		t.Fatalf("terminal events were not hard deleted: count=%d err=%v", deletedEvents, err)
+	}
+	var deletedLogs int64
+	if err := global.GVA_DB.Unscoped().Model(&model.AssetRiskEventLog{}).Where("event_id IN ?", []uint{resolved.ID, ignored.ID}).Count(&deletedLogs).Error; err != nil || deletedLogs != 0 {
+		t.Fatalf("terminal event logs were not hard deleted: count=%d err=%v", deletedLogs, err)
+	}
+	if err := global.GVA_DB.First(&model.AssetRiskEvent{}, open.ID).Error; err != nil {
+		t.Fatalf("active risk event was changed: %v", err)
+	}
+
+	recreated := createRiskEventForDelete(t, asset.ID, model.RiskStatusOpen, resolved.Fingerprint, now.Add(time.Minute))
+	if recreated.ID == 0 {
+		t.Fatal("risk event fingerprint could not be reused after cleanup")
+	}
+}
+
+func TestDeleteRiskEventsRejectsMixedActiveSelectionAtomically(t *testing.T) {
+	setupRiskTestDB(t)
+	now := time.Now()
+	asset := createRiskTestAsset(t, model.AssetStatusIdle, now)
+	resolved := createRiskEventForDelete(t, asset.ID, model.RiskStatusResolved, "mixed-resolved", now)
+	open := createRiskEventForDelete(t, asset.ID, model.RiskStatusOpen, "mixed-open", now)
+
+	deleted, err := Risk.DeleteEvents(t.Context(), assetRequest.RiskEventDelete{IDs: []uint{resolved.ID, open.ID}})
+	if err == nil || deleted != 0 {
+		t.Fatalf("delete mixed risk events: deleted=%d err=%v", deleted, err)
+	}
+	var count int64
+	if err := global.GVA_DB.Model(&model.AssetRiskEvent{}).Where("id IN ?", []uint{resolved.ID, open.ID}).Count(&count).Error; err != nil || count != 2 {
+		t.Fatalf("mixed event delete was not atomic: count=%d err=%v", count, err)
+	}
+}
+
+func TestClearRiskEventHistoryKeepsActiveEvents(t *testing.T) {
+	setupRiskTestDB(t)
+	now := time.Now()
+	asset := createRiskTestAsset(t, model.AssetStatusIdle, now)
+	statuses := []string{model.RiskStatusOpen, model.RiskStatusAcknowledged, model.RiskStatusResolved, model.RiskStatusIgnored}
+	for index, status := range statuses {
+		event := createRiskEventForDelete(t, asset.ID, status, fmt.Sprintf("history-%d", index), now)
+		if err := global.GVA_DB.Create(&model.AssetRiskEventLog{EventID: event.ID, Action: "test", ToState: status, ActorName: "测试"}).Error; err != nil {
+			t.Fatalf("create risk history log: %v", err)
+		}
+	}
+
+	deleted, err := Risk.DeleteEvents(t.Context(), assetRequest.RiskEventDelete{ClearHistory: true})
+	if err != nil || deleted != 2 {
+		t.Fatalf("clear risk event history: deleted=%d err=%v", deleted, err)
+	}
+	var remaining []model.AssetRiskEvent
+	if err := global.GVA_DB.Order("id ASC").Find(&remaining).Error; err != nil {
+		t.Fatalf("list active risk events: %v", err)
+	}
+	if len(remaining) != 2 || remaining[0].Status != model.RiskStatusOpen || remaining[1].Status != model.RiskStatusAcknowledged {
+		t.Fatalf("unexpected remaining risk events: %#v", remaining)
+	}
+	var remainingLogs int64
+	if err := global.GVA_DB.Model(&model.AssetRiskEventLog{}).Count(&remainingLogs).Error; err != nil || remainingLogs != 2 {
+		t.Fatalf("unexpected remaining risk logs: count=%d err=%v", remainingLogs, err)
+	}
+}
+
+func TestDeleteRiskEventsRejectsActiveScan(t *testing.T) {
+	setupRiskTestDB(t)
+	now := time.Now()
+	asset := createRiskTestAsset(t, model.AssetStatusIdle, now)
+	event := createRiskEventForDelete(t, asset.ID, model.RiskStatusResolved, "active-scan", now)
+	createRiskScanRun(t, now)
+
+	deleted, err := Risk.DeleteEvents(t.Context(), assetRequest.RiskEventDelete{IDs: []uint{event.ID}})
+	if !errors.Is(err, errRiskHistoryBusy) || deleted != 0 {
+		t.Fatalf("delete event during active scan: deleted=%d err=%v", deleted, err)
+	}
+	if err := global.GVA_DB.First(&model.AssetRiskEvent{}, event.ID).Error; err != nil {
+		t.Fatalf("risk event was deleted during active scan: %v", err)
+	}
+}
+
+func createRiskEventForDelete(t *testing.T, assetID uint, status, fingerprint string, detectedAt time.Time) model.AssetRiskEvent {
+	t.Helper()
+	event := model.AssetRiskEvent{
+		Fingerprint: fingerprint, AssetID: assetID, RuleCode: riskRuleHighValueIdle, RuleVersion: 1,
+		Category: "value", Severity: model.RiskSeverityHigh, Status: status,
+		Title: "风险事件清理测试", FirstDetectedAt: detectedAt, LastDetectedAt: detectedAt, LastScanRunID: 1,
+	}
+	if err := global.GVA_DB.Create(&event).Error; err != nil {
+		t.Fatalf("create risk event for delete: %v", err)
+	}
+	return event
+}
+
 func createRiskTestAsset(t *testing.T, status string, createdAt time.Time) model.Asset {
 	t.Helper()
 	category := model.Category{Name: "风险测试分类", Code: fmt.Sprintf("RISK-%d", time.Now().UnixNano()), Enabled: true}

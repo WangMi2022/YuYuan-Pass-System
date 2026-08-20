@@ -44,6 +44,22 @@ test('scan history exposes guarded selected and finished-record cleanup actions'
   assert.match(apiSource, /url: '\/assetRisk\/scans', method: 'delete', data/)
 })
 
+test('risk events expose terminal-only selected and history cleanup actions', async () => {
+  const viewFilename = fileURLToPath(new URL('../view/risk.vue', import.meta.url))
+  const apiFilename = fileURLToPath(new URL('../api/risk.js', import.meta.url))
+  const [source, apiSource] = await Promise.all([
+    readFile(viewFilename, 'utf8'),
+    readFile(apiFilename, 'utf8')
+  ])
+  const eventPane = source.match(/<el-tab-pane name="events">([\s\S]*?)<el-tab-pane name="rules">/)?.[1] || ''
+
+  assert.match(eventPane, /@click="clearRiskHistory"/)
+  assert.match(eventPane, /@click="deleteSelectedEvents"/)
+  assert.match(eventPane, /@click\.stop="deleteEvent\(row\)"/)
+  assert.match(source, /\['resolved', 'ignored'\]\.includes\(risk\?\.status\)/)
+  assert.match(apiSource, /url: '\/assetRisk\/events', method: 'delete', data/)
+})
+
 test('risk scan polling waits for each request and refreshes once after completion', async () => {
   const scheduled = []
   const requests = []

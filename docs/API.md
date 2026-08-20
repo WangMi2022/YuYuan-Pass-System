@@ -204,6 +204,7 @@ JWT 无效或过期通常返回 HTTP `401`。部分文件接口直接返回文�
 | GET | `/assetRisk/dashboard` | - | 风险指标、分布、30 天趋势、最近事件和最近扫描 |
 | GET | `/assetRisk/list` | 分页、`status/severity/category/ruleCode/assetId/assignedTo/keyword` | 风险事件列表 |
 | GET | `/assetRisk/detail` | query `id` | 风险事件、证据、关联资产和处理日志 |
+| DELETE | `/assetRisk/events` | `{"ids":[21,22]}` 或 `{"clearHistory":true}` | 永久删除所选终态事件，或清理全部已解决、已忽略的事件及处理日志；当前风险不会被删除 |
 | GET | `/assetRisk/rules` | - | 17 条风险规则及当前版本 |
 | PUT | `/assetRisk/rules` | 规则更新 JSON | 修改等级、阈值和启用状态，版本自动递增 |
 | POST | `/assetRisk/scan` | 可选 `{"runId": 12}` | 启动新扫描，或从失败任务游标续扫；允许空请求体 |
