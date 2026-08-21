@@ -40,31 +40,12 @@
       </el-icon>
     </button>
 
-    <button
-      type="button"
-      class="na-icon-button"
-      :aria-label="appStore.isDark ? '切换到亮色主题' : '切换到深色主题'"
-      @click="appStore.toggleTheme(!appStore.isDark)"
-    >
-      <el-icon
-          v-if="appStore.isDark"
-      >
-        <Sunny />
-      </el-icon>
-      <el-icon
-          v-else
-      >
-        <Moon />
-      </el-icon>
-    </button>
-
     <gva-setting v-model:drawer="showSettingDrawer"></gva-setting>
     <command-menu ref="command" />
   </div>
 </template>
 
 <script setup>
-  import { useAppStore } from '@/pinia'
   import GvaSetting from '@/view/layout/setting/index.vue'
   import { ref } from 'vue'
   import { emitter } from '@/utils/bus.js'
@@ -74,7 +55,6 @@
   import NotificationCenter from '@/components/notification/NotificationCenter.vue'
   import { useEventListener } from '@vueuse/core'
 
-  const appStore = useAppStore()
   const showSettingDrawer = ref(false)
   const showRefreshAnmite = ref(false)
   const toggleRefresh = () => {

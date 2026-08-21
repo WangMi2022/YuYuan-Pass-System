@@ -507,7 +507,7 @@ const scanStatusMeta = (value) => ({ running: { label: '运行中', type: 'warni
 const categoryLabel = (value) => categoryFilters.find((item) => item.value === value)?.label || value || '未知'
 const assetStatusLabel = (value) => assetStatusLabels[value] || value || '未知'
 const actionLabel = (value) => actionLabels[value] || value
-const canResumeScan = (scan) => scan.status === 'failed' && scans.value[0]?.ID === scan.ID
+const canResumeScan = (scan) => scan.status === 'failed' && Number(dashboard.value.latestScan?.ID) === Number(scan.ID)
 const isDeletableScan = (scan) => scan.status !== 'running'
 const isHistoricalRisk = (risk) => ['resolved', 'ignored'].includes(risk?.status)
 

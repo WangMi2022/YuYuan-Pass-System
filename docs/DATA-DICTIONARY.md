@@ -98,6 +98,8 @@ erDiagram
 
 `type + name` 建立唯一索引，允许不同业务类型出现同名位置。注意报废业务单类型是 `scrap`，对应的位置字典类型是 `disposal`。
 
+资产照片只在 `assets.photos` 中保存对象元数据，原始图片进入 S3 兼容对象存储；Compose 示例默认使用 `gva-assets` 桶和 `assets/` 前缀，浏览器通过后端受控代理读取私有对象。数据库删除和对象删除属于跨资源操作，失败时由清理任务重试。
+
 ### 3.4 `asset_operation_orders`
 
 | 字段 | 说明 |

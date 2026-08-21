@@ -24,6 +24,7 @@ dist/
 **/dist/
 .vite/
 coverage/
+.deploy-artifacts/
 
 # Runtime data
 server/log/
@@ -35,6 +36,8 @@ server/resource/autocode_template/
 # Go build output
 server/gva
 server/server
+server/server.exe
+server/$cover
 *.test
 *.out
 
@@ -46,6 +49,10 @@ Thumbs.db
 
 # Temporary files
 /workspace/
+.tmp/
+**/.tmp/
+.codex-tmp/
+.deploy-local/
 tmp/
 temp/
 *.tmp

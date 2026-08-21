@@ -5,7 +5,6 @@
   "scripts": {
     "dev": "node openDocument.js && vite --host --mode development",
     "serve": "node openDocument.js && vite --host --mode development",
-    "prototype:admin": "vite --host 0.0.0.0 --mode development --open /prototypes/admin-redesign/index.html?variant=01",
     "test": "node --test src/core/global.test.js src/hooks/usePagedList.test.js src/components/logClearButton/range.test.js src/components/navigation/bottomNavigation.test.js src/plugin/invoice/utils/upload.test.js src/plugin/aioperations/utils/provider.test.js src/plugin/aioperations/utils/invoiceRecognition.test.js src/plugin/aioperations/utils/quota.test.js src/plugin/asset/utils/photo.test.js src/plugin/asset/utils/riskScan.test.js src/plugin/asset/view/categories.test.js src/plugin/smart/utils/reportExport.test.js src/style/theme/switchLayout.test.js src/utils/avatar.test.js src/utils/requestLoadingPolicy.test.js src/utils/workCalendar.test.js src/pinia/modules/runtimeDependencies.test.js",
     "lint": "eslint src --format stylish",
     "lint:fix": "eslint src --fix",
