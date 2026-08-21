@@ -44,4 +44,6 @@ func (smartRouter) Init(private *gin.RouterGroup) {
 	reportWrite.PUT("subscription", apiSmart.SaveSubscription)
 	reportAIWrite := private.Group("smartReport").Use(middleware.AISecurity(smartAIPolicy), middleware.AIOperationRecord())
 	reportAIWrite.POST("generate", apiSmart.GenerateReport)
+	reportEmailWrite := private.Group("reportEmail").Use(middleware.AISecurity(smartAIPolicy), middleware.AIOperationRecord())
+	reportEmailWrite.POST("send", apiSmart.SendReportEmail)
 }

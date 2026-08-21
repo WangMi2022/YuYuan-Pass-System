@@ -187,6 +187,24 @@ func (a *smartAPI) GenerateReport(c *gin.Context) {
 	commonResponse.OkWithDetailed(report, "日报已生成", c)
 }
 
+func (a *smartAPI) SendReportEmail(c *gin.Context) {
+	var input service.ReportEmailInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		commonResponse.FailWithMessage("报告邮件参数不正确", c)
+		return
+	}
+	result, err := Smart.SendReportEmail(c.Request.Context(), utils.GetUserID(c), utils.GetUserAuthorityId(c), input)
+	if err != nil {
+		commonResponse.FailWithMessage("发送报告失败: "+err.Error(), c)
+		return
+	}
+	message := "报告已发送至系统收件邮箱"
+	if result.AlreadySent {
+		message = "该报告已成功发送，无需重复发送"
+	}
+	commonResponse.OkWithDetailed(result, message, c)
+}
+
 func (a *smartAPI) Subscription(c *gin.Context) {
 	item, err := Smart.Subscription(utils.GetUserID(c))
 	if err != nil {

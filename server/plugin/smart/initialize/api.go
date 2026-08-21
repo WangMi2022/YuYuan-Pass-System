@@ -18,6 +18,7 @@ var apiRules = []system.SysApi{
 	{Path: "/smartReport/list", Description: "智能日报历史列表", ApiGroup: "智能日报", Method: "GET"},
 	{Path: "/smartReport/detail", Description: "智能日报详情", ApiGroup: "智能日报", Method: "GET"},
 	{Path: "/smartReport/generate", Description: "生成智能日报", ApiGroup: "智能日报", Method: "POST"},
+	{Path: "/reportEmail/send", Description: "发送受控报告邮件", ApiGroup: "报告邮件", Method: "POST"},
 	{Path: "/smartReport/subscription", Description: "查看智能日报订阅", ApiGroup: "智能日报", Method: "GET"},
 	{Path: "/smartReport/subscription", Description: "更新智能日报订阅", ApiGroup: "智能日报", Method: "PUT"},
 	{Path: "/smartReport/deliveries", Description: "智能日报发送记录", ApiGroup: "智能日报", Method: "GET"},

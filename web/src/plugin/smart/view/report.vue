@@ -43,9 +43,31 @@
     <section v-if="report" class="na-panel detail-panel"><header class="panel-header"><div><h2>详细指标</h2><p>指标来自业务表确定性统计，模型仅负责摘要。</p></div></header><div class="detail-grid"><div v-for="item in detailMetrics" :key="item.key" class="detail-item"><span>{{ item.label }}</span><strong>{{ item.value }}</strong></div></div></section>
     <div class="report-grid">
       <section class="na-panel history-panel">
-        <header class="panel-header"><div><h2>历史日报</h2><p>点击行或“查看日报”，阅读完整摘要和业务指标。</p></div></header>
+        <header class="panel-header history-header">
+          <div>
+            <h2>历史日报</h2>
+            <p>按生成时间回看完整摘要；可将今天的日报立即发送至系统收件邮箱。</p>
+          </div>
+          <el-button
+            v-if="isSuperAdmin"
+            class="history-send-button"
+            type="primary"
+            :icon="Promotion"
+            :loading="sendingToday"
+            @click="sendToday"
+          >
+            立即发送今日日报
+          </el-button>
+        </header>
         <el-table v-loading="loading && !loaded" :data="reports" row-key="ID" class="report-table" @row-click="openReport">
-          <el-table-column prop="reportDate" label="日期" min-width="120"><template #default="{ row }">{{ row.reportDate?.slice?.(0, 10) }}</template></el-table-column>
+          <el-table-column label="生成时间" width="176">
+            <template #default="{ row }">
+              <time class="history-time" :datetime="row.generatedAt || row.reportDate">
+                <strong>{{ formatDeliveryDate(row.generatedAt || row.reportDate) }}</strong>
+                <span>{{ formatReportClock(row.generatedAt || row.reportDate) }}</span>
+              </time>
+            </template>
+          </el-table-column>
           <el-table-column label="生成方式" width="150"><template #default="{ row }">{{ generationLabel(row.generatedBy) }}</template></el-table-column>
           <el-table-column label="摘要" min-width="280">
             <template #default="{ row }"><span class="history-summary">{{ row.summary || '日报暂无摘要' }}</span></template>
@@ -152,8 +174,9 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowDown, Bell, Document, Download, Grid, MagicStick, Message, Refresh, Tickets, View } from '@element-plus/icons-vue'
+import { ArrowDown, Bell, Document, Download, Grid, MagicStick, Message, Promotion, Refresh, Tickets, View } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { sendReportEmail } from '@/api/reportEmail'
 import AppEmptyState from '@/components/page/AppEmptyState.vue'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
 import AssistantMarkdown from '@/plugin/smart/components/AssistantMarkdown.vue'
@@ -161,17 +184,20 @@ import { generateSmartReport, getSmartReport, getSmartReportDeliveries, getSmart
 import { exportSmartReport, formatMicrosMoney, REPORT_EXPORT_FORMATS } from '@/plugin/smart/utils/reportExport'
 import { normalizeReportSummary, reportSummaryBody, reportSummaryHeading } from '@/plugin/smart/utils/reportSummary'
 import { useAppStore } from '@/pinia'
+import { useUserStore } from '@/pinia/modules/user'
 
 defineOptions({ name: 'SmartReport' })
 const router = useRouter()
 const appStore = useAppStore()
-const loading = ref(false); const loaded = ref(false); const generating = ref(false); const saving = ref(false); const report = ref(null); const reports = ref([]); const deliveries = ref([]); const deliveryTotal = ref(0); const deliveryPage = ref(1); const deliveryPageSize = ref(10); const total = ref(0); const page = ref(1); const pageSize = ref(10); const subscription = reactive({ enabled: true, deliveryTime: '09:00', channels: 'in_app' }); const deliveryTime = ref('09:00'); const channels = ref(['in_app'])
+const userStore = useUserStore()
+const loading = ref(false); const loaded = ref(false); const generating = ref(false); const sendingToday = ref(false); const saving = ref(false); const report = ref(null); const reports = ref([]); const deliveries = ref([]); const deliveryTotal = ref(0); const deliveryPage = ref(1); const deliveryPageSize = ref(10); const total = ref(0); const page = ref(1); const pageSize = ref(10); const subscription = reactive({ enabled: true, deliveryTime: '09:00', channels: 'in_app' }); const deliveryTime = ref('09:00'); const channels = ref(['in_app'])
 const detailVisible = ref(false)
 const detailLoading = ref(false)
 const detailReport = ref(null)
 const openingReportId = ref(null)
 const exportingFormat = ref('')
 const drawerSize = computed(() => appStore.drawerSize === '100%' ? '100%' : 'min(92vw, 780px)')
+const isSuperAdmin = computed(() => Number(userStore.userInfo?.authorityId) === 888)
 const heroReportHeading = computed(() => reportSummaryHeading(report.value?.summary))
 const heroReportBody = computed(() => reportSummaryBody(report.value?.summary))
 const detailReportSummary = computed(() => normalizeReportSummary(detailReport.value?.summary || '日报暂无正文。'))
@@ -275,6 +301,7 @@ async function downloadReport(format, reportValue) {
 function openMetric(item) { if (item.route && router.hasRoute(item.route)) router.push({ name: item.route, query: item.query }) }
 function formatTime(value) { return value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '—' }
 function deliveryChannelMeta(channel) {
+  if (channel === 'email_manual') return { label: '系统邮件', hint: '基础设置收件邮箱', icon: Promotion }
   if (channel === 'email') return { label: '邮件', hint: '账户绑定邮箱', icon: Message }
   if (channel === 'in_app') return { label: '应用内', hint: '站内通知中心', icon: Bell }
   return { label: channel || '未知渠道', hint: '未识别的投递渠道', icon: Bell }
@@ -286,12 +313,14 @@ function deliveryStatusMeta(status) {
   return { label: status || '未知', type: 'info' }
 }
 function deliveryResultTitle(row) {
+  if (row.status === 'sent' && row.channel === 'email_manual') return '今日日报已发送'
   if (row.status === 'sent') return row.channel === 'email' ? '邮件已发送' : '应用内通知已送达'
   if (row.status === 'sending') return '正在执行投递'
   if (row.status === 'failed') return '本次投递未完成'
   return '等待投递结果'
 }
 function deliveryResultDescription(row) {
+  if (row.status === 'sent' && row.channel === 'email_manual') return '日报已发送至基础设置中的系统收件邮箱'
   if (row.status === 'sent') return row.channel === 'email' ? '日报已发送至账户绑定邮箱' : '日报提醒已进入站内通知中心'
   if (row.status === 'sending') return `系统正在执行第 ${Math.max(Number(row.retryCount) || 1, 1)} 次投递`
   if (row.status === 'failed') return row.error || '系统将在下一调度周期继续尝试'
@@ -302,7 +331,7 @@ function deliveryAttemptLabel(row) {
   if (attempts === 0) return '尚未尝试'
   if (row.status === 'sent' && attempts === 1) return '首次成功'
   if (row.status === 'sent') return `重试 ${attempts - 1} 次`
-  if (row.status === 'failed' && attempts >= 3) return '已达上限'
+  if (row.status === 'failed' && attempts >= 3 && row.channel !== 'email_manual') return '已达上限'
   return `第 ${attempts} 次`
 }
 function deliveryDate(value) {
@@ -321,6 +350,10 @@ function formatDeliveryClock(value) {
   const date = deliveryDate(value)
   return date ? date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '时间未知'
 }
+function formatReportClock(value) {
+  const date = deliveryDate(value)
+  return date ? date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) : '时间未知'
+}
 function deliveryRowClass({ row }) { return row?.status ? `delivery-row--${row.status}` : '' }
 function showReport(value) { detailReport.value = value; detailVisible.value = true }
 async function loadToday() { const res = await getTodaySmartReport(); if (res.code === 0) report.value = res.data; else ElMessage.error(res.msg || '读取日报失败') }
@@ -330,6 +363,30 @@ async function loadDeliveries() { const res = await getSmartReportDeliveries({ p
 function resetDeliveryPage() { deliveryPage.value = 1 }
 async function load() { loading.value = true; try { await Promise.all([loadToday(), loadHistory(), loadSubscription(), loadDeliveries()]) } finally { loading.value = false; loaded.value = true } }
 async function generate() { generating.value = true; try { const res = await generateSmartReport(); if (res.code === 0) { report.value = res.data; await loadHistory(); ElMessage.success(res.msg || '日报已生成') } else ElMessage.error(res.msg || '生成失败') } finally { generating.value = false } }
+async function sendToday() {
+  if (sendingToday.value) return
+  sendingToday.value = true
+  try {
+    const res = await sendReportEmail({ reportType: 'smart_daily' })
+    if (res.code === 0) {
+      const reportId = Number(res.data?.reportId || 0)
+      if (reportId) {
+        const reportRes = await getSmartReport({ id: reportId })
+        if (reportRes.code === 0) report.value = reportRes.data
+      }
+      await Promise.all([loadHistory(), loadDeliveries()])
+      ElMessage.success(res.msg || '今日日报已发送')
+    } else {
+      ElMessage.error(res.msg || '今日日报发送失败')
+      await loadDeliveries()
+    }
+  } catch (error) {
+    ElMessage.error(error?.message || '今日日报发送失败，请稍后重试')
+    await loadDeliveries()
+  } finally {
+    sendingToday.value = false
+  }
+}
 async function saveSubscription() { saving.value = true; try { const res = await saveSmartReportSubscription({ enabled: subscription.enabled, deliveryTime: deliveryTime.value, channels: channels.value.join(',') }); if (res.code === 0) { ElMessage.success(res.msg || '订阅已保存'); await loadDeliveries() } else ElMessage.error(res.msg || '保存失败') } finally { saving.value = false } }
 async function openReport(row) {
   const reportId = row?.ID
@@ -482,6 +539,9 @@ onMounted(load)
 .panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .panel-header h2 { margin: 0; font-size: .95rem; }
 .panel-header p { margin: 5px 0 0; font-size: .75rem; }
+.history-header { align-items: center; }
+.history-header > div { min-width: 0; }
+.history-send-button { flex: 0 0 auto; }
 .subscription-panel { align-self: start; }
 .subscription-panel .panel-header__copy { min-width: 0; flex: 1 1 auto; }
 .subscription-panel .el-time-picker { width: 100%; }
@@ -547,6 +607,7 @@ onMounted(load)
 
 .delivery-channel > span,
 .delivery-result,
+.history-time,
 .delivery-time {
   display: flex;
   min-width: 0;
@@ -556,6 +617,7 @@ onMounted(load)
 
 .delivery-channel strong,
 .delivery-result strong,
+.history-time strong,
 .delivery-time strong {
   color: var(--na-foreground);
   font-size: .8rem;
@@ -565,6 +627,7 @@ onMounted(load)
 
 .delivery-channel small,
 .delivery-result span,
+.history-time span,
 .delivery-time span {
   color: var(--na-muted-foreground);
   font-size: .7rem;
@@ -581,6 +644,7 @@ onMounted(load)
 .delivery-result.is-failed span { color: var(--el-color-danger); }
 .delivery-result.is-sending strong { color: var(--el-color-warning-dark-2); }
 .delivery-attempt { color: var(--na-muted-foreground); font-size: .75rem; white-space: nowrap; }
+.history-time,
 .delivery-time { font-style: normal; font-variant-numeric: tabular-nums; }
 .pagination { display: flex; justify-content: flex-end; margin-top: 14px; }
 .report-table :deep(.el-table__row) { cursor: pointer; }
@@ -722,6 +786,8 @@ onMounted(load)
   .report-section-heading > span { text-align: left; }
   .report-metric-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .delivery-header { align-items: flex-start; }
+  .history-header { align-items: flex-start; flex-direction: column; }
+  .history-send-button { width: 100%; }
   .delivery-summary { width: 100%; }
   .report-detail-header { align-items: flex-start; flex-direction: column; gap: 10px; }
   :global(.smart-report-drawer .el-drawer__header) { padding: 16px; }

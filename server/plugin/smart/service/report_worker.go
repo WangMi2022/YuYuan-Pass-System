@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"html"
 	"strings"
 	"sync"
 	"time"
@@ -12,11 +11,16 @@ import (
 	"github.com/WangMi2022/mit-assets-admin/server/global"
 	"github.com/WangMi2022/mit-assets-admin/server/model/system"
 	announcementService "github.com/WangMi2022/mit-assets-admin/server/plugin/announcement/service"
-	emailService "github.com/WangMi2022/mit-assets-admin/server/plugin/email/service"
 	"github.com/WangMi2022/mit-assets-admin/server/plugin/smart/model"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+)
+
+const (
+	reportDeliveryChannelInApp      = "in_app"
+	reportDeliveryChannelEmail      = "email"
+	reportDeliveryChannelManualMail = "email_manual"
 )
 
 var reportWorkerOnce sync.Once
@@ -106,15 +110,20 @@ func deliverChannel(ctx context.Context, user system.SysUser, report model.Smart
 	query := global.GVA_DB.WithContext(ctx).Where("user_id = ? AND report_id = ? AND channel = ?", user.ID, report.ID, channel)
 	err := query.First(&delivery).Error
 	if err == nil {
-		if delivery.Status == "sent" || delivery.RetryCount >= 3 {
+		if delivery.Status == "sent" || (channel != reportDeliveryChannelManualMail && delivery.RetryCount >= 3) {
 			return nil
 		}
 		if delivery.Status == "sending" && delivery.LastAttempt != nil && delivery.LastAttempt.After(now.Add(-10*time.Minute)) {
 			return nil
 		}
-		claim := global.GVA_DB.WithContext(ctx).Model(&model.SmartReportDelivery{}).
-			Where("id = ? AND status IN ? AND retry_count < ? AND (last_attempt IS NULL OR last_attempt < ?)", delivery.ID, []string{"failed", "sending"}, 3, now.Add(-10*time.Minute)).
-			Updates(map[string]any{"status": "sending", "retry_count": gorm.Expr("retry_count + 1"), "last_attempt": now, "error": ""})
+		claimQuery := global.GVA_DB.WithContext(ctx).Model(&model.SmartReportDelivery{}).
+			Where("id = ? AND status IN ?", delivery.ID, []string{"failed", "sending"})
+		if channel == reportDeliveryChannelManualMail {
+			claimQuery = claimQuery.Where("status = ? OR last_attempt IS NULL OR last_attempt < ?", "failed", now.Add(-10*time.Minute))
+		} else {
+			claimQuery = claimQuery.Where("retry_count < ? AND (last_attempt IS NULL OR last_attempt < ?)", 3, now.Add(-10*time.Minute))
+		}
+		claim := claimQuery.Updates(map[string]any{"status": "sending", "retry_count": gorm.Expr("retry_count + 1"), "last_attempt": now, "error": ""})
 		if claim.Error != nil {
 			return claim.Error
 		}
@@ -138,17 +147,16 @@ func deliverChannel(ctx context.Context, user system.SysUser, report model.Smart
 
 	var sendErr error
 	switch channel {
-	case "in_app":
+	case reportDeliveryChannelInApp:
 		announcementService.NotificationHub.PublishToUser(user.ID, announcementService.NotificationEvent{ID: report.ID, Title: "智能日报已生成", Kind: "smart_daily_report"})
-	case "email":
+	case reportDeliveryChannelEmail:
 		if strings.TrimSpace(user.Email) == "" {
 			sendErr = fmt.Errorf("用户未配置邮箱")
-		} else if strings.TrimSpace(global.GVA_CONFIG.Email.Host) == "" || strings.TrimSpace(global.GVA_CONFIG.Email.From) == "" {
-			sendErr = fmt.Errorf("邮件服务未配置")
 		} else {
-			body := fmt.Sprintf("<h2>智能日报 %s</h2><p>%s</p>", report.ReportDate.Format("2006-01-02"), html.EscapeString(report.Summary))
-			sendErr = emailService.ServiceGroupApp.SendEmail(user.Email, "智能日报 - "+report.ReportDate.Format("2006-01-02"), body)
+			sendErr = sendReportToMailbox(user.Email, smartDailyReportEmailMessage(report))
 		}
+	case reportDeliveryChannelManualMail:
+		sendErr = sendReportToSystemInbox(smartDailyReportEmailMessage(report))
 	default:
 		sendErr = fmt.Errorf("不支持的日报渠道: %s", channel)
 	}
