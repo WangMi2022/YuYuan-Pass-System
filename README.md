@@ -6,44 +6,20 @@
 
 ## 界面截图
 
-以下截图来自仓库中的真实产品界面素材，展示当前系统的主要工作流和视觉层级。
+以下截图直接采集自当前线上系统，展示实际生效的品牌、登录背景、Logo、表单和响应式布局。
 
 <p align="center">
-  <a href="docs/images/admin-ui-lifecycle-orbit.png">
-    <img src="docs/images/admin-ui-lifecycle-orbit.png" alt="资产管理中心首页驾驶舱" width="100%" />
+  <a href="docs/images/readme/production-login.png">
+    <img src="docs/images/readme/production-login.png" alt="线上系统桌面端登录页" width="100%" />
   </a>
 </p>
 
-<table>
-  <tr>
-    <td width="50%">
-      <strong>资产可视化大屏</strong><br />
-      <a href="web/src/assets/product/asset-dashboard.webp">
-        <img src="web/src/assets/product/asset-dashboard.webp" alt="资产可视化大屏" />
-      </a>
-    </td>
-    <td width="50%">
-      <strong>资产档案</strong><br />
-      <a href="web/src/assets/product/asset-inventory.webp">
-        <img src="web/src/assets/product/asset-inventory.webp" alt="资产档案列表与分页" />
-      </a>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%">
-      <strong>资产领用流程</strong><br />
-      <a href="web/src/assets/product/asset-issue-workflow.webp">
-        <img src="web/src/assets/product/asset-issue-workflow.webp" alt="资产领用管理流程" />
-      </a>
-    </td>
-    <td width="50%">
-      <strong>文档管理中心</strong><br />
-      <a href="web/src/assets/product/document-center.webp">
-        <img src="web/src/assets/product/document-center.webp" alt="文档上传、预览与在线编辑" />
-      </a>
-    </td>
-  </tr>
-</table>
+| 桌面端登录页 | 900×900 窄桌面登录页 |
+| --- | --- |
+| [打开原图](docs/images/readme/production-login.png) | [打开原图](docs/images/readme/production-login-tablet.png) |
+| <img src="docs/images/readme/production-login.png" alt="线上系统桌面端登录页" /> | <img src="docs/images/readme/production-login-tablet.png" alt="线上系统窄桌面登录页" /> |
+
+> 截图采集时间：2026-08-21。登录后的业务页面需要有效账号会话，README 不使用未授权或猜测账号生成截图。
 
 ## 产品能力
 
