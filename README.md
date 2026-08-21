@@ -21,6 +21,48 @@
 
 > 截图采集时间：2026-08-21。登录后的业务页面需要有效账号会话，README 不使用未授权或猜测账号生成截图。
 
+### 主要功能
+
+以下截图来自同一套线上环境，覆盖日常使用频率最高的业务模块。点击图片可查看原图。
+
+#### 工作台与资产管理
+
+| 首页驾驶舱 | 资产入库 |
+| --- | --- |
+| [<img src="docs/images/readme/02-dashboard.png" alt="首页驾驶舱" width="100%" />](docs/images/readme/02-dashboard.png) | [<img src="docs/images/readme/asset-inbound.png" alt="资产入库" width="100%" />](docs/images/readme/asset-inbound.png) |
+
+| 资产盘点 | 风险中心 |
+| --- | --- |
+| [<img src="docs/images/readme/asset-inventory.png" alt="资产盘点" width="100%" />](docs/images/readme/asset-inventory.png) | [<img src="docs/images/readme/asset-risk.png" alt="资产风险中心" width="100%" />](docs/images/readme/asset-risk.png) |
+
+#### 发票、文档与协同办公
+
+| 发票总览 | 发票台账 |
+| --- | --- |
+| [<img src="docs/images/readme/invoice-dashboard.png" alt="发票总览" width="100%" />](docs/images/readme/invoice-dashboard.png) | [<img src="docs/images/readme/invoice-ledger.png" alt="发票台账" width="100%" />](docs/images/readme/invoice-ledger.png) |
+
+| 文档中心 | 工作日历 |
+| --- | --- |
+| [<img src="docs/images/readme/documents.png" alt="文档中心" width="100%" />](docs/images/readme/documents.png) | [<img src="docs/images/readme/calendar.png" alt="工作日历" width="100%" />](docs/images/readme/calendar.png) |
+
+#### 智能中心与平台治理
+
+| 业务助手 | 智能草稿 |
+| --- | --- |
+| [<img src="docs/images/readme/smart-copilot.png" alt="业务助手" width="100%" />](docs/images/readme/smart-copilot.png) | [<img src="docs/images/readme/smart-drafts.png" alt="智能草稿" width="100%" />](docs/images/readme/smart-drafts.png) |
+
+| 智能日报 | 智能日报投递完成 |
+| --- | --- |
+| [<img src="docs/images/readme/smart-report.png" alt="智能日报" width="100%" />](docs/images/readme/smart-report.png) | [<img src="docs/images/readme/smart-report-final.png" alt="智能日报投递完成" width="100%" />](docs/images/readme/smart-report-final.png) |
+
+| 智能日报延迟状态 | 服务监控 |
+| --- | --- |
+| [<img src="docs/images/readme/smart-report-late.png" alt="智能日报延迟状态" width="100%" />](docs/images/readme/smart-report-late.png) | [<img src="docs/images/readme/server-monitor.png" alt="服务监控" width="100%" />](docs/images/readme/server-monitor.png) |
+
+| 用户与权限管理 |
+| --- |
+| [<img src="docs/images/readme/user-management.png" alt="用户与权限管理" width="100%" />](docs/images/readme/user-management.png) |
+
 ## 产品能力
 
 | 领域 | 当前能力 |
