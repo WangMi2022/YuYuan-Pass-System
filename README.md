@@ -4,6 +4,47 @@
 
 > 本 README 按仓库当前代码、配置模板和部署脚本整理。应用版本以 `web/package.json` 和服务端 Swagger 注释为准，当前为 `2.9.2`。
 
+## 界面截图
+
+以下截图来自仓库中的真实产品界面素材，展示当前系统的主要工作流和视觉层级。
+
+<p align="center">
+  <a href="docs/images/admin-ui-lifecycle-orbit.png">
+    <img src="docs/images/admin-ui-lifecycle-orbit.png" alt="资产管理中心首页驾驶舱" width="100%" />
+  </a>
+</p>
+
+<table>
+  <tr>
+    <td width="50%">
+      <strong>资产可视化大屏</strong><br />
+      <a href="web/src/assets/product/asset-dashboard.webp">
+        <img src="web/src/assets/product/asset-dashboard.webp" alt="资产可视化大屏" />
+      </a>
+    </td>
+    <td width="50%">
+      <strong>资产档案</strong><br />
+      <a href="web/src/assets/product/asset-inventory.webp">
+        <img src="web/src/assets/product/asset-inventory.webp" alt="资产档案列表与分页" />
+      </a>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <strong>资产领用流程</strong><br />
+      <a href="web/src/assets/product/asset-issue-workflow.webp">
+        <img src="web/src/assets/product/asset-issue-workflow.webp" alt="资产领用管理流程" />
+      </a>
+    </td>
+    <td width="50%">
+      <strong>文档管理中心</strong><br />
+      <a href="web/src/assets/product/document-center.webp">
+        <img src="web/src/assets/product/document-center.webp" alt="文档上传、预览与在线编辑" />
+      </a>
+    </td>
+  </tr>
+</table>
+
 ## 产品能力
 
 | 领域 | 当前能力 |
