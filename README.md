@@ -1,259 +1,136 @@
 # mit-assets-admin
 
-<p align="center">
-  <strong>面向企业内部资产、票据、文档与协同办公的一体化管理平台</strong>
-</p>
+面向企业内部资产、票据、文档和协同办公的一体化管理平台。项目由 Go/Gin 服务端和 Vue 3 Web 端组成，提供资产全生命周期管理、发票识别复核、文档协作、日程公告、权限审计和可控的 AI 业务能力。
 
-<p align="center">
-  Go · Gin · Vue 3 · PostgreSQL · Redis · RustFS/MinIO · JWT · Casbin
-</p>
+> 本 README 按仓库当前代码、配置模板和部署脚本整理。应用版本以 `web/package.json` 和服务端 Swagger 注释为准，当前为 `2.9.2`。
 
-`mit-assets-admin` 以资产全生命周期为核心，整合发票识别与流水、文档协作、个人日程、站点收藏、公告通知、系统外观、权限与审计。项目由 Gin-Vue-Admin 演进而来，已经形成独立的业务插件、数据模型、部署脚本和产品文档体系。
+## 产品能力
 
-> 当前应用版本：`2.9.2`（来自 `web/package.json`）<br>
-> 文档与项目整体审计：`2026-08-14`
-
-## 界面预览
-
-<p align="center">
-  <a href="docs/images/admin-ui-lifecycle-orbit.png">
-    <img src="docs/images/admin-ui-lifecycle-orbit.png" alt="YuYuan Pass System 首页驾驶舱" width="100%" />
-  </a>
-</p>
-
-<table>
-  <tr>
-    <td width="50%">
-      <strong>资产可视化大屏</strong><br />
-      <a href="web/src/assets/product/asset-dashboard.webp">
-        <img src="web/src/assets/product/asset-dashboard.webp" alt="资产可视化大屏" />
-      </a>
-    </td>
-    <td width="50%">
-      <strong>资产档案</strong><br />
-      <a href="web/src/assets/product/asset-inventory.webp">
-        <img src="web/src/assets/product/asset-inventory.webp" alt="资产档案" />
-      </a>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%">
-      <strong>资产领用流程</strong><br />
-      <a href="web/src/assets/product/asset-issue-workflow.webp">
-        <img src="web/src/assets/product/asset-issue-workflow.webp" alt="资产领用流程" />
-      </a>
-    </td>
-    <td width="50%">
-      <strong>文档管理中心</strong><br />
-      <a href="web/src/assets/product/document-center.webp">
-        <img src="web/src/assets/product/document-center.webp" alt="文档管理中心" />
-      </a>
-    </td>
-  </tr>
-</table>
-
-## 核心能力
-
-| 业务域 | 已实现能力 |
+| 领域 | 当前能力 |
 | --- | --- |
-| 首页驾驶舱 | 资产健康度、核心指标、最近登记、流转草稿与个人日程摘要 |
-| 资产管理 | 分类、六类位置、资产档案、图片、价值统计、入库/领用/调拨/归还/维修/报废 |
-| 智能建档 | 最多 6 张照片/铭牌识别、字段置信度、分类映射、重复序列号拦截、人工草稿和一次性确认建档 |
-| 资产审计 | 草稿与正式提交分离、事务更新、不可变前后快照、业务单查询 |
-| 资产风险 | 17 条确定性规则、风险总览、证据与处理日志、规则配置、手动/每日扫描、失败续扫和高风险提醒 |
-| 流水管理 | 发票批量上传、OCR/多模态识别、人工复核、验真、确认/重开、防重、分类规则和统计 |
-| 发票识别质量 | Provider/模型/文件类型质量、字段修改率、分类接受率、失败明细、耗时、尝试次数和费用 |
-| 文档管理 | 对象存储、源文件读取、Word/Excel/PDF/Markdown/文本预览与在线内容保存 |
-| 工作日历 | 个人日程、每日/每周/每月重复规则、旧数据导入、持久化提醒与已读状态 |
-| 协同办公 | 站点收藏、公告草稿/发布、SSE 实时通知、媒体库 |
-| 系统外观 | 登录图标、背景图库、激活与恢复默认 |
-| 权限审计 | JWT、Casbin、菜单/API/按钮权限、操作记录、登录日志和错误日志 |
-| AI 安全底座 | 统一 AI Gateway、智能识别配置、OpenAI Compatible/Anthropic、调用审计、配额、脱敏、Prompt 版本和 JSON Schema 校验 |
-| 智能中心 | M5 只读业务助手、12 个受控查询 Tool、权限范围与数据引用、用户会话 |
-| 智能日报 | M6 今日/历史日报、资产风险发票日程公告指标、订阅和结构化降级 |
-| 智能草稿 | M7 公告转日程、资产运营业务单草稿、人工确认和现有 Service 写入边界 |
-| 运维交付 | Docker Compose、数据库初始化、健康检查、发布验收、备份与回滚手册 |
+| 工作台与驾驶舱 | 资产健康度、运营指标、最近登记、流转草稿、日程和公告摘要 |
+| 资产管理 | 分类、位置、档案、照片、价值统计、入库、领用、调拨、归还、维修、报废 |
+| 智能建档 | 多照片/铭牌识别、字段置信度、分类映射、序列号去重、人工确认后正式建档 |
+| 资产风险 | 确定性风险规则、定时/手动扫描、证据、处理日志、失败续扫、高风险通知、批量清理 |
+| 发票与流水 | 批量上传、OCR/多模态识别、人工复核、验真、分类、确认、防重和金额统计 |
+| 识别质量 | Provider、模型、文件类型、字段修改、分类接受、失败、耗时和费用指标 |
+| 文档与媒体 | 对象存储、图片/头像、Word、Excel、PDF、Markdown 和文本预览与编辑 |
+| 协同办公 | 个人日程、重复规则、提醒收件箱、公告发布、已读状态、SSE 实时通知、站点收藏 |
+| 系统外观 | 系统名称、登录图标、背景图库、主题模式和品牌配置 |
+| 智能中心 | 业务助手、受控业务查询 Tool、会话、数据引用、知识片段检索和权限过滤 |
+| 智能日报 | 当日/历史日报、资产/风险/发票/日程/公告指标、订阅、站内投递、邮件投递和导出 |
+| 智能草稿 | 公告提取日程、资产运营业务单草稿、人工确认、过期和并发保护 |
+| 平台治理 | JWT、Casbin、菜单/API/按钮权限、操作记录、登录日志、错误日志和数据清理 |
 
-## 业务规则摘要
+### 重要边界
 
-### 资产生命周期
-
-```mermaid
-stateDiagram-v2
-    [*] --> pending_inbound: 新建档案
-    pending_inbound --> idle: 入库
-    idle --> in_use: 领用
-    in_use --> idle: 归还
-    idle --> maintenance: 维修
-    in_use --> maintenance: 维修
-    maintenance --> idle: 归还
-    idle --> retired: 报废
-    in_use --> retired: 报废
-    maintenance --> retired: 报废
-```
-
-- 草稿不修改资产，提交后才在事务中更新状态、位置、保管人和审计快照。
-- 调拨保持当前状态，只更新位置和可选保管人。
-- 报废业务类型为 `scrap`，终态为 `retired`，处置位置字典类型为 `disposal`。
-- 当前每条资产档案作为完整流转单位，不支持部分数量拆分。
-
-### 发票处理
-
-```mermaid
-flowchart LR
-    A["上传证据"] --> B["识别任务"]
-    B --> C["人工复核"]
-    C --> D["验真（可选）"]
-    D --> E["确认"]
-    E --> F["正式台账与统计"]
-```
-
-- 只有 `confirmed` 发票进入正式统计。
-- 金额以整数分存储，避免浮点累计误差。
-- 已确认发票不能直接修改，管理员需要先重开。
-- 删除发票后由持久化清理任务重试删除对象存储证据。
+- 资产、发票、公告、日程等实时业务数据由受控 Business Tool 查询，不直接复制进知识库。
+- 知识库当前是按租户、部门、用户和角色归属的文本分片索引；知识来源需要由后端集成或业务流程写入，不能把它当作自动同步的全量业务库。
+- 智能助手不是任意 SQL 或任意发信入口。模型只能选择已注册、可审计且经过权限检查的 Tool；报告邮件接口只接受服务端支持的报告类型。
+- 当前编排实现位于 `server/plugin/smart/service`，采用规则规划器、受控 Tool Registry 和可选模型润色，不依赖 LangGraph 运行时。
 
 ## 系统架构
 
 ```mermaid
 flowchart LR
-    U["浏览器"] --> W["Vue 3 / Nginx :8080"]
-    W -->|"/api"| S["Gin Server :8888"]
-    S --> M["JWT + Casbin + 审计中间件"]
-    M --> P["业务插件"]
-    P --> G["AI Gateway"]
-    P --> DB[("PostgreSQL")]
-    P --> R[("Redis")]
-    P --> O[("RustFS / MinIO")]
-    G --> X["OpenAI Compatible / Anthropic"]
-    P --> X["OCR / 验真服务"]
+    B[浏览器] --> W[Vue 3 + Nginx :8080]
+    W -->|/api 反代| S[Gin API :8888]
+    S --> A[JWT + Casbin + 操作审计]
+    A --> P[业务插件]
+    P --> DB[(PostgreSQL)]
+    P --> R[(Redis)]
+    P --> O[(RustFS / MinIO S3)]
+    P --> G[AI Gateway]
+    G --> M[OpenAI Compatible / Anthropic]
+    P --> E[OCR / 验真 / SMTP]
 ```
 
-当前 Compose 只运行 Web 和 Server 两个容器；PostgreSQL、Redis、RustFS/MinIO 使用外部服务。Web Nginx 将 `/api/*` 去掉 `/api` 前缀后转发到 Server。
+Docker Compose 只负责 `web` 和 `server` 两个应用容器。数据库、缓存和对象存储必须提前准备，并通过 `.env` 注入连接信息。生产环境建议由 HTTPS 网关对外提供入口，只将 Web 容器暴露给反向代理。
+
+## 代码结构
+
+```text
+mit-assets-admin/
+├─ server/
+│  ├─ ai/                         统一 AI Gateway、Provider、配额、脱敏和调用审计
+│  ├─ middleware/                 JWT、Casbin、操作记录、AI 安全策略
+│  ├─ initialize/                 配置、GORM、路由、插件和定时任务初始化
+│  ├─ model/ api/ router/ service/系统公共层
+│  └─ plugin/
+│     ├─ asset/                   资产、流转、识别和风险中心
+│     ├─ invoice/                 发票、流水和识别质量
+│     ├─ smart/                   业务助手、知识检索、日报、邮件和草稿
+│     ├─ aioperations/            AI 能力配置、识别服务、配额和运行监控
+│     ├─ document/                文档与在线编辑
+│     ├─ announcement/            公告与通知
+│     ├─ schedule/                日程与提醒
+│     ├─ site/                    站点收藏
+│     ├─ systemsetting/           登录外观和品牌配置
+│     ├─ email/                   SMTP 测试与通用邮件工具
+│     └─ auto/ plugin-tool/       自动代码与插件辅助能力
+├─ web/                           Vue 3 Web 端
+├─ deploy/docker-dev/             Docker Compose、镜像、初始化和发布验收
+├─ docs/                          产品、架构、API、数据、开发和运维文档
+├─ design-system/                 视觉令牌与设计约定
+├─ CONTEXT.md                     领域术语和数据边界
+└─ FRONTEND-STYLE.md              前端主题与交互规范
+```
 
 ## 技术栈
 
-### 服务端
+- 服务端：Go `1.25.x`、Gin `1.10.x`、GORM `1.31.x`、PostgreSQL 14-18、Redis 6+、JWT、Casbin、Zap、Cron、Swagger/Swaggo。
+- Web：Vue `3.5.x`、Vite `8.x`、Element Plus `2.13.x`、Pinia、Vue Router、Axios、ECharts、Three.js、Vue Office、Mammoth、Marked、WangEditor、XLSX、Sass、UnoCSS。
+- 外部能力：RustFS/MinIO/AWS S3、OCR、发票验真、OpenAI Compatible/Anthropic、SMTP。
 
-- Go `1.24.0` / toolchain `1.24.2`
-- Gin `1.10.0`
-- GORM `1.31.1`
-- PostgreSQL 14-18
-- Redis 6+
-- JWT + Casbin
-- Swaggo / Swagger
-- Zap、Cron、S3 SDK
-
-### Web
-
-- Vue `3.5.x`
-- Vite `8.x`
-- Element Plus `2.13.x`
-- Pinia、Vue Router、Axios
-- ECharts、Three.js
-- Vue Office、Mammoth、Marked、WangEditor、XLSX
-- UnoCSS、Sass
-
-### 部署
-
-- Docker / Docker Compose
-- Nginx
-- 外部 PostgreSQL、Redis、RustFS/MinIO
-- Bash 运维与发布验收脚本
-
-## 目录结构
-
-```text
-.
-├─ server/                       Go API、系统能力和业务插件
-│  ├─ ai/                        统一 AI Gateway、Provider、配额、脱敏与审计
-│  ├─ plugin/asset/              资产管理、智能建档、流转与风险中心
-│  ├─ plugin/aioperations/       智能能力配置、识别服务、配额与运行监控
-│  ├─ plugin/smart/              业务助手、智能日报与智能草稿
-│  ├─ plugin/invoice/            发票、流水与识别质量闭环
-│  ├─ plugin/document/           文档管理
-│  ├─ plugin/announcement/       公告通知
-│  ├─ plugin/schedule/           个人日程
-│  ├─ plugin/site/               站点收藏
-│  └─ plugin/systemsetting/      登录外观
-├─ web/                          Vue 3 Web 端
-│  └─ src/plugin/                对应业务插件页面与 API
-├─ deploy/docker-dev/            Compose、镜像、初始化与运维脚本
-├─ docs/                         产品、使用、接口、架构、数据与部署文档
-└─ design-system/                前端视觉系统说明
-```
-
-## 快速部署
+## 快速开始
 
 ### 环境要求
 
-- Linux 服务器或支持 Docker Compose 的开发机。
-- Docker Engine 24+、Docker Compose v2。
-- 外部 PostgreSQL 14-18。
-- 外部 Redis 6+。
-- 外部 RustFS/MinIO S3 API。
+Docker Engine 24+、Docker Compose v2、Go `1.25.x`、Node.js 当前 LTS、PostgreSQL 14-18、Redis 6+ 和 RustFS/MinIO 等 S3 兼容对象存储。
 
-### 1. 创建配置
+### Docker Compose（推荐）
 
 ```bash
 cd deploy/docker-dev
 cp .env.example .env
 chmod 600 .env
+# 编辑 .env，替换所有 change-me 和外部服务地址
+chmod +x ./*.sh tools/*.sh
+./up.sh
 ```
 
-编辑 `.env`，至少替换所有 `change-me`：
+`up.sh` 会校验配置、生成运行时 `config.yaml`、构建镜像、启动容器、初始化数据库并执行发布验收。
+
+| 服务 | 默认地址 |
+| --- | --- |
+| Web | `http://<服务器IP>:8080` |
+| API | `http://<服务器IP>:8888` |
+| Swagger | `http://<服务器IP>:8888/swagger/index.html` |
+
+首次初始化创建 `admin` 用户，密码由 `.env` 中的 `GVA_ADMIN_PASSWORD` 决定。首次登录后应立即修改密码并创建日常账号。
+
+### 必填配置示例
 
 ```dotenv
-GVA_DB_TYPE=pgsql
+GVA_JWT_SIGNING_KEY=至少32字节的随机密钥
 GVA_PG_HOST=127.0.0.1
 GVA_PG_PORT=5432
 GVA_PG_USER=postgres
 GVA_PG_PASSWORD=change-me
 GVA_PG_DB=gva
 GVA_ADMIN_PASSWORD=change-me-now
-
 GVA_USE_REDIS=true
 GVA_REDIS_ADDR=127.0.0.1:6379
 GVA_REDIS_PASSWORD=change-me
-
 GVA_RUSTFS_ENDPOINT=127.0.0.1:9000
 GVA_RUSTFS_ACCESS_KEY=change-me
 GVA_RUSTFS_SECRET_KEY=change-me
 GVA_RUSTFS_BUCKET=gva-assets
 ```
 
-### 2. 启动并验收
+不要把真实密码、JWT 密钥、SMTP 授权码、AI API Key 或对象存储密钥写入 Git。`.env`、运行时 `config.yaml`、上传文件和日志均已加入忽略规则。
 
-```bash
-chmod +x ./*.sh tools/*.sh
-./up.sh
-./release-acceptance.sh
-./ps.sh
-```
-
-默认访问：
-
-| 服务 | 地址 |
-| --- | --- |
-| Web | `http://<服务器IP>:8080` |
-| API | `http://<服务器IP>:8888` |
-| Swagger | `http://<服务器IP>:8888/swagger/index.html` |
-
-初始管理员用户名为 `admin`，密码由 `.env` 的 `GVA_ADMIN_PASSWORD` 决定。
-
-> `.env` 和运行时 `config.yaml` 包含敏感信息，已被 Git 忽略，禁止提交。
-
-## 本地开发
-
-### Web
-
-```bash
-cd web
-npm install --legacy-peer-deps
-npm run dev
-```
-
-### Server
+### 本地分离启动
 
 ```bash
 cd server
@@ -261,76 +138,148 @@ go mod download
 go run . -c config.yaml
 ```
 
-本地需要独立的 `server/config.yaml`。当前 Docker Compose 生产/集成方案使用 `deploy/docker-dev/config.init.yaml` 和 `.env` 生成 PostgreSQL 配置；`server/config.docker.yaml` 是保留的上游通用示例，不代表当前部署默认值。
+```bash
+cd web
+npm install --legacy-peer-deps
+npm run dev
+```
 
-## API 与权限
+本地后端需要自行准备 `server/config.yaml`；可参考 `deploy/docker-dev/config.init.yaml` 的结构，但不要直接复用示例密钥。
 
-- 浏览器调用 Base URL：`/api`。
-- Server 直连 Base URL：`http://<host>:8888`。
-- 私有请求头：`x-token`、`x-user-id`。
-- 统一 JSON 响应：`{code,data,msg}`，成功业务码为 `0`。
-- JWT 失效通常返回 HTTP `401`。
-- 系统管理接口以运行时 Swagger 为权威；业务插件接口见 [API 接口文档](docs/API.md)。
+## 日常运维
 
-## 常用校验
+所有脚本均在 `deploy/docker-dev/` 下执行：
+
+| 命令 | 用途 |
+| --- | --- |
+| `./ps.sh` | 查看容器状态 |
+| `./health-check.sh` | 快速检查 Web、API 和数据库状态 |
+| `./logs.sh server` / `./logs.sh web` | 查看后端或 Nginx 日志 |
+| `./restart.sh [web|server]` | 重启容器，不重建镜像 |
+| `./build.sh [web|server]` | 构建全部或指定镜像 |
+| `./release-acceptance.sh` | 发布后的只读验收门禁 |
+| `./down.sh` | 停止应用容器和网络，不删除外部数据 |
+
+代码更新后的标准流程：
+
+```bash
+git pull --ff-only
+cd deploy/docker-dev
+./build.sh
+docker compose --env-file .env -f docker-compose.yml up -d --force-recreate
+./release-acceptance.sh
+```
+
+只有验收脚本返回 `0` 才应标记版本上线成功。生产环境的临时发布包、备份和运行时临时文件应固定放在服务器项目目录下的 `workspace/`；该目录已被 Git 忽略，不要把临时文件写入 Windows 工作机或提交到 GitHub。
+
+## 配置功能
+
+### 品牌与主题
+
+管理员可在系统设置中配置系统名称、登录图标、背景和主题模式。前端通过公开外观接口加载登录页资源，资源本体仍由后端执行鉴权和对象存储代理，避免浏览器直接访问私有 S3 地址。
+
+### SMTP 与报告邮件
+
+在“基础设置”中配置 SMTP 主机、端口、发件人、授权信息、SSL 和系统收件邮箱。配置完成后，智能日报页面可发送今日日报；投递状态、重试次数和失败原因会写入日报投递记录。
+
+```http
+POST /api/reportEmail/send
+Content-Type: application/json
+X-Token: <登录令牌>
+
+{"reportType":"smart_daily","reportId":0}
+```
+
+收件人、主题和正文由服务端根据报告类型解析，客户端不能借此构造任意发信内容。当前支持 `smart_daily`，后续可增加资产、风险或发票报告提供器而不改变接口协议。
+
+### 手机/邮箱验证码
+
+手机和短信验证码默认关闭，只有在“基础设置 → 联系方式验证”完成服务商、Endpoint、访问令牌、签名和模板配置后才能开启。未完成配置时，开关保持关闭，避免产生不可用的验证流程。
+
+## AI 与业务助手
+
+AI 调用统一经过 `server/ai` Gateway：
+
+1. 根据认证上下文确定用户和角色。
+2. 检查模块权限、请求体大小、频率和超时。
+3. 执行输入限制、脱敏和可选图片外发白名单检查。
+4. 选择已配置的 Provider、Prompt 版本和 JSON Schema。
+5. 执行配额/预算预占并记录成功、失败、耗时和估算费用。
+
+业务助手的问答流程是“问题 → 规则规划器/受控 Tool → 实时业务查询 → 可选模型润色 → 引用和审计”。日程、未读公告、资产和发票等问题必须依赖对应 Tool 的权限与数据范围；模型不可直接读取数据库。当前编排位于 `server/plugin/smart/service`，不依赖 LangGraph 运行时。
+
+## API 约定
+
+- 浏览器统一通过 `/api` 调用；Web Nginx 转发时去掉 `/api` 前缀。
+- 私有请求使用 `x-token` 和 `x-user-id`，当前用户 ID 以认证上下文为准，不能信任请求体。
+- 统一响应结构为 `{code, data, msg}`，成功业务码为 `0`，鉴权失效通常返回 HTTP `401`。
+- 分页参数统一使用 `page`、`pageSize`，列表返回 `list`、`total`、`page`、`pageSize`。
+- 写接口应挂载操作审计；涉及 AI 的接口还应挂载频率、超时和调用审计策略。
+- 文件下载/预览必须设置正确的 Content-Type、文件名和权限检查。
+
+完整接口清单见 [docs/API.md](docs/API.md)，运行时 Swagger 是参数和响应的最终参考。
+
+## 测试与质量门禁
 
 ```bash
 # 服务端
-cd server
-go test ./...
+cd server && go test ./...
 
 # Web
-cd web
+cd ../web
 npm test
 npm run lint
 npm run build
 
-# 部署脚本回归
-cd deploy/docker-dev
+# 部署脚本
+cd ../deploy/docker-dev
 bash tests/release-acceptance-test.sh
+./release-acceptance.sh
 
-# Git 文本检查
+# 文本检查
 git diff --check
 ```
 
-## 文档
+页面变更至少检查桌面、移动端、亮/暗主题、加载、空数据、请求失败、无权限和长文本；列表默认分页大小为 `10`，超过 20 条的数据不得一次性渲染全部记录。
 
-| 文档 | 内容 |
+## 数据与安全原则
+
+- 资产流转、发票确认和草稿确认使用事务；状态变化保存可追溯记录或前后快照。
+- 发票金额以最小货币单位保存，已确认发票不能直接编辑，删除后的对象存储文件由可重试清理任务处理。
+- 风险扫描按批次提交，使用业务指纹保证幂等，失败任务可续扫，风险处理写入独立日志。
+- 原始图片、头像、发票和文档保存在 S3 兼容对象存储，数据库保存业务元数据；私有对象通过后端代理访问。
+- PostgreSQL、Redis、S3 管理端口不应直接暴露公网；生产环境应使用 HTTPS、强 JWT 密钥和最小权限账号。
+- 不提交 `.env`、`config.yaml`、证书、密钥、数据库备份、`server/uploads`、`server/log` 或 `workspace/`。
+- 多租户/部门数据隔离以 Tenant 为最高边界，Department 树和角色 Data Scope 负责业务行范围；Casbin 负责 API/菜单权限，两者不能混用。
+
+## 文档索引
+
+| 文档 | 用途 |
 | --- | --- |
-| [文档中心](docs/README.md) | 全部文档的统一入口和阅读路径 |
-| [项目审计报告](docs/PROJECT-AUDIT.md) | 技术栈、成熟度、风险和改进路线 |
-| [智能资产运营中心开发实施文档](docs/SMART-ASSET-OPERATIONS-DEVELOPMENT-PLAN.md) | 智能建档、风险中心、业务助手和智能日报的执行路线 |
-| [M3/M4 生产响应式验收记录](docs/M3-M4-RESPONSIVE-VALIDATION.md) | 发票质量和智能建档的三档页面证据、限制与剩余验收项 |
-| [产品说明书](docs/PRODUCT-MANUAL.md) | 产品定位、用户、功能、流程和验收 |
-| [功能规格说明](docs/FUNCTIONAL-SPECIFICATION.md) | 业务规则、状态机、权限与非功能要求 |
-| [用户使用手册](docs/USER-GUIDE.md) | 资产、发票、日程、文档、公告和管理操作 |
-| [API 接口文档](docs/API.md) | 鉴权、响应约定和业务接口清单 |
-| [系统架构说明](docs/ARCHITECTURE.md) | 分层、插件、数据流、鉴权和部署架构 |
-| [数据字典](docs/DATA-DICTIONARY.md) | 核心表、字段、枚举和关联关系 |
-| [开发维护指南](docs/DEVELOPMENT.md) | 本地开发、测试、Swagger、Git 与发布 |
-| [部署运维手册](docs/DEPLOYMENT.md) | 首次部署、升级、备份、回滚和故障处理 |
+| [docs/README.md](docs/README.md) | 文档中心和阅读路径 |
+| [docs/PRODUCT-MANUAL.md](docs/PRODUCT-MANUAL.md) | 产品定位、用户和业务流程 |
+| [docs/FUNCTIONAL-SPECIFICATION.md](docs/FUNCTIONAL-SPECIFICATION.md) | 功能规格、状态机和验收条件 |
+| [docs/USER-GUIDE.md](docs/USER-GUIDE.md) | 用户操作手册 |
+| [docs/API.md](docs/API.md) | API、鉴权和错误处理 |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 分层、插件、数据流和权限架构 |
+| [docs/DATA-DICTIONARY.md](docs/DATA-DICTIONARY.md) | 数据表、字段和枚举 |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | 本地开发、测试和提交规范 |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | 部署、升级、备份、回滚和故障处理 |
+| [docs/SMART-ASSET-OPERATIONS-DEVELOPMENT-PLAN.md](docs/SMART-ASSET-OPERATIONS-DEVELOPMENT-PLAN.md) | 智能资产运营和 M5-M7 实施计划 |
+| [CONTEXT.md](CONTEXT.md) | 领域术语、数据边界和命名约定 |
+| [FRONTEND-STYLE.md](FRONTEND-STYLE.md) | 前端视觉、主题和响应式规范 |
+| [design-system/](design-system/) | 设计系统资料 |
 
-## 安全基线
+文档维护规则：路由或响应变更同步 `API.md`；表、字段或状态变更同步数据字典；用户可见功能同步产品说明和用户手册；环境变量、端口或脚本变更同步部署文档。文档中的“已验证”必须能由测试、验收脚本或实际 Git 提交追溯。
 
-- 修改管理员密码、JWT key、数据库、Redis 和对象存储凭据。
-- 不将 PostgreSQL、Redis、S3 API 直接暴露到公网。
-- 通过 HTTPS 反向代理对外服务。
-- 定期备份 PostgreSQL 与对象存储桶。
-- 发布前执行测试、构建、`git diff --check` 和敏感信息扫描。
-- 只从已推送 Git commit 构建生产版本，保留完整 commit hash。
+## 当前迭代建议
 
-## 项目现状与路线
+1. 持续用真实业务数据校准风险阈值、发票识别质量和 AI Tool 命中率。
+2. 完成各业务插件的 Tenant/Department/Data Scope 统一迁移，并补齐跨角色负向权限测试。
+3. 扩展报告提供器，保持 `reportEmail/send` 的受控类型协议和幂等投递记录。
+4. 为正式收件邮箱配置 SMTP 后，验证站内、邮件成功/失败和重试链路。
+5. 持续补齐 Swagger、CI 发布门禁和移动端视觉回归证据。
 
-当前已经具备资产生命周期、资产风险治理、发票处理、文档协作、个人日程、公告通知、权限审计、统一 AI Gateway 和 Compose 交付闭环。智能化路线 M0-M7 首版均已发布生产：M3 的 `invoice_review_corrections`、识别质量扩展字段和 5 个 `/invoiceQuality/*` 接口已通过生产只读验收；M4 的 `asset-draft` Prompt V3、真实 Vision 调用、结构化草稿和任务/图片清理已通过生产验收；M5-M7 业务功能基线 `283cac6f546e06671602eb640f43152d8472048b` 已完成管理员与普通角色权限、只读 Tool、会话与 SSE、确定性降级、日报指标对账、定时投递、公告提取、草稿二次权限、并发确认和 `submit=false` 生产验收。验收后临时用户、权限、资产、公告、日程和草稿数据均已清理，发布门禁 8/8 通过，Server/Web 容器运行正常。
+## 来源
 
-M3 当前 11 张历史/存量发票尚未产生字段级复核样本，因此字段修改率只能从后续真实人工复核开始准确累计；M4 Prompt V3 兼容 `productName`、`manufacturer`、`warrantyMonths` 三个受控别名，最终统一归一为标准字段，未知字段仍被 Schema 拒绝。M3 质量看板的 `1440×1000`、`900×900` 已完成视觉检查，`390×844` 已完成 DOM/几何验证，三档均无页面级横向溢出。M4 测试 Vision 数据已在验收后删除，当前剩余的是有任务抽屉截图归档这一证据缺口。详细证据见 [M3/M4 生产响应式验收记录](docs/M3-M4-RESPONSIVE-VALIDATION.md)。后续建议按以下顺序推进：
-
-1. 持续用真实数据校准 M2 风险阈值、M3 质量口径和 M4 字段置信度。
-2. 截图能力恢复后补充 M3 手机档与 M4 有任务抽屉归档图片。
-3. 基于实际调用日志持续观察 M5 Tool 命中率、引用可用性、权限拒绝分布、配额和费用。
-4. 为正式业务账号配置收件邮箱，持续验证 M6 SMTP 成功到达率；站内成功投递和邮件失败审计链路已通过验收。
-5. 推进 M7 多用户公告关联、业务插件 Swagger 全覆盖、CI 发布门禁、资产盘点与标签/二维码。
-
-安全整改的生产负向权限和 RustFS/MinIO 私有策略复测已完成；部门/租户级行权限采用“Tenant 最高边界 + Department 树 + 角色 Data Scope”的正式决策，当前进入结构迁移和分模块实施阶段。详见 [安全复测报告](docs/SECURITY_RETEST_2026-08-17.md) 与 [租户和部门数据隔离实施规格](docs/TENANT-DEPARTMENT-DATA-ISOLATION.md)。
-
-详细结论见 [项目审计报告](docs/PROJECT-AUDIT.md)。
+项目当前模块名为 `github.com/WangMi2022/mit-assets-admin/server`。代码、文档和部署脚本以本仓库 `main` 分支为准；生产发布应使用已审核的 commit 或 tag，不要直接使用未固定的开发工作区。
