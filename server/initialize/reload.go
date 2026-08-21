@@ -3,6 +3,7 @@ package initialize
 import (
 	"context"
 
+	"github.com/WangMi2022/mit-assets-admin/server/config"
 	"github.com/WangMi2022/mit-assets-admin/server/global"
 	systemService "github.com/WangMi2022/mit-assets-admin/server/service/system"
 	"go.uber.org/zap"
@@ -17,6 +18,19 @@ func Reload() error {
 		global.GVA_LOG.Error("重新读取配置文件失败!", zap.Error(err))
 		return err
 	}
+	var nextConfig config.Server
+	if err := global.GVA_VP.Unmarshal(&nextConfig); err != nil {
+		global.GVA_LOG.Error("重新解析配置文件失败!", zap.Error(err))
+		return err
+	}
+	nextConfig.Captcha.Normalize()
+	if err := nextConfig.Captcha.Validate(); err != nil {
+		global.GVA_LOG.Error("验证码配置无效!", zap.Error(err))
+		return err
+	}
+	global.GVA_CONFIG_LOCK.Lock()
+	global.GVA_CONFIG.Captcha = nextConfig.Captcha
+	global.GVA_CONFIG_LOCK.Unlock()
 
 	// 重新初始化数据库连接
 	if global.GVA_DB != nil {

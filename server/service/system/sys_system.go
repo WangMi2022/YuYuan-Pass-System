@@ -72,6 +72,10 @@ func (systemConfigService *SystemConfigService) SetSystemConfig(
 	// 发票智能配置由 AI 服务管理专用接口维护，不再参与运行配置整体保存。
 	system.Config.AI.Invoice = global.GVA_CONFIG.AI.Invoice
 	mergeSystemConfigSecrets(&system.Config, global.GVA_CONFIG)
+	system.Config.Captcha.Normalize()
+	if err = system.Config.Captcha.Validate(); err != nil {
+		return InvoiceRecognitionDetections{}, err
+	}
 	system.Config.ContactVerification.Normalize()
 	if err = system.Config.ContactVerification.Validate(system.Config.Email); err != nil {
 		return InvoiceRecognitionDetections{}, err
@@ -90,6 +94,8 @@ func (systemConfigService *SystemConfigService) SetSystemConfig(
 	// immediately keeps the capability endpoint and sender in sync after save.
 	global.GVA_CONFIG.Email = system.Config.Email
 	global.GVA_CONFIG.ContactVerification = system.Config.ContactVerification
+	// Login challenge generation and verification read this section per request.
+	global.GVA_CONFIG.Captcha = system.Config.Captcha
 	invoiceProvider.SetRuntimeInvoiceRecognition(system.Config.AI.Invoice)
 	return invoiceRecognitionDetections(system.Config.AI.Invoice), nil
 }

@@ -39,16 +39,9 @@ func (b *BaseApi) Login(c *gin.Context) {
 	}
 
 	key := c.ClientIP()
-	// 判断验证码是否开启
-	openCaptcha := global.GVA_CONFIG.Captcha.OpenCaptcha               // 是否开启防爆次数
-	openCaptchaTimeOut := global.GVA_CONFIG.Captcha.OpenCaptchaTimeOut // 缓存超时时间
-	v, ok := global.BlackCache.Get(key)
-	if !ok {
-		global.BlackCache.Set(key, 1, time.Second*time.Duration(openCaptchaTimeOut))
-	}
-
-	var oc bool = openCaptcha == 0 || openCaptcha < interfaceToInt(v)
-	if oc && (l.Captcha == "" || l.CaptchaId == "" || !store.Verify(l.CaptchaId, l.Captcha, true)) {
+	captchaConfig := currentCaptchaConfig()
+	failures := captchaFailureCount(key, captchaConfig.OpenCaptchaTimeOut)
+	if captchaConfig.Required(failures) && !verifyCaptcha(l.CaptchaId, l.Captcha) {
 		// 验证码次数+1
 		global.BlackCache.Increment(key, 1)
 		response.FailWithMessage("验证码错误", c)
@@ -96,6 +89,7 @@ func (b *BaseApi) Login(c *gin.Context) {
 		})
 		return
 	}
+	global.BlackCache.Delete(key)
 	b.TokenNext(c, *user)
 }
 

@@ -391,9 +391,33 @@
           <div class="verification-config-heading">
             <div>
               <strong>登录图形验证码</strong>
-              <p>控制登录安全校验图片的尺寸与字符长度</p>
+              <p>配置登录挑战策略、图片尺寸和失败计数窗口</p>
             </div>
+            <el-tag :type="captchaMode === 'always' ? 'success' : 'warning'" effect="plain">
+              {{ captchaMode === 'always' ? '每次登录验证' : '失败后验证' }}
+            </el-tag>
           </div>
+          <el-form-item label="验证策略">
+            <el-segmented
+              v-model="captchaMode"
+              :options="captchaModeOptions"
+            />
+          </el-form-item>
+          <el-form-item v-if="captchaMode === 'threshold'" label="失败触发次数">
+            <el-input-number
+              v-model="config.captcha['open-captcha']"
+              :min="1"
+              :max="10"
+            />
+          </el-form-item>
+          <el-form-item v-if="captchaMode === 'threshold'" label="失败计数窗口（秒）">
+            <el-input-number
+              v-model="config.captcha['open-captcha-timeout']"
+              :min="60"
+              :max="86400"
+              :step="60"
+            />
+          </el-form-item>
           <el-form-item label="字符长度">
             <el-input-number
               v-model="config.captcha['key-long']"
@@ -402,10 +426,18 @@
             />
           </el-form-item>
           <el-form-item label="图片宽度">
-            <el-input-number v-model.number="config.captcha['img-width']" />
+            <el-input-number
+              v-model.number="config.captcha['img-width']"
+              :min="80"
+              :max="1000"
+            />
           </el-form-item>
           <el-form-item label="图片高度">
-            <el-input-number v-model.number="config.captcha['img-height']" />
+            <el-input-number
+              v-model.number="config.captcha['img-height']"
+              :min="40"
+              :max="400"
+            />
           </el-form-item>
 
           <div class="verification-config-heading">
@@ -1212,7 +1244,13 @@
     'hua-wei-obs': {},
     'cloudflare-r2': {},
     minio: {},
-    captcha: {},
+    captcha: {
+      'key-long': 6,
+      'img-width': 240,
+      'img-height': 80,
+      'open-captcha': 0,
+      'open-captcha-timeout': 3600
+    },
     zap: {},
     local: {},
     email: {},
@@ -1247,6 +1285,23 @@
     { name: '10', label: '文件存储', description: '本地与对象存储服务连接', icon: UploadFilled },
     { name: '14', label: 'MongoDB', description: '文档数据库集群与连接参数', icon: DataBoard, enabled: () => config.value.system['use-mongo'] }
   ]
+
+  const captchaModeOptions = [
+    { label: '每次登录', value: 'always' },
+    { label: '失败后触发', value: 'threshold' }
+  ]
+  const captchaMode = computed({
+    get: () => Number(config.value.captcha?.['open-captcha']) === 0 ? 'always' : 'threshold',
+    set: (value) => {
+      if (value === 'always') {
+        config.value.captcha['open-captcha'] = 0
+        return
+      }
+      if (Number(config.value.captcha['open-captcha']) <= 0) {
+        config.value.captcha['open-captcha'] = 3
+      }
+    }
+  })
 
   const visibleSections = computed(() => configSections.filter((section) => !section.enabled || section.enabled()))
   const activeSection = computed(() =>
@@ -1293,6 +1348,14 @@
   })
 
   const withVerificationDefaults = (value) => {
+    value.captcha = {
+      'key-long': 6,
+      'img-width': 240,
+      'img-height': 80,
+      'open-captcha': 0,
+      'open-captcha-timeout': 3600,
+      ...(value?.captcha || {})
+    }
     const verification = value?.['contact-verification'] || {}
     value['contact-verification'] = {
       ...verification,
@@ -1616,7 +1679,8 @@
 
   .config-tabs :deep(.el-input),
   .config-tabs :deep(.el-select),
-  .config-tabs :deep(.el-input-number) {
+  .config-tabs :deep(.el-input-number),
+  .config-tabs :deep(.el-segmented) {
     width: 100%;
   }
 

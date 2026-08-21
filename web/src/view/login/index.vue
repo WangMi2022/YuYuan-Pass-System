@@ -59,6 +59,7 @@
                     placeholder="请输入验证码"
                     size="large"
                     inputmode="numeric"
+                    :maxlength="captchaRequiredLength"
                     autocomplete="off"
                   />
                   <button type="button" class="na-captcha" aria-label="刷新验证码" @click="loginVerify()">
@@ -175,9 +176,9 @@
     if (!/^\d+$/.test(sanitizedValue)) {
       return callback(new Error('验证码须为数字'))
     }
-    if (sanitizedValue.length < captchaRequiredLength.value) {
+    if (sanitizedValue.length !== captchaRequiredLength.value) {
       return callback(
-        new Error(`请输入至少${captchaRequiredLength.value}位数字验证码`)
+        new Error(`请输入${captchaRequiredLength.value}位数字验证码`)
       )
     }
     if (sanitizedValue !== value) {
@@ -188,11 +189,20 @@
 
   // 获取验证码
   const loginVerify = async () => {
-    const ele = await captcha()
-    captchaRequiredLength.value = Number(ele.data?.captchaLength) || 0
-    picPath.value = ele.data?.picPath
-    loginFormData.captchaId = ele.data?.captchaId
-    loginFormData.openCaptcha = ele.data?.openCaptcha
+    try {
+      const ele = await captcha()
+      captchaRequiredLength.value = Number(ele.data?.captchaLength) || 0
+      picPath.value = ele.data?.picPath || ''
+      loginFormData.captcha = ''
+      loginFormData.captchaId = ele.data?.captchaId || ''
+      loginFormData.openCaptcha = Boolean(ele.data?.openCaptcha)
+    } catch {
+      // Never submit a stale challenge after a refresh failure.
+      loginFormData.captcha = ''
+      loginFormData.captchaId = ''
+      loginFormData.openCaptcha = false
+      picPath.value = ''
+    }
   }
   loginVerify()
 
