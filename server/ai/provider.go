@@ -19,6 +19,7 @@ type providerResult struct {
 	Content      string
 	InputTokens  int64
 	OutputTokens int64
+	FinishReason string
 }
 
 type provider interface {

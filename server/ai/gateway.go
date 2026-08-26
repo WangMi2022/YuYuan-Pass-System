@@ -311,7 +311,7 @@ func visionModuleAllowed(module string) bool {
 func completionResult(state *invocationState, result providerResult) CompletionResult {
 	return CompletionResult{
 		Data: result.Data, Content: result.Content, Provider: state.provider.Name(), Model: state.provider.Model(),
-		InputTokens: result.InputTokens, OutputTokens: result.OutputTokens, DurationMS: state.durationMS(),
+		InputTokens: result.InputTokens, OutputTokens: result.OutputTokens, FinishReason: result.FinishReason, DurationMS: state.durationMS(),
 	}
 }
 

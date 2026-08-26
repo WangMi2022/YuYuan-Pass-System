@@ -74,3 +74,38 @@ func TestSendToSystemInboxRejectsMissingRecipients(t *testing.T) {
 		t.Fatalf("expected a configured-recipient error, got %v", err)
 	}
 }
+
+func TestRenderHTMLRendersSafeMarkdown(t *testing.T) {
+	body := renderHTML(Message{
+		Title: "智能日报",
+		Body: `# 智能日报
+
+## 一、核心概览
+- **开放风险**：3 条
+- 待复核发票：2 张
+
+<script>alert('x')</script>`,
+	})
+
+	for _, expected := range []string{"<h2", "一、核心概览", "<ul", "<strong", "开放风险"} {
+		if !strings.Contains(body, expected) {
+			t.Fatalf("rendered email is missing %q: %s", expected, body)
+		}
+	}
+	if strings.Contains(body, "<script>") || !strings.Contains(body, "&lt;script&gt;") {
+		t.Fatalf("rendered email did not neutralize raw HTML: %s", body)
+	}
+	if strings.Contains(body, "# 智能日报") || strings.Contains(body, "**开放风险**") {
+		t.Fatalf("rendered email still contains raw Markdown: %s", body)
+	}
+}
+
+func TestRenderHTMLRemovesDuplicateDailyTitle(t *testing.T) {
+	body := renderHTML(Message{Title: "智能日报", Body: "# 今日智能日报\n\n## 一、资产运营\n完整内容。"})
+	if strings.Contains(body, "今日智能日报</h2>") {
+		t.Fatalf("duplicate daily title should be removed: %s", body)
+	}
+	if !strings.Contains(body, "一、资产运营") {
+		t.Fatalf("daily report content was removed with title: %s", body)
+	}
+}

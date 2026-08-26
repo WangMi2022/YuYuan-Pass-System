@@ -48,6 +48,7 @@ func (p anthropicProvider) Complete(ctx context.Context, call providerCall) (pro
 			InputTokens  int64 `json:"input_tokens"`
 			OutputTokens int64 `json:"output_tokens"`
 		} `json:"usage"`
+		StopReason string `json:"stop_reason"`
 	}
 	if err := json.Unmarshal(body, &payload); err != nil {
 		return providerResult{}, &Error{Type: ErrorTypeProvider, Message: "解析模型响应失败", Cause: err}
@@ -62,7 +63,11 @@ func (p anthropicProvider) Complete(ctx context.Context, call providerCall) (pro
 	if content == "" {
 		return providerResult{}, &Error{Type: ErrorTypeProvider, Message: "模型返回内容为空"}
 	}
-	return providerResult{Content: content, Data: content, InputTokens: payload.Usage.InputTokens, OutputTokens: payload.Usage.OutputTokens}, nil
+	return providerResult{
+		Content: content, Data: content,
+		InputTokens: payload.Usage.InputTokens, OutputTokens: payload.Usage.OutputTokens,
+		FinishReason: strings.TrimSpace(payload.StopReason),
+	}, nil
 }
 
 func (p anthropicProvider) Vision(ctx context.Context, call providerCall) (providerResult, error) {

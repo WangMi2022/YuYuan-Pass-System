@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/WangMi2022/mit-assets-admin/server/ai"
 	"github.com/WangMi2022/mit-assets-admin/server/global"
@@ -402,16 +403,56 @@ func (s *smartService) tryModelSummary(ctx context.Context, userID, authorityID 
 	}
 	permissionPath := "/smart/copilot/query"
 	operation := "copilot-query"
+	prompt := "请基于给定的只读业务查询结果，用简洁中文回答用户问题。不得编造数据，不得建议执行写操作。"
+	maxOutputTokens := 500
 	if tool == "smart.daily-report" {
 		permissionPath = "/smartReport/generate"
 		operation = "daily-report-summary"
+		prompt = "请基于给定的只读业务指标生成完整的中文智能日报。使用 Markdown 标题和列表，必须覆盖资产、风险、发票、协同和系统运行五个部分，控制在 600 个汉字以内。不得编造数据，不得省略或输出未完成的句子。"
+		maxOutputTokens = 1200
 	}
 	payload := common.JSONMap{"question": question, "tool": tool, "deterministicAnswer": deterministic, "data": data}
-	response, err := ai.Default.Complete(ctx, ai.CompletionRequest{UserID: userID, AuthorityID: authorityID, Module: "smart", Operation: operation, Prompt: "请基于给定的只读业务查询结果，用简洁中文回答用户问题。不得编造数据，不得建议执行写操作。", Payload: payload, MaxOutputTokens: 500, PermissionPath: permissionPath, PermissionMethod: "POST"})
+	response, err := ai.Default.Complete(ctx, ai.CompletionRequest{UserID: userID, AuthorityID: authorityID, Module: "smart", Operation: operation, Prompt: prompt, Payload: payload, MaxOutputTokens: maxOutputTokens, PermissionPath: permissionPath, PermissionMethod: "POST"})
 	if err != nil {
 		return "", false
 	}
-	return strings.TrimSpace(response.Content), strings.TrimSpace(response.Content) != ""
+	text := strings.TrimSpace(response.Content)
+	if !modelSummaryComplete(tool, text, response, maxOutputTokens) {
+		return "", false
+	}
+	return text, true
+}
+
+func modelSummaryComplete(tool, text string, response ai.CompletionResult, maxOutputTokens int) bool {
+	if text == "" {
+		return false
+	}
+	reason := strings.ToLower(strings.TrimSpace(response.FinishReason))
+	if reason == "length" || reason == "max_tokens" || reason == "max_output_tokens" || reason == "content_filter" {
+		return false
+	}
+	if maxOutputTokens > 0 && response.OutputTokens >= int64(maxOutputTokens) {
+		return false
+	}
+	if tool != "smart.daily-report" {
+		return true
+	}
+	if utf8.RuneCountInString(text) < 160 || strings.Count(text, "**")%2 != 0 {
+		return false
+	}
+	for _, terms := range [][]string{{"资产"}, {"风险"}, {"发票"}, {"协同", "日程", "公告"}, {"系统", "AI"}} {
+		covered := false
+		for _, term := range terms {
+			if strings.Contains(text, term) {
+				covered = true
+				break
+			}
+		}
+		if !covered {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *smartService) Sessions(userID, authorityID uint) ([]model.CopilotSession, error) {
@@ -645,7 +686,37 @@ func (s *smartService) buildReport(ctx context.Context, userID, authorityID uint
 		aiFailureRate = float64(aiFailures) * 100 / float64(aiCalls)
 	}
 	metrics["system"] = common.JSONMap{"aiCalls": aiCalls, "aiFailures": aiFailures, "aiFailureRate": aiFailureRate, "aiAverageDurationMs": aiAverageDurationMS, "aiEstimatedCostMicros": aiCostMicros}
-	summary := fmt.Sprintf("今日资产新增 %d 项、完成流转 %d 单，当前开放风险 %d 条（新增 %d、处理 %d），发票上传 %d 张、确认 %d 张、待复核 %d 张，今日有 %d 项日程，未读公告 %d 条。", assets["created"], operationTotal, open, newRisk, resolved, invoiceToday, confirmedToday, pending, scheduleCount, announcements.UnreadCount)
+	summary := fmt.Sprintf(`# 今日智能日报
+
+## 一、资产运营
+- **今日新增**：%d 项；**今日流转**：%d 单（入库 %d、领用 %d、调拨 %d、归还 %d、维修 %d、报废 %d）
+- **待入库**：%d 项；**长期在用**：%d 项；**维修超期**：%d 项
+- **质保到期**：30 天内 %d 项 / 60 天内 %d 项 / 90 天内 %d 项
+
+## 二、风险概览
+- **当前开放**：%d 条；**今日新增**：%d 条；**今日处理**：%d 条
+
+## 三、发票处理
+- **今日上传**：%d 张；**今日识别**：%d 张；**今日复核**：%d 张；**今日确认**：%d 张
+- **待复核**：%d 张；**低置信度**：%d 张；**识别失败**：%d 张；**识别积压**：%d 张
+- **确认金额**：今日 %.2f 元 / 本周 %.2f 元 / 本月 %.2f 元；Provider 失败率 %.1f%%
+
+## 四、协同事项
+- **今日日程**：%d 项；**未读公告**：%d 条
+
+## 五、系统运行
+- **AI 调用**：%d 次；**失败**：%d 次；**失败率**：%.1f%%；**平均耗时**：%d ms；**估算费用**：%.4f 元`,
+		assets["created"], operationTotal,
+		operationCounts["inbound"], operationCounts["issue"], operationCounts["transfer"], operationCounts["return"], operationCounts["maintenance"], operationCounts["scrap"],
+		assets["pendingInbound"], assets["longTermInUse"], assets["maintenanceOverdue"],
+		assets["warrantyExpiring30d"], assets["warrantyExpiring60d"], assets["warrantyExpiring90d"],
+		open, newRisk, resolved,
+		invoiceToday, recognizedToday, reviewedToday, confirmedToday,
+		pending, lowConfidence, failed, backlog,
+		float64(confirmedTodayCents)/100, float64(confirmedWeekCents)/100, float64(confirmedMonthCents)/100, providerFailureRate,
+		scheduleCount, announcements.UnreadCount,
+		aiCalls, aiFailures, aiFailureRate, aiAverageDurationMS, float64(aiCostMicros)/1_000_000,
+	)
 	return metrics, summary, nil
 }
 

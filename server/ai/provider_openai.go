@@ -47,6 +47,7 @@ func (p openAICompatibleProvider) Complete(ctx context.Context, call providerCal
 			Message struct {
 				Content json.RawMessage `json:"content"`
 			} `json:"message"`
+			FinishReason string `json:"finish_reason"`
 		} `json:"choices"`
 		Usage struct {
 			PromptTokens     int64 `json:"prompt_tokens"`
@@ -63,7 +64,11 @@ func (p openAICompatibleProvider) Complete(ctx context.Context, call providerCal
 	if err != nil {
 		return providerResult{}, err
 	}
-	return providerResult{Content: content, Data: content, InputTokens: payload.Usage.PromptTokens, OutputTokens: payload.Usage.CompletionTokens}, nil
+	return providerResult{
+		Content: content, Data: content,
+		InputTokens: payload.Usage.PromptTokens, OutputTokens: payload.Usage.CompletionTokens,
+		FinishReason: strings.TrimSpace(payload.Choices[0].FinishReason),
+	}, nil
 }
 
 func (p openAICompatibleProvider) Vision(ctx context.Context, call providerCall) (providerResult, error) {

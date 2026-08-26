@@ -73,6 +73,7 @@ type CompletionResult struct {
 	Model        string
 	InputTokens  int64
 	OutputTokens int64
+	FinishReason string
 	DurationMS   int64
 }
 

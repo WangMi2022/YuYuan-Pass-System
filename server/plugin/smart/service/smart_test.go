@@ -187,6 +187,43 @@ func TestNormalizeReportChannels(t *testing.T) {
 	}
 }
 
+func TestModelSummaryCompleteRejectsTruncatedDailyReport(t *testing.T) {
+	complete := `# 今日智能日报
+
+## 一、资产运营
+今日新增资产 2 项，完成流转 1 单，待入库 3 项。
+
+## 二、风险概览
+当前开放风险 4 条，今日已处理 1 条。
+
+## 三、发票处理
+今日上传发票 5 张，确认 2 张，待复核 1 张。
+
+## 四、协同事项
+今日日程 2 项，未读公告 1 条。
+
+## 五、系统运行
+AI 服务运行正常，今日调用 3 次。以上数据均来自只读业务指标快照，日报内容完整结束。`
+	cases := []struct {
+		name     string
+		text     string
+		result   ai.CompletionResult
+		expected bool
+	}{
+		{name: "complete", text: complete, result: ai.CompletionResult{OutputTokens: 600, FinishReason: "stop"}, expected: true},
+		{name: "finish reason length", text: complete, result: ai.CompletionResult{OutputTokens: 500, FinishReason: "length"}},
+		{name: "token limit reached", text: complete, result: ai.CompletionResult{OutputTokens: 1200}},
+		{name: "partial sections", text: "# 今日智能日报\n\n## 一、资产运营\n今日", result: ai.CompletionResult{OutputTokens: 20, FinishReason: "stop"}},
+	}
+	for _, item := range cases {
+		t.Run(item.name, func(t *testing.T) {
+			if actual := modelSummaryComplete("smart.daily-report", item.text, item.result, 1200); actual != item.expected {
+				t.Fatalf("modelSummaryComplete() = %v, want %v", actual, item.expected)
+			}
+		})
+	}
+}
+
 func TestAssetOperationType(t *testing.T) {
 	for _, value := range []string{"inbound", "issue", "transfer", "return", "maintenance", "scrap"} {
 		if got, err := assetOperationType(value); err != nil || got != value {
@@ -346,6 +383,11 @@ func TestGenerateReportIsIdempotentAndUsesBusinessMetrics(t *testing.T) {
 	}
 	if first.ID == 0 || second.ID != first.ID {
 		t.Fatalf("report IDs = (%d, %d), want one idempotent report", first.ID, second.ID)
+	}
+	for _, section := range []string{"资产运营", "风险概览", "发票处理", "协同事项", "系统运行"} {
+		if !strings.Contains(second.Summary, section) {
+			t.Fatalf("deterministic report summary is missing section %q: %s", section, second.Summary)
+		}
 	}
 	var reportCount int64
 	if err := database.Model(&smartModel.SmartDailyReport{}).Count(&reportCount).Error; err != nil || reportCount != 1 {
