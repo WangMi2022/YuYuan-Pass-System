@@ -1,479 +1,115 @@
 <template>
   <Teleport to="body">
-    <section class="leadership-wallboard" aria-labelledby="wallboard-title">
+    <section ref="root" class="leadership-wallboard" :class="{ 'is-still': !motionActive }" role="dialog" aria-modal="true" aria-labelledby="wallboard-title" tabindex="-1" @keydown="onKeydown">
       <header class="wallboard-header">
-        <div class="wallboard-brand">
-          <Logo :size="2.75" />
-          <span>
-            <strong>{{ brandingStore.systemName }}</strong>
-            <small v-if="brandingStore.subtitle">{{ brandingStore.subtitle }}</small>
-          </span>
-        </div>
-
-        <div class="wallboard-heading">
-          <h1 id="wallboard-title">经营与风险驾驶舱</h1>
-          <p>{{ snapshot.dateText }} · 数据范围：当前账号权限</p>
-        </div>
-
+        <div class="wallboard-brand"><Logo :size="2.5" /><span><strong>{{ brandingStore.systemName }}</strong><small>{{ brandingStore.subtitle || 'ASSET CONTROL' }}</small></span></div>
+        <div class="wallboard-heading"><h1 id="wallboard-title">经营与风险驾驶舱</h1><p><i class="live-dot" />资产 · 资金 · 风险 · 协同</p></div>
         <div class="wallboard-controls">
-          <span class="wallboard-freshness"><i />{{ loading ? '数据更新中' : (snapshot.freshnessText || `更新于 ${snapshot.updatedAt || '—'}`) }}</span>
-          <button type="button" :disabled="loading" aria-label="刷新大屏数据" @click="$emit('refresh')">
-            <el-icon><Refresh /></el-icon><span>刷新</span>
-          </button>
-          <button type="button" :aria-label="fullscreen ? '退出浏览器全屏' : '进入浏览器全屏'" @click="toggleFullscreen">
-            <el-icon><FullScreen /></el-icon><span>{{ fullscreen ? '窗口' : '全屏' }}</span>
-          </button>
-          <button type="button" aria-label="退出会议室大屏" @click="exitWallboard">
-            <el-icon><Close /></el-icon><span>退出</span>
-          </button>
+          <button ref="themeButton" type="button" :aria-expanded="themeOpen" @click="themeOpen = !themeOpen"><el-icon><Brush /></el-icon>主题</button>
+          <button type="button" :aria-pressed="!motionEnabled" @click="motionEnabled = !motionEnabled"><el-icon><VideoPause v-if="motionEnabled" /><VideoPlay v-else /></el-icon>{{ motionEnabled ? '暂停' : '播放' }}</button>
+          <button type="button" :disabled="loading" @click="$emit('refresh')"><el-icon :class="{ 'is-spinning': loading }"><Refresh /></el-icon>刷新</button>
+          <button type="button" @click="toggleFullscreen"><el-icon><FullScreen /></el-icon>{{ fullscreen ? '窗口' : '全屏' }}</button>
+          <button type="button" @click="exitWallboard"><el-icon><Close /></el-icon>退出</button>
         </div>
       </header>
+      <div v-if="themeOpen" ref="appearance" class="wallboard-appearance">
+        <div class="appearance-heading"><strong>大屏外观</strong><button type="button" aria-label="关闭外观设置" @click="closeAppearance"><el-icon><Close /></el-icon></button></div>
+        <p>与系统主题同步</p>
+        <div class="appearance-modes"><button v-for="mode in themeModes" :key="mode.value" type="button" :aria-pressed="appStore.config.darkMode === mode.value" @click="appStore.toggleDarkMode(mode.value)">{{ mode.label }}</button></div>
+        <div class="appearance-colors"><button v-for="color in themeColors" :key="color.value" type="button" :style="{ background: color.value }" :aria-label="`${color.label}主题色`" :aria-pressed="appStore.config.primaryColor.toLowerCase() === color.value" @click="appStore.togglePrimaryColor(color.value)"><el-icon v-if="appStore.config.primaryColor.toLowerCase() === color.value"><Check /></el-icon></button><input type="color" :value="appStore.config.primaryColor" aria-label="自定义主题色" @input="appStore.togglePrimaryColor($event.target.value)" /></div>
+      </div>
+      <div class="wallboard-context"><span>{{ dateText }} <time>{{ timeText }}</time></span><span class="wallboard-freshness" :class="{ 'is-stale': hasFailedModules }"><i />{{ loading ? '正在同步数据' : (snapshot.freshnessText || '等待数据更新') }}<small>当前账号权限范围</small></span></div>
 
       <main class="wallboard-content" :aria-busy="loading">
-        <section class="wallboard-kpis" aria-label="经营关键指标">
-          <p v-if="!kpis.length" class="wallboard-kpis-empty">当前账号的统计数据暂不可用</p>
-          <article v-for="item in kpis" :key="item.label" class="wallboard-kpi" :class="`wallboard-kpi--${item.tone}`">
-            <span class="wallboard-kpi-label"><i aria-hidden="true" />{{ item.label }}</span>
-            <strong>{{ item.value }}</strong>
-            <small>{{ item.hint }}</small>
-          </article>
-        </section>
-
-        <section class="wallboard-grid" :class="{ 'wallboard-grid--flexible': !fullWallboardLayout }">
-          <article v-if="snapshot.access?.assets" class="wallboard-panel asset-overview">
-            <header>
-              <div><span>资产经营</span><h2>资产价值与状态</h2></div>
-              <small>{{ moduleStatusText('assets', `${formatNumber(snapshot.asset?.totalQuantity)} 件实物`) }}</small>
-            </header>
-            <template v-if="snapshot.moduleLoaded?.assets">
-            <div class="asset-value-line">
-              <div><span>账面原值</span><strong>{{ formatCompactCurrency(snapshot.asset?.originalValue) }}</strong></div>
-              <div><span>当前估值</span><strong>{{ formatCompactCurrency(snapshot.asset?.currentValue) }}</strong></div>
-              <div><span>资产健康度</span><strong>{{ snapshot.healthRate || '0.0' }}%</strong></div>
-            </div>
-            <div class="asset-status-wall">
-              <div v-for="item in assetStatuses" :key="item.key" class="asset-status-item">
-                <span><i :class="`tone-${item.tone}`" />{{ item.label }}</span>
-                <div><i :class="`tone-${item.tone}`" :style="{ width: `${item.ratio}%` }" /></div>
-                <strong>{{ formatNumber(item.quantity) }}</strong>
-              </div>
-            </div>
-            <footer>
-              <span v-for="item in topLocations" :key="item.location">
-                <small>{{ item.location || '未标注位置' }}</small>
-                <strong>{{ formatNumber(item.quantity) }} 件</strong>
-              </span>
-              <span v-if="!topLocations.length" class="wallboard-empty">暂无位置分布数据</span>
-            </footer>
-            </template>
-            <div v-else class="wallboard-empty">资产数据暂不可用</div>
-          </article>
-
-          <article v-if="snapshot.access?.risk" class="wallboard-panel risk-overview">
-            <header>
-              <div><span>风险闭环</span><h2>异常态势</h2></div>
-              <small>{{ riskSummary }}</small>
-            </header>
-            <template v-if="snapshot.moduleLoaded?.risk">
-            <div class="risk-summary-grid">
-              <div><span>开放风险</span><strong>{{ formatNumber(snapshot.risk?.totalOpen) }}</strong></div>
-              <div class="is-danger"><span>高风险</span><strong>{{ formatNumber(snapshot.risk?.highOpen) }}</strong></div>
-              <div><span>今日新增</span><strong>{{ formatNumber(snapshot.risk?.todayNew) }}</strong></div>
-              <div class="is-warning"><span>超期未结</span><strong>{{ formatNumber(snapshot.risk?.overdue) }}</strong></div>
-            </div>
-            <div v-if="riskTrend.length" class="risk-trend" aria-label="近期风险新增与关闭趋势">
-              <div v-for="item in riskTrend" :key="item.date" class="risk-trend-item">
-                <div>
-                  <i class="risk-new" :style="{ height: `${item.newRatio}%` }" />
-                  <i class="risk-resolved" :style="{ height: `${item.resolvedRatio}%` }" />
-                </div>
-                <small>{{ String(item.date || '').slice(5) }}</small>
-              </div>
-            </div>
-            <div v-else class="wallboard-empty">暂无风险趋势数据</div>
-            <footer class="trend-legend"><span><i class="risk-new" />新增</span><span><i class="risk-resolved" />关闭</span></footer>
-            </template>
-            <div v-else class="wallboard-empty">风险数据暂不可用</div>
-          </article>
-
-          <article v-if="snapshot.access?.invoices" class="wallboard-panel invoice-overview">
-            <header>
-              <div><span>资金流水</span><h2>近六个月确认金额</h2></div>
-              <small>{{ moduleStatusText('invoices', `${formatNumber(snapshot.invoice?.confirmedCount)} 张已确认`) }}</small>
-            </header>
-            <template v-if="snapshot.moduleLoaded?.invoices">
-            <div class="invoice-wall-layout">
-              <div class="invoice-total-wall">
-                <span>价税合计</span>
-                <strong>{{ centsToCompactCurrency(snapshot.invoice?.totalCents) }}</strong>
-                <small>待核 {{ formatNumber(snapshot.invoice?.pendingCount) }} · 识别失败 {{ formatNumber(snapshot.invoice?.failedCount) }}</small>
-              </div>
-              <div v-if="invoiceTrend.length" class="invoice-wall-trend" aria-label="发票确认金额趋势">
-                <div v-for="item in invoiceTrend" :key="item.month">
-                  <span>{{ centsToCompactCurrency(item.totalCents) }}</span>
-                  <i :style="{ height: `${item.ratio}%` }" />
-                  <small>{{ String(item.month || '').slice(5) }}月</small>
-                </div>
-              </div>
-              <div v-else class="wallboard-empty">确认发票后将生成金额趋势</div>
-            </div>
-            </template>
-            <div v-else class="wallboard-empty">发票数据暂不可用</div>
-          </article>
-
-          <aside v-if="hasFocusAccess" class="wallboard-panel focus-overview">
-            <header>
-              <div><span>今日关注</span><h2>待办与运行状态</h2></div>
-            </header>
-            <section v-if="hasPendingAccess" class="focus-queue">
-              <div><span>全部待处理</span><strong>{{ pendingAvailable ? formatNumber(snapshot.pendingTotal) : '—' }}</strong></div>
-              <div v-if="snapshot.access?.assetOperations"><span>资产业务</span><strong>{{ snapshot.moduleLoaded?.assetDrafts ? formatNumber(snapshot.assetDraftTotal) : '—' }}</strong></div>
-              <div v-if="snapshot.access?.invoices"><span>发票待核</span><strong>{{ snapshot.moduleLoaded?.invoices ? formatNumber(snapshot.invoice?.pendingCount) : '—' }}</strong></div>
-            </section>
-            <p v-if="pendingStale" class="focus-stale-note">{{ pendingFreshnessText }}</p>
-            <section v-if="snapshot.access?.calendar" class="focus-schedules" aria-label="今日日程">
-              <h3>今日日程 <small v-if="snapshot.moduleFailed?.calendar && snapshot.moduleLoaded?.calendar">{{ moduleFreshnessShort('calendar') }}</small></h3>
-              <div v-if="snapshot.moduleLoaded?.calendar && snapshot.schedules?.length">
-                <p v-for="item in snapshot.schedules.slice(0, 4)" :key="item.id">
-                  <time>{{ item.time }}</time><span>{{ item.title }}</span>
-                </p>
-              </div>
-              <p v-else-if="snapshot.moduleLoaded?.calendar" class="wallboard-empty">今日暂无日程</p>
-              <p v-else class="wallboard-empty">日程数据暂不可用</p>
-            </section>
-            <section v-if="snapshot.access?.monitor" class="focus-system" aria-label="服务器运行状态">
-              <template v-if="snapshot.moduleLoaded?.monitor">
-              <div class="system-heading">
-                <span><i :class="`tone-${snapshot.systemHealth?.tone || 'success'}`" />系统{{ snapshot.systemHealth?.label || '运行正常' }}</span>
-                <small v-if="snapshot.moduleFailed?.monitor">{{ moduleFreshnessShort('monitor') }}</small>
-              </div>
-              <dl>
-                <div><dt>CPU</dt><dd>{{ percent(snapshot.systemUsage?.cpu) }}</dd></div>
-                <div><dt>内存</dt><dd>{{ percent(snapshot.systemUsage?.ram) }}</dd></div>
-                <div><dt>磁盘</dt><dd>{{ percent(snapshot.systemUsage?.disk) }}</dd></div>
-              </dl>
-              </template>
-              <div v-else class="wallboard-empty">监控数据暂不可用</div>
-            </section>
-          </aside>
+        <section class="wallboard-kpis" aria-label="经营关键指标"><p v-if="!kpis.length" class="wallboard-empty">{{ loading ? '正在加载经营指标…' : '当前账号的统计数据暂不可用' }}</p><article v-for="item in kpis" :key="item.key" class="wallboard-kpi" :class="`tone-${item.tone}`"><div class="kpi-label"><span>{{ item.label }}</span><el-icon><component :is="item.icon" /></el-icon></div><strong><AnimatedValue :value="item.value" :format="item.format" :animated="motionActive" /><small v-if="item.unit">{{ item.unit }}</small></strong><span class="kpi-hint">{{ item.hint }}</span></article></section>
+        <section class="wallboard-grid" :class="{ 'wallboard-grid--flexible': !fullLayout }">
+          <article v-if="snapshot.access?.assets" class="wallboard-panel asset-overview"><header><h2><el-icon><Box /></el-icon>资产状态分布</h2><small>{{ moduleStatusText('assets', `${formatNumber(snapshot.asset?.categoryCount)} 个分类`) }}</small></header><template v-if="snapshot.moduleLoaded?.assets"><div class="asset-value-line"><span>资产健康度<small>非维修资产占比</small></span><strong>{{ percent(snapshot.healthRate, 1) }}</strong></div><div class="asset-status-wall"><div v-for="item in statuses" :key="item.key" class="asset-status-item" :class="`tone-${item.tone}`"><span><i />{{ item.label }}</span><strong>{{ formatNumber(item.quantity) }}<small>件</small></strong><small>{{ item.ratio.toFixed(1) }}%</small><div class="data-track"><i :style="{ transform: `scaleX(${item.ratio / 100})` }" /></div></div></div><footer class="panel-note">{{ formatNumber(snapshot.asset?.assetKinds) }} 份资产档案<span>按实物数量统计</span></footer></template><p v-else class="wallboard-empty">资产数据暂不可用，请刷新重试</p></article>
+          <article v-if="snapshot.access?.assets" class="wallboard-panel asset-panorama"><header><h2>资产运行全景</h2><small>实物资产状态环</small></header><template v-if="snapshot.moduleLoaded?.assets"><div class="panorama-stage"><AssetOrbit :segments="statuses" :palette="palette" :animated="motionActive" /><div class="panorama-total"><span>纳管实物资产</span><strong><AnimatedValue :value="finiteNumber(snapshot.asset?.totalQuantity)" :animated="motionActive" /></strong><small>件</small></div><div class="orbit-caption"><i />环段占比对应各状态资产数量</div></div><footer class="panorama-metrics"><div><span>在用占比</span><strong>{{ inUseRate.toFixed(1) }}<small>%</small></strong></div><div><span>当前估值</span><strong>{{ formatCompactCurrency(snapshot.asset?.currentValue) }}</strong></div><div><span>账面价值保留率</span><strong>{{ valueRetention == null ? '—' : `${valueRetention.toFixed(1)}%` }}</strong></div></footer></template><p v-else class="wallboard-empty">资产数据加载后展示全景</p></article>
+          <article v-if="snapshot.access?.risk" class="wallboard-panel risk-overview"><header><h2><el-icon><Warning /></el-icon>风险态势</h2><small>{{ moduleStatusText('risk', '近 10 日') }}</small></header><template v-if="snapshot.moduleLoaded?.risk"><div class="risk-summary"><div class="tone-danger"><span>高风险</span><strong>{{ formatNumber(snapshot.risk?.highOpen) }}</strong></div><div class="tone-warning"><span>超期未结</span><strong>{{ formatNumber(snapshot.risk?.overdue) }}</strong></div><div><span>今日新增</span><strong>{{ formatNumber(snapshot.risk?.todayNew) }}</strong></div></div><div class="chart-legend"><span class="tone-danger"><i />新增</span><span class="tone-success"><i />关闭</span></div><div class="risk-chart"><WallboardChart v-if="riskTrend.length" :option="riskOption" :animated="motionActive" label="近十日风险新增与关闭数量趋势" /><p v-else class="wallboard-empty">暂无风险趋势</p></div><div class="risk-categories"><span v-for="item in riskCategories" :key="item.key">{{ item.label }}<b>{{ formatNumber(item.count) }}</b></span><span v-if="!riskCategories.length">暂无风险分类数据</span></div></template><p v-else class="wallboard-empty">风险数据暂不可用，请刷新重试</p></article>
+          <article v-if="snapshot.access?.assets" class="wallboard-panel location-overview"><header><h2><el-icon><Location /></el-icon>资产位置分布</h2><small>数量前五</small></header><div v-if="snapshot.moduleLoaded?.assets && locations.length" class="location-list"><div v-for="(item, index) in locations" :key="item.location" class="location-row"><span class="location-rank">{{ String(index + 1).padStart(2, '0') }}</span><div><span>{{ item.location }}</span><div class="data-track"><i :style="{ transform: `scaleX(${item.ratio / 100})` }" /></div></div><strong>{{ formatNumber(item.quantity) }}<small>件</small></strong></div></div><p v-else class="wallboard-empty">{{ snapshot.moduleLoaded?.assets ? '为资产标注位置后展示分布' : '位置数据暂不可用' }}</p><footer class="panel-note">位置占比以纳管实物总量为基数</footer></article>
+          <article v-if="snapshot.access?.invoices" class="wallboard-panel invoice-overview"><header><h2><el-icon><TrendCharts /></el-icon>资金流水趋势</h2><small>{{ moduleStatusText('invoices', '近六个月 · 元') }}</small></header><template v-if="snapshot.moduleLoaded?.invoices"><div class="invoice-summary"><div><span>累计确认金额</span><strong>{{ centsToCompactCurrency(snapshot.invoice?.totalCents) }}</strong></div><span>{{ formatNumber(snapshot.invoice?.confirmedCount) }} 张已确认<small>价税合计</small></span></div><div class="invoice-chart"><WallboardChart v-if="invoiceTrend.length" :option="invoiceOption" :animated="motionActive" label="近六个月已确认发票价税合计，单位元" /><p v-else class="wallboard-empty">确认发票后将生成金额趋势</p></div><footer class="panel-note"><span>待核对 <b>{{ formatNumber(snapshot.invoice?.pendingCount) }}</b> 张</span><span>识别失败 <b>{{ formatNumber(snapshot.invoice?.failedCount) }}</b> 张</span></footer></template><p v-else class="wallboard-empty">发票数据暂不可用，请刷新重试</p></article>
+          <aside v-if="hasFocusAccess" class="wallboard-panel focus-overview"><header><h2><el-icon><Calendar /></el-icon>今日协同与运行</h2><small>{{ schedulePage + 1 }}/{{ schedulePageCount }} 日程页</small></header><div v-if="hasPendingAccess" class="focus-queue"><span>待处理 <strong>{{ pendingAvailable ? formatNumber(snapshot.pendingTotal) : '—' }}</strong></span><small v-if="snapshot.access?.assetOperations">资产业务 {{ snapshot.moduleLoaded?.assetDrafts ? formatNumber(snapshot.assetDraftTotal) : '—' }}</small><small v-if="snapshot.access?.invoices">发票待核 {{ snapshot.moduleLoaded?.invoices ? formatNumber(snapshot.invoice?.pendingCount) : '—' }}</small></div><p v-if="pendingStale" class="stale-note">部分待办为上次成功数据</p><section v-if="snapshot.access?.calendar" class="focus-schedules"><div class="schedule-heading"><h3>今日日程</h3><span v-if="schedulePageCount > 1"><button type="button" aria-label="上一页日程" @click="changeSchedule(-1)"><el-icon><ArrowLeft /></el-icon></button><button type="button" aria-label="下一页日程" @click="changeSchedule(1)"><el-icon><ArrowRight /></el-icon></button></span></div><div v-if="snapshot.moduleLoaded?.calendar && visibleSchedules.length" :key="schedulePage" class="schedule-items"><p v-for="item in visibleSchedules" :key="item.id || item.ID || `${item.time}-${item.title}`"><time>{{ item.time || '全天' }}</time><span>{{ item.title }}</span></p></div><p v-else class="schedule-empty">{{ snapshot.moduleLoaded?.calendar ? '今日暂无日程，保持从容' : '日程数据暂不可用' }}</p></section><section v-if="snapshot.access?.monitor" class="focus-system"><template v-if="snapshot.moduleLoaded?.monitor"><h3 :class="`tone-${snapshot.systemHealth?.tone || 'success'}`"><i />系统{{ snapshot.systemHealth?.label || '运行正常' }}<small v-if="snapshot.moduleFailed?.monitor">上次成功数据</small></h3><div class="system-meters"><div v-for="item in systemMeters" :key="item.key" :class="`tone-${item.tone}`"><span>{{ item.label }}<strong>{{ percent(item.value) }}</strong></span><div class="data-track"><i :style="{ transform: `scaleX(${item.value / 100})` }" /></div></div></div></template><p v-else class="schedule-empty">监控数据暂不可用</p></section></aside>
         </section>
       </main>
+      <footer class="wallboard-footer"><div class="attention-feed" @mouseenter="feedHovered = true" @mouseleave="feedHovered = false" @focusin="feedHovered = true" @focusout="feedHovered = false"><span class="feed-label" :class="`tone-${activeAttention.tone}`"><i />{{ activeAttention.label }}</span><p :key="activeAttention.key">{{ activeAttention.text }}</p><span class="mini-controls" v-if="attention.length > 1"><small>{{ attentionIndex + 1 }}/{{ attention.length }}</small><button type="button" aria-label="上一条动态" @click="changeAttention(-1)"><el-icon><ArrowLeft /></el-icon></button><button type="button" aria-label="下一条动态" @click="changeAttention(1)"><el-icon><ArrowRight /></el-icon></button></span></div><span class="refresh-cadence"><i :class="{ 'is-syncing': loading }" />每 60 秒自动刷新</span></footer>
     </section>
   </Teleport>
 </template>
 
 <script setup>
-import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref } from 'vue'
-import { Close, FullScreen, Refresh } from '@element-plus/icons-vue'
+import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
+import { ArrowLeft, ArrowRight, Box, Brush, Calendar, Check, Close, Coin, FullScreen, List, Location, Refresh, Tickets, TrendCharts, VideoPause, VideoPlay, Warning } from '@element-plus/icons-vue'
+import { useDocumentVisibility, usePreferredReducedMotion } from '@vueuse/core'
 import Logo from '@/components/logo/index.vue'
-import { useBrandingStore } from '@/pinia'
+import { useAppStore, useBrandingStore } from '@/pinia'
+import { chartTheme } from '@/components/charts/theme'
 import { formatCompactCurrency, formatNumber } from '@/utils/format'
-
-const props = defineProps({
-  snapshot: { type: Object, required: true },
-  loading: { type: Boolean, default: false }
-})
+import AssetOrbit from './wallboard/AssetOrbit.vue'
+import AnimatedValue from './wallboard/AnimatedValue.vue'
+import WallboardChart from './wallboard/WallboardChart.vue'
+import { assetSegments, attentionItems, finiteNumber, rankedLocations, share } from './wallboard/data'
+const props = defineProps({ snapshot: { type: Object, required: true }, loading: { type: Boolean, default: false } })
 const emit = defineEmits(['exit', 'refresh'])
-const brandingStore = useBrandingStore()
-const fullscreen = ref(typeof document !== 'undefined' && Boolean(document.fullscreenElement))
-
-const assetStatuses = computed(() => props.snapshot.assetStatusRows || [])
-const topLocations = computed(() => (props.snapshot.asset?.locationSummary || []).slice(0, 4))
-const invoiceTrend = computed(() => props.snapshot.invoiceTrend || [])
-const riskTrend = computed(() => {
-  const values = (props.snapshot.risk?.trend || []).slice(-10)
-  const maximum = Math.max(1, ...values.flatMap((item) => [Number(item.new || 0), Number(item.resolved || 0)]))
-  return values.map((item) => ({
-    ...item,
-    newRatio: Math.max(Number(item.new || 0) ? 8 : 0, Number(item.new || 0) / maximum * 100),
-    resolvedRatio: Math.max(Number(item.resolved || 0) ? 8 : 0, Number(item.resolved || 0) / maximum * 100)
-  }))
-})
-const riskSummary = computed(() => moduleStatusText('risk', '实时风险扫描结果'))
-const hasPendingAccess = computed(() => Boolean(props.snapshot.access?.assetOperations || props.snapshot.access?.invoices))
-const hasFocusAccess = computed(() => Boolean(hasPendingAccess.value || props.snapshot.access?.calendar || props.snapshot.access?.monitor))
-const fullWallboardLayout = computed(() => Boolean(
-  props.snapshot.access?.assets && props.snapshot.access?.risk && props.snapshot.access?.invoices && hasFocusAccess.value
-))
-const pendingAvailable = computed(() => Boolean(
-  (props.snapshot.access?.assetOperations && props.snapshot.moduleLoaded?.assetDrafts) ||
-  (props.snapshot.access?.invoices && props.snapshot.moduleLoaded?.invoices)
-))
-const pendingStale = computed(() => Boolean(
-  (props.snapshot.access?.assetOperations && props.snapshot.moduleLoaded?.assetDrafts && props.snapshot.moduleFailed?.assetDrafts) ||
-  (props.snapshot.access?.invoices && props.snapshot.moduleLoaded?.invoices && props.snapshot.moduleFailed?.invoices)
-))
-const pendingFreshnessText = computed(() => {
-  const times = ['assetDrafts', 'invoices']
-    .filter((key) => props.snapshot.access?.[key === 'assetDrafts' ? 'assetOperations' : 'invoices'] && props.snapshot.moduleFailed?.[key])
-    .map((key) => props.snapshot.moduleUpdatedAt?.[key])
-    .filter(Boolean)
-  return times.length ? `部分待办显示 ${times.sort().at(-1)} 的上次成功数据` : '部分待办显示上次成功数据'
-})
-const kpis = computed(() => {
-  const items = []
-  if (props.snapshot.access?.assets && props.snapshot.moduleLoaded?.assets) {
-    items.push({ label: '资产账面原值', value: formatCompactCurrency(props.snapshot.asset?.originalValue), hint: hintWithFreshness('assets', `${formatNumber(props.snapshot.asset?.totalQuantity)} 件实物资产`), tone: 'primary' })
-  }
-  if (props.snapshot.access?.risk && props.snapshot.moduleLoaded?.risk) {
-    items.push({ label: '开放风险', value: `${formatNumber(props.snapshot.risk?.totalOpen)} 项`, hint: hintWithFreshness('risk', `高风险 ${formatNumber(props.snapshot.risk?.highOpen)} 项`), tone: Number(props.snapshot.risk?.highOpen) ? 'danger' : 'success' })
-  }
-  if (props.snapshot.access?.invoices && props.snapshot.moduleLoaded?.invoices) {
-    items.push({ label: '已确认流水', value: centsToCompactCurrency(props.snapshot.invoice?.totalCents), hint: hintWithFreshness('invoices', `${formatNumber(props.snapshot.invoice?.confirmedCount)} 张正式发票`), tone: 'info' })
-  }
-  if (pendingAvailable.value) {
-    items.push({ label: '待处理事项', value: `${formatNumber(props.snapshot.pendingTotal)} 项`, hint: `${hasPendingAccess.value ? '当前权限内处理队列' : '处理队列'}${pendingStale.value ? ' · 上次成功数据' : ''}`, tone: Number(props.snapshot.pendingTotal) ? 'warning' : 'success' })
-  }
-  return items
-})
-
-function centsToCompactCurrency(value) {
-  return formatCompactCurrency(Number(value || 0) / 100)
-}
-function percent(value) {
-  return `${Math.min(100, Math.max(0, Number(value || 0))).toFixed(0)}%`
-}
-function moduleFreshnessShort(key) {
-  return props.snapshot.moduleUpdatedAt?.[key] ? `上次成功 ${props.snapshot.moduleUpdatedAt[key]}` : '上次成功数据'
-}
-function moduleStatusText(key, successText) {
-  if (!props.snapshot.moduleLoaded?.[key]) return '数据暂不可用'
-  return props.snapshot.moduleFailed?.[key] ? moduleFreshnessShort(key) : successText
-}
-function hintWithFreshness(key, text) {
-  return props.snapshot.moduleFailed?.[key] ? `${text} · 上次成功数据` : text
-}
-function onFullscreenChange() {
-  fullscreen.value = Boolean(document.fullscreenElement)
-}
-async function toggleFullscreen() {
-  try {
-    if (document.fullscreenElement && document.exitFullscreen) await document.exitFullscreen()
-    else if (document.documentElement.requestFullscreen) await document.documentElement.requestFullscreen()
-  } catch {
-    // The wallboard remains usable as a viewport-filling overlay.
-  }
-}
-async function exitWallboard() {
-  if (document.fullscreenElement && document.exitFullscreen) {
-    try { await document.exitFullscreen() } catch { /* ignore browser refusal */ }
-  }
-  emit('exit')
-}
-
-function activateWallboard() {
-  if (typeof document === 'undefined') return
-  document.body.classList.add('wallboard-open')
-  document.addEventListener('fullscreenchange', onFullscreenChange)
-  onFullscreenChange()
-}
-function deactivateWallboard() {
-  if (typeof document === 'undefined') return
-  document.body.classList.remove('wallboard-open')
-  document.removeEventListener('fullscreenchange', onFullscreenChange)
-  if (document.fullscreenElement && document.exitFullscreen) {
-    document.exitFullscreen().catch(() => {})
-  }
-}
-
-onMounted(activateWallboard)
-onActivated(activateWallboard)
-onDeactivated(deactivateWallboard)
-onBeforeUnmount(deactivateWallboard)
+const appStore = useAppStore(); const brandingStore = useBrandingStore(); const root = ref(null); const appearance = ref(null); const themeButton = ref(null)
+const themeOpen = ref(false); const fullscreen = ref(false); const motionEnabled = ref(true); const active = ref(true); const now = ref(new Date()); const palette = ref(chartTheme()); const feedHovered = ref(false); const attentionIndex = ref(0); const schedulePage = ref(0)
+const visibility = useDocumentVisibility(); const motionPreference = usePreferredReducedMotion(); const motionActive = computed(() => motionEnabled.value && motionPreference.value !== 'reduce' && visibility.value === 'visible' && active.value)
+const dateText = computed(() => now.value.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })); const timeText = computed(() => now.value.toLocaleTimeString('zh-CN', { hour12: false }))
+const themeModes = [{ value: 'light', label: '浅色' }, { value: 'dark', label: '深色' }, { value: 'auto', label: '跟随系统' }]; const themeColors = [{ value: '#6366f1', label: '靛蓝' }, { value: '#3b82f6', label: '蔚蓝' }, { value: '#14b8a6', label: '孔雀' }, { value: '#10b981', label: '翡翠' }, { value: '#f59e0b', label: '琥珀' }, { value: '#f43f5e', label: '绯红' }]
+const statuses = computed(() => assetSegments(props.snapshot.assetStatusRows, props.snapshot.asset?.totalQuantity)); const locations = computed(() => rankedLocations(props.snapshot.asset?.locationSummary, props.snapshot.asset?.totalQuantity)); const inUseRate = computed(() => share(statuses.value.find((item) => item.key === 'in_use')?.quantity, props.snapshot.asset?.totalQuantity)); const valueRetention = computed(() => finiteNumber(props.snapshot.asset?.originalValue) > 0 ? finiteNumber(props.snapshot.asset?.currentValue) / finiteNumber(props.snapshot.asset.originalValue) * 100 : null)
+const riskTrend = computed(() => (props.snapshot.risk?.trend || []).slice(-10)); const riskCategories = computed(() => [...(props.snapshot.risk?.byCategory || [])].sort((a, b) => finiteNumber(b.count) - finiteNumber(a.count)).slice(0, 3)); const invoiceTrend = computed(() => (props.snapshot.invoiceTrend || []).slice(-6))
+const hasPendingAccess = computed(() => Boolean(props.snapshot.access?.assetOperations || props.snapshot.access?.invoices)); const hasFocusAccess = computed(() => Boolean(hasPendingAccess.value || props.snapshot.access?.calendar || props.snapshot.access?.monitor)); const fullLayout = computed(() => props.snapshot.access?.assets && props.snapshot.access?.risk && props.snapshot.access?.invoices && hasFocusAccess.value); const pendingAvailable = computed(() => (props.snapshot.access?.assetOperations && props.snapshot.moduleLoaded?.assetDrafts) || (props.snapshot.access?.invoices && props.snapshot.moduleLoaded?.invoices)); const pendingStale = computed(() => (props.snapshot.access?.assetOperations && props.snapshot.moduleFailed?.assetDrafts) || (props.snapshot.access?.invoices && props.snapshot.moduleFailed?.invoices)); const hasFailedModules = computed(() => Object.entries(props.snapshot.moduleFailed || {}).some(([key, failed]) => failed && props.snapshot.access?.[key === 'assetDrafts' ? 'assetOperations' : key]))
+function integerFormat(value) { return formatNumber(Math.round(value)) }
+function centsToCompactCurrency(value) { return formatCompactCurrency(finiteNumber(value) / 100) }
+function percent(value, digits = 0) { return `${Math.min(100, Math.max(0, finiteNumber(value))).toFixed(digits)}%` }
+function moduleStatusText(key, successText) { if (!props.snapshot.moduleLoaded?.[key]) return '数据暂不可用'; return props.snapshot.moduleFailed?.[key] ? `上次成功 ${props.snapshot.moduleUpdatedAt?.[key] || ''}`.trim() : successText }
+function hintWithFreshness(key, text) { return props.snapshot.moduleFailed?.[key] ? `${text} · 上次成功数据` : text }
+const kpis = computed(() => { const items = []; if (props.snapshot.access?.assets && props.snapshot.moduleLoaded?.assets) items.push({ key: 'assets', label: '资产账面原值', value: finiteNumber(props.snapshot.asset?.originalValue), format: formatCompactCurrency, hint: hintWithFreshness('assets', `${formatNumber(props.snapshot.asset?.totalQuantity)} 件实物资产`), tone: 'primary', icon: Coin }); if (props.snapshot.access?.risk && props.snapshot.moduleLoaded?.risk) items.push({ key: 'risk', label: '开放风险', value: finiteNumber(props.snapshot.risk?.totalOpen), format: integerFormat, unit: '项', hint: hintWithFreshness('risk', `高风险 ${formatNumber(props.snapshot.risk?.highOpen)} 项 · 超期 ${formatNumber(props.snapshot.risk?.overdue)} 项`), tone: finiteNumber(props.snapshot.risk?.highOpen) ? 'danger' : 'success', icon: Warning }); if (props.snapshot.access?.invoices && props.snapshot.moduleLoaded?.invoices) items.push({ key: 'invoices', label: '已确认流水', value: finiteNumber(props.snapshot.invoice?.totalCents) / 100, format: formatCompactCurrency, hint: hintWithFreshness('invoices', `${formatNumber(props.snapshot.invoice?.confirmedCount)} 张正式发票 · 价税合计`), tone: 'info', icon: Tickets }); if (pendingAvailable.value) items.push({ key: 'pending', label: '待处理事项', value: finiteNumber(props.snapshot.pendingTotal), format: integerFormat, unit: '项', hint: pendingStale.value ? '部分待办显示上次成功数据' : '当前权限内的业务处理队列', tone: finiteNumber(props.snapshot.pendingTotal) ? 'warning' : 'success', icon: List }); return items })
+const systemMeters = computed(() => [{ key: 'cpu', label: 'CPU' }, { key: 'ram', label: '内存' }, { key: 'disk', label: '磁盘' }].map((item) => { const value = Math.min(100, Math.max(0, finiteNumber(props.snapshot.systemUsage?.[item.key]))); return { ...item, value, tone: value >= 90 ? 'danger' : value >= 75 ? 'warning' : 'primary' } }))
+const attention = computed(() => attentionItems(props.snapshot))
+const activeAttention = computed(() => attention.value[attentionIndex.value] || attention.value[0])
+const schedulePageCount = computed(() => Math.max(1, Math.ceil((props.snapshot.moduleLoaded?.calendar ? props.snapshot.schedules?.length || 0 : 0) / 2)))
+const visibleSchedules = computed(() => (props.snapshot.schedules || []).slice(schedulePage.value * 2, schedulePage.value * 2 + 2))
+watch(() => attention.value.length, () => { attentionIndex.value = 0 })
+watch(schedulePageCount, () => { schedulePage.value = 0 })
+function changeAttention(step) { attentionIndex.value = (attentionIndex.value + step + attention.value.length) % attention.value.length }
+function changeSchedule(step) { schedulePage.value = (schedulePage.value + step + schedulePageCount.value) % schedulePageCount.value }
+function baseChart() { const colors = palette.value; return { textStyle: { fontFamily: '"Segoe UI", "Microsoft YaHei", sans-serif', color: colors.text }, grid: { left: 12, right: 18, top: 16, bottom: 8, containLabel: true }, tooltip: { trigger: 'axis', confine: true, backgroundColor: colors.surface, borderColor: colors.grid, textStyle: { color: colors.text, fontSize: 13 } }, xAxis: { type: 'category', axisLine: { lineStyle: { color: colors.grid } }, axisTick: { show: false }, axisLabel: { color: colors.muted, fontSize: 11, hideOverlap: true } }, yAxis: { type: 'value', minInterval: 1, splitNumber: 3, axisLabel: { color: colors.muted, fontSize: 11 }, splitLine: { lineStyle: { color: colors.grid, type: 'dashed' } } } } }
+const riskOption = computed(() => { const option = baseChart(); option.xAxis.data = riskTrend.value.map((item) => String(item.date || '').slice(5)); option.series = [{ name: '新增', type: 'bar', barMaxWidth: 10, itemStyle: { color: palette.value.danger, borderRadius: [3, 3, 0, 0] }, data: riskTrend.value.map((item) => finiteNumber(item.new)) }, { name: '关闭', type: 'line', symbol: 'circle', symbolSize: 5, lineStyle: { width: 2 }, itemStyle: { color: palette.value.success }, data: riskTrend.value.map((item) => finiteNumber(item.resolved)) }]; return option })
+const invoiceOption = computed(() => { const option = baseChart(); option.grid.top = 27; option.xAxis.data = invoiceTrend.value.map((item) => `${String(item.month || '').slice(5)}月`); option.yAxis.axisLabel.formatter = (value) => Math.abs(value) >= 10000 ? `${+(value / 10000).toFixed(1)}万` : value; option.series = [{ name: '确认金额', type: 'bar', barMaxWidth: 38, itemStyle: { color: palette.value.primary, borderRadius: [4, 4, 0, 0] }, label: { show: true, position: 'top', color: palette.value.muted, fontSize: 11, formatter: (item) => formatCompactCurrency(item.value) }, data: invoiceTrend.value.map((item) => finiteNumber(item.totalCents) / 100) }]; return option })
+let clockTimer, rotationTimer, observer, previousFocus
+function syncPalette() { palette.value = chartTheme() } function closeAppearance() { themeOpen.value = false; themeButton.value?.focus() } function onPointerDown(event) { if (themeOpen.value && !appearance.value?.contains(event.target) && !themeButton.value?.contains(event.target)) themeOpen.value = false } function onFullscreenChange() { fullscreen.value = Boolean(document.fullscreenElement) }
+function onKeydown(event) { if (event.key === 'Escape') { event.preventDefault(); if (themeOpen.value) closeAppearance(); else exitWallboard() } }
+async function toggleFullscreen() { try { if (document.fullscreenElement) await document.exitFullscreen(); else await document.documentElement.requestFullscreen() } catch { /* browser refusal leaves overlay usable */ } }
+async function exitWallboard() { if (document.fullscreenElement) { try { await document.exitFullscreen() } catch { /* keep exit action available */ } } emit('exit') }
+function activateWallboard() { active.value = true; if (clockTimer) return; previousFocus = document.activeElement; document.body.classList.add('wallboard-open'); document.addEventListener('fullscreenchange', onFullscreenChange); document.addEventListener('pointerdown', onPointerDown); observer = new MutationObserver(syncPalette); observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style'] }); syncPalette(); onFullscreenChange(); clockTimer = window.setInterval(() => { if (!document.hidden) now.value = new Date() }, 1000); rotationTimer = window.setInterval(() => { if (motionActive.value && !themeOpen.value && !feedHovered.value) { changeAttention(1); changeSchedule(1) } }, 8000); nextTick(() => root.value?.focus()) }
+function deactivateWallboard() { active.value = false; window.clearInterval(clockTimer); window.clearInterval(rotationTimer); clockTimer = null; observer?.disconnect(); document.body.classList.remove('wallboard-open'); document.removeEventListener('fullscreenchange', onFullscreenChange); document.removeEventListener('pointerdown', onPointerDown); if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); if (previousFocus?.isConnected) previousFocus.focus() }
+onMounted(activateWallboard); onActivated(activateWallboard); onDeactivated(deactivateWallboard); onBeforeUnmount(deactivateWallboard)
 </script>
 
 <style scoped lang="scss">
-.leadership-wallboard {
-  --wb-bg: #0e1118;
-  --wb-surface: #151a24;
-  --wb-surface-raised: #1b2230;
-  --wb-border: #2c3546;
-  --wb-text: #f3f6fb;
-  --wb-muted: #aab4c5;
-  --wb-primary: var(--na-primary);
-  position: fixed;
-  z-index: 1400;
-  inset: 0;
-  min-width: 1120px;
-  overflow: auto;
-  background: var(--wb-bg);
-  color: var(--wb-text);
-  font-family: var(--na-font-sans);
-}
-
-.wallboard-header { display: grid; min-height: 88px; grid-template-columns: minmax(260px, .85fr) minmax(420px, 1.2fr) minmax(390px, 1fr); align-items: center; gap: 32px; padding: 16px 32px; border-bottom: 1px solid var(--wb-border); background: var(--wb-surface); }
-.wallboard-brand { display: flex; min-width: 0; align-items: center; gap: 14px; }
-.wallboard-brand > span { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
-.wallboard-brand strong, .wallboard-brand small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wallboard-brand strong { font-size: 1rem; font-weight: 700; }
-.wallboard-brand small { color: var(--wb-muted); font-size: .875rem; }
-.wallboard-heading { min-width: 0; text-align: center; }
-.wallboard-heading h1 { margin: 0; font-size: 2rem; font-weight: 700; line-height: 1.2; }
-.wallboard-heading p { margin: 6px 0 0; color: var(--wb-muted); font-size: 1rem; line-height: 1.4; }
-.wallboard-controls { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
-.wallboard-freshness { display: inline-flex; align-items: center; gap: 8px; margin-right: 4px; color: var(--wb-muted); font-size: .875rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.wallboard-freshness i { width: 8px; height: 8px; border-radius: 50%; background: var(--na-success); }
-.wallboard-controls button { display: inline-flex; min-width: 72px; min-height: 44px; align-items: center; justify-content: center; gap: 7px; padding: 0 12px; border: 1px solid var(--wb-border); border-radius: 9px; background: var(--wb-surface-raised); color: var(--wb-text); font: 600 .875rem/1 var(--na-font-sans); cursor: pointer; }
-.wallboard-controls button:hover { border-color: var(--wb-primary); }
-.wallboard-controls button:focus-visible { outline: 3px solid color-mix(in srgb, var(--wb-primary) 44%, transparent); outline-offset: 2px; }
-.wallboard-controls button:disabled { cursor: wait; opacity: .55; }
-
-.wallboard-content { display: grid; min-height: calc(100dvh - 88px); grid-template-rows: auto minmax(0, 1fr); gap: 24px; padding: 24px 32px 32px; }
-.wallboard-kpis { display: flex; min-height: 136px; overflow: hidden; border: 1px solid var(--wb-border); border-radius: 12px; background: var(--wb-surface); }
-.wallboard-kpi { --kpi-accent: var(--wb-primary); display: flex; min-width: 0; flex: 1; flex-direction: column; justify-content: center; gap: 8px; padding: 22px 28px; border-right: 1px solid var(--wb-border); }
-.wallboard-kpi:last-child { border-right: 0; }
-.wallboard-kpis-empty { display: grid; flex: 1; place-items: center; margin: 0; color: var(--wb-muted); font-size: 1rem; }
-.wallboard-kpi-label { display: inline-flex; align-items: center; gap: 9px; color: var(--wb-muted); font-size: .9375rem; font-weight: 600; line-height: 1.4; }
-.wallboard-kpi-label i { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: var(--kpi-accent); }
-.wallboard-kpi strong { overflow: hidden; color: var(--wb-text); font-size: 2.5rem; font-variant-numeric: tabular-nums; font-weight: 700; letter-spacing: -.02em; line-height: 1.08; text-overflow: ellipsis; white-space: nowrap; }
-.wallboard-kpi small { overflow: hidden; color: var(--wb-muted); font-size: .875rem; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
-.wallboard-kpi--success { --kpi-accent: var(--na-success); }
-.wallboard-kpi--warning { --kpi-accent: var(--na-warning); }
-.wallboard-kpi--danger { --kpi-accent: var(--na-danger); }
-.wallboard-kpi--info { --kpi-accent: var(--na-info); }
-.wallboard-kpi--danger strong,
-.wallboard-kpi--warning strong { color: var(--kpi-accent); }
-
-.wallboard-grid { display: grid; min-height: 620px; grid-template-areas: "asset risk focus" "invoice invoice focus"; grid-template-columns: minmax(0, 1.28fr) minmax(360px, .92fr) minmax(330px, .72fr); grid-template-rows: minmax(300px, 1.08fr) minmax(260px, .92fr); gap: 16px; }
-.wallboard-panel { min-width: 0; overflow: hidden; border: 1px solid var(--wb-border); border-radius: 12px; background: var(--wb-surface); }
-.wallboard-panel > header { display: flex; min-height: 72px; align-items: center; justify-content: space-between; gap: 20px; padding: 14px 20px; border-bottom: 1px solid var(--wb-border); }
-.wallboard-panel > header div { min-width: 0; }
-.wallboard-panel > header span, .wallboard-panel > header small { color: var(--wb-muted); font-size: .875rem; }
-.wallboard-panel > header h2 { margin: 4px 0 0; font-size: 1.5rem; font-weight: 600; line-height: 1.3; }
-.asset-overview { grid-area: asset; }
-.risk-overview { grid-area: risk; }
-.invoice-overview { grid-area: invoice; }
-.focus-overview { grid-area: focus; }
-.wallboard-grid--flexible { grid-template-areas: none; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); grid-template-rows: auto; grid-auto-rows: auto; }
-.wallboard-grid--flexible > .wallboard-panel { grid-area: auto; }
-.wallboard-empty { display: grid; min-height: 84px; place-items: center; color: var(--wb-muted); font-size: 1rem; }
-
-.asset-value-line { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 18px 20px; border-bottom: 1px solid var(--wb-border); }
-.asset-value-line > div { min-width: 0; padding: 0 18px; border-right: 1px solid var(--wb-border); }
-.asset-value-line > div:first-child { padding-left: 0; }
-.asset-value-line > div:last-child { padding-right: 0; border-right: 0; }
-.asset-value-line span { display: block; color: var(--wb-muted); font-size: .875rem; }
-.asset-value-line strong { display: block; overflow: hidden; margin-top: 5px; font-size: 1.5rem; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
-.asset-status-wall { display: grid; gap: 12px; padding: 16px 20px; }
-.asset-status-item { display: grid; grid-template-columns: 110px minmax(0, 1fr) 60px; align-items: center; gap: 12px; }
-.asset-status-item > span { display: inline-flex; align-items: center; gap: 8px; color: var(--wb-muted); font-size: 1rem; }
-.asset-status-item > span i { width: 8px; height: 8px; border-radius: 50%; }
-.asset-status-item > div { height: 7px; overflow: hidden; border-radius: 4px; background: var(--wb-surface-raised); }
-.asset-status-item > div i { display: block; height: 100%; border-radius: inherit; }
-.asset-status-item > strong { font-size: 1rem; font-variant-numeric: tabular-nums; text-align: right; }
-.asset-overview > footer { display: flex; gap: 24px; padding: 12px 20px 16px; border-top: 1px solid var(--wb-border); }
-.asset-overview > footer > span { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
-.asset-overview > footer small { overflow: hidden; color: var(--wb-muted); font-size: .875rem; text-overflow: ellipsis; white-space: nowrap; }
-.asset-overview > footer strong { font-size: 1rem; }
-
-.risk-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 16px 20px; border-bottom: 1px solid var(--wb-border); }
-.risk-summary-grid > div { min-width: 0; padding: 0 12px; border-right: 1px solid var(--wb-border); }
-.risk-summary-grid > div:first-child { padding-left: 0; }
-.risk-summary-grid > div:last-child { padding-right: 0; border-right: 0; }
-.risk-summary-grid span { display: block; color: var(--wb-muted); font-size: .875rem; }
-.risk-summary-grid strong { display: block; margin-top: 4px; font-size: 1.5rem; font-variant-numeric: tabular-nums; }
-.risk-summary-grid .is-danger strong { color: var(--na-danger); }
-.risk-summary-grid .is-warning strong { color: var(--na-warning); }
-.risk-trend { display: flex; height: 120px; align-items: stretch; gap: 8px; padding: 16px 20px 4px; }
-.risk-trend-item { display: grid; min-width: 0; flex: 1; grid-template-rows: 1fr 18px; gap: 5px; }
-.risk-trend-item > div { display: flex; align-items: end; justify-content: center; gap: 3px; border-bottom: 1px solid var(--wb-border); }
-.risk-trend-item > div i { width: 8px; min-height: 2px; border-radius: 3px 3px 0 0; }
-.risk-trend-item small { color: var(--wb-muted); font-size: .75rem; text-align: center; }
-.risk-new { background: var(--na-danger); }
-.risk-resolved { background: var(--na-success); }
-.trend-legend { display: flex; justify-content: flex-end; gap: 16px; padding: 4px 20px 12px; }
-.trend-legend span { display: inline-flex; align-items: center; gap: 6px; color: var(--wb-muted); font-size: .75rem; }
-.trend-legend i { width: 8px; height: 8px; border-radius: 2px; }
-
-.invoice-wall-layout { display: grid; min-height: calc(100% - 72px); grid-template-columns: 260px minmax(0, 1fr); }
-.invoice-total-wall { display: flex; min-width: 0; flex-direction: column; justify-content: center; gap: 8px; padding: 20px 24px; border-right: 1px solid var(--wb-border); background: var(--wb-surface-raised); }
-.invoice-total-wall span, .invoice-total-wall small { color: var(--wb-muted); font-size: 1rem; }
-.invoice-total-wall strong { overflow: hidden; color: var(--wb-primary); font-size: 2.5rem; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
-.invoice-wall-trend { display: flex; min-width: 0; align-items: stretch; gap: 18px; padding: 18px 24px 12px; }
-.invoice-wall-trend > div { display: grid; min-width: 0; flex: 1; grid-template-rows: 20px minmax(80px, 1fr) 22px; align-items: end; gap: 5px; }
-.invoice-wall-trend span, .invoice-wall-trend small { overflow: hidden; color: var(--wb-muted); font-size: .875rem; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
-.invoice-wall-trend i { width: min(46px, 70%); min-height: 3px; justify-self: center; border-radius: 5px 5px 0 0; background: var(--wb-primary); }
-
-.focus-queue { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 18px 16px; border-bottom: 1px solid var(--wb-border); }
-.focus-queue > div { min-width: 0; padding: 0 10px; border-right: 1px solid var(--wb-border); }
-.focus-queue > div:last-child { border-right: 0; }
-.focus-queue span { display: block; color: var(--wb-muted); font-size: .875rem; }
-.focus-queue strong { display: block; margin-top: 5px; font-size: 1.5rem; font-variant-numeric: tabular-nums; }
-.focus-stale-note { margin: 0; padding: 8px 20px; border-bottom: 1px solid var(--wb-border); background: color-mix(in srgb, var(--na-warning) 12%, transparent); color: var(--na-warning); font-size: .875rem; line-height: 1.4; }
-.focus-schedules { padding: 18px 20px; border-bottom: 1px solid var(--wb-border); }
-.focus-schedules h3 { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 12px; font-size: 1rem; font-weight: 600; }
-.focus-schedules h3 small, .system-heading small { color: var(--na-warning); font-size: .75rem; font-weight: 500; white-space: nowrap; }
-.focus-schedules p { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 12px; margin: 0; padding: 9px 0; border-bottom: 1px solid var(--wb-border); font-size: 1rem; }
-.focus-schedules p:last-child { border-bottom: 0; }
-.focus-schedules time { color: var(--wb-muted); font-variant-numeric: tabular-nums; }
-.focus-schedules span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.focus-system { padding: 18px 20px; }
-.system-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.system-heading > span { display: inline-flex; align-items: center; gap: 8px; font-size: 1rem; font-weight: 600; }
-.system-heading i { width: 8px; height: 8px; border-radius: 50%; }
-.focus-system dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 16px 0 0; }
-.focus-system dl div { padding: 12px; border-radius: 8px; background: var(--wb-surface-raised); }
-.focus-system dt { color: var(--wb-muted); font-size: .875rem; }
-.focus-system dd { margin: 5px 0 0; font-size: 1.125rem; font-variant-numeric: tabular-nums; font-weight: 600; }
-
-.tone-primary { background: var(--wb-primary) !important; }
-.tone-success { background: var(--na-success) !important; }
-.tone-warning { background: var(--na-warning) !important; }
-.tone-danger { background: var(--na-danger) !important; }
-.tone-info { background: var(--na-info) !important; }
-
-@media (max-width: 1440px) {
-  .wallboard-header { grid-template-columns: minmax(220px, .8fr) minmax(360px, 1fr) minmax(330px, .9fr); gap: 20px; padding-inline: 24px; }
-  .wallboard-heading h1 { font-size: 1.5rem; }
-  .wallboard-content { padding-inline: 24px; }
-  .wallboard-grid { grid-template-columns: minmax(0, 1.2fr) minmax(320px, .9fr) minmax(300px, .72fr); }
-  .wallboard-kpis strong, .invoice-total-wall strong { font-size: 2rem; }
-}
-
-@media (max-width: 1120px) {
-  .leadership-wallboard { min-width: 0; }
-  .wallboard-header { grid-template-columns: 1fr auto; }
-  .wallboard-heading { grid-column: 1 / -1; grid-row: 2; padding-bottom: 8px; text-align: left; }
-  .wallboard-controls { grid-column: 2; grid-row: 1; }
-  .wallboard-freshness { display: none; }
-  .wallboard-grid { grid-template-areas: "asset risk" "invoice invoice" "focus focus"; grid-template-columns: minmax(0, 1fr) minmax(320px, .8fr); grid-template-rows: auto; }
-  .wallboard-grid.wallboard-grid--flexible { grid-template-areas: none; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
-}
-
-@media (max-width: 720px) {
-  .wallboard-header { grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 16px; }
-  .wallboard-brand { grid-column: 1; grid-row: 1; }
-  .wallboard-controls { width: 100%; grid-column: 1; grid-row: 2; }
-  .wallboard-controls button { min-width: 0; flex: 1; }
-  .wallboard-heading { grid-column: 1; grid-row: 3; padding-bottom: 0; }
-  .wallboard-heading h1 { font-size: 1.375rem; }
-  .wallboard-heading p { font-size: .875rem; }
-  .wallboard-content { gap: 16px; padding: 16px; }
-  .wallboard-kpis { display: grid; min-height: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .wallboard-kpi { min-height: 112px; padding: 16px; border-right: 0; border-bottom: 1px solid var(--wb-border); }
-  .wallboard-kpi:nth-child(odd) { border-right: 1px solid var(--wb-border); }
-  .wallboard-kpi:last-child,
-  .wallboard-kpi:nth-last-child(2):nth-child(odd) { border-bottom: 0; }
-  .wallboard-kpi:only-child,
-  .wallboard-kpi:last-child:nth-child(odd) { border-right: 0; }
-  .wallboard-kpis strong { font-size: 1.75rem; }
-  .wallboard-grid { min-height: 0; grid-template-areas: "asset" "risk" "invoice" "focus"; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; }
-  .wallboard-grid.wallboard-grid--flexible { grid-template-areas: none; grid-template-columns: minmax(0, 1fr); }
-  .risk-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 0; }
-  .risk-summary-grid > div:nth-child(2) { padding-right: 0; border-right: 0; }
-  .risk-summary-grid > div:nth-child(3) { padding-left: 0; }
-  .invoice-wall-layout { grid-template-columns: 1fr; }
-  .invoice-total-wall { border-right: 0; border-bottom: 1px solid var(--wb-border); }
-  .invoice-wall-trend { gap: 8px; padding-inline: 14px; }
-  .asset-overview > footer { flex-wrap: wrap; gap: 14px 24px; }
-  .focus-queue { grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .leadership-wallboard *, .leadership-wallboard *::before, .leadership-wallboard *::after { scroll-behavior: auto !important; transition: none !important; }
-}
+.leadership-wallboard { --wb-primary: var(--na-primary); --wb-accent: var(--na-accent-foreground); --wb-bg: color-mix(in srgb, var(--na-primary) 3%, var(--na-background)); --wb-surface: color-mix(in srgb, var(--na-primary) 2%, var(--na-card)); --wb-raised: color-mix(in srgb, var(--na-primary) 5%, var(--na-card)); --wb-border: color-mix(in srgb, var(--na-primary) 14%, var(--na-border)); --wb-text: var(--na-foreground); --wb-muted: var(--na-muted-foreground); --wb-gap: 16px; --wb-pad: 22px; --tone: var(--wb-primary); position: fixed; z-index: 1400; inset: 0; display: flex; flex-direction: column; overflow: auto; background: var(--wb-bg); color: var(--wb-text); font: 14px/1.45 var(--na-font-sans); font-variant-numeric: tabular-nums; outline: none; }
+.leadership-wallboard *, .leadership-wallboard *::before, .leadership-wallboard *::after { box-sizing: border-box; } .leadership-wallboard h1, .leadership-wallboard h2, .leadership-wallboard h3, .leadership-wallboard p { margin: 0; }
+.leadership-wallboard button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; border: 1px solid var(--wb-border); border-radius: 7px; background: var(--wb-surface); color: var(--wb-text); font: inherit; cursor: pointer; transition: background-color 180ms, border-color 180ms; } .leadership-wallboard button:hover { border-color: var(--wb-primary); background: var(--wb-raised); } .leadership-wallboard button:focus-visible, .leadership-wallboard input:focus-visible { outline: 2px solid var(--wb-accent); outline-offset: 3px; }
+.leadership-wallboard button:disabled { cursor: wait; opacity: .5; } .tone-primary { --tone: var(--wb-accent); } .tone-success { --tone: var(--na-success); } .tone-info { --tone: var(--na-info); } .tone-warning { --tone: var(--na-warning); } .tone-danger { --tone: var(--na-danger); } .tone-muted { --tone: var(--wb-muted); }
+.wallboard-header { flex: 0 0 auto; display: grid; grid-template-columns: minmax(200px, 1fr) auto minmax(360px, 1fr); align-items: center; gap: 22px; padding: 18px 28px; border-bottom: 1px solid var(--wb-border); background: var(--wb-surface); } .wallboard-brand { display: flex; align-items: center; gap: 12px; min-width: 0; } .wallboard-brand > span { display: grid; min-width: 0; gap: 3px; } .wallboard-brand strong, .wallboard-brand small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .wallboard-brand strong { font-size: 14px; } .wallboard-brand small { color: var(--wb-muted); font-size: 10px; letter-spacing: .12em; } .wallboard-heading { text-align: center; } .wallboard-heading h1 { font-size: 26px; font-weight: 650; letter-spacing: .08em; } .wallboard-heading p { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 5px; color: var(--wb-muted); font-size: 11px; letter-spacing: .12em; } .live-dot, .wallboard-freshness > i { display: inline-block; width: 6px; height: 6px; flex-shrink: 0; border-radius: 50%; background: var(--na-success); } .live-dot { animation: live-breathe 3s ease-in-out infinite; } .wallboard-controls { display: flex; justify-content: flex-end; gap: 7px; } .wallboard-controls button { padding: 0 10px; font-size: 12px; }
+.wallboard-context { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex: 0 0 42px; padding: 0 28px; color: var(--wb-muted); font-size: 12px; } .wallboard-context > span { display: inline-flex; align-items: center; gap: 12px; } .wallboard-context time { color: var(--wb-text); font-size: 15px; font-weight: 600; } .scope-label { padding-left: 14px; border-left: 1px solid var(--wb-border); } .wallboard-freshness.is-stale > i { background: var(--na-warning); }
+.wallboard-content { display: flex; flex: 1; min-height: 0; flex-direction: column; gap: var(--wb-gap); padding: 0 28px; } .wallboard-kpis { display: flex; gap: var(--wb-gap); flex: 0 0 110px; } .wallboard-kpi { position: relative; display: flex; flex: 1; min-width: 0; flex-direction: column; justify-content: center; padding: 13px var(--wb-pad); border: 1px solid var(--wb-border); border-radius: 12px; background: var(--wb-surface); } .kpi-label { display: flex; justify-content: space-between; align-items: center; color: var(--wb-muted); font-size: 13px; } .kpi-label .el-icon { color: var(--tone); font-size: 19px; } .wallboard-kpi > strong { display: flex; align-items: baseline; gap: 9px; margin-top: 4px; color: var(--tone); font-size: 34px; font-weight: 650; line-height: 1.25; letter-spacing: 0; white-space: nowrap; } .wallboard-kpi > strong small { font-size: 15px; font-weight: 500; } .kpi-hint { margin-top: 4px; color: var(--wb-muted); font-size: 11px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.wallboard-grid { display: grid; flex: 1; min-height: 0; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1.1fr) minmax(0, 1fr); grid-template-areas: 'asset panorama risk' 'location invoice focus'; gap: var(--wb-gap); } .wallboard-panel { display: flex; flex-direction: column; min-width: 0; min-height: 0; border: 1px solid var(--wb-border); border-radius: 12px; background: var(--wb-surface); overflow: hidden; } .wallboard-panel > header { display: flex; align-items: center; justify-content: space-between; flex: 0 0 auto; min-height: 55px; gap: 12px; margin: 0 var(--wb-pad); border-bottom: 1px solid var(--wb-border); } .wallboard-panel h2 { display: inline-flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600; white-space: nowrap; } .wallboard-panel h2 .el-icon { color: var(--wb-accent); font-size: 16px; } .wallboard-panel > header > small { max-width: 48%; color: var(--wb-muted); font-size: 11px; text-align: right; } .wallboard-empty { display: grid; place-items: center; flex: 1; min-height: 65px; padding: 16px; color: var(--wb-muted); font-size: 13px; text-align: center; } .asset-overview { grid-area: asset; } .asset-panorama { grid-area: panorama; background: var(--wb-surface); } .risk-overview { grid-area: risk; } .location-overview { grid-area: location; } .invoice-overview { grid-area: invoice; } .focus-overview { grid-area: focus; }
+.asset-value-line { display: flex; align-items: center; justify-content: space-between; padding: 12px var(--wb-pad) 6px; gap: 12px; } .asset-value-line > span { font-size: 12px; } .asset-value-line > span small { display: block; margin-top: 2px; color: var(--wb-muted); font-size: 10px; } .asset-value-line strong { color: var(--na-success); font-size: 27px; font-weight: 600; } .asset-status-wall { display: flex; flex: 1; min-height: 0; flex-direction: column; justify-content: space-evenly; gap: 8px; padding: 8px var(--wb-pad) 14px; } .asset-status-item { display: grid; grid-template-columns: minmax(0, 1fr) auto 50px; gap: 4px 10px; align-items: center; } .asset-status-item > span { display: flex; align-items: center; gap: 7px; font-size: 12px; } .asset-status-item > span > i { width: 6px; height: 6px; border-radius: 2px; background: var(--tone); } .asset-status-item > strong { font-size: 14px; font-weight: 600; } .asset-status-item small { color: var(--wb-muted); font-size: 11px; font-weight: 400; text-align: right; } .asset-status-item > strong small { margin-left: 5px; } .data-track { height: 4px; overflow: hidden; border-radius: 2px; background: var(--wb-raised); } .data-track > i { display: block; width: 100%; height: 100%; border-radius: inherit; background: var(--tone, var(--wb-primary)); transform-origin: left; transition: transform 650ms cubic-bezier(.16, 1, .3, 1); } .asset-status-item .data-track { grid-column: 1 / -1; }
+.panel-note { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 12px; padding: 10px var(--wb-pad); border-top: 1px solid var(--wb-border); color: var(--wb-muted); font-size: 10px; } .panel-note b { color: var(--wb-text); font-weight: 600; } .asset-panorama > header { border-bottom-color: transparent; } .panorama-stage { position: relative; flex: 1; min-height: 0; } .panorama-total { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; pointer-events: none; padding-bottom: 8px; } .panorama-total > span { color: var(--wb-muted); font-size: 12px; } .panorama-total > strong { font-size: 56px; font-weight: 600; letter-spacing: 0; line-height: 1.2; } .panorama-total > small { color: var(--wb-muted); font-size: 12px; } .orbit-caption { position: absolute; bottom: 7px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 5px; color: var(--wb-muted); font-size: 10px; } .orbit-caption > i { width: 4px; height: 4px; border-radius: 50%; background: var(--wb-primary); } .panorama-metrics { display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 8px; padding: 12px var(--wb-pad); border-top: 1px solid var(--wb-border); } .panorama-metrics > div { text-align: center; } .panorama-metrics > div + div { border-left: 1px solid var(--wb-border); } .panorama-metrics span { color: var(--wb-muted); font-size: 11px; } .panorama-metrics strong { display: block; margin-top: 4px; font-size: 20px; font-weight: 600; } .panorama-metrics strong > small { font-size: 12px; margin-left: 2px; }
+.risk-summary { display: flex; flex: 0 0 auto; padding: 14px var(--wb-pad) 4px; } .risk-summary > div { flex: 1; padding-left: 14px; border-left: 1px solid var(--wb-border); } .risk-summary > div:first-child { padding-left: 0; border-left: 0; } .risk-summary span { color: var(--wb-muted); font-size: 11px; } .risk-summary strong { display: block; color: var(--tone); font-size: 25px; font-weight: 600; } .chart-legend { display: flex; justify-content: flex-end; gap: 14px; padding: 2px var(--wb-pad) 0; color: var(--wb-muted); font-size: 10px; } .chart-legend > span { display: flex; align-items: center; gap: 5px; } .chart-legend i { width: 7px; height: 7px; border-radius: 2px; background: var(--tone); } .risk-chart { flex: 1; min-height: 0; margin: 0 8px; } .risk-categories { display: flex; flex: 0 0 auto; gap: 8px; padding: 10px var(--wb-pad) 12px; border-top: 1px solid var(--wb-border); } .risk-categories > span { flex: 1; min-width: 0; color: var(--wb-muted); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .risk-categories b { display: block; margin-top: 3px; color: var(--wb-text); font-size: 14px; font-weight: 600; }
+.location-list { display: flex; flex: 1; min-height: 0; flex-direction: column; justify-content: space-evenly; gap: 9px; padding: 14px var(--wb-pad); } .location-row { display: flex; align-items: center; gap: 12px; } .location-rank { flex: 0 0 20px; color: var(--wb-accent); font-size: 12px; } .location-row > div { display: grid; flex: 1; min-width: 0; gap: 7px; } .location-row > div > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; } .location-row > strong { min-width: 42px; font-size: 15px; font-weight: 600; text-align: right; } .location-row > strong small { color: var(--wb-muted); font-size: 10px; font-weight: 400; margin-left: 5px; }
+.invoice-summary { display: flex; align-items: center; justify-content: space-between; padding: 10px var(--wb-pad) 0; } .invoice-summary > div { display: flex; align-items: baseline; gap: 12px; } .invoice-summary span { color: var(--wb-muted); font-size: 11px; } .invoice-summary strong { color: var(--wb-accent); font-size: 24px; font-weight: 600; } .invoice-summary > span { text-align: right; } .invoice-summary small { display: block; font-size: 10px; } .invoice-chart { flex: 1; min-height: 0; margin: 0 10px; }
+.focus-queue { display: flex; align-items: center; gap: 12px; padding: 9px var(--wb-pad); border-bottom: 1px solid var(--wb-border); } .focus-queue > span { flex: 1; color: var(--wb-muted); font-size: 11px; white-space: nowrap; } .focus-queue strong { color: var(--na-warning); font-size: 23px; font-weight: 600; margin-left: 5px; } .focus-queue > small { color: var(--wb-muted); font-size: 10px; white-space: nowrap; } .stale-note { padding: 3px var(--wb-pad); color: var(--na-warning); font-size: 10px; } .focus-schedules { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 10px var(--wb-pad); } .schedule-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 22px; } .schedule-heading h3, .focus-system h3 { font-size: 11px; font-weight: 600; } .schedule-heading > span { display: flex; gap: 3px; } .schedule-heading button, .mini-controls button { width: 24px; min-height: 24px; border-color: transparent; background: transparent; } .schedule-items { flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; animation: feed-in 300ms ease-out; } .schedule-items p { display: flex; gap: 14px; padding: 6px 0; font-size: 12px; } .schedule-items time { color: var(--wb-accent); flex: 0 0 40px; } .schedule-items span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; } .schedule-empty { padding: 12px 0; color: var(--wb-muted); font-size: 12px; } .focus-system { padding: 12px var(--wb-pad) 16px; border-top: 1px solid var(--wb-border); } .focus-system h3 { display: flex; align-items: center; gap: 6px; } .focus-system h3 > i { width: 6px; height: 6px; border-radius: 50%; background: var(--tone); } .focus-system h3 > small { color: var(--na-warning); font-size: 10px; } .system-meters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 12px; } .system-meters > div > span { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; color: var(--wb-muted); font-size: 10px; } .system-meters strong { color: var(--tone); font-size: 14px; font-weight: 600; }
+.wallboard-footer { display: flex; flex: 0 0 52px; min-width: 0; align-items: center; gap: 24px; padding: 0 28px; } .attention-feed { display: flex; flex: 1; min-width: 0; align-items: center; gap: 12px; } .feed-label { display: flex; flex-shrink: 0; align-items: center; gap: 6px; font-size: 11px; color: var(--tone); } .feed-label i { width: 6px; height: 6px; border-radius: 50%; background: var(--tone); } .attention-feed > p { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; animation: feed-in 300ms ease-out; } .mini-controls { display: flex; flex-shrink: 0; align-items: center; gap: 4px; } .mini-controls small { color: var(--wb-muted); font-size: 10px; margin-right: 5px; } .refresh-cadence { display: flex; align-items: center; gap: 8px; flex-shrink: 0; color: var(--wb-muted); font-size: 10px; } .refresh-cadence > i { width: 7px; height: 7px; border: 1px solid var(--wb-primary); border-radius: 50%; } .refresh-cadence > i.is-syncing { background: var(--wb-primary); animation: live-breathe 1s ease-in-out infinite; }
+.wallboard-appearance { position: fixed; z-index: 2; top: 78px; right: 28px; width: 284px; padding: 16px; background: var(--na-popover); border: 1px solid var(--wb-border); border-radius: 12px; } .appearance-heading { display: flex; align-items: center; justify-content: space-between; } .appearance-heading button { min-height: 28px; width: 28px; border-color: transparent; background: transparent; } .wallboard-appearance > p { color: var(--wb-muted); font-size: 12px; margin: 2px 0 14px; } .appearance-modes { display: flex; gap: 6px; } .appearance-modes button { flex: 1; font-size: 12px; } .appearance-modes button[aria-pressed='true'] { color: var(--wb-accent); border-color: var(--wb-primary); background: var(--na-primary-soft); } .appearance-colors { display: flex; gap: 8px; margin-top: 16px; } .appearance-colors button { min-height: 27px; width: 27px; background: var(--swatch); border: 2px solid transparent; color: white; } .appearance-colors button[aria-pressed='true'] { outline: 1px solid var(--wb-text); outline-offset: 2px; } .appearance-colors input { width: 27px; height: 27px; padding: 0; border: 1px solid var(--wb-border); border-radius: 6px; cursor: pointer; }
+.is-spinning { animation: control-spin 1s linear infinite; } .is-still *, .is-still *::before, .is-still *::after { animation-play-state: paused !important; transition-duration: 0s !important; } @keyframes live-breathe { 50% { opacity: .35; } } @keyframes control-spin { to { transform: rotate(360deg); } } @keyframes feed-in { from { opacity: .55; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+@media (min-width: 1800px) and (min-height: 950px) { .leadership-wallboard { --wb-gap: 20px; --wb-pad: 26px; } .wallboard-header { padding-block: 22px; } .wallboard-heading h1 { font-size: 30px; } .wallboard-kpis { flex-basis: 132px; } .wallboard-kpi > strong { font-size: 42px; } .kpi-label { font-size: 15px; } .wallboard-panel > header { min-height: 62px; } .wallboard-panel h2 { font-size: 18px; } .panorama-total > strong { font-size: 72px; } .risk-summary strong { font-size: 30px; } }
+@media (min-width: 2600px) and (min-height: 1300px) { .leadership-wallboard { --wb-gap: 30px; --wb-pad: 36px; } .wallboard-header { padding: 32px 44px; } .wallboard-brand strong { font-size: 24px; } .wallboard-heading h1 { font-size: 44px; } .wallboard-heading p, .wallboard-brand small { font-size: 17px; } .wallboard-controls button { min-height: 52px; padding: 0 18px; font-size: 18px; } .wallboard-context { flex-basis: 66px; padding-inline: 44px; font-size: 19px; } .wallboard-context time { font-size: 24px; } .wallboard-content { padding-inline: 44px; } .wallboard-kpis { flex-basis: 180px; } .kpi-label { font-size: 22px; } .wallboard-kpi > strong { font-size: 64px; } .wallboard-panel > header { min-height: 84px; } .wallboard-panel h2 { font-size: 28px; } .wallboard-panel > header > small, .kpi-hint, .asset-status-item small, .panel-note, .risk-summary span, .panorama-metrics span, .risk-categories > span, .location-row > strong small, .focus-queue > small, .focus-queue > span, .schedule-heading h3, .focus-system h3, .system-meters > div > span, .invoice-summary span, .invoice-summary small, .attention-feed > p, .feed-label, .refresh-cadence { font-size: 18px; } .asset-value-line > span, .asset-status-item > span, .location-row > div > span, .schedule-items p { font-size: 22px; } .asset-value-line strong, .risk-summary strong { font-size: 44px; } .asset-status-item > strong, .location-row > strong, .risk-categories b, .system-meters strong { font-size: 26px; } .panorama-total > strong { font-size: 108px; } .panorama-total > span { font-size: 22px; } .panorama-metrics strong { font-size: 34px; } .invoice-summary strong { font-size: 40px; } .focus-queue strong { font-size: 36px; } .focus-system { padding-block: 26px; } .data-track { height: 6px; } .wallboard-footer { flex-basis: 76px; padding-inline: 44px; } }
+@media (min-width: 1180px) and (max-height: 820px) { .leadership-wallboard { --wb-gap: 12px; --wb-pad: 16px; } .wallboard-header { padding: 12px 22px; } .wallboard-heading h1 { font-size: 23px; } .wallboard-context { flex-basis: 32px; padding-inline: 22px; } .wallboard-content { padding-inline: 22px; } .wallboard-kpis { flex-basis: 96px; } .wallboard-kpi > strong { font-size: 30px; } .wallboard-panel > header { min-height: 42px; } .wallboard-panel h2 { font-size: 14px; } .asset-value-line { padding-top: 6px; } .asset-status-wall { gap: 5px; padding-block: 6px 10px; } .panel-note { padding-block: 6px; } .panorama-total > strong { font-size: 42px; } .panorama-metrics { padding-block: 8px; } .risk-summary { padding-top: 8px; } .risk-summary strong { font-size: 22px; } .risk-categories { padding-block: 6px; } .focus-queue { padding-block: 5px; } .focus-schedules { padding-block: 5px; } .schedule-items p { padding-block: 3px; } .focus-system { padding-block: 8px; } .system-meters { margin-top: 6px; } .wallboard-footer { flex-basis: 40px; padding-inline: 22px; } }
+.wallboard-grid--flexible { grid-template-areas: none; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); grid-template-rows: none; grid-auto-rows: minmax(280px, 1fr); overflow: auto; } .wallboard-grid--flexible > .wallboard-panel { grid-area: auto; }
+@media (max-width: 1179px), (max-height: 639px) { .wallboard-content { flex: none; } .wallboard-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: 350px 320px 320px; grid-template-areas: 'panorama asset' 'risk location' 'invoice focus'; } .wallboard-grid.wallboard-grid--flexible { grid-template-areas: none; grid-template-rows: none; grid-auto-rows: 330px; } .wallboard-header { grid-template-columns: 1fr auto; gap: 12px; padding: 16px 22px; } .wallboard-heading { grid-row: 2; grid-column: 1 / -1; } .wallboard-heading h1 { font-size: 24px; } .wallboard-footer { min-height: 48px; } .refresh-cadence { display: none; } }
+@media (max-width: 720px) { .leadership-wallboard { --wb-gap: 12px; --wb-pad: 18px; } .wallboard-header { grid-template-columns: minmax(0, 1fr); padding: 16px; } .wallboard-brand { justify-content: center; } .wallboard-controls { justify-content: center; gap: 6px; } .wallboard-controls button { flex: 1; padding: 0 7px; } .wallboard-context { min-height: 62px; align-items: flex-start; justify-content: center; flex-direction: column; gap: 3px; padding: 9px 16px; font-size: 11px; } .wallboard-content { padding-inline: 12px; } .wallboard-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); flex: none; } .wallboard-kpi { min-height: 105px; } .wallboard-kpi > strong { font-size: 26px; } .wallboard-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: 350px 340px 320px 300px 300px 320px; grid-template-areas: 'panorama' 'asset' 'risk' 'location' 'invoice' 'focus'; } .wallboard-grid.wallboard-grid--flexible { grid-template-columns: minmax(0, 1fr); } .wallboard-footer { padding-inline: 16px; } .wallboard-appearance { top: 160px; right: 16px; width: min(284px, calc(100vw - 32px)); } .attention-feed > p { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 10px; } }
+@media (prefers-reduced-motion: reduce) { .leadership-wallboard *, .leadership-wallboard *::before, .leadership-wallboard *::after { animation: none !important; transition: none !important; } }
 </style>
-
-<style>
-body.wallboard-open { overflow: hidden; }
-</style>
+<style>body.wallboard-open { overflow: hidden; } body.wallboard-open #app { visibility: hidden; }</style>
