@@ -4,7 +4,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { marked } from 'marked'
+import { marked, Renderer } from 'marked'
 
 const props = defineProps({
   source: {
@@ -25,20 +25,21 @@ const safeHref = (value = '') => {
   return /^(https?:|mailto:|\/|#)/i.test(href) ? href : ''
 }
 
+const renderer = new Renderer()
+renderer.html = ({ text }) => escapeHTML(text)
+renderer.image = ({ text }) => escapeHTML(text)
+renderer.link = function({ href, tokens }) {
+  const text = this.parser.parseInline(tokens)
+  const target = safeHref(href)
+  if (!target) return text
+  return `<a href="${escapeHTML(target)}" target="_blank" rel="noopener noreferrer">${text}</a>`
+}
+
 const html = computed(() => marked.parse(props.source || '', {
   async: false,
   breaks: true,
   gfm: true,
-  renderer: {
-    html: ({ text }) => escapeHTML(text),
-    image: ({ text }) => escapeHTML(text),
-    link({ href, tokens }) {
-      const text = this.parser.parseInline(tokens)
-      const target = safeHref(href)
-      if (!target) return text
-      return `<a href="${escapeHTML(target)}" target="_blank" rel="noopener noreferrer">${text}</a>`
-    }
-  }
+  renderer
 }))
 </script>
 
