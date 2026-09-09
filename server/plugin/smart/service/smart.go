@@ -177,17 +177,30 @@ func (s *smartService) executeRegisteredTool(ctx context.Context, actor Assistan
 	tool := call.Name
 	question := call.Question
 	keyword := stringArgument(call.Arguments, "keyword")
-	if keyword == "" {
+	custodian := stringArgument(call.Arguments, "custodian")
+	if keyword == "" && custodian == "" {
 		keyword = extractKeyword(question)
 	}
 	switch tool {
 	case "asset.search":
-		list, total, err := assetService.Asset.List(assetRequest.AssetSearch{PageInfo: commonRequest.PageInfo{Page: 1, PageSize: 20, Keyword: keyword}})
+		search := assetRequest.AssetSearch{PageInfo: commonRequest.PageInfo{Page: 1, PageSize: 20, Keyword: keyword}}
+		var list []assetModel.Asset
+		var total int64
+		var err error
+		if custodian != "" {
+			list, total, err = assetService.Asset.ListByCustodian(search, custodian)
+		} else {
+			list, total, err = assetService.Asset.List(search)
+		}
 		if err != nil {
 			return result, err
 		}
 		result.Data = map[string]any{"list": list, "total": total, "keyword": keyword}
 		result.Answer = fmt.Sprintf("资产查询命中 %d 项。", total)
+		if custodian != "" {
+			result.Data.(map[string]any)["custodian"] = custodian
+			result.Answer = fmt.Sprintf("%s 名下共有 %d 条资产记录。", custodian, total)
+		}
 		for _, item := range list {
 			result.Citations = append(result.Citations, Citation{Type: "asset", ID: item.ID, Label: item.AssetCode + " " + item.Name, Path: "/assetInventory", Params: "id=" + strconv.Itoa(int(item.ID))})
 		}

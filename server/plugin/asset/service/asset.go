@@ -166,9 +166,31 @@ func (s *assetService) Get(id uint) (model.Asset, error) {
 }
 
 func (s *assetService) List(search assetRequest.AssetSearch) ([]model.Asset, int64, error) {
+	return s.list(search, "")
+}
+
+// ListByCustodian keeps holder queries separate from matches in asset names or
+// models. A bare name also matches a department-qualified holder with that name.
+func (s *assetService) ListByCustodian(search assetRequest.AssetSearch, custodian string) ([]model.Asset, int64, error) {
+	custodian = strings.TrimSpace(custodian)
+	if custodian == "" {
+		return nil, 0, errors.New("请提供保管人")
+	}
+	return s.list(search, custodian)
+}
+
+func (s *assetService) list(search assetRequest.AssetSearch, custodian string) ([]model.Asset, int64, error) {
 	var list []model.Asset
 	var total int64
 	db := global.GVA_DB.Model(&model.Asset{})
+	if custodian != "" {
+		escaped := strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(custodian)
+		if strings.Contains(custodian, "-") {
+			db = db.Where("custodian = ?", custodian)
+		} else {
+			db = db.Where("custodian = ? OR custodian LIKE ? ESCAPE '\\'", custodian, "%-"+escaped)
+		}
+	}
 	if keyword := strings.TrimSpace(search.Keyword); keyword != "" {
 		like := "%" + keyword + "%"
 		db = db.Where("asset_code ILIKE ? OR name ILIKE ? OR brand ILIKE ? OR model ILIKE ? OR serial_number ILIKE ? OR custodian ILIKE ?", like, like, like, like, like, like)

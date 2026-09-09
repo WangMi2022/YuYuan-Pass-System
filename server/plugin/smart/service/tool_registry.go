@@ -26,7 +26,7 @@ func NewToolRegistry(permissionChecker ToolPermissionChecker) *ToolRegistry {
 		specs:             make(map[string]ToolSpec),
 		permissionChecker: permissionChecker,
 	}
-	registry.register(ToolSpec{Definition: ToolDefinition{Name: "asset.search", Description: "按编号、名称、品牌、型号或序列号查询资产", ReadOnly: true, InputSchema: objectSchema("keyword", "string")}, Intent: "asset", PermissionPath: "/asset/list"})
+	registry.register(ToolSpec{Definition: ToolDefinition{Name: "asset.search", Description: "按编号、名称、品牌、型号、序列号或指定保管人查询资产", ReadOnly: true, InputSchema: assetSearchSchema()}, Intent: "asset", PermissionPath: "/asset/list"})
 	registry.register(ToolSpec{Definition: ToolDefinition{Name: "asset.detail", Description: "查询单项资产详情", ReadOnly: true, InputSchema: objectSchema("id", "integer")}, Intent: "asset_detail", PermissionPath: "/asset/detail"})
 	registry.register(ToolSpec{Definition: ToolDefinition{Name: "asset.risk.list", Description: "查询开放资产风险和异常", ReadOnly: true}, Intent: "risk", PermissionPath: "/assetRisk/list"})
 	registry.register(ToolSpec{Definition: ToolDefinition{Name: "asset.warranty.expiring", Description: "查询即将到期的资产质保", ReadOnly: true, InputSchema: objectSchema("days", "integer")}, Intent: "warranty", PermissionPath: "/asset/list"})
@@ -46,6 +46,16 @@ func objectSchema(property, propertyType string) map[string]any {
 	return map[string]any{
 		"type":       "object",
 		"properties": map[string]any{property: map[string]any{"type": propertyType}},
+	}
+}
+
+func assetSearchSchema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"keyword":   map[string]any{"type": "string"},
+			"custodian": map[string]any{"type": "string", "description": "保管人姓名或部门-姓名，仅匹配保管人字段"},
+		},
 	}
 }
 

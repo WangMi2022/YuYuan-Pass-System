@@ -85,6 +85,7 @@ func (p *RulePlanner) Plan(_ context.Context, request PlanRequest) (AssistantPla
 
 	knowledgeDomain := containsAny(q, "制度", "手册", "流程文档", "合同", "会议纪要", "知识库", "文档里", "文档中")
 	assetDomain := containsAny(q, "资产", "设备", "电脑", "打印机")
+	custodian := extractAssetCustodian(question)
 	invoiceDomain := containsAny(q, "发票", "金额") || (strings.Contains(q, "报销") && !knowledgeDomain)
 	scheduleDomain := containsAny(q, "日程", "安排", "行程", "会议安排")
 	announcementDomain := containsAny(q, "公告", "通知", "未读")
@@ -94,6 +95,8 @@ func (p *RulePlanner) Plan(_ context.Context, request PlanRequest) (AssistantPla
 		appendCall("asset.warranty.expiring", "warranty", nil)
 	case containsAny(q, "风险", "异常"):
 		appendCall("asset.risk.list", "risk", nil)
+	case assetDomain && custodian != "" && !containsAny(q, "领用单", "流转", "单据", "记录"):
+		appendCall("asset.search", "asset", map[string]any{"custodian": custodian})
 	case containsAny(q, "保管人", "负责人"):
 		appendCall("asset.custodian.summary", "custodian", nil)
 	case containsAny(q, "流转", "维修", "领用", "报废"):
