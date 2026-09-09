@@ -88,7 +88,13 @@
 
         <div ref="chatScroll" class="chat-scroll" aria-live="polite">
           <div v-if="!messages.length && !sessionLoading" class="empty-chat">
-            <div class="empty-chat-icon" aria-hidden="true"><el-icon><MagicStick /></el-icon></div>
+            <div class="empty-chat-icon" aria-hidden="true">
+              <svg class="assistant-robot" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 8V4H8" />
+                <rect x="4" y="8" width="16" height="12" rx="2" />
+                <path d="M2 14h2M20 14h2M9 13v2M15 13v2" />
+              </svg>
+            </div>
             <div class="empty-chat-copy">
               <strong>从业务数据开始提问</strong>
               <span>助手只会读取你当前有权限访问的信息，并在回答中附上相关记录。</span>
@@ -114,7 +120,13 @@
             </template>
 
             <template v-else>
-              <div class="assistant-avatar" aria-hidden="true"><el-icon><MagicStick /></el-icon></div>
+              <div class="assistant-avatar" aria-hidden="true">
+                <svg class="assistant-robot" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 8V4H8" />
+                  <rect x="4" y="8" width="16" height="12" rx="2" />
+                  <path d="M2 14h2M20 14h2M9 13v2M15 13v2" />
+                </svg>
+              </div>
               <div class="assistant-message-body">
                 <header class="assistant-message-header">
                   <div class="assistant-identity">
@@ -194,11 +206,17 @@
             </template>
           </article>
 
-          <article v-if="sending" key="copilot-pending" class="message message--pending" aria-label="正在查询业务数据">
-            <div class="assistant-avatar" aria-hidden="true"><el-icon><MagicStick /></el-icon></div>
+          <article v-if="sending" key="copilot-pending" class="message message--pending" aria-label="业务助手正在查询业务数据">
+            <div class="assistant-avatar assistant-avatar--thinking" aria-hidden="true">
+              <svg class="assistant-robot" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 8V4H8" />
+                <rect x="4" y="8" width="16" height="12" rx="2" />
+                <path d="M2 14h2M20 14h2M9 13v2M15 13v2" />
+              </svg>
+            </div>
             <div class="pending-copy">
+              <span>正在查询可访问的业务数据</span>
               <span class="assistant-dots" aria-hidden="true"><i /><i /><i /></span>
-              正在查询可访问的业务数据
             </div>
           </article>
         </div>
@@ -264,7 +282,7 @@
 <script setup>
 import { nextTick, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowDown, ArrowRight, ChatDotRound, CircleCheck, Delete, Link, Loading, MagicStick, Plus, Position, Refresh } from '@element-plus/icons-vue'
+import { ArrowDown, ArrowRight, ChatDotRound, CircleCheck, Delete, Link, Loading, Plus, Position, Refresh } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
 import AppEmptyState from '@/components/page/AppEmptyState.vue'
@@ -528,6 +546,7 @@ async function submitQuestion() {
   const content = question.value.trim()
   if (!content || sending.value) return
   sending.value = true
+  await scrollToLatest()
   try {
     const res = await queryCopilot({ question: content, sessionId: sessionId.value || undefined })
     if (res.code !== 0) {
@@ -716,6 +735,7 @@ onMounted(loadSessions)
 .message--pending { display: flex; width: min(100%, 960px); align-items: flex-start; gap: 12px; }
 
 .assistant-avatar {
+  position: relative;
   display: grid;
   width: 34px;
   height: 34px;
@@ -725,7 +745,33 @@ onMounted(loadSessions)
   border-radius: 8px;
   background: var(--na-primary-soft);
   color: var(--na-primary);
-  font-size: 17px;
+}
+
+.assistant-robot {
+  display: block;
+  width: 20px;
+  height: 20px;
+  stroke-width: 1.8;
+}
+
+.assistant-avatar--thinking {
+  background: color-mix(in srgb, var(--na-primary-soft) 84%, var(--na-card));
+}
+
+.assistant-avatar--thinking::before {
+  position: absolute;
+  inset: -4px;
+  border: 2px solid color-mix(in srgb, var(--na-primary) 18%, transparent);
+  border-top-color: var(--na-primary);
+  border-right-color: color-mix(in srgb, var(--na-primary) 64%, transparent);
+  border-radius: 50%;
+  content: '';
+  animation: assistant-orbit 1.2s linear infinite;
+  will-change: transform;
+}
+
+.assistant-avatar--thinking .assistant-robot {
+  animation: assistant-robot-pulse 1.6s ease-in-out infinite;
 }
 
 .assistant-message-body {
@@ -824,11 +870,11 @@ onMounted(loadSessions)
 .message-citations .el-button .el-icon { flex: 0 0 auto; }
 
 .message--pending { animation: message-enter 180ms cubic-bezier(.22, 1, .36, 1); }
-.pending-copy { display: inline-flex; min-height: 34px; align-items: center; gap: var(--na-space-xs); color: var(--na-muted-foreground); font-size: .8125rem; }
+.pending-copy { display: inline-flex; min-height: 34px; align-items: center; gap: 7px; color: var(--na-muted-foreground); font-size: .8125rem; }
 .assistant-dots { display: inline-flex; align-items: center; gap: 3px; }
-.assistant-dots i { display: block; width: 5px; height: 5px; border-radius: 50%; background: var(--na-primary); animation: assistant-dot 900ms ease-in-out infinite; }
-.assistant-dots i:nth-child(2) { animation-delay: 120ms; }
-.assistant-dots i:nth-child(3) { animation-delay: 240ms; }
+.assistant-dots i { display: block; width: 6px; height: 6px; border-radius: 50%; background: var(--na-primary); animation: assistant-dot 1.05s ease-in-out infinite; }
+.assistant-dots i:nth-child(2) { animation-delay: 140ms; }
+.assistant-dots i:nth-child(3) { animation-delay: 280ms; }
 
 .empty-chat {
   display: grid;
@@ -841,7 +887,8 @@ onMounted(loadSessions)
   padding: var(--na-space-xl) 0;
 }
 
-.empty-chat-icon { display: grid; width: 42px; height: 42px; grid-row: 1 / span 2; place-items: center; border-radius: 8px; background: var(--na-primary-soft); color: var(--na-primary); font-size: 20px; }
+.empty-chat-icon { display: grid; width: 42px; height: 42px; grid-row: 1 / span 2; place-items: center; border-radius: 8px; background: var(--na-primary-soft); color: var(--na-primary); }
+.empty-chat-icon .assistant-robot { width: 23px; height: 23px; }
 .empty-chat-copy { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
 .empty-chat-copy strong { color: var(--na-foreground); font-size: .9375rem; }
 .empty-chat-copy span { max-width: 60ch; color: var(--na-muted-foreground); font-size: .8125rem; line-height: 1.55; }
@@ -897,7 +944,9 @@ onMounted(loadSessions)
 .tool-item span { color: var(--na-muted-foreground); font-size: .6875rem; line-height: 1.45; }
 
 @keyframes message-enter { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes assistant-dot { 0%, 80%, 100% { opacity: .35; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-2px); } }
+@keyframes assistant-orbit { to { transform: rotate(360deg); } }
+@keyframes assistant-robot-pulse { 0%, 100% { opacity: .72; transform: scale(.94); } 50% { opacity: 1; transform: scale(1); } }
+@keyframes assistant-dot { 0%, 65%, 100% { opacity: .28; transform: translateY(0) scale(.8); } 32% { opacity: 1; transform: translateY(-3px) scale(1); } }
 
 @media (max-width: 1100px) {
   .copilot-layout { grid-template-columns: 212px minmax(0, 1fr); }
@@ -918,7 +967,8 @@ onMounted(loadSessions)
   .user-message-body { max-width: 92%; }
   .message--assistant,
   .message--pending { gap: var(--na-space-xs); }
-  .assistant-avatar { width: 30px; height: 30px; flex-basis: 30px; font-size: 15px; }
+  .assistant-avatar { width: 30px; height: 30px; flex-basis: 30px; }
+  .assistant-avatar .assistant-robot { width: 18px; height: 18px; }
   .assistant-message-body { padding: 12px; }
   .assistant-message-header { align-items: flex-start; flex-direction: column; }
   .assistant-meta { width: 100%; justify-content: space-between; }
@@ -937,6 +987,8 @@ onMounted(loadSessions)
   .question-suggestions button,
   .result-chevron,
   .message--pending,
+  .assistant-avatar--thinking::before,
+  .assistant-avatar--thinking .assistant-robot,
   .assistant-dots i { transition: none; animation: none; }
 }
 </style>
