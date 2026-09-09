@@ -146,7 +146,7 @@ A  web/src/view/dashboard/wallboard/data.js
 A  web/src/view/dashboard/wallboard/data.test.js
 ```
 
-当前分支为 `main`，当前 `HEAD` 与 `origin/main` 均指向 `7f51cf3`。本交接文档是本轮新增文件；提交时只暂存本文件和前端任务实际修改的文件，切勿使用 `git add .`。
+当前分支为 `main`。后端验收基线为 `7f51cf3`；本交接文档已由提交 `a6fab9f` 推送到 `origin/main`，因此当前 `HEAD`/`origin/main` 还包含该文档提交。本交接文档是本轮新增文件；提交时只暂存本文件和前端任务实际修改的文件，切勿使用 `git add .`。
 
 ## 6. 生产发布收口注意事项
 
@@ -182,4 +182,3 @@ docker compose --env-file .env -f docker-compose.yml up -d --force-recreate web
 新线程可直接使用下面这句话开始：
 
 > 请先阅读 `TASK_HANDOFF.md`，不要回退当前墙报改动；继续完成 `web/src/plugin/smart/view/copilot.vue` 的机器人头像替换和思考动态效果，然后按文档完成验证与发布收口。
-
