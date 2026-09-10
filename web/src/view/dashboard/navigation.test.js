@@ -90,6 +90,8 @@ for (const cached of [false, true]) {
         if (source === 'vue-router') return VueRouter[name]
         if (source === '@element-plus/icons-vue') return Button
         if (source === '@/view/dashboard/LeadershipWallboard.vue') return Wallboard
+        if (source === '@/view/dashboard/wallboard/AnimatedValue.vue') return { props: ['value', 'format', 'animated'], render: () => Vue.h('span') }
+        if (source === '@/components/three/HeroCanvas.vue') return { render: () => Vue.h('div', { class: 'workbench-hero-canvas' }) }
         if (source === '@/view/dashboard/PendingTasks.vue') return { render: () => Vue.h('main', { class: 'pending-tasks' }) }
         if (source === '@/components/page/AppPageHeader.vue') return { setup: (props, { slots }) => () => Vue.h('header', slots.actions?.()) }
         if (source === '@/pinia/modules/user') return () => ({ userInfo: { nickName: 'Test' } })

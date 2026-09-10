@@ -29,8 +29,12 @@
       </AppPageHeader>
 
       <section class="workbench-band" aria-labelledby="workbench-title">
+        <HeroCanvas class="workbench-hero-canvas" />
         <div class="workbench-copy">
-          <p class="current-date">{{ currentDateText }}</p>
+          <div class="workbench-time-row">
+            <span class="live-pulse-dot" title="系统监控在线" />
+            <p class="current-date">{{ currentDateText }} · {{ currentTimeText }}</p>
+          </div>
           <h2 id="workbench-title">{{ greeting }}，{{ userStore.userInfo.nickName || userStore.userInfo.userName || '用户' }}</h2>
           <p>{{ overviewText }}</p>
           <div class="quick-actions" aria-label="常用操作">
@@ -72,17 +76,25 @@
       <section v-if="metrics.length" class="metric-band" aria-label="核心业务指标">
         <component
           :is="metric.action ? 'button' : 'article'"
-          v-for="metric in metrics"
+          v-for="(metric, idx) in metrics"
           :key="metric.label"
           class="metric-item"
           :class="{ 'metric-item--actionable': metric.action }"
           :type="metric.action ? 'button' : undefined"
           :aria-label="metric.action ? metric.actionLabel : undefined"
+          :style="{ '--metric-delay': `${idx * 45}ms` }"
           @click="handleMetricClick(metric)"
         >
           <div class="metric-copy">
             <span>{{ metric.label }}</span>
-            <strong>{{ metric.value }}</strong>
+            <strong>
+              <AnimatedValue
+                v-if="metric.numValue !== undefined"
+                :value="metric.numValue"
+                :format="metric.format"
+              />
+              <template v-else>{{ metric.value }}</template>
+            </strong>
             <small :class="metric.tone === 'warning' ? 'is-warning' : ''">{{ metric.hint }}</small>
           </div>
           <el-icon class="metric-icon" :class="`metric-${metric.tone}`"><component :is="metric.icon" /></el-icon>
@@ -103,9 +115,9 @@
             <p v-if="moduleFailed.assets && moduleLoaded.assets" class="module-stale-notice">{{ moduleFreshnessText('assets') }}</p>
             <template v-if="moduleLoaded.assets">
               <dl class="asset-summary">
-                <div><dt>资产档案</dt><dd>{{ formatNumber(assetDashboard.assetKinds) }}</dd><small>{{ formatNumber(assetDashboard.categoryCount) }} 个分类</small></div>
-                <div><dt>账面原值</dt><dd>{{ formatCompactCurrency(assetDashboard.originalValue) }}</dd><small>当前估值 {{ formatCompactCurrency(assetDashboard.currentValue) }}</small></div>
-                <div><dt>资产健康度</dt><dd>{{ healthRate }}%</dd><small>{{ formatNumber(controlledQuantity) }} 件处于受控状态</small></div>
+                <div><dt>资产档案</dt><dd><AnimatedValue :value="Number(assetDashboard.assetKinds || 0)" :format="formatNumber" /></dd><small>{{ formatNumber(assetDashboard.categoryCount) }} 个分类</small></div>
+                <div><dt>账面原值</dt><dd><AnimatedValue :value="Number(assetDashboard.originalValue || 0)" :format="formatCompactCurrency" /></dd><small>当前估值 {{ formatCompactCurrency(assetDashboard.currentValue) }}</small></div>
+                <div><dt>资产健康度</dt><dd><AnimatedValue :value="Number(healthRate || 0)" :format="(val) => `${Number(val).toFixed(1)}%`" /></dd><small>{{ formatNumber(controlledQuantity) }} 件处于受控状态</small></div>
               </dl>
 
               <div class="asset-detail-grid">
@@ -157,11 +169,11 @@
               <div class="invoice-workspace">
                 <div class="invoice-total">
                   <span>已确认价税合计</span>
-                  <strong>{{ centsToCurrency(invoiceDashboard.totalCents) }}</strong>
+                  <strong><AnimatedValue :value="Number(invoiceDashboard.totalCents || 0)" :format="centsToCurrency" /></strong>
                   <small>{{ formatNumber(invoiceDashboard.confirmedCount) }} 张已进入正式统计</small>
                   <dl class="invoice-breakdown">
-                    <div><dt>不含税金额</dt><dd>{{ centsToCurrency(invoiceDashboard.amountCents) }}</dd></div>
-                    <div><dt>税额</dt><dd>{{ centsToCurrency(invoiceDashboard.taxCents) }}</dd></div>
+                    <div><dt>不含税金额</dt><dd><AnimatedValue :value="Number(invoiceDashboard.amountCents || 0)" :format="centsToCurrency" /></dd></div>
+                    <div><dt>税额</dt><dd><AnimatedValue :value="Number(invoiceDashboard.taxCents || 0)" :format="centsToCurrency" /></dd></div>
                   </dl>
                 </div>
 
@@ -199,12 +211,15 @@
               <div class="daily-risk-summary">
                 <div class="daily-risk-total">
                   <span>开放风险</span>
-                  <strong :class="riskDashboard.highOpen ? 'is-danger' : 'is-success'">{{ formatNumber(riskDashboard.totalOpen) }}</strong>
+                  <strong :class="riskDashboard.highOpen ? 'is-danger' : 'is-success'">
+                    <AnimatedValue :value="Number(riskDashboard.totalOpen || 0)" :format="formatNumber" />
+                    <i v-if="riskDashboard.highOpen" class="danger-pulse-dot" title="存在高风险项" />
+                  </strong>
                   <small>高风险 {{ formatNumber(riskDashboard.highOpen) }} 项</small>
                 </div>
                 <dl>
-                  <div><dt>今日新增</dt><dd>{{ formatNumber(riskDashboard.todayNew) }}</dd></div>
-                  <div><dt>超期未结</dt><dd class="is-warning">{{ formatNumber(riskDashboard.overdue) }}</dd></div>
+                  <div><dt>今日新增</dt><dd><AnimatedValue :value="Number(riskDashboard.todayNew || 0)" :format="formatNumber" /></dd></div>
+                  <div><dt>超期未结</dt><dd class="is-warning"><AnimatedValue :value="Number(riskDashboard.overdue || 0)" :format="formatNumber" /></dd></div>
                 </dl>
               </div>
               <div v-if="riskTrendBars.length" class="daily-risk-trend" aria-label="近七日风险新增与关闭趋势">
@@ -283,6 +298,8 @@ import { dateKey, recurrenceLabel, scheduleMatchesDate } from '@/utils/workCalen
 import AppPageHeader from '@/components/page/AppPageHeader.vue'
 import PendingTasks from '@/view/dashboard/PendingTasks.vue'
 import LeadershipWallboard from '@/view/dashboard/LeadershipWallboard.vue'
+import AnimatedValue from '@/view/dashboard/wallboard/AnimatedValue.vue'
+import HeroCanvas from '@/components/three/HeroCanvas.vue'
 import { formatCompactCurrency, formatCurrency, formatNumber } from '@/utils/format'
 import { getAssetDashboard } from '@/plugin/asset/api/asset'
 import { getAssetRiskDashboard } from '@/plugin/asset/api/risk'
@@ -366,6 +383,31 @@ const greeting = computed(() => {
 const currentDateText = computed(() => new Intl.DateTimeFormat('zh-CN', {
   year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
 }).format(new Date()))
+const currentTime = ref(new Date())
+let clockTimer = null
+function startClock() {
+  if (clockTimer) clearInterval(clockTimer)
+  currentTime.value = new Date()
+  clockTimer = setInterval(() => {
+    if (dashboardActive.value) {
+      currentTime.value = new Date()
+    }
+  }, 1000)
+}
+function stopClock() {
+  if (clockTimer) {
+    clearInterval(clockTimer)
+    clockTimer = null
+  }
+}
+const currentTimeText = computed(() => {
+  return currentTime.value.toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  })
+})
 const refreshText = computed(() => {
   if (loading.value) return '正在刷新数据'
   const total = requestedModules.value.length
@@ -406,11 +448,35 @@ const healthRate = computed(() => {
 const metrics = computed(() => {
   const items = []
   if (access.value.assets && moduleLoaded.value.assets) {
-    items.push({ label: '资产实物总量', value: `${formatNumber(assetDashboard.value.totalQuantity)} 件`, hint: hintWithFreshness('assets', `${formatNumber(assetDashboard.value.categoryCount)} 个分类 · ${formatNumber(assetDashboard.value.assetKinds)} 份资产档案`), tone: 'primary', icon: Box })
-    items.push({ label: '资产账面原值', value: formatCompactCurrency(assetDashboard.value.originalValue), hint: hintWithFreshness('assets', `当前估值 ${formatCompactCurrency(assetDashboard.value.currentValue)}`), tone: 'success', icon: Coin })
+    items.push({
+      label: '资产实物总量',
+      numValue: Number(assetDashboard.value.totalQuantity || 0),
+      format: (val) => `${formatNumber(val)} 件`,
+      value: `${formatNumber(assetDashboard.value.totalQuantity)} 件`,
+      hint: hintWithFreshness('assets', `${formatNumber(assetDashboard.value.categoryCount)} 个分类 · ${formatNumber(assetDashboard.value.assetKinds)} 份资产档案`),
+      tone: 'primary',
+      icon: Box
+    })
+    items.push({
+      label: '资产账面原值',
+      numValue: Number(assetDashboard.value.originalValue || 0),
+      format: (val) => formatCompactCurrency(val),
+      value: formatCompactCurrency(assetDashboard.value.originalValue),
+      hint: hintWithFreshness('assets', `当前估值 ${formatCompactCurrency(assetDashboard.value.currentValue)}`),
+      tone: 'success',
+      icon: Coin
+    })
   }
   if (access.value.invoices && moduleLoaded.value.invoices) {
-    items.push({ label: '已确认发票', value: centsToCurrency(invoiceDashboard.value.totalCents), hint: hintWithFreshness('invoices', `${formatNumber(invoiceDashboard.value.confirmedCount)} 张已进入正式统计`), tone: 'info', icon: Tickets })
+    items.push({
+      label: '已确认发票',
+      numValue: Number(invoiceDashboard.value.totalCents || 0),
+      format: (val) => centsToCurrency(val),
+      value: centsToCurrency(invoiceDashboard.value.totalCents),
+      hint: hintWithFreshness('invoices', `${formatNumber(invoiceDashboard.value.confirmedCount)} 张已进入正式统计`),
+      tone: 'info',
+      icon: Tickets
+    })
   }
   if ((access.value.assetOperations && moduleLoaded.value.assetDrafts) || (access.value.invoices && moduleLoaded.value.invoices)) {
     const pendingHints = []
@@ -422,6 +488,8 @@ const metrics = computed(() => {
     const pendingStale = (moduleFailed.value.assetDrafts && moduleLoaded.value.assetDrafts) || (moduleFailed.value.invoices && moduleLoaded.value.invoices)
     items.push({
       label: '待处理事项',
+      numValue: Number(pendingTotal.value || 0),
+      format: (val) => `${formatNumber(val)} 项`,
       value: `${formatNumber(pendingTotal.value)} 项`,
       hint: `${pendingHints.join(' · ')}${pendingStale ? ' · 上次成功数据' : ''}`,
       tone: 'warning',
@@ -433,6 +501,8 @@ const metrics = computed(() => {
   if (access.value.risk && moduleLoaded.value.risk) {
     items.push({
       label: '开放风险',
+      numValue: Number(riskDashboard.value.totalOpen || 0),
+      format: (val) => `${formatNumber(val)} 项`,
       value: `${formatNumber(riskDashboard.value.totalOpen)} 项`,
       hint: hintWithFreshness('risk', `高风险 ${formatNumber(riskDashboard.value.highOpen)} 项 · 今日新增 ${formatNumber(riskDashboard.value.todayNew)} 项`),
       tone: riskDashboard.value.highOpen ? 'danger' : 'success',
@@ -773,6 +843,7 @@ function syncWallboardTimer(enabled) {
 onMounted(() => {
   if (!isPendingView.value) loadDashboard()
   syncWallboardTimer(isWallboardView.value)
+  startClock()
 })
 let activatedOnce = false
 onActivated(() => {
@@ -780,10 +851,12 @@ onActivated(() => {
   if (activatedOnce && !isPendingView.value) loadDashboard()
   activatedOnce = true
   syncWallboardTimer(isWallboardView.value)
+  startClock()
 })
 onDeactivated(() => {
   dashboardActive.value = false
   syncWallboardTimer(false)
+  stopClock()
 })
 watch(isPendingView, (pending, wasPending) => {
   if (!pending && wasPending) loadDashboard()
@@ -792,7 +865,10 @@ watch(isWallboardView, (wallboard, wasWallboard) => {
   syncWallboardTimer(wallboard)
   if (!wallboard && wasWallboard && dashboardActive.value && !isPendingView.value) loadDashboard()
 })
-onBeforeUnmount(() => syncWallboardTimer(false))
+onBeforeUnmount(() => {
+  syncWallboardTimer(false)
+  stopClock()
+})
 </script>
 
 <style scoped lang="scss">
@@ -802,52 +878,215 @@ onBeforeUnmount(() => syncWallboardTimer(false))
 .header-primary-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .header-primary-actions :deep(.el-button) { min-width: 104px; margin-left: 0; }
 
-.workbench-band { display: flex; min-width: 0; min-height: 120px; align-items: stretch; justify-content: space-between; gap: 28px; margin-bottom: var(--na-space-lg); padding: 18px 20px; border: 1px solid var(--na-border); border-radius: var(--na-radius); background: var(--na-card); }
-.workbench-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; justify-content: center; }
-.current-date { margin: 0 0 5px; color: var(--na-primary); font-size: .75rem; font-weight: 600; }
-.workbench-copy h2 { margin: 0; font-size: 1.375rem; font-weight: 700; letter-spacing: 0; }
-.workbench-copy > p:last-of-type { margin: 7px 0 0; color: var(--na-muted-foreground); font-size: .8125rem; }
-.quick-actions { display: flex; flex-wrap: wrap; gap: 2px 6px; margin-top: 8px; }
-.quick-actions :deep(.el-button) { height: 26px; padding: 0 4px; font-size: .75rem; }
+.workbench-band {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  min-width: 0;
+  min-height: 124px;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 28px;
+  margin-bottom: var(--na-space-lg);
+  padding: 18px 22px;
+  border: 1px solid var(--na-border);
+  border-radius: var(--na-radius);
+  background: var(--na-card);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.03);
+  animation: panelFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.workbench-hero-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+.workbench-copy {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+}
+.workbench-time-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+.live-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--na-primary);
+  box-shadow: 0 0 0 3px var(--na-primary-soft);
+  animation: pulseGlow 2.4s infinite ease-in-out;
+}
+.current-date {
+  margin: 0;
+  color: var(--na-primary);
+  font-size: .75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+.workbench-copy h2 {
+  margin: 0;
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.workbench-copy > p:last-of-type {
+  margin: 7px 0 0;
+  color: var(--na-muted-foreground);
+  font-size: .8125rem;
+  line-height: 1.5;
+}
+.quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 10px;
+}
+.quick-actions :deep(.el-button) {
+  height: 26px;
+  padding: 0 6px;
+  font-size: .75rem;
+  transition: all 0.2s ease;
+  &:hover {
+    transform: translateY(-1px);
+    color: var(--na-primary);
+  }
+}
 
-.runtime-summary { display: grid; width: min(390px, 38%); min-width: 330px; grid-template-columns: 1fr; gap: 12px; padding: 0 0 0 26px; border: 0; border-left: 1px solid var(--na-border); background: transparent; color: var(--na-foreground); text-align: left; }
+.runtime-summary {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: min(390px, 38%);
+  min-width: 330px;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  padding: 0 0 0 26px;
+  border: 0;
+  border-left: 1px solid var(--na-border);
+  background: transparent;
+  color: var(--na-foreground);
+  text-align: left;
+  transition: border-color 0.2s ease;
+}
 .runtime-summary.is-actionable { cursor: pointer; }
 .runtime-summary.is-actionable:hover .runtime-heading { color: var(--na-primary); }
 .runtime-summary:disabled { cursor: default; opacity: 1; }
 .runtime-topline { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 16px; }
 .runtime-topline > small { overflow: hidden; color: var(--na-muted-foreground); font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
-.runtime-heading { display: inline-flex; align-items: center; gap: 7px; font-size: .75rem; font-weight: 600; transition: color 160ms ease; white-space: nowrap; }
-.runtime-heading i { width: 7px; height: 7px; border-radius: 50%; background: var(--na-success); box-shadow: 0 0 0 3px var(--na-success-soft); }
+.runtime-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: .75rem;
+  font-weight: 600;
+  transition: color 160ms ease;
+  white-space: nowrap;
+}
+.runtime-heading i {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--na-success);
+  box-shadow: 0 0 0 3px var(--na-success-soft);
+  animation: pulseGlow 2.2s infinite ease-in-out;
+}
 .runtime-heading.health-warning i { background: var(--na-warning); box-shadow: 0 0 0 3px var(--na-warning-soft); }
-.runtime-heading.health-danger i { background: var(--na-danger); box-shadow: 0 0 0 3px var(--na-danger-soft); }
+.runtime-heading.health-danger i { background: var(--na-danger); box-shadow: 0 0 0 3px var(--na-warning-soft); animation: pulseDanger 1.6s infinite; }
 .runtime-summary dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 26px; margin: 0; }
 .runtime-summary dl div { display: grid; min-width: 0; grid-template-columns: 1fr auto; align-items: end; gap: 4px 8px; }
 .runtime-summary dt { color: var(--na-muted-foreground); font-size: .6875rem; }
 .runtime-summary dd { margin: 0; color: var(--na-foreground); font-size: 1rem; font-variant-numeric: tabular-nums; font-weight: 700; }
 .runtime-track { grid-column: 1 / -1; height: 5px; overflow: hidden; border-radius: 3px; background: var(--na-muted); }
-.runtime-track i { display: block; height: 100%; border-radius: inherit; }
+.runtime-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
 
-.metric-band { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); margin-bottom: var(--na-space-lg); border: 1px solid var(--na-border); border-radius: var(--na-radius); background: var(--na-card); }
-.metric-item { display: flex; min-width: 0; min-height: 104px; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 16px 18px 15px 20px; border-right: 1px solid var(--na-border); }
+.metric-band {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  margin-bottom: var(--na-space-lg);
+  border: 1px solid var(--na-border);
+  border-radius: var(--na-radius);
+  background: var(--na-card);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.03);
+  overflow: hidden;
+  animation: panelFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.metric-item {
+  display: flex;
+  min-width: 0;
+  min-height: 104px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 18px 15px 20px;
+  border-right: 1px solid var(--na-border);
+  transition: background-color 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: metricItemEntrance 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--metric-delay, 0ms);
+}
 button.metric-item { width: 100%; border-top: 0; border-bottom: 0; border-left: 0; background: transparent; color: inherit; font: inherit; text-align: left; }
 .metric-item:last-child { border-right: 0; }
-.metric-item--actionable { cursor: pointer; transition: background-color 160ms ease; }
-.metric-item--actionable:hover { background: var(--na-table-hover); }
+.metric-item--actionable { cursor: pointer; }
+.metric-item--actionable:hover, .metric-item:hover {
+  background: var(--na-table-hover);
+  .metric-icon {
+    transform: scale(1.08) rotate(3deg);
+    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
 .metric-item--actionable:focus-visible { position: relative; z-index: 1; outline: 2px solid var(--na-primary); outline-offset: -3px; }
 .metric-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; justify-content: center; gap: 4px; }
 .metric-copy > span, .metric-copy small { overflow: hidden; color: var(--na-muted-foreground); font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
 .metric-copy strong { overflow: hidden; color: var(--na-foreground); font-size: 1.25rem; font-variant-numeric: tabular-nums; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
 .metric-copy small.is-warning { color: var(--na-warning); }
-.metric-icon { display: inline-grid; width: 32px; height: 32px; flex: 0 0 auto; place-items: center; border-radius: var(--na-radius-sm); font-size: 1rem; }
+.metric-icon {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: var(--na-radius-sm);
+  font-size: 1.05rem;
+  transition: transform 0.22s ease;
+}
 .metric-primary { color: var(--na-primary); background: var(--na-primary-soft); }
 .metric-success { color: var(--na-success); background: var(--na-success-soft); }
 .metric-info { color: var(--na-info); background: var(--na-info-soft); }
 .metric-warning { color: var(--na-warning); background: var(--na-warning-soft); }
 .metric-danger { color: var(--na-danger); background: var(--na-danger-soft); }
 
-.dashboard-workspace { display: grid; min-width: 0; grid-template-columns: minmax(0, 1.65fr) minmax(340px, .84fr); gap: var(--na-space-md); }
+.dashboard-workspace {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1.65fr) minmax(340px, .84fr);
+  gap: var(--na-space-md);
+  animation: panelFadeIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
 .business-column, .support-column { display: grid; min-width: 0; align-content: start; gap: var(--na-space-md); }
-.dashboard-panel { min-width: 0; overflow: hidden; }
+.dashboard-panel {
+  min-width: 0;
+  overflow: hidden;
+  transition: box-shadow 0.22s ease, border-color 0.22s ease;
+  &:hover {
+    box-shadow: 0 4px 18px -4px rgba(0, 0, 0, 0.05);
+  }
+}
 .panel-heading > div { min-width: 0; }
 .panel-heading span { display: block; color: var(--na-muted-foreground); font-size: .6875rem; }
 .panel-heading h2 { margin: 3px 0 0; color: var(--na-foreground); font-size: .9375rem; font-weight: 600; }
@@ -872,7 +1111,25 @@ button.metric-item { width: 100%; border-top: 0; border-bottom: 0; border-left: 
 .status-label { display: inline-flex; align-items: center; gap: 6px; color: var(--na-muted-foreground); font-size: .75rem; white-space: nowrap; }
 .status-label i { width: 6px; height: 6px; border-radius: 50%; background: var(--na-muted-foreground); }
 .progress-track { height: 5px; overflow: hidden; border-radius: 3px; background: var(--na-muted); }
-.progress-track > i { display: block; height: 100%; border-radius: inherit; background: var(--na-primary); }
+.progress-track > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--na-primary);
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+    animation: trackShimmer 3.2s infinite ease-in-out;
+  }
+}
 .tone-success { background: var(--na-success) !important; }
 .tone-warning { background: var(--na-warning) !important; }
 .tone-danger { background: var(--na-danger) !important; }
@@ -882,9 +1139,31 @@ button.metric-item { width: 100%; border-top: 0; border-bottom: 0; border-left: 
 .asset-recent-table-head { display: grid; margin: 0 20px; padding: 8px 12px; grid-template-columns: minmax(0, 1.25fr) minmax(90px, .8fr) minmax(92px, .6fr); gap: 12px; border-radius: 6px; background: var(--na-table-header); color: var(--na-muted-foreground); font-size: .6875rem; }
 .asset-recent-table-head span:last-child { text-align: right; }
 .asset-recent-list { display: grid; }
-.asset-recent-list button { display: grid; min-width: 0; min-height: 52px; grid-template-columns: minmax(0, 1.25fr) minmax(90px, .8fr) minmax(92px, .6fr); align-items: center; gap: 12px; margin: 0 20px; padding: 7px 12px; border: 0; border-bottom: 1px solid var(--na-border); background: transparent; color: var(--na-foreground); text-align: left; }
+.asset-recent-list button {
+  display: grid;
+  min-width: 0;
+  min-height: 52px;
+  grid-template-columns: minmax(0, 1.25fr) minmax(90px, .8fr) minmax(92px, .6fr);
+  align-items: center;
+  gap: 12px;
+  margin: 0 20px;
+  padding: 7px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--na-border);
+  background: transparent;
+  color: var(--na-foreground);
+  text-align: left;
+  transition: background-color 0.16s ease, transform 0.16s ease;
+  &:hover {
+    background: var(--na-table-hover);
+    transform: translateX(2px);
+  }
+}
 .asset-recent-list button:last-child { border-bottom: 0; }
-.asset-recent-list button:hover, .operation-list button:hover, .schedule-list button:hover { background: var(--na-table-hover); }
+.operation-list button:hover, .schedule-list button:hover {
+  background: var(--na-table-hover);
+  transform: translateX(2px);
+}
 .asset-identity, .asset-place { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
 .asset-identity strong, .asset-place span { overflow: hidden; font-size: .75rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .asset-identity small, .asset-place small { overflow: hidden; color: var(--na-muted-foreground); font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
@@ -912,14 +1191,45 @@ button.metric-item { width: 100%; border-top: 0; border-bottom: 0; border-left: 
 .invoice-exceptions .is-warning { color: var(--na-warning); background: var(--na-warning-soft); }
 .invoice-exceptions .is-danger { color: var(--na-danger); background: var(--na-danger-soft); }
 .invoice-trend { display: grid; height: 124px; grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: end; gap: 10px; padding: 9px 0 0; }
-.trend-item { display: grid; min-width: 0; height: 100%; grid-template-rows: 16px minmax(0, 1fr) 15px; align-items: end; gap: 4px; }
-.trend-value { overflow: hidden; color: var(--na-muted-foreground); font-size: .6875rem; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+.trend-item {
+  display: grid;
+  min-width: 0;
+  height: 100%;
+  grid-template-rows: 16px minmax(0, 1fr) 15px;
+  align-items: end;
+  gap: 4px;
+  cursor: default;
+  &:hover {
+    .trend-value { color: var(--na-primary); font-weight: 700; }
+    .trend-bar i { transform: scaleX(1.12); filter: brightness(1.18); }
+  }
+}
+.trend-value { overflow: hidden; color: var(--na-muted-foreground); font-size: .6875rem; text-align: center; text-overflow: ellipsis; white-space: nowrap; transition: color 0.16s ease; }
 .trend-bar { display: flex; height: 100%; align-items: end; justify-content: center; border-bottom: 1px solid var(--na-border); }
-.trend-bar i { width: min(32px, 62%); min-height: 2px; border-radius: 4px 4px 0 0; background: var(--na-primary); }
+.trend-bar i {
+  width: min(32px, 62%);
+  min-height: 2px;
+  border-radius: 4px 4px 0 0;
+  background: var(--na-primary);
+  transform-origin: bottom center;
+  transition: height 0.75s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s ease, filter 0.2s ease;
+}
 .trend-item small { color: var(--na-muted-foreground); font-size: .6875rem; text-align: center; }
 
 .schedule-list, .operation-list { display: grid; }
-.schedule-list button { display: grid; min-width: 0; min-height: 48px; grid-template-columns: 6px 42px minmax(0, 1fr); align-items: center; gap: 10px; padding: 6px 16px; border: 0; border-bottom: 1px solid var(--na-border); background: transparent; color: var(--na-foreground); text-align: left; }
+.schedule-list button, .operation-list button {
+  display: grid;
+  min-width: 0;
+  min-height: 48px;
+  align-items: center;
+  border: 0;
+  border-bottom: 1px solid var(--na-border);
+  background: transparent;
+  color: var(--na-foreground);
+  text-align: left;
+  transition: background-color 0.16s ease, transform 0.16s ease;
+}
+.schedule-list button { grid-template-columns: 6px 42px minmax(0, 1fr); gap: 10px; padding: 6px 16px; }
 .schedule-list button:last-child, .operation-list button:last-child { border-bottom: 0; }
 .schedule-list i { width: 6px; height: 24px; border-radius: 3px; }
 .schedule-list time { color: var(--na-muted-foreground); font-size: .6875rem; font-variant-numeric: tabular-nums; }
@@ -932,7 +1242,7 @@ button.metric-item { width: 100%; border-top: 0; border-bottom: 0; border-left: 
 .operation-table-head, .operation-list button { display: grid; min-width: 0; grid-template-columns: 42px minmax(0, 1fr) 40px 34px; align-items: center; gap: 8px; }
 .operation-table-head { margin: 12px 14px 4px; padding: 7px 8px; border-radius: 6px; background: var(--na-table-header); color: var(--na-muted-foreground); font-size: .6875rem; }
 .operation-table-head span:last-child { text-align: center; }
-.operation-list button { min-height: 40px; padding: 0 22px; border: 0; border-bottom: 1px solid var(--na-border); background: transparent; color: var(--na-foreground); text-align: left; }
+.operation-list button { min-height: 40px; padding: 0 22px; border: 0; border-bottom: 1px solid var(--na-border); }
 .request-method { overflow: hidden; color: var(--na-primary); font: 600 .6875rem/1 ui-monospace, SFMono-Regular, Menlo, monospace; text-overflow: ellipsis; white-space: nowrap; }
 .request-path { overflow: hidden; font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
 .operation-list time { color: var(--na-muted-foreground); font-size: .6875rem; font-variant-numeric: tabular-nums; }
@@ -942,18 +1252,109 @@ button.metric-item { width: 100%; border-top: 0; border-bottom: 0; border-left: 
 .daily-risk-summary { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); border-bottom: 1px solid var(--na-border); }
 .daily-risk-total { display: flex; min-width: 0; flex-direction: column; justify-content: center; padding: var(--na-space-md); border-right: 1px solid var(--na-border); }
 .daily-risk-total span, .daily-risk-total small, .daily-risk-summary dt { color: var(--na-muted-foreground); font-size: .75rem; }
-.daily-risk-total strong { margin: 5px 0 3px; color: var(--na-foreground); font-size: 1.5rem; font-variant-numeric: tabular-nums; font-weight: 700; line-height: 1.15; }
+.daily-risk-total strong {
+  display: inline-flex;
+  align-items: center;
+  margin: 5px 0 3px;
+  color: var(--na-foreground);
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  line-height: 1.15;
+}
 .daily-risk-total strong.is-danger { color: var(--na-danger); }
 .daily-risk-total strong.is-success { color: var(--na-success); }
+.danger-pulse-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--na-danger);
+  box-shadow: 0 0 0 3px var(--na-danger-soft);
+  animation: pulseDanger 1.8s infinite;
+}
 .daily-risk-summary dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: center; margin: 0; padding: var(--na-space-md) var(--na-space-sm); }
 .daily-risk-summary dl div { min-width: 0; padding: 0 var(--na-space-xs); }
 .daily-risk-summary dd { margin: 5px 0 0; color: var(--na-foreground); font-size: 1rem; font-variant-numeric: tabular-nums; font-weight: 600; }
 .daily-risk-summary dd.is-warning { color: var(--na-warning); }
 .daily-risk-trend { display: flex; height: 72px; align-items: stretch; gap: var(--na-space-xs); padding: var(--na-space-sm) var(--na-space-md); }
-.daily-risk-trend > span { display: flex; min-width: 0; flex: 1; align-items: end; justify-content: center; gap: 2px; border-bottom: 1px solid var(--na-border); }
-.daily-risk-trend i { width: min(7px, 34%); min-height: 2px; border-radius: 2px 2px 0 0; }
+.daily-risk-trend > span {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: end;
+  justify-content: center;
+  gap: 2px;
+  border-bottom: 1px solid var(--na-border);
+  transition: background-color 0.16s ease;
+  &:hover {
+    background: var(--na-muted);
+  }
+}
+.daily-risk-trend i {
+  width: min(7px, 34%);
+  min-height: 2px;
+  border-radius: 2px 2px 0 0;
+  transition: height 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+}
 .daily-risk-trend .risk-new { background: var(--na-danger); }
 .daily-risk-trend .risk-resolved { background: var(--na-success); }
+
+/* Animations */
+@keyframes panelFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes metricItemEntrance {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 3px var(--na-primary-soft);
+  }
+  50% {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 6px var(--na-primary-soft);
+  }
+}
+
+@keyframes pulseDanger {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 3px var(--na-danger-soft);
+  }
+  50% {
+    transform: scale(1.22);
+    box-shadow: 0 0 0 6px var(--na-danger-soft);
+  }
+}
+
+@keyframes trackShimmer {
+  0% {
+    left: -100%;
+  }
+  50%, 100% {
+    left: 100%;
+  }
+}
+
 @media (max-width: 1120px) {
   .dashboard-workspace { grid-template-columns: 1fr; }
   .support-column { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -993,6 +1394,9 @@ button.metric-item { width: 100%; border-top: 0; border-bottom: 0; border-left: 
   .daily-risk-total { border-right: 0; border-bottom: 1px solid var(--na-border); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .progress-track > i { transition: none; }
+  .workbench-band, .metric-band, .dashboard-workspace, .metric-item { animation: none; }
+  .progress-track > i, .runtime-track i, .trend-bar i { transition: none; }
+  .progress-track > i::after { animation: none; display: none; }
+  .live-pulse-dot, .danger-pulse-dot, .runtime-heading i { animation: none; }
 }
 </style>
