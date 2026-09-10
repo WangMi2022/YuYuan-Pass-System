@@ -26,6 +26,10 @@ test('location ranking uses total inventory as denominator without mutating sour
   assert.equal(result[0].ratio, 20)
   assert.equal(result[1].location, '未标注位置')
   assert.equal(input[0].quantity, 5)
+  const locations = Array.from({ length: 8 }, (_, index) => ({ location: `位置 ${index}`, quantity: index + 1 }))
+  const ranked = rankedLocations(locations, 100)
+  assert.equal(ranked.length, 8, 'the scrolling list must retain locations beyond the first five')
+  assert.deepEqual(ranked.map((item) => item.quantity), [8, 7, 6, 5, 4, 3, 2, 1])
 })
 
 test('attention feed cannot disclose retained data after permission removal', () => {

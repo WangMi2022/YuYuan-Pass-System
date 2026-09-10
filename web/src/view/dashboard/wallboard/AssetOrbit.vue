@@ -1,10 +1,10 @@
 <template>
   <div ref="host" class="asset-orbit" :data-renderer="ready ? 'webgl' : 'fallback'" aria-hidden="true">
     <svg v-if="!ready" class="orbit-fallback" viewBox="0 0 400 300">
-      <ellipse cx="200" cy="170" rx="164" ry="88" fill="none" :stroke="palette.primary" opacity=".15" />
-      <g transform="translate(200 148) rotate(-90)">
-        <circle r="100" fill="none" :stroke="palette.grid" stroke-width="14" />
-        <circle v-for="arc in fallbackArcs" :key="arc.key" r="100" fill="none" :stroke="arc.color" stroke-width="14" :stroke-dasharray="arc.dash" :stroke-dashoffset="arc.offset" />
+      <circle cx="200" cy="150" r="126" fill="none" :stroke="palette.primary" opacity=".15" />
+      <g transform="translate(200 150) scale(.96 .89) rotate(-90)">
+        <circle r="100" fill="none" :stroke="palette.grid" stroke-width="11" />
+        <circle v-for="arc in fallbackArcs" :key="arc.key" r="100" fill="none" :stroke="arc.color" stroke-width="11" :stroke-dasharray="arc.dash" :stroke-dashoffset="arc.offset" />
       </g>
     </svg>
     <canvas ref="canvas" :class="{ 'is-ready': ready }" />
@@ -122,7 +122,7 @@ function resize() {
   if (!width || !height) return
   renderer.setSize(width, height, false)
   camera.aspect = width / height
-  camera.position.z = camera.aspect < 1.35 ? 9.8 / camera.aspect : 7.4
+  camera.position.z = camera.aspect < 1 ? 7 / camera.aspect : 7
   camera.updateProjectionMatrix()
   draw()
 }

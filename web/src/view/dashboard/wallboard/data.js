@@ -21,7 +21,7 @@ export function rankedLocations(rows = [], total = 0) {
     location: String(item.location || '未标注位置'),
     quantity: Math.max(0, finiteNumber(item.quantity)),
     ratio: share(item.quantity, total)
-  })).sort((a, b) => b.quantity - a.quantity).slice(0, 5)
+  })).sort((a, b) => b.quantity - a.quantity)
 }
 
 // Every message is guarded by both permission and availability. Failed refreshes
