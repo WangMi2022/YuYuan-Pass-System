@@ -3,21 +3,19 @@
     ref="containerRef"
     class="hero-canvas-container"
     aria-hidden="true"
-    @pointermove="handlePointerMove"
-    @pointerleave="handlePointerLeave"
   />
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as THREE from 'three'
 import { useThreeScene } from './useThreeScene'
 import { useAppStore } from '@/pinia/modules/app'
 
 const props = defineProps({
-  particleCountX: { type: Number, default: 46 },
-  particleCountY: { type: Number, default: 22 },
-  separation: { type: Number, default: 8.5 }
+  particleCountX: { type: Number, default: 52 },
+  particleCountY: { type: Number, default: 24 },
+  separation: { type: Number, default: 7.8 }
 })
 
 const appStore = useAppStore()
@@ -26,26 +24,34 @@ const containerRef = ref(null)
 let geometry = null
 let material = null
 let pointsMesh = null
+let lineGeometry = null
+let lineMaterial = null
+let lineMesh = null
+let motesGeometry = null
+let motesMaterial = null
+let motesMesh = null
 let texture = null
+let hostElement = null
 
 const pointer = { x: 0, y: 0, targetX: 0, targetY: 0, active: false }
 
-function createCircleTexture() {
+function createBloomTexture() {
   const canvas = document.createElement('canvas')
-  canvas.width = 32
-  canvas.height = 32
+  canvas.width = 64
+  canvas.height = 64
   const ctx = canvas.getContext('2d')
   if (!ctx) return null
 
-  const gradient = ctx.createRadialGradient(16, 16, 0, 16, 16, 16)
+  const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32)
   gradient.addColorStop(0, 'rgba(255, 255, 255, 1)')
-  gradient.addColorStop(0.25, 'rgba(255, 255, 255, 0.85)')
-  gradient.addColorStop(0.6, 'rgba(255, 255, 255, 0.25)')
+  gradient.addColorStop(0.18, 'rgba(255, 255, 255, 0.95)')
+  gradient.addColorStop(0.42, 'rgba(255, 255, 255, 0.45)')
+  gradient.addColorStop(0.72, 'rgba(255, 255, 255, 0.12)')
   gradient.addColorStop(1, 'rgba(255, 255, 255, 0)')
 
   ctx.fillStyle = gradient
   ctx.beginPath()
-  ctx.arc(16, 16, 16, 0, Math.PI * 2)
+  ctx.arc(32, 32, 32, 0, Math.PI * 2)
   ctx.fill()
 
   const tex = new THREE.CanvasTexture(canvas)
@@ -72,16 +78,31 @@ function getThemeColor() {
 }
 
 function updateMaterialStyle() {
-  if (!material) return
   const color = getThemeColor()
-  material.color.set(color)
-  material.opacity = isDarkMode.value ? 0.65 : 0.32
-  material.size = isDarkMode.value ? 4.8 : 4.0
+  const dark = isDarkMode.value
+
+  if (material) {
+    material.color.set(color)
+    material.opacity = dark ? 0.88 : 0.65
+    material.size = dark ? 5.8 : 4.8
+  }
+
+  if (lineMaterial) {
+    lineMaterial.color.set(color)
+    lineMaterial.opacity = dark ? 0.26 : 0.15
+  }
+
+  if (motesMaterial) {
+    motesMaterial.color.set(color)
+    motesMaterial.opacity = dark ? 0.85 : 0.6
+    motesMaterial.size = dark ? 6.5 : 5.2
+  }
 }
 
 function handlePointerMove(e) {
   if (!containerRef.value) return
   const rect = containerRef.value.getBoundingClientRect()
+  if (rect.width <= 0 || rect.height <= 0) return
   pointer.targetX = ((e.clientX - rect.left) / rect.width) * 2 - 1
   pointer.targetY = -(((e.clientY - rect.top) / rect.height) * 2 - 1)
   pointer.active = true
@@ -94,9 +115,9 @@ function handlePointerLeave() {
 }
 
 const { isAvailable } = useThreeScene(containerRef, {
-  fov: 48,
-  cameraPos: [0, 52, 98],
-  lookAt: [0, 4, 0],
+  fov: 46,
+  cameraPos: [0, 56, 92],
+  lookAt: [0, 2, 0],
   onInit({ scene }) {
     const countX = props.particleCountX
     const countY = props.particleCountY
@@ -120,31 +141,81 @@ const { isAvailable } = useThreeScene(containerRef, {
     geometry = new THREE.BufferGeometry()
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
 
-    texture = createCircleTexture()
+    texture = createBloomTexture()
     material = new THREE.PointsMaterial({
-      size: isDarkMode.value ? 4.8 : 4.0,
+      size: isDarkMode.value ? 5.8 : 4.8,
       map: texture,
       transparent: true,
-      opacity: isDarkMode.value ? 0.65 : 0.32,
+      opacity: isDarkMode.value ? 0.88 : 0.65,
       depthWrite: false,
       blending: THREE.NormalBlending
     })
-    updateMaterialStyle()
 
     pointsMesh = new THREE.Points(geometry, material)
     scene.add(pointsMesh)
+
+    // Wireframe cyber grid lines linking adjacent nodes
+    const lineIndices = []
+    for (let ix = 0; ix < countX; ix++) {
+      for (let iy = 0; iy < countY; iy++) {
+        const i = ix * countY + iy
+        if (ix < countX - 1) {
+          lineIndices.push(i, (ix + 1) * countY + iy)
+        }
+        if (iy < countY - 1 && iy % 2 === 0) {
+          lineIndices.push(i, ix * countY + (iy + 1))
+        }
+      }
+    }
+
+    lineGeometry = new THREE.BufferGeometry()
+    lineGeometry.setAttribute('position', geometry.getAttribute('position'))
+    lineGeometry.setIndex(lineIndices)
+
+    lineMaterial = new THREE.LineBasicMaterial({
+      color: new THREE.Color(getThemeColor()),
+      transparent: true,
+      opacity: isDarkMode.value ? 0.26 : 0.15,
+      depthWrite: false
+    })
+
+    lineMesh = new THREE.LineSegments(lineGeometry, lineMaterial)
+    scene.add(lineMesh)
+
+    // Floating ambient sparkles
+    const moteCount = 28
+    const motePositions = new Float32Array(moteCount * 3)
+    for (let m = 0; m < moteCount * 3; m += 3) {
+      motePositions[m] = (Math.random() - 0.5) * offsetX * 1.8
+      motePositions[m + 1] = 4 + Math.random() * 22
+      motePositions[m + 2] = (Math.random() - 0.5) * offsetZ * 1.6
+    }
+    motesGeometry = new THREE.BufferGeometry()
+    motesGeometry.setAttribute('position', new THREE.BufferAttribute(motePositions, 3))
+
+    motesMaterial = new THREE.PointsMaterial({
+      size: isDarkMode.value ? 6.5 : 5.2,
+      map: texture,
+      transparent: true,
+      opacity: isDarkMode.value ? 0.85 : 0.6,
+      depthWrite: false,
+      blending: THREE.NormalBlending
+    })
+    motesMesh = new THREE.Points(motesGeometry, motesMaterial)
+    scene.add(motesMesh)
+
+    updateMaterialStyle()
   },
   onRender({ elapsed }) {
     if (!geometry || !material) return
 
-    // Smooth pointer damping
-    pointer.x += (pointer.targetX - pointer.x) * 0.05
-    pointer.y += (pointer.targetY - pointer.y) * 0.05
+    pointer.x += (pointer.targetX - pointer.x) * 0.06
+    pointer.y += (pointer.targetY - pointer.y) * 0.06
 
     const positions = geometry.attributes.position.array
     const countX = props.particleCountX
     const countY = props.particleCountY
-    const time = elapsed * 0.95
+    const time = elapsed * 1.1
 
     let idx = 0
     for (let ix = 0; ix < countX; ix++) {
@@ -152,19 +223,18 @@ const { isAvailable } = useThreeScene(containerRef, {
         const u = ix / countX
         const v = iy / countY
 
-        // Harmonious 3D wave interference
-        const waveA = Math.sin(u * 6.2 + time * 1.3) * 4.6
-        const waveB = Math.cos(v * 4.8 + time * 1.1) * 3.8
-        const waveC = Math.sin((u + v) * 3.6 + time * 0.8) * 2.8
+        // Harmonious cyber wave undulating
+        const waveA = Math.sin(u * 7.5 + time * 1.4) * 5.4
+        const waveB = Math.cos(v * 5.2 + time * 1.2) * 4.2
+        const waveC = Math.sin((u + v) * 4.0 + time * 0.9) * 3.2
 
-        // Subtle interactive disturbance from pointer
         let pointerShift = 0
         if (pointer.active || Math.abs(pointer.x) > 0.01 || Math.abs(pointer.y) > 0.01) {
-          const px = (u - 0.5) * 2
-          const py = (v - 0.5) * 2
+          const px = (u - 0.5) * 2.2
+          const py = (v - 0.5) * 2.2
           const distSq = (px - pointer.x) * (px - pointer.x) + (py - pointer.y) * (py - pointer.y)
-          if (distSq < 1.0) {
-            pointerShift = Math.cos(Math.sqrt(distSq) * Math.PI * 0.5) * 6.5
+          if (distSq < 1.2) {
+            pointerShift = Math.cos(Math.sqrt(distSq) * Math.PI * 0.5) * 8.0
           }
         }
 
@@ -173,6 +243,32 @@ const { isAvailable } = useThreeScene(containerRef, {
       }
     }
     geometry.attributes.position.needsUpdate = true
+
+    // Animate floating sparkles
+    if (motesGeometry) {
+      const motesPos = motesGeometry.attributes.position.array
+      for (let m = 0; m < motesPos.length; m += 3) {
+        motesPos[m + 1] += Math.sin(time * 1.5 + m) * 0.04
+      }
+      motesGeometry.attributes.position.needsUpdate = true
+    }
+  }
+})
+
+onMounted(() => {
+  // Attach pointer listener to parent card so moving cursor anywhere on the card ripples the wave
+  hostElement = containerRef.value?.parentElement
+  if (hostElement) {
+    hostElement.addEventListener('pointermove', handlePointerMove, { passive: true })
+    hostElement.addEventListener('pointerleave', handlePointerLeave, { passive: true })
+  }
+})
+
+onBeforeUnmount(() => {
+  if (hostElement) {
+    hostElement.removeEventListener('pointermove', handlePointerMove)
+    hostElement.removeEventListener('pointerleave', handlePointerLeave)
+    hostElement = null
   }
 })
 
@@ -194,7 +290,7 @@ defineExpose({ isAvailable })
   width: 100%;
   height: 100%;
   overflow: hidden;
-  pointer-events: auto;
+  pointer-events: none;
   z-index: 0;
 }
 .hero-canvas-container :deep(canvas) {
@@ -205,7 +301,7 @@ defineExpose({ isAvailable })
 }
 @media (prefers-reduced-motion: reduce) {
   .hero-canvas-container {
-    opacity: 0.18;
+    opacity: 0.22;
   }
 }
 </style>

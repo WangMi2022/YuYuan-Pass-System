@@ -1,6 +1,7 @@
 <template>
   <Teleport to="body">
     <section ref="root" class="leadership-wallboard" :class="{ 'is-still': !motionActive }" role="dialog" aria-modal="true" aria-labelledby="wallboard-title" tabindex="-1" @keydown="onKeydown">
+      <HeroCanvas class="wallboard-hero-canvas" :particle-count-x="68" :particle-count-y="28" :separation="9" />
       <header class="wallboard-header">
         <div class="wallboard-brand"><Logo :size="2.5" /><span><strong>{{ brandingStore.systemName }}</strong><small>{{ brandingStore.subtitle || 'ASSET CONTROL' }}</small></span></div>
         <div class="wallboard-heading"><h1 id="wallboard-title">经营与风险驾驶舱</h1><p><i class="live-dot" />资产 · 资金 · 风险 · 协同</p></div>
@@ -92,6 +93,7 @@ import AssetOrbit from './wallboard/AssetOrbit.vue'
 import AnimatedValue from './wallboard/AnimatedValue.vue'
 import WallboardChart from './wallboard/WallboardChart.vue'
 import WallboardTicker from './wallboard/WallboardTicker.vue'
+import HeroCanvas from '@/components/three/HeroCanvas.vue'
 import { assetSegments, attentionItems, finiteNumber, rankedLocations, share } from './wallboard/data'
 const props = defineProps({ snapshot: { type: Object, required: true }, loading: { type: Boolean, default: false } })
 const emit = defineEmits(['exit', 'refresh'])
@@ -133,6 +135,8 @@ onMounted(activateWallboard); onActivated(activateWallboard); onDeactivated(deac
 </script>
 
 <style scoped lang="scss">
+.wallboard-hero-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 0; pointer-events: none; opacity: 0.55; }
+.wallboard-header, .wallboard-context, .wallboard-content, .wallboard-footer { position: relative; z-index: 1; }
 .leadership-wallboard { --wb-primary: var(--na-primary); --wb-accent: var(--na-accent-foreground); --wb-bg: color-mix(in srgb, var(--na-primary) 3%, var(--na-background)); --wb-surface: color-mix(in srgb, var(--na-primary) 2%, var(--na-card)); --wb-raised: color-mix(in srgb, var(--na-primary) 5%, var(--na-card)); --wb-border: color-mix(in srgb, var(--na-primary) 14%, var(--na-border)); --wb-text: var(--na-foreground); --wb-muted: var(--na-muted-foreground); --wb-gap: 16px; --wb-pad: 22px; --tone: var(--wb-primary); position: fixed; z-index: 1400; inset: 0; display: flex; flex-direction: column; overflow: auto; background: var(--wb-bg); color: var(--wb-text); font: 14px/1.45 var(--na-font-sans); font-variant-numeric: tabular-nums; outline: none; }
 .leadership-wallboard *, .leadership-wallboard *::before, .leadership-wallboard *::after { box-sizing: border-box; } .leadership-wallboard h1, .leadership-wallboard h2, .leadership-wallboard h3, .leadership-wallboard p { margin: 0; }
 .leadership-wallboard button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; border: 1px solid var(--wb-border); border-radius: 7px; background: var(--wb-surface); color: var(--wb-text); font: inherit; cursor: pointer; transition: background-color 180ms, border-color 180ms; } .leadership-wallboard button:hover { border-color: var(--wb-primary); background: var(--wb-raised); } .leadership-wallboard button:focus-visible, .leadership-wallboard input:focus-visible { outline: 2px solid var(--wb-accent); outline-offset: 3px; }

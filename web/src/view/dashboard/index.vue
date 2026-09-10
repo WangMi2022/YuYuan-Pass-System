@@ -19,7 +19,7 @@
       >
         <template #actions>
           <span class="updated-at">{{ refreshText }}</span>
-          <el-button v-if="canOpenWallboard" plain :icon="FullScreen" @click="openWallboard">会议室大屏</el-button>
+          <el-button v-if="canOpenWallboard" class="cockpit-fullscreen-btn" type="primary" plain :icon="FullScreen" @click="openWallboard">大屏驾驶舱</el-button>
           <el-button :icon="Refresh" :loading="loading" @click="loadDashboard">刷新</el-button>
           <div v-if="access.assetInventory || access.invoiceRecognition" class="header-primary-actions">
             <el-button v-if="access.assetInventory" type="primary" :icon="Plus" @click="go('assetInventory')">登记资产</el-button>
@@ -32,7 +32,10 @@
         <HeroCanvas class="workbench-hero-canvas" />
         <div class="workbench-copy">
           <div class="workbench-time-row">
-            <span class="live-pulse-dot" title="系统监控在线" />
+            <span class="cockpit-live-tag">
+              <i class="live-pulse-dot" />
+              <span>COCKPIT TELEMETRY</span>
+            </span>
             <p class="current-date">{{ currentDateText }} · {{ currentTimeText }}</p>
           </div>
           <h2 id="workbench-title">{{ greeting }}，{{ userStore.userInfo.nickName || userStore.userInfo.userName || '用户' }}</h2>
@@ -52,6 +55,11 @@
           aria-label="服务器监控摘要"
           @click="go('state')"
         >
+          <div class="runtime-ecg-track" aria-hidden="true">
+            <svg viewBox="0 0 120 16" preserveAspectRatio="none" class="runtime-ecg-svg">
+              <path class="runtime-ecg-path" d="M 0 8 L 36 8 L 42 2 L 48 14 L 54 4 L 60 11 L 66 8 L 120 8" />
+            </svg>
+          </div>
           <span class="runtime-topline">
             <span class="runtime-heading" :class="`health-${systemHealth.tone}`"><i />{{ moduleLoaded.monitor ? systemHealth.label : '服务器监控' }}</span>
             <small>{{ moduleLoaded.monitor ? (moduleFailed.monitor ? moduleFreshnessShort('monitor') : `采集于 ${serverCollectedAt}`) : '暂无可用数据' }}</small>
@@ -79,14 +87,18 @@
           v-for="(metric, idx) in metrics"
           :key="metric.label"
           class="metric-item"
-          :class="{ 'metric-item--actionable': metric.action }"
+          :class="[`metric-item--${metric.tone}`, { 'metric-item--actionable': metric.action }]"
           :type="metric.action ? 'button' : undefined"
           :aria-label="metric.action ? metric.actionLabel : undefined"
           :style="{ '--metric-delay': `${idx * 45}ms` }"
           @click="handleMetricClick(metric)"
         >
+          <div class="metric-accent-stripe" />
           <div class="metric-copy">
-            <span>{{ metric.label }}</span>
+            <div class="metric-title-row">
+              <span>{{ metric.label }}</span>
+              <span class="metric-status-glow" :class="`tone-${metric.tone}`" />
+            </div>
             <strong>
               <AnimatedValue
                 v-if="metric.numValue !== undefined"
@@ -97,7 +109,9 @@
             </strong>
             <small :class="metric.tone === 'warning' ? 'is-warning' : ''">{{ metric.hint }}</small>
           </div>
-          <el-icon class="metric-icon" :class="`metric-${metric.tone}`"><component :is="metric.icon" /></el-icon>
+          <div class="metric-icon-box" :class="`metric-${metric.tone}`">
+            <el-icon class="metric-icon"><component :is="metric.icon" /></el-icon>
+          </div>
         </component>
       </section>
 
@@ -878,23 +892,69 @@ onBeforeUnmount(() => {
 .header-primary-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .header-primary-actions :deep(.el-button) { min-width: 104px; margin-left: 0; }
 
+.cockpit-fullscreen-btn {
+  font-weight: 600;
+  border-color: var(--na-primary) !important;
+  color: var(--na-primary) !important;
+  box-shadow: 0 0 10px -2px var(--na-primary-soft);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 0 16px 0 var(--na-primary-soft);
+  }
+}
+
 .workbench-band {
   position: relative;
   overflow: hidden;
   display: flex;
   min-width: 0;
-  min-height: 124px;
+  min-height: 138px;
   align-items: stretch;
   justify-content: space-between;
   gap: 28px;
   margin-bottom: var(--na-space-lg);
-  padding: 18px 22px;
-  border: 1px solid var(--na-border);
-  border-radius: var(--na-radius);
-  background: var(--na-card);
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.03);
+  padding: 20px 24px;
+  border: 1px solid rgba(109, 93, 251, 0.22);
+  border-radius: calc(var(--na-radius) + 2px);
+  background: linear-gradient(135deg, rgba(109, 93, 251, 0.08) 0%, rgba(246, 248, 255, 0.94) 42%, rgba(250, 245, 255, 0.88) 100%), var(--na-card);
+  box-shadow: 0 10px 28px -8px rgba(109, 93, 251, 0.14), 0 2px 6px 0 rgba(0, 0, 0, 0.03);
   animation: panelFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    pointer-events: none;
+    z-index: 2;
+  }
+  &::before {
+    top: 7px;
+    left: 7px;
+    border-top: 2px solid var(--na-primary);
+    border-left: 2px solid var(--na-primary);
+    border-top-left-radius: 4px;
+  }
+  &::after {
+    top: 7px;
+    right: 7px;
+    border-top: 2px solid var(--na-primary);
+    border-right: 2px solid var(--na-primary);
+    border-top-right-radius: 4px;
+  }
 }
+
+:root.dark .workbench-band {
+  border-color: rgba(129, 140, 248, 0.3);
+  background: radial-gradient(circle at 18% 28%, rgba(109, 93, 251, 0.25), transparent 48%),
+              radial-gradient(circle at 82% 72%, rgba(59, 130, 246, 0.18), transparent 42%),
+              linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(30, 27, 75, 0.9)),
+              var(--na-card);
+  box-shadow: 0 12px 36px -8px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
 .workbench-hero-canvas {
   position: absolute;
   inset: 0;
@@ -915,8 +975,21 @@ onBeforeUnmount(() => {
 .workbench-time-row {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 5px;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.cockpit-live-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: var(--na-primary-soft);
+  border: 1px solid rgba(109, 93, 251, 0.25);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--na-primary);
 }
 .live-pulse-dot {
   width: 7px;
@@ -970,7 +1043,7 @@ onBeforeUnmount(() => {
   width: min(390px, 38%);
   min-width: 330px;
   grid-template-columns: 1fr;
-  gap: 12px;
+  gap: 10px;
   padding: 0 0 0 26px;
   border: 0;
   border-left: 1px solid var(--na-border);
@@ -982,6 +1055,32 @@ onBeforeUnmount(() => {
 .runtime-summary.is-actionable { cursor: pointer; }
 .runtime-summary.is-actionable:hover .runtime-heading { color: var(--na-primary); }
 .runtime-summary:disabled { cursor: default; opacity: 1; }
+
+.runtime-ecg-track {
+  position: relative;
+  width: 100%;
+  height: 14px;
+  overflow: hidden;
+  opacity: 0.85;
+}
+.runtime-ecg-svg {
+  width: 100%;
+  height: 100%;
+}
+.runtime-ecg-path {
+  fill: none;
+  stroke: var(--na-primary);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 50 100;
+  animation: ecgFlow 2.8s linear infinite;
+}
+@keyframes ecgFlow {
+  0% { stroke-dashoffset: 150; }
+  100% { stroke-dashoffset: 0; }
+}
+
 .runtime-topline { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 16px; }
 .runtime-topline > small { overflow: hidden; color: var(--na-muted-foreground); font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
 .runtime-heading {
@@ -1019,57 +1118,117 @@ onBeforeUnmount(() => {
 .metric-band {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
   margin-bottom: var(--na-space-lg);
-  border: 1px solid var(--na-border);
-  border-radius: var(--na-radius);
-  background: var(--na-card);
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.03);
-  overflow: hidden;
+  overflow: visible;
   animation: panelFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .metric-item {
+  position: relative;
   display: flex;
   min-width: 0;
-  min-height: 104px;
+  min-height: 108px;
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
-  padding: 16px 18px 15px 20px;
-  border-right: 1px solid var(--na-border);
-  transition: background-color 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 18px 20px 16px;
+  border: 1px solid var(--na-border);
+  border-radius: var(--na-radius);
+  background: var(--na-card);
+  box-shadow: 0 2px 6px 0 rgba(0, 0, 0, 0.03);
+  overflow: hidden;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.22s ease;
   animation: metricItemEntrance 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
   animation-delay: var(--metric-delay, 0ms);
-}
-button.metric-item { width: 100%; border-top: 0; border-bottom: 0; border-left: 0; background: transparent; color: inherit; font: inherit; text-align: left; }
-.metric-item:last-child { border-right: 0; }
-.metric-item--actionable { cursor: pointer; }
-.metric-item--actionable:hover, .metric-item:hover {
-  background: var(--na-table-hover);
-  .metric-icon {
-    transform: scale(1.08) rotate(3deg);
-    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 24px -4px var(--metric-glow, rgba(99, 102, 241, 0.16));
+    border-color: var(--metric-border, var(--na-primary));
+    .metric-icon {
+      transform: scale(1.12) rotate(4deg);
+    }
   }
 }
-.metric-item--actionable:focus-visible { position: relative; z-index: 1; outline: 2px solid var(--na-primary); outline-offset: -3px; }
+button.metric-item { width: 100%; color: inherit; font: inherit; text-align: left; }
+.metric-item--actionable { cursor: pointer; }
+.metric-item--actionable:focus-visible { position: relative; z-index: 1; outline: 2px solid var(--na-primary); outline-offset: -2px; }
+
+.metric-accent-stripe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--metric-accent-color, var(--na-primary));
+  opacity: 0.85;
+}
+
+.metric-title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.metric-status-glow {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--metric-accent-color, var(--na-primary));
+  box-shadow: 0 0 0 2px var(--metric-glow, var(--na-primary-soft));
+  animation: pulseGlow 2.5s infinite;
+}
+
 .metric-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; justify-content: center; gap: 4px; }
-.metric-copy > span, .metric-copy small { overflow: hidden; color: var(--na-muted-foreground); font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
-.metric-copy strong { overflow: hidden; color: var(--na-foreground); font-size: 1.25rem; font-variant-numeric: tabular-nums; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.metric-copy > span, .metric-title-row > span, .metric-copy small { overflow: hidden; color: var(--na-muted-foreground); font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
+.metric-copy strong { overflow: hidden; color: var(--na-foreground); font-size: 1.35rem; font-variant-numeric: tabular-nums; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
 .metric-copy small.is-warning { color: var(--na-warning); }
-.metric-icon {
+
+.metric-icon-box {
   display: inline-grid;
-  width: 34px;
-  height: 34px;
+  width: 38px;
+  height: 38px;
   flex: 0 0 auto;
   place-items: center;
   border-radius: var(--na-radius-sm);
-  font-size: 1.05rem;
+  background: var(--metric-soft-bg, var(--na-primary-soft));
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+.metric-icon {
+  font-size: 1.15rem;
+  color: var(--metric-accent-color, var(--na-primary));
   transition: transform 0.22s ease;
 }
-.metric-primary { color: var(--na-primary); background: var(--na-primary-soft); }
-.metric-success { color: var(--na-success); background: var(--na-success-soft); }
-.metric-info { color: var(--na-info); background: var(--na-info-soft); }
-.metric-warning { color: var(--na-warning); background: var(--na-warning-soft); }
-.metric-danger { color: var(--na-danger); background: var(--na-danger-soft); }
+
+.metric-item--primary {
+  --metric-accent-color: var(--na-primary);
+  --metric-border: var(--na-primary);
+  --metric-glow: rgba(99, 102, 241, 0.22);
+  --metric-soft-bg: var(--na-primary-soft);
+}
+.metric-item--success {
+  --metric-accent-color: var(--na-success);
+  --metric-border: var(--na-success);
+  --metric-glow: rgba(16, 185, 129, 0.22);
+  --metric-soft-bg: var(--na-success-soft);
+}
+.metric-item--info {
+  --metric-accent-color: #06B6D4;
+  --metric-border: #06B6D4;
+  --metric-glow: rgba(6, 182, 212, 0.22);
+  --metric-soft-bg: rgba(6, 182, 212, 0.12);
+}
+.metric-item--warning {
+  --metric-accent-color: var(--na-warning);
+  --metric-border: var(--na-warning);
+  --metric-glow: rgba(245, 158, 11, 0.25);
+  --metric-soft-bg: var(--na-warning-soft);
+}
+.metric-item--danger {
+  --metric-accent-color: var(--na-danger);
+  --metric-border: var(--na-danger);
+  --metric-glow: rgba(239, 68, 68, 0.25);
+  --metric-soft-bg: var(--na-danger-soft);
+}
 
 .dashboard-workspace {
   display: grid;
