@@ -25,9 +25,10 @@
         </SettingItem>
         <SettingItem label="页面切换动画" description="选择页面之间的过渡方式">
           <el-select v-model="config.transition_type" aria-label="页面切换动画" @change="appStore.toggleTransition">
-            <el-option value="fade" label="淡入淡出" />
-            <el-option value="slide" label="滑动" />
-            <el-option value="zoom" label="缩放" />
+            <el-option value="fade" label="微光流影 (默认)" />
+            <el-option value="slide" label="视差平移" />
+            <el-option value="zoom" label="景深缩放" />
+            <el-option value="blur" label="极客光晕" />
             <el-option value="none" label="无动画" />
           </el-select>
         </SettingItem>

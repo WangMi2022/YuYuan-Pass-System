@@ -1,16 +1,190 @@
 
-// 淡入淡出动画
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease;
+// =============================================================================
+// 高阶全站页面路由转场动力学动画体系 (High-End Kinetic Page Transition System)
+// 适配桌面端与移动端，符合非对称微交互规范与深色/浅色自适应，支持减弱动效偏好
+// =============================================================================
+
+// 页面容器承载基底强化：设立稳定透视与渲染层
+.na-page-host {
+  position: relative;
+  min-height: 100%;
+  background: transparent;
+  perspective: 1200px;
+  transform-style: flat;
 }
 
-.fade-enter-from,
+// -----------------------------------------------------------------------------
+// 1. 微光流影 (fade) - 极简主义/SaaS旗舰标配 (默认推荐)
+// 黄金非对称耗时：离场急速升华(160ms)，入场从容就位(280ms)
+// -----------------------------------------------------------------------------
+.fade-leave-active {
+  transition: opacity 0.16s cubic-bezier(0.4, 0, 1, 1),
+              transform 0.16s cubic-bezier(0.4, 0, 1, 1);
+  will-change: opacity, transform;
+  pointer-events: none;
+  transform-origin: 50% 15%;
+}
+
 .fade-leave-to {
   opacity: 0;
-  transform: translateY(10px);
+  transform: translateY(-8px) scale(0.995);
 }
 
+.fade-enter-active {
+  transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+  transform-origin: 50% 15%;
+}
+
+.fade-enter-from {
+  opacity: 0;
+  transform: translateY(12px) scale(0.995);
+}
+
+.fade-enter-to {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+// -----------------------------------------------------------------------------
+// 2. 视差平移 (slide) - 动感横向甲板视差切换
+// 出场向左微退(180ms)，入场从右侧滑入减速定格(300ms)
+// -----------------------------------------------------------------------------
+.slide-leave-active {
+  transition: opacity 0.18s cubic-bezier(0.4, 0, 1, 1),
+              transform 0.18s cubic-bezier(0.4, 0, 1, 1);
+  will-change: opacity, transform;
+  pointer-events: none;
+}
+
+.slide-leave-to {
+  opacity: 0;
+  transform: translateX(-24px) scale(0.992);
+}
+
+.slide-enter-active {
+  transition: opacity 0.30s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.30s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.slide-enter-from {
+  opacity: 0;
+  transform: translateX(28px) scale(0.992);
+}
+
+.slide-enter-to {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+// -----------------------------------------------------------------------------
+// 3. 景深缩放 (zoom) - 空间层级透视推拉
+// 出场沉降后退(180ms)，入场从前端微缩透视就位(300ms)
+// -----------------------------------------------------------------------------
+.zoom-leave-active {
+  transition: opacity 0.18s cubic-bezier(0.4, 0, 1, 1),
+              transform 0.18s cubic-bezier(0.4, 0, 1, 1);
+  will-change: opacity, transform;
+  pointer-events: none;
+  transform-origin: 50% 20%;
+}
+
+.zoom-leave-to {
+  opacity: 0;
+  transform: scale(0.965);
+}
+
+.zoom-enter-active {
+  transition: opacity 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+  transform-origin: 50% 20%;
+}
+
+.zoom-enter-from {
+  opacity: 0;
+  transform: scale(1.025);
+}
+
+.zoom-enter-to {
+  opacity: 1;
+  transform: scale(1);
+}
+
+// -----------------------------------------------------------------------------
+// 4. 极客光晕 (blur) - 柔焦毛玻璃环境光晕浮动
+// 科技感弥散，配合页面浮现展现高端现代质感
+// -----------------------------------------------------------------------------
+.blur-leave-active {
+  transition: opacity 0.16s cubic-bezier(0.4, 0, 1, 1),
+              filter 0.16s ease,
+              transform 0.16s ease;
+  will-change: opacity, filter, transform;
+  pointer-events: none;
+}
+
+.blur-leave-to {
+  opacity: 0;
+  filter: blur(4px);
+  transform: translateY(-4px) scale(0.99);
+}
+
+.blur-enter-active {
+  transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+              filter 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, filter, transform;
+}
+
+.blur-enter-from {
+  opacity: 0;
+  filter: blur(6px);
+  transform: translateY(10px) scale(0.995);
+}
+
+.blur-enter-to {
+  opacity: 1;
+  filter: blur(0);
+  transform: translateY(0) scale(1);
+}
+
+// -----------------------------------------------------------------------------
+// 5. Element Plus 默认线性淡入升级 (el-fade-in-linear)
+// 全局将原本平铺直叙的 200ms 线性硬切升级为柔顺贝塞尔微位移动态
+// -----------------------------------------------------------------------------
+.el-fade-in-linear-leave-active {
+  transition: opacity 0.14s cubic-bezier(0.4, 0, 1, 1),
+              transform 0.14s cubic-bezier(0.4, 0, 1, 1) !important;
+  will-change: opacity, transform;
+  pointer-events: none;
+}
+
+.el-fade-in-linear-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.el-fade-in-linear-enter-active {
+  transition: opacity 0.24s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.24s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  will-change: opacity, transform;
+}
+
+.el-fade-in-linear-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.el-fade-in-linear-enter-to {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+// -----------------------------------------------------------------------------
+// 6. 辅助类与平滑渲染保障
+// -----------------------------------------------------------------------------
 .header {
   border-radius: 0 0 10px 10px;
 }
@@ -24,7 +198,6 @@
     transform: translateY(-20px);
     opacity: 0;
   }
-
   to {
     transform: translateY(0);
     opacity: 1;
@@ -35,34 +208,28 @@
   from {
     opacity: 0;
   }
-
   to {
     opacity: 1;
   }
 }
-// 缩放动画
-.zoom-enter-active,
-.zoom-leave-active {
-  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-}
 
-.zoom-enter-from,
-.zoom-leave-to {
-  opacity: 0;
-  transform: scale(0.95);
-}
-
-
-/* fade-slide */
-.slide-leave-active,
-.slide-enter-active {
-  transition: opacity 0.3s, transform 0.3s;
-}
-.slide-enter-from {
-  opacity: 0;
-  transform: translateX(-30px);
-}
-.slide-leave-to {
-  opacity: 0;
-  transform: translateX(30px);
+// -----------------------------------------------------------------------------
+// 7. 无障碍减弱动效降级 (prefers-reduced-motion)
+// -----------------------------------------------------------------------------
+@media (prefers-reduced-motion: reduce) {
+  .fade-enter-active,
+  .fade-leave-active,
+  .slide-enter-active,
+  .slide-leave-active,
+  .zoom-enter-active,
+  .zoom-leave-active,
+  .blur-enter-active,
+  .blur-leave-active,
+  .el-fade-in-linear-enter-active,
+  .el-fade-in-linear-leave-active {
+    transition: none !important;
+    transform: none !important;
+    filter: none !important;
+    animation: none !important;
+  }
 }
