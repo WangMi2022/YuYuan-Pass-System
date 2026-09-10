@@ -1,263 +1,266 @@
 <template>
-  <LeadershipWallboard
-    v-if="isWallboardView"
-    :snapshot="wallboardSnapshot"
-    :loading="loading"
-    @refresh="loadDashboard"
-    @exit="closeWallboard"
-  />
+  <div class="dashboard-route-view">
+    <!-- Keep an element root for the layout's out-in transition when switching to Teleport. -->
+    <LeadershipWallboard
+      v-if="isWallboardView"
+      :snapshot="wallboardSnapshot"
+      :loading="loading"
+      @refresh="loadDashboard"
+      @exit="closeWallboard"
+    />
 
-  <PendingTasks v-else-if="isPendingView" @back="closePendingItems" />
+    <PendingTasks v-else-if="isPendingView" @back="closePendingItems" />
 
-  <main v-else class="dashboard-page">
-    <AppPageHeader
-      title-id="dashboard-title"
-      title="首页驾驶舱"
-      description="汇总当前权限范围内的资产、流水、风险与日程。"
-    >
-      <template #actions>
-        <span class="updated-at">{{ refreshText }}</span>
-        <el-button v-if="canOpenWallboard" plain :icon="FullScreen" @click="openWallboard">会议室大屏</el-button>
-        <el-button :icon="Refresh" :loading="loading" @click="loadDashboard">刷新</el-button>
-        <div v-if="access.assetInventory || access.invoiceRecognition" class="header-primary-actions">
-          <el-button v-if="access.assetInventory" type="primary" :icon="Plus" @click="go('assetInventory')">登记资产</el-button>
-          <el-button v-if="access.invoiceRecognition" type="primary" :icon="Tickets" @click="go('invoiceRecognition')">上传发票</el-button>
-        </div>
-      </template>
-    </AppPageHeader>
-
-    <section class="workbench-band" aria-labelledby="workbench-title">
-      <div class="workbench-copy">
-        <p class="current-date">{{ currentDateText }}</p>
-        <h2 id="workbench-title">{{ greeting }}，{{ userStore.userInfo.nickName || userStore.userInfo.userName || '用户' }}</h2>
-        <p>{{ overviewText }}</p>
-        <div class="quick-actions" aria-label="常用操作">
-          <el-button v-if="access.invoiceLedger" text :icon="DocumentChecked" @click="go('invoiceLedger')">发票台账</el-button>
-          <el-button v-if="access.calendar" text :icon="Calendar" @click="go('workSchedule')">日程总览</el-button>
-          <el-button v-if="access.audit" text :icon="Clock" @click="go('operation')">操作历史</el-button>
-        </div>
-      </div>
-
-      <button
-        type="button"
-        class="runtime-summary"
-        :class="{ 'is-actionable': access.monitor }"
-        :disabled="!access.monitor"
-        aria-label="服务器监控摘要"
-        @click="go('state')"
+    <main v-else class="dashboard-page">
+      <AppPageHeader
+        title-id="dashboard-title"
+        title="首页驾驶舱"
+        description="汇总当前权限范围内的资产、流水、风险与日程。"
       >
-        <span class="runtime-topline">
-          <span class="runtime-heading" :class="`health-${systemHealth.tone}`"><i />{{ moduleLoaded.monitor ? systemHealth.label : '服务器监控' }}</span>
-          <small>{{ moduleLoaded.monitor ? (moduleFailed.monitor ? moduleFreshnessShort('monitor') : `采集于 ${serverCollectedAt}`) : '暂无可用数据' }}</small>
-        </span>
-        <dl>
-          <div>
-            <dt>CPU</dt><dd>{{ moduleLoaded.monitor ? percent(systemUsage.cpu) : '—' }}</dd>
-            <span class="runtime-track"><i :class="`tone-${usageTone(systemUsage.cpu)}`" :style="{ width: `${moduleLoaded.monitor ? safePercent(systemUsage.cpu) : 0}%` }" /></span>
+        <template #actions>
+          <span class="updated-at">{{ refreshText }}</span>
+          <el-button v-if="canOpenWallboard" plain :icon="FullScreen" @click="openWallboard">会议室大屏</el-button>
+          <el-button :icon="Refresh" :loading="loading" @click="loadDashboard">刷新</el-button>
+          <div v-if="access.assetInventory || access.invoiceRecognition" class="header-primary-actions">
+            <el-button v-if="access.assetInventory" type="primary" :icon="Plus" @click="go('assetInventory')">登记资产</el-button>
+            <el-button v-if="access.invoiceRecognition" type="primary" :icon="Tickets" @click="go('invoiceRecognition')">上传发票</el-button>
           </div>
-          <div>
-            <dt>内存</dt><dd>{{ moduleLoaded.monitor ? percent(systemUsage.ram) : '—' }}</dd>
-            <span class="runtime-track"><i :class="`tone-${usageTone(systemUsage.ram)}`" :style="{ width: `${moduleLoaded.monitor ? safePercent(systemUsage.ram) : 0}%` }" /></span>
-          </div>
-          <div>
-            <dt>磁盘</dt><dd>{{ moduleLoaded.monitor ? percent(systemUsage.disk) : '—' }}</dd>
-            <span class="runtime-track"><i :class="`tone-${usageTone(systemUsage.disk)}`" :style="{ width: `${moduleLoaded.monitor ? safePercent(systemUsage.disk) : 0}%` }" /></span>
-          </div>
-        </dl>
-      </button>
-    </section>
+        </template>
+      </AppPageHeader>
 
-    <section v-if="metrics.length" class="metric-band" aria-label="核心业务指标">
-      <component
-        :is="metric.action ? 'button' : 'article'"
-        v-for="metric in metrics"
-        :key="metric.label"
-        class="metric-item"
-        :class="{ 'metric-item--actionable': metric.action }"
-        :type="metric.action ? 'button' : undefined"
-        :aria-label="metric.action ? metric.actionLabel : undefined"
-        @click="handleMetricClick(metric)"
-      >
-        <div class="metric-copy">
-          <span>{{ metric.label }}</span>
-          <strong>{{ metric.value }}</strong>
-          <small :class="metric.tone === 'warning' ? 'is-warning' : ''">{{ metric.hint }}</small>
+      <section class="workbench-band" aria-labelledby="workbench-title">
+        <div class="workbench-copy">
+          <p class="current-date">{{ currentDateText }}</p>
+          <h2 id="workbench-title">{{ greeting }}，{{ userStore.userInfo.nickName || userStore.userInfo.userName || '用户' }}</h2>
+          <p>{{ overviewText }}</p>
+          <div class="quick-actions" aria-label="常用操作">
+            <el-button v-if="access.invoiceLedger" text :icon="DocumentChecked" @click="go('invoiceLedger')">发票台账</el-button>
+            <el-button v-if="access.calendar" text :icon="Calendar" @click="go('workSchedule')">日程总览</el-button>
+            <el-button v-if="access.audit" text :icon="Clock" @click="go('operation')">操作历史</el-button>
+          </div>
         </div>
-        <el-icon class="metric-icon" :class="`metric-${metric.tone}`"><component :is="metric.icon" /></el-icon>
-      </component>
-    </section>
 
-    <section class="dashboard-workspace">
-      <div class="business-column">
-        <article v-if="access.assets" class="na-panel dashboard-panel asset-panel">
-          <header class="na-panel-header panel-heading">
+        <button
+          type="button"
+          class="runtime-summary"
+          :class="{ 'is-actionable': access.monitor }"
+          :disabled="!access.monitor"
+          aria-label="服务器监控摘要"
+          @click="go('state')"
+        >
+          <span class="runtime-topline">
+            <span class="runtime-heading" :class="`health-${systemHealth.tone}`"><i />{{ moduleLoaded.monitor ? systemHealth.label : '服务器监控' }}</span>
+            <small>{{ moduleLoaded.monitor ? (moduleFailed.monitor ? moduleFreshnessShort('monitor') : `采集于 ${serverCollectedAt}`) : '暂无可用数据' }}</small>
+          </span>
+          <dl>
             <div>
-              <span>资产管理</span>
-              <h2>资产状态</h2>
+              <dt>CPU</dt><dd>{{ moduleLoaded.monitor ? percent(systemUsage.cpu) : '—' }}</dd>
+              <span class="runtime-track"><i :class="`tone-${usageTone(systemUsage.cpu)}`" :style="{ width: `${moduleLoaded.monitor ? safePercent(systemUsage.cpu) : 0}%` }" /></span>
             </div>
-            <el-button v-if="access.assetInventory" text :icon="ArrowRight" @click="go('assetInventory')">资产档案</el-button>
-          </header>
+            <div>
+              <dt>内存</dt><dd>{{ moduleLoaded.monitor ? percent(systemUsage.ram) : '—' }}</dd>
+              <span class="runtime-track"><i :class="`tone-${usageTone(systemUsage.ram)}`" :style="{ width: `${moduleLoaded.monitor ? safePercent(systemUsage.ram) : 0}%` }" /></span>
+            </div>
+            <div>
+              <dt>磁盘</dt><dd>{{ moduleLoaded.monitor ? percent(systemUsage.disk) : '—' }}</dd>
+              <span class="runtime-track"><i :class="`tone-${usageTone(systemUsage.disk)}`" :style="{ width: `${moduleLoaded.monitor ? safePercent(systemUsage.disk) : 0}%` }" /></span>
+            </div>
+          </dl>
+        </button>
+      </section>
 
-          <p v-if="moduleFailed.assets && moduleLoaded.assets" class="module-stale-notice">{{ moduleFreshnessText('assets') }}</p>
-          <template v-if="moduleLoaded.assets">
-            <dl class="asset-summary">
-              <div><dt>资产档案</dt><dd>{{ formatNumber(assetDashboard.assetKinds) }}</dd><small>{{ formatNumber(assetDashboard.categoryCount) }} 个分类</small></div>
-              <div><dt>账面原值</dt><dd>{{ formatCompactCurrency(assetDashboard.originalValue) }}</dd><small>当前估值 {{ formatCompactCurrency(assetDashboard.currentValue) }}</small></div>
-              <div><dt>资产健康度</dt><dd>{{ healthRate }}%</dd><small>{{ formatNumber(controlledQuantity) }} 件处于受控状态</small></div>
-            </dl>
+      <section v-if="metrics.length" class="metric-band" aria-label="核心业务指标">
+        <component
+          :is="metric.action ? 'button' : 'article'"
+          v-for="metric in metrics"
+          :key="metric.label"
+          class="metric-item"
+          :class="{ 'metric-item--actionable': metric.action }"
+          :type="metric.action ? 'button' : undefined"
+          :aria-label="metric.action ? metric.actionLabel : undefined"
+          @click="handleMetricClick(metric)"
+        >
+          <div class="metric-copy">
+            <span>{{ metric.label }}</span>
+            <strong>{{ metric.value }}</strong>
+            <small :class="metric.tone === 'warning' ? 'is-warning' : ''">{{ metric.hint }}</small>
+          </div>
+          <el-icon class="metric-icon" :class="`metric-${metric.tone}`"><component :is="metric.icon" /></el-icon>
+        </component>
+      </section>
 
-            <div class="asset-detail-grid">
-              <section class="asset-status-section" aria-label="资产状态分布">
-                <div class="section-mini-heading"><span>状态分布</span><small>共 {{ formatNumber(assetDashboard.totalQuantity) }} 件</small></div>
-                <div class="asset-status-list">
-                  <div v-for="status in assetStatusRows" :key="status.key" class="asset-status-row">
-                    <span class="status-label"><i :class="`tone-${status.tone}`" />{{ status.label }}</span>
-                    <div class="progress-track"><i :class="`tone-${status.tone}`" :style="{ width: `${status.ratio}%` }" /></div>
-                    <strong>{{ formatNumber(status.quantity) }}</strong>
+      <section class="dashboard-workspace">
+        <div class="business-column">
+          <article v-if="access.assets" class="na-panel dashboard-panel asset-panel">
+            <header class="na-panel-header panel-heading">
+              <div>
+                <span>资产管理</span>
+                <h2>资产状态</h2>
+              </div>
+              <el-button v-if="access.assetInventory" text :icon="ArrowRight" @click="go('assetInventory')">资产档案</el-button>
+            </header>
+
+            <p v-if="moduleFailed.assets && moduleLoaded.assets" class="module-stale-notice">{{ moduleFreshnessText('assets') }}</p>
+            <template v-if="moduleLoaded.assets">
+              <dl class="asset-summary">
+                <div><dt>资产档案</dt><dd>{{ formatNumber(assetDashboard.assetKinds) }}</dd><small>{{ formatNumber(assetDashboard.categoryCount) }} 个分类</small></div>
+                <div><dt>账面原值</dt><dd>{{ formatCompactCurrency(assetDashboard.originalValue) }}</dd><small>当前估值 {{ formatCompactCurrency(assetDashboard.currentValue) }}</small></div>
+                <div><dt>资产健康度</dt><dd>{{ healthRate }}%</dd><small>{{ formatNumber(controlledQuantity) }} 件处于受控状态</small></div>
+              </dl>
+
+              <div class="asset-detail-grid">
+                <section class="asset-status-section" aria-label="资产状态分布">
+                  <div class="section-mini-heading"><span>状态分布</span><small>共 {{ formatNumber(assetDashboard.totalQuantity) }} 件</small></div>
+                  <div class="asset-status-list">
+                    <div v-for="status in assetStatusRows" :key="status.key" class="asset-status-row">
+                      <span class="status-label"><i :class="`tone-${status.tone}`" />{{ status.label }}</span>
+                      <div class="progress-track"><i :class="`tone-${status.tone}`" :style="{ width: `${status.ratio}%` }" /></div>
+                      <strong>{{ formatNumber(status.quantity) }}</strong>
+                    </div>
                   </div>
+                </section>
+
+                <section class="asset-recent-section" aria-label="最近登记资产">
+                  <div class="section-mini-heading"><span>最近登记</span><small>位置 / 状态 / 原值</small></div>
+                  <div class="asset-recent-table-head"><span>资产</span><span>位置 / 状态</span><span>原值</span></div>
+                  <div v-if="recentAssets.length" class="asset-recent-list">
+                    <button v-for="item in recentAssets" :key="item.ID" type="button" @click="go('assetInventory')">
+                      <div class="asset-identity">
+                        <strong>{{ item.name }}</strong>
+                        <small>{{ item.assetCode || '编号待补充' }}</small>
+                      </div>
+                      <div class="asset-place">
+                        <span>{{ item.location || '位置待补充' }}</span>
+                        <small :class="`status-${statusMeta(item.status).tone}`">{{ statusMeta(item.status).label }}</small>
+                      </div>
+                      <b>{{ formatCurrency(item.originalValue) }}</b>
+                    </button>
+                  </div>
+                  <div v-else class="inline-empty">暂无资产登记</div>
+                </section>
+              </div>
+            </template>
+            <div v-else class="panel-placeholder">资产数据暂不可用</div>
+          </article>
+
+          <article v-if="access.invoices" class="na-panel dashboard-panel invoice-panel">
+            <header class="na-panel-header panel-heading">
+              <div>
+                <span>流水管理</span>
+                <h2>发票处理</h2>
+              </div>
+              <el-button v-if="access.invoiceDashboard" text :icon="ArrowRight" @click="go('invoiceDashboard')">流水总览</el-button>
+            </header>
+
+            <p v-if="moduleFailed.invoices && moduleLoaded.invoices" class="module-stale-notice">{{ moduleFreshnessText('invoices') }}</p>
+            <template v-if="moduleLoaded.invoices">
+              <div class="invoice-workspace">
+                <div class="invoice-total">
+                  <span>已确认价税合计</span>
+                  <strong>{{ centsToCurrency(invoiceDashboard.totalCents) }}</strong>
+                  <small>{{ formatNumber(invoiceDashboard.confirmedCount) }} 张已进入正式统计</small>
+                  <dl class="invoice-breakdown">
+                    <div><dt>不含税金额</dt><dd>{{ centsToCurrency(invoiceDashboard.amountCents) }}</dd></div>
+                    <div><dt>税额</dt><dd>{{ centsToCurrency(invoiceDashboard.taxCents) }}</dd></div>
+                  </dl>
                 </div>
-              </section>
 
-              <section class="asset-recent-section" aria-label="最近登记资产">
-                <div class="section-mini-heading"><span>最近登记</span><small>位置 / 状态 / 原值</small></div>
-                <div class="asset-recent-table-head"><span>资产</span><span>位置 / 状态</span><span>原值</span></div>
-                <div v-if="recentAssets.length" class="asset-recent-list">
-                  <button v-for="item in recentAssets" :key="item.ID" type="button" @click="go('assetInventory')">
-                    <div class="asset-identity">
-                      <strong>{{ item.name }}</strong>
-                      <small>{{ item.assetCode || '编号待补充' }}</small>
+                <div class="trend-section">
+                  <div class="invoice-trend-heading">
+                    <div><span>近 6 个月确认金额</span><small>按开票日期汇总</small></div>
+                    <div class="invoice-exceptions" aria-label="发票异常事项">
+                      <span class="is-warning">待核 {{ formatNumber(invoiceDashboard.pendingCount) }}</span>
+                      <span class="is-danger">失败 {{ formatNumber(invoiceDashboard.failedCount) }}</span>
                     </div>
-                    <div class="asset-place">
-                      <span>{{ item.location || '位置待补充' }}</span>
-                      <small :class="`status-${statusMeta(item.status).tone}`">{{ statusMeta(item.status).label }}</small>
+                  </div>
+                  <div v-if="invoiceTrend.length" class="invoice-trend" aria-label="近六个月已确认发票金额趋势">
+                    <div v-for="item in invoiceTrend" :key="item.month" class="trend-item">
+                      <span class="trend-value">{{ centsToCompactCurrency(item.totalCents) }}</span>
+                      <div class="trend-bar"><i :style="{ height: `${item.ratio}%` }" /></div>
+                      <small>{{ monthText(item.month) }}</small>
                     </div>
-                    <b>{{ formatCurrency(item.originalValue) }}</b>
-                  </button>
+                  </div>
+                  <div v-else class="inline-empty">确认发票后将生成月度趋势</div>
                 </div>
-                <div v-else class="inline-empty">暂无资产登记</div>
-              </section>
-            </div>
-          </template>
-          <div v-else class="panel-placeholder">资产数据暂不可用</div>
-        </article>
+              </div>
+            </template>
+            <div v-else class="panel-placeholder">流水数据暂不可用</div>
+          </article>
+        </div>
 
-        <article v-if="access.invoices" class="na-panel dashboard-panel invoice-panel">
-          <header class="na-panel-header panel-heading">
-            <div>
-              <span>流水管理</span>
-              <h2>发票处理</h2>
-            </div>
-            <el-button v-if="access.invoiceDashboard" text :icon="ArrowRight" @click="go('invoiceDashboard')">流水总览</el-button>
-          </header>
-
-          <p v-if="moduleFailed.invoices && moduleLoaded.invoices" class="module-stale-notice">{{ moduleFreshnessText('invoices') }}</p>
-          <template v-if="moduleLoaded.invoices">
-            <div class="invoice-workspace">
-              <div class="invoice-total">
-                <span>已确认价税合计</span>
-                <strong>{{ centsToCurrency(invoiceDashboard.totalCents) }}</strong>
-                <small>{{ formatNumber(invoiceDashboard.confirmedCount) }} 张已进入正式统计</small>
-                <dl class="invoice-breakdown">
-                  <div><dt>不含税金额</dt><dd>{{ centsToCurrency(invoiceDashboard.amountCents) }}</dd></div>
-                  <div><dt>税额</dt><dd>{{ centsToCurrency(invoiceDashboard.taxCents) }}</dd></div>
+        <aside class="support-column">
+          <article v-if="access.risk" class="na-panel dashboard-panel daily-risk-panel">
+            <header class="na-panel-header panel-heading">
+              <div><span>风险闭环</span><h2>领导关注</h2></div>
+              <el-button text :icon="ArrowRight" @click="go('assetRiskCenter')">风险中心</el-button>
+            </header>
+            <p v-if="moduleFailed.risk && moduleLoaded.risk" class="module-stale-notice">{{ moduleFreshnessText('risk') }}</p>
+            <template v-if="moduleLoaded.risk">
+              <div class="daily-risk-summary">
+                <div class="daily-risk-total">
+                  <span>开放风险</span>
+                  <strong :class="riskDashboard.highOpen ? 'is-danger' : 'is-success'">{{ formatNumber(riskDashboard.totalOpen) }}</strong>
+                  <small>高风险 {{ formatNumber(riskDashboard.highOpen) }} 项</small>
+                </div>
+                <dl>
+                  <div><dt>今日新增</dt><dd>{{ formatNumber(riskDashboard.todayNew) }}</dd></div>
+                  <div><dt>超期未结</dt><dd class="is-warning">{{ formatNumber(riskDashboard.overdue) }}</dd></div>
                 </dl>
               </div>
-
-              <div class="trend-section">
-                <div class="invoice-trend-heading">
-                  <div><span>近 6 个月确认金额</span><small>按开票日期汇总</small></div>
-                  <div class="invoice-exceptions" aria-label="发票异常事项">
-                    <span class="is-warning">待核 {{ formatNumber(invoiceDashboard.pendingCount) }}</span>
-                    <span class="is-danger">失败 {{ formatNumber(invoiceDashboard.failedCount) }}</span>
-                  </div>
-                </div>
-                <div v-if="invoiceTrend.length" class="invoice-trend" aria-label="近六个月已确认发票金额趋势">
-                  <div v-for="item in invoiceTrend" :key="item.month" class="trend-item">
-                    <span class="trend-value">{{ centsToCompactCurrency(item.totalCents) }}</span>
-                    <div class="trend-bar"><i :style="{ height: `${item.ratio}%` }" /></div>
-                    <small>{{ monthText(item.month) }}</small>
-                  </div>
-                </div>
-                <div v-else class="inline-empty">确认发票后将生成月度趋势</div>
+              <div v-if="riskTrendBars.length" class="daily-risk-trend" aria-label="近七日风险新增与关闭趋势">
+                <span v-for="item in riskTrendBars" :key="item.date" :title="`${item.date} 新增 ${item.new} · 关闭 ${item.resolved}`">
+                  <i class="risk-new" :style="{ height: `${item.newRatio}%` }" />
+                  <i class="risk-resolved" :style="{ height: `${item.resolvedRatio}%` }" />
+                </span>
               </div>
+            </template>
+            <div v-else class="panel-placeholder">风险数据暂不可用</div>
+          </article>
+
+          <article v-if="access.calendar" class="na-panel dashboard-panel schedule-panel">
+            <header class="na-panel-header panel-heading">
+              <div><span>工作日历</span><h2>今日日程</h2></div>
+              <el-button text :icon="ArrowRight" @click="go('workSchedule')">查看日历</el-button>
+            </header>
+            <p v-if="moduleFailed.calendar && moduleLoaded.calendar" class="module-stale-notice">{{ moduleFreshnessText('calendar') }}</p>
+            <div v-if="moduleLoaded.calendar && todaySchedules.length" class="schedule-list">
+              <button v-for="item in todaySchedules" :key="item.id" type="button" @click="go('workSchedule')">
+                <i :style="{ background: item.color }" />
+                <time>{{ item.time }}</time>
+                <span>
+                  <strong>{{ item.title }}</strong>
+                  <small>{{ item.typeLabel }}<template v-if="item.repeatLabel"> · {{ item.repeatLabel }}</template></small>
+                </span>
+              </button>
             </div>
-          </template>
-          <div v-else class="panel-placeholder">流水数据暂不可用</div>
-        </article>
-      </div>
+            <div v-else-if="moduleLoaded.calendar" class="side-empty"><Calendar /><span>今日暂无日程</span></div>
+            <div v-else class="panel-placeholder">日程数据暂不可用</div>
+            <footer v-if="moduleLoaded.calendar && todaySchedules.length" class="schedule-footer">今日共 {{ formatNumber(todaySchedules.length) }} 项安排</footer>
+          </article>
 
-      <aside class="support-column">
-        <article v-if="access.risk" class="na-panel dashboard-panel daily-risk-panel">
-          <header class="na-panel-header panel-heading">
-            <div><span>风险闭环</span><h2>领导关注</h2></div>
-            <el-button text :icon="ArrowRight" @click="go('assetRiskCenter')">风险中心</el-button>
-          </header>
-          <p v-if="moduleFailed.risk && moduleLoaded.risk" class="module-stale-notice">{{ moduleFreshnessText('risk') }}</p>
-          <template v-if="moduleLoaded.risk">
-            <div class="daily-risk-summary">
-              <div class="daily-risk-total">
-                <span>开放风险</span>
-                <strong :class="riskDashboard.highOpen ? 'is-danger' : 'is-success'">{{ formatNumber(riskDashboard.totalOpen) }}</strong>
-                <small>高风险 {{ formatNumber(riskDashboard.highOpen) }} 项</small>
-              </div>
-              <dl>
-                <div><dt>今日新增</dt><dd>{{ formatNumber(riskDashboard.todayNew) }}</dd></div>
-                <div><dt>超期未结</dt><dd class="is-warning">{{ formatNumber(riskDashboard.overdue) }}</dd></div>
-              </dl>
+          <article v-if="access.audit" class="na-panel dashboard-panel audit-panel">
+            <header class="na-panel-header panel-heading">
+              <div><span>审计平台</span><h2>最近操作</h2></div>
+              <el-button text :icon="ArrowRight" @click="go('operation')">全部记录</el-button>
+            </header>
+            <p v-if="moduleFailed.audit && moduleLoaded.audit" class="module-stale-notice">{{ moduleFreshnessText('audit') }}</p>
+            <div v-if="moduleLoaded.audit && recentOperations.length" class="operation-list">
+              <div class="operation-table-head"><span>方法</span><span>请求路径</span><span>时间</span><span>状态</span></div>
+              <button v-for="item in recentOperations" :key="item.ID" type="button" @click="go('operation')">
+                <span class="request-method">{{ item.method || 'HTTP' }}</span>
+                <span class="request-path">{{ item.path || '请求路径待记录' }}</span>
+                <time>{{ operationTime(item.CreatedAt) }}</time>
+                <i :class="isRequestError(item.status) ? 'request-error' : 'request-ok'">{{ item.status || '—' }}</i>
+              </button>
             </div>
-            <div v-if="riskTrendBars.length" class="daily-risk-trend" aria-label="近七日风险新增与关闭趋势">
-              <span v-for="item in riskTrendBars" :key="item.date" :title="`${item.date} 新增 ${item.new} · 关闭 ${item.resolved}`">
-                <i class="risk-new" :style="{ height: `${item.newRatio}%` }" />
-                <i class="risk-resolved" :style="{ height: `${item.resolvedRatio}%` }" />
-              </span>
-            </div>
-          </template>
-          <div v-else class="panel-placeholder">风险数据暂不可用</div>
-        </article>
+            <div v-else-if="moduleLoaded.audit" class="side-empty"><DocumentChecked /><span>暂无操作记录</span></div>
+            <div v-else class="panel-placeholder">操作记录暂不可用</div>
+          </article>
 
-        <article v-if="access.calendar" class="na-panel dashboard-panel schedule-panel">
-          <header class="na-panel-header panel-heading">
-            <div><span>工作日历</span><h2>今日日程</h2></div>
-            <el-button text :icon="ArrowRight" @click="go('workSchedule')">查看日历</el-button>
-          </header>
-          <p v-if="moduleFailed.calendar && moduleLoaded.calendar" class="module-stale-notice">{{ moduleFreshnessText('calendar') }}</p>
-          <div v-if="moduleLoaded.calendar && todaySchedules.length" class="schedule-list">
-            <button v-for="item in todaySchedules" :key="item.id" type="button" @click="go('workSchedule')">
-              <i :style="{ background: item.color }" />
-              <time>{{ item.time }}</time>
-              <span>
-                <strong>{{ item.title }}</strong>
-                <small>{{ item.typeLabel }}<template v-if="item.repeatLabel"> · {{ item.repeatLabel }}</template></small>
-              </span>
-            </button>
-          </div>
-          <div v-else-if="moduleLoaded.calendar" class="side-empty"><Calendar /><span>今日暂无日程</span></div>
-          <div v-else class="panel-placeholder">日程数据暂不可用</div>
-          <footer v-if="moduleLoaded.calendar && todaySchedules.length" class="schedule-footer">今日共 {{ formatNumber(todaySchedules.length) }} 项安排</footer>
-        </article>
-
-        <article v-if="access.audit" class="na-panel dashboard-panel audit-panel">
-          <header class="na-panel-header panel-heading">
-            <div><span>审计平台</span><h2>最近操作</h2></div>
-            <el-button text :icon="ArrowRight" @click="go('operation')">全部记录</el-button>
-          </header>
-          <p v-if="moduleFailed.audit && moduleLoaded.audit" class="module-stale-notice">{{ moduleFreshnessText('audit') }}</p>
-          <div v-if="moduleLoaded.audit && recentOperations.length" class="operation-list">
-            <div class="operation-table-head"><span>方法</span><span>请求路径</span><span>时间</span><span>状态</span></div>
-            <button v-for="item in recentOperations" :key="item.ID" type="button" @click="go('operation')">
-              <span class="request-method">{{ item.method || 'HTTP' }}</span>
-              <span class="request-path">{{ item.path || '请求路径待记录' }}</span>
-              <time>{{ operationTime(item.CreatedAt) }}</time>
-              <i :class="isRequestError(item.status) ? 'request-error' : 'request-ok'">{{ item.status || '—' }}</i>
-            </button>
-          </div>
-          <div v-else-if="moduleLoaded.audit" class="side-empty"><DocumentChecked /><span>暂无操作记录</span></div>
-          <div v-else class="panel-placeholder">操作记录暂不可用</div>
-        </article>
-
-      </aside>
-    </section>
-  </main>
+        </aside>
+      </section>
+    </main>
+  </div>
 </template>
 
 <script setup>
@@ -298,6 +301,7 @@ const route = useRoute()
 const userStore = useUserStore()
 const moduleKeys = ['assets', 'assetDrafts', 'invoices', 'risk', 'calendar', 'audit', 'monitor']
 const loading = ref(false)
+const dashboardActive = ref(true)
 const updatedAt = ref('')
 const assetDashboard = ref(createAssetDashboard())
 const invoiceDashboard = ref(createInvoiceDashboard())
@@ -336,7 +340,7 @@ const access = computed(() => ({
   monitor: router.hasRoute('state')
 }))
 const isPendingView = computed(() => route.query.view === 'pending')
-const isWallboardView = computed(() => route.query.view === 'wallboard')
+const isWallboardView = computed(() => dashboardActive.value && route.query.view === 'wallboard')
 const canOpenWallboard = computed(() => access.value.assets || access.value.invoices || access.value.risk || access.value.calendar || access.value.monitor)
 const canOpenPendingTasks = computed(() => access.value.assetOperations || access.value.invoiceRecognition)
 const requestedModules = computed(() => [
@@ -772,22 +776,27 @@ onMounted(() => {
 })
 let activatedOnce = false
 onActivated(() => {
+  dashboardActive.value = true
   if (activatedOnce && !isPendingView.value) loadDashboard()
   activatedOnce = true
   syncWallboardTimer(isWallboardView.value)
 })
-onDeactivated(() => syncWallboardTimer(false))
+onDeactivated(() => {
+  dashboardActive.value = false
+  syncWallboardTimer(false)
+})
 watch(isPendingView, (pending, wasPending) => {
   if (!pending && wasPending) loadDashboard()
 })
 watch(isWallboardView, (wallboard, wasWallboard) => {
   syncWallboardTimer(wallboard)
-  if (!wallboard && wasWallboard && !isPendingView.value) loadDashboard()
+  if (!wallboard && wasWallboard && dashboardActive.value && !isPendingView.value) loadDashboard()
 })
 onBeforeUnmount(() => syncWallboardTimer(false))
 </script>
 
 <style scoped lang="scss">
+.dashboard-route-view { min-height: 100%; }
 .dashboard-page { min-height: 100%; padding: 18px 20px 24px; background: var(--na-background); color: var(--na-foreground); }
 .updated-at { color: var(--na-muted-foreground); font-size: .75rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .header-primary-actions { display: flex; flex-wrap: wrap; gap: 8px; }
