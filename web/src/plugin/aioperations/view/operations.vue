@@ -2222,24 +2222,24 @@ onMounted(() => loadActiveSection(true))
     padding: 0;
     border-bottom: 0;
   }
+}
 
-}\r\n\r\n.setting-toggle__copy {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    gap: 4px;
+.setting-toggle__copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
 
-    strong {
-      color: var(--na-foreground);
-      font-size: 0.86rem;
-      font-weight: 600;
-    }
+  strong {
+    color: var(--na-foreground);
+    font-size: 0.86rem;
+    font-weight: 600;
+  }
 
-    small {
-      color: var(--na-muted-foreground);
-      font-size: 0.74rem;
-      line-height: 1.45;
-    }
+  small {
+    color: var(--na-muted-foreground);
+    font-size: 0.74rem;
+    line-height: 1.45;
   }
 }
 
