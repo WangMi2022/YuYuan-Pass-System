@@ -131,17 +131,45 @@
               <dl class="asset-summary">
                 <div><dt>资产档案</dt><dd><AnimatedValue :value="Number(assetDashboard.assetKinds || 0)" :format="formatNumber" /></dd><small>{{ formatNumber(assetDashboard.categoryCount) }} 个分类</small></div>
                 <div><dt>账面原值</dt><dd><AnimatedValue :value="Number(assetDashboard.originalValue || 0)" :format="formatCompactCurrency" /></dd><small>当前估值 {{ formatCompactCurrency(assetDashboard.currentValue) }}</small></div>
-                <div><dt>资产健康度</dt><dd><AnimatedValue :value="Number(healthRate || 0)" :format="(val) => `${Number(val).toFixed(1)}%`" /></dd><small>{{ formatNumber(controlledQuantity) }} 件处于受控状态</small></div>
+                <div class="asset-summary-cell--health">
+                  <div class="asset-summary-content">
+                    <dt>资产健康度</dt>
+                    <dd><AnimatedValue :value="Number(healthRate || 0)" :format="(val) => `${Number(val).toFixed(1)}%`" /></dd>
+                    <small>{{ formatNumber(controlledQuantity) }} 件处于受控状态</small>
+                  </div>
+                  <div class="health-mini-gauge" aria-hidden="true">
+                    <svg viewBox="0 0 36 36" class="health-gauge-svg">
+                      <path class="health-gauge-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                      <path
+                        class="health-gauge-meter"
+                        :class="`gauge-tone-${healthTone}`"
+                        :stroke-dasharray="`${healthGaugeValue}, 100`"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      />
+                    </svg>
+                    <span class="health-gauge-center" :class="`center-tone-${healthTone}`" />
+                  </div>
+                </div>
               </dl>
 
               <div class="asset-detail-grid">
                 <section class="asset-status-section" aria-label="资产状态分布">
                   <div class="section-mini-heading"><span>状态分布</span><small>共 {{ formatNumber(assetDashboard.totalQuantity) }} 件</small></div>
                   <div class="asset-status-list">
-                    <div v-for="status in assetStatusRows" :key="status.key" class="asset-status-row">
+                    <div
+                      v-for="(status, idx) in assetStatusRows"
+                      :key="status.key"
+                      class="asset-status-row"
+                      :style="{ '--row-delay': `${idx * 40}ms` }"
+                    >
                       <span class="status-label"><i :class="`tone-${status.tone}`" />{{ status.label }}</span>
-                      <div class="progress-track"><i :class="`tone-${status.tone}`" :style="{ width: `${status.ratio}%` }" /></div>
-                      <strong>{{ formatNumber(status.quantity) }}</strong>
+                      <div class="progress-track" :title="`${status.label}: ${formatNumber(status.quantity)} 件 (${status.ratio.toFixed(1)}%)`">
+                        <i :class="`tone-${status.tone}`" :style="{ width: `${status.ratio}%` }" />
+                      </div>
+                      <div class="status-val-group">
+                        <strong>{{ formatNumber(status.quantity) }}</strong>
+                        <span class="status-ratio-badge">{{ status.ratio.toFixed(0) }}%</span>
+                      </div>
                     </div>
                   </div>
                 </section>
@@ -150,7 +178,13 @@
                   <div class="section-mini-heading"><span>最近登记</span><small>位置 / 状态 / 原值</small></div>
                   <div class="asset-recent-table-head"><span>资产</span><span>位置 / 状态</span><span>原值</span></div>
                   <div v-if="recentAssets.length" class="asset-recent-list">
-                    <button v-for="item in recentAssets" :key="item.ID" type="button" @click="go('assetInventory')">
+                    <button
+                      v-for="(item, idx) in recentAssets"
+                      :key="item.ID"
+                      type="button"
+                      :style="{ '--item-delay': `${idx * 40}ms` }"
+                      @click="go('assetInventory')"
+                    >
                       <div class="asset-identity">
                         <strong>{{ item.name }}</strong>
                         <small>{{ item.assetCode || '编号待补充' }}</small>
@@ -159,7 +193,7 @@
                         <span>{{ item.location || '位置待补充' }}</span>
                         <small :class="`status-${statusMeta(item.status).tone}`">{{ statusMeta(item.status).label }}</small>
                       </div>
-                      <b>{{ formatCurrency(item.originalValue) }}</b>
+                      <b class="asset-price-val">{{ formatCurrency(item.originalValue) }}</b>
                     </button>
                   </div>
                   <div v-else class="inline-empty">暂无资产登记</div>
@@ -182,7 +216,10 @@
             <template v-if="moduleLoaded.invoices">
               <div class="invoice-workspace">
                 <div class="invoice-total">
-                  <span>已确认价税合计</span>
+                  <div class="invoice-total-heading">
+                    <span>已确认价税合计</span>
+                    <span class="invoice-status-chip"><i class="chip-dot" />正式入账</span>
+                  </div>
                   <strong><AnimatedValue :value="Number(invoiceDashboard.totalCents || 0)" :format="centsToCurrency" /></strong>
                   <small>{{ formatNumber(invoiceDashboard.confirmedCount) }} 张已进入正式统计</small>
                   <dl class="invoice-breakdown">
@@ -200,9 +237,18 @@
                     </div>
                   </div>
                   <div v-if="invoiceTrend.length" class="invoice-trend" aria-label="近六个月已确认发票金额趋势">
-                    <div v-for="item in invoiceTrend" :key="item.month" class="trend-item">
-                      <span class="trend-value">{{ centsToCompactCurrency(item.totalCents) }}</span>
-                      <div class="trend-bar"><i :style="{ height: `${item.ratio}%` }" /></div>
+                    <div
+                      v-for="(item, idx) in invoiceTrend"
+                      :key="item.month"
+                      class="trend-item"
+                      :style="{ '--bar-delay': `${idx * 55}ms` }"
+                    >
+                      <span class="trend-value" :title="centsToCurrency(item.totalCents)">{{ centsToCompactCurrency(item.totalCents) }}</span>
+                      <div class="trend-bar">
+                        <i :style="{ height: `${item.ratio}%` }">
+                          <span class="trend-cap" />
+                        </i>
+                      </div>
                       <small>{{ monthText(item.month) }}</small>
                     </div>
                   </div>
@@ -236,11 +282,26 @@
                   <div><dt>超期未结</dt><dd class="is-warning"><AnimatedValue :value="Number(riskDashboard.overdue || 0)" :format="formatNumber" /></dd></div>
                 </dl>
               </div>
-              <div v-if="riskTrendBars.length" class="daily-risk-trend" aria-label="近七日风险新增与关闭趋势">
-                <span v-for="item in riskTrendBars" :key="item.date" :title="`${item.date} 新增 ${item.new} · 关闭 ${item.resolved}`">
-                  <i class="risk-new" :style="{ height: `${item.newRatio}%` }" />
-                  <i class="risk-resolved" :style="{ height: `${item.resolvedRatio}%` }" />
-                </span>
+              <div class="daily-risk-chart-wrap">
+                <div v-if="riskTrendBars.length" class="daily-risk-trend" aria-label="近七日风险新增与关闭趋势">
+                  <div
+                    v-for="(item, idx) in riskTrendBars"
+                    :key="item.date"
+                    class="risk-col-group"
+                    :style="{ '--col-delay': `${idx * 40}ms` }"
+                    :title="`${item.date} 新增 ${item.new} · 关闭 ${item.resolved}`"
+                  >
+                    <div class="risk-col-bars">
+                      <i class="risk-new" :style="{ height: `${item.newRatio}%` }" />
+                      <i class="risk-resolved" :style="{ height: `${item.resolvedRatio}%` }" />
+                    </div>
+                    <small class="risk-col-date">{{ item.date ? item.date.slice(5) : '' }}</small>
+                  </div>
+                </div>
+                <div v-if="riskTrendBars.length" class="risk-chart-legend">
+                  <span class="legend-item"><i class="legend-dot is-new" />新增风险</span>
+                  <span class="legend-item"><i class="legend-dot is-resolved" />已闭环</span>
+                </div>
               </div>
             </template>
             <div v-else class="panel-placeholder">风险数据暂不可用</div>
@@ -253,13 +314,20 @@
             </header>
             <p v-if="moduleFailed.calendar && moduleLoaded.calendar" class="module-stale-notice">{{ moduleFreshnessText('calendar') }}</p>
             <div v-if="moduleLoaded.calendar && todaySchedules.length" class="schedule-list">
-              <button v-for="item in todaySchedules" :key="item.id" type="button" @click="go('workSchedule')">
-                <i :style="{ background: item.color }" />
-                <time>{{ item.time }}</time>
-                <span>
+              <button
+                v-for="(item, idx) in todaySchedules"
+                :key="item.id"
+                type="button"
+                :style="{ '--item-delay': `${idx * 40}ms` }"
+                @click="go('workSchedule')"
+              >
+                <i class="schedule-stripe" :style="{ background: item.color }" />
+                <time class="schedule-time">{{ item.time }}</time>
+                <span class="schedule-body">
                   <strong>{{ item.title }}</strong>
                   <small>{{ item.typeLabel }}<template v-if="item.repeatLabel"> · {{ item.repeatLabel }}</template></small>
                 </span>
+                <el-icon class="schedule-arrow"><ArrowRight /></el-icon>
               </button>
             </div>
             <div v-else-if="moduleLoaded.calendar" class="side-empty"><Calendar /><span>今日暂无日程</span></div>
@@ -275,9 +343,15 @@
             <p v-if="moduleFailed.audit && moduleLoaded.audit" class="module-stale-notice">{{ moduleFreshnessText('audit') }}</p>
             <div v-if="moduleLoaded.audit && recentOperations.length" class="operation-list">
               <div class="operation-table-head"><span>方法</span><span>请求路径</span><span>时间</span><span>状态</span></div>
-              <button v-for="item in recentOperations" :key="item.ID" type="button" @click="go('operation')">
-                <span class="request-method">{{ item.method || 'HTTP' }}</span>
-                <span class="request-path">{{ item.path || '请求路径待记录' }}</span>
+              <button
+                v-for="(item, idx) in recentOperations"
+                :key="item.ID"
+                type="button"
+                :style="{ '--item-delay': `${idx * 30}ms` }"
+                @click="go('operation')"
+              >
+                <span class="request-method" :class="`method-${(item.method || 'http').toLowerCase()}`">{{ item.method || 'HTTP' }}</span>
+                <span class="request-path" :title="item.path">{{ item.path || '请求路径待记录' }}</span>
                 <time>{{ operationTime(item.CreatedAt) }}</time>
                 <i :class="isRequestError(item.status) ? 'request-error' : 'request-ok'">{{ item.status || '—' }}</i>
               </button>
@@ -458,6 +532,16 @@ const controlledQuantity = computed(() => Math.max(Number(assetDashboard.value.t
 const healthRate = computed(() => {
   const total = Number(assetDashboard.value.totalQuantity || 0)
   return total ? ((controlledQuantity.value / total) * 100).toFixed(1) : '0.0'
+})
+const healthTone = computed(() => {
+  const rate = Number(healthRate.value || 0)
+  if (rate >= 90) return 'success'
+  if (rate >= 75) return 'warning'
+  return 'danger'
+})
+const healthGaugeValue = computed(() => {
+  const rate = Number(healthRate.value || 0)
+  return Math.min(100, Math.max(0, rate)).toFixed(1)
 })
 const metrics = computed(() => {
   const items = []
@@ -1259,23 +1343,110 @@ button.metric-item { width: 100%; color: inherit; font: inherit; text-align: lef
 .asset-summary div:last-child { padding-right: 0; }
 .asset-summary dt, .asset-summary small { overflow: hidden; color: var(--na-muted-foreground); font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
 .asset-summary dd { overflow: hidden; margin: 6px 0 3px; color: var(--na-foreground); font-size: 1.125rem; font-variant-numeric: tabular-nums; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+
+.asset-summary-cell--health {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.asset-summary-content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  padding: 0 !important;
+  border-left: 0 !important;
+}
+.health-mini-gauge {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  display: grid;
+  place-items: center;
+  padding: 0 !important;
+  border-left: 0 !important;
+}
+.health-gauge-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+.health-gauge-bg {
+  fill: none;
+  stroke: var(--na-muted);
+  stroke-width: 3.4;
+}
+.health-gauge-meter {
+  fill: none;
+  stroke-width: 3.4;
+  stroke-linecap: round;
+  transition: stroke-dasharray 1s cubic-bezier(0.16, 1, 0.3, 1), stroke 0.3s ease;
+}
+.health-gauge-meter.gauge-tone-success {
+  stroke: var(--na-success);
+  filter: drop-shadow(0 0 3px var(--na-success-soft));
+}
+.health-gauge-meter.gauge-tone-warning {
+  stroke: var(--na-warning);
+  filter: drop-shadow(0 0 3px var(--na-warning-soft));
+}
+.health-gauge-meter.gauge-tone-danger {
+  stroke: var(--na-danger);
+  filter: drop-shadow(0 0 3px var(--na-danger-soft));
+}
+.health-gauge-center {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  animation: pulseGlow 2.4s infinite;
+}
+.center-tone-success { background: var(--na-success); box-shadow: 0 0 0 3px var(--na-success-soft); }
+.center-tone-warning { background: var(--na-warning); box-shadow: 0 0 0 3px var(--na-warning-soft); }
+.center-tone-danger { background: var(--na-danger); box-shadow: 0 0 0 3px var(--na-danger-soft); }
+
 .asset-detail-grid { display: grid; min-width: 0; grid-template-columns: minmax(320px, .96fr) minmax(360px, 1.04fr); }
 .asset-status-section, .asset-recent-section { min-width: 0; }
 .asset-status-section { border-right: 1px solid var(--na-border); }
 .section-mini-heading { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 20px 10px; }
 .section-mini-heading > span { color: var(--na-foreground); font-size: .75rem; font-weight: 600; }
 .section-mini-heading small { overflow: hidden; color: var(--na-muted-foreground); font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
-.asset-status-list { display: grid; gap: 11px; padding: 8px 20px 18px; }
-.asset-status-row { display: grid; min-width: 0; grid-template-columns: 78px minmax(0, 1fr) 42px; align-items: center; gap: 10px; }
+.asset-status-list { display: grid; gap: 9px; padding: 8px 18px 18px; }
+.asset-status-row {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 80px minmax(0, 1fr) 78px;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: background-color 0.16s ease, transform 0.16s ease;
+  animation: rowEntrance 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--row-delay, 0ms);
+  &:hover {
+    background: var(--na-table-hover);
+    transform: translateX(3px);
+    .status-ratio-badge {
+      color: var(--na-primary);
+      background: var(--na-primary-soft);
+      font-weight: 600;
+    }
+    .progress-track > i {
+      filter: brightness(1.15);
+    }
+  }
+}
 .status-label { display: inline-flex; align-items: center; gap: 6px; color: var(--na-muted-foreground); font-size: .75rem; white-space: nowrap; }
 .status-label i { width: 6px; height: 6px; border-radius: 50%; background: var(--na-muted-foreground); }
-.progress-track { height: 5px; overflow: hidden; border-radius: 3px; background: var(--na-muted); }
+.progress-track { height: 6px; overflow: hidden; border-radius: 3px; background: var(--na-muted); }
 .progress-track > i {
   display: block;
   height: 100%;
   border-radius: inherit;
   background: var(--na-primary);
-  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1), filter 0.2s ease;
   position: relative;
   overflow: hidden;
   &::after {
@@ -1294,11 +1465,31 @@ button.metric-item { width: 100%; color: inherit; font: inherit; text-align: lef
 .tone-danger { background: var(--na-danger) !important; }
 .tone-info { background: var(--na-info) !important; }
 .tone-primary { background: var(--na-primary) !important; }
-.asset-status-row > strong { color: var(--na-foreground); font-size: .75rem; font-variant-numeric: tabular-nums; text-align: right; }
+.status-val-group {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.status-val-group > strong { color: var(--na-foreground); font-size: .75rem; font-variant-numeric: tabular-nums; text-align: right; }
+.status-ratio-badge {
+  display: inline-block;
+  min-width: 32px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--na-muted);
+  color: var(--na-muted-foreground);
+  font-size: .625rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  transition: all 0.16s ease;
+}
+
 .asset-recent-table-head { display: grid; margin: 0 20px; padding: 8px 12px; grid-template-columns: minmax(0, 1.25fr) minmax(90px, .8fr) minmax(92px, .6fr); gap: 12px; border-radius: 6px; background: var(--na-table-header); color: var(--na-muted-foreground); font-size: .6875rem; }
 .asset-recent-table-head span:last-child { text-align: right; }
 .asset-recent-list { display: grid; }
 .asset-recent-list button {
+  position: relative;
   display: grid;
   min-width: 0;
   min-height: 52px;
@@ -1313,16 +1504,29 @@ button.metric-item { width: 100%; color: inherit; font: inherit; text-align: lef
   color: var(--na-foreground);
   text-align: left;
   transition: background-color 0.16s ease, transform 0.16s ease;
+  animation: rowEntrance 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--item-delay, 0ms);
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    border-radius: 0 2px 2px 0;
+    background: var(--na-primary);
+    transform: scaleY(0);
+    transition: transform 0.18s ease;
+  }
   &:hover {
     background: var(--na-table-hover);
-    transform: translateX(2px);
+    transform: translateX(3px);
+    &::before {
+      transform: scaleY(1);
+    }
   }
 }
 .asset-recent-list button:last-child { border-bottom: 0; }
-.operation-list button:hover, .schedule-list button:hover {
-  background: var(--na-table-hover);
-  transform: translateX(2px);
-}
 .asset-identity, .asset-place { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
 .asset-identity strong, .asset-place span { overflow: hidden; font-size: .75rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .asset-identity small, .asset-place small { overflow: hidden; color: var(--na-muted-foreground); font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
@@ -1331,15 +1535,53 @@ button.metric-item { width: 100%; color: inherit; font: inherit; text-align: lef
 .asset-place small.status-danger { color: var(--na-danger); }
 .asset-place small.status-info { color: var(--na-info); }
 .asset-place small.status-primary { color: var(--na-primary); }
-.asset-recent-list b { overflow: hidden; color: var(--na-foreground); font-size: .75rem; font-variant-numeric: tabular-nums; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+.asset-recent-list b { overflow: hidden; color: var(--na-foreground); font-size: .75rem; font-variant-numeric: tabular-nums; text-align: right; text-overflow: ellipsis; white-space: nowrap; transition: color 0.16s ease; }
+.asset-recent-list button:hover b { color: var(--na-primary); }
 
 .invoice-workspace { display: grid; min-width: 0; grid-template-columns: minmax(230px, .8fr) minmax(0, 1.7fr); }
-.invoice-total { display: flex; min-width: 0; flex-direction: column; justify-content: center; padding: 20px; background: var(--na-primary-soft); }
-.invoice-total > span, .invoice-total > small, .invoice-breakdown dt { color: var(--na-muted-foreground); font-size: .6875rem; }
+.invoice-total {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  padding: 22px 20px;
+  background: linear-gradient(135deg, var(--na-primary-soft) 0%, rgba(99, 102, 241, 0.03) 100%);
+  border-right: 1px solid var(--na-border);
+  overflow: hidden;
+}
+.invoice-total-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.invoice-total-heading > span { color: var(--na-muted-foreground); font-size: .6875rem; }
+.invoice-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: var(--na-card);
+  border: 1px solid var(--na-border);
+  font-size: .625rem;
+  color: var(--na-primary);
+  font-weight: 600;
+}
+.invoice-status-chip .chip-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--na-primary);
+  box-shadow: 0 0 0 2px var(--na-primary-soft);
+}
 .invoice-total > strong { overflow: hidden; margin: 7px 0 3px; color: var(--na-primary); font-size: 1.375rem; font-variant-numeric: tabular-nums; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.invoice-total > small, .invoice-breakdown dt { color: var(--na-muted-foreground); font-size: .6875rem; }
 .invoice-breakdown { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 15px 0 0; padding-top: 13px; border-top: 1px solid var(--na-ring); }
 .invoice-breakdown div { min-width: 0; }
 .invoice-breakdown dd { overflow: hidden; margin: 5px 0 0; color: var(--na-foreground); font-size: .75rem; font-variant-numeric: tabular-nums; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+
 .trend-section { min-width: 0; padding: 15px 20px 12px; }
 .invoice-trend-heading { display: flex; min-width: 0; align-items: flex-start; justify-content: space-between; gap: 14px; }
 .invoice-trend-heading > div:first-child { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
@@ -1349,65 +1591,87 @@ button.metric-item { width: 100%; color: inherit; font: inherit; text-align: lef
 .invoice-exceptions span { display: inline-flex; min-height: 24px; align-items: center; padding: 0 8px; border-radius: 6px; font-size: .6875rem; font-weight: 600; }
 .invoice-exceptions .is-warning { color: var(--na-warning); background: var(--na-warning-soft); }
 .invoice-exceptions .is-danger { color: var(--na-danger); background: var(--na-danger-soft); }
-.invoice-trend { display: grid; height: 124px; grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: end; gap: 10px; padding: 9px 0 0; }
+
+.invoice-trend {
+  position: relative;
+  display: grid;
+  height: 126px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  align-items: end;
+  gap: 10px;
+  padding: 12px 0 0;
+  background-image: linear-gradient(to bottom, var(--na-border) 1px, transparent 1px);
+  background-size: 100% 33.33%;
+}
 .trend-item {
+  position: relative;
   display: grid;
   min-width: 0;
   height: 100%;
-  grid-template-rows: 16px minmax(0, 1fr) 15px;
+  grid-template-rows: 18px minmax(0, 1fr) 16px;
   align-items: end;
   gap: 4px;
-  cursor: default;
+  cursor: pointer;
+  animation: trendItemEntrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--bar-delay, 0ms);
   &:hover {
-    .trend-value { color: var(--na-primary); font-weight: 700; }
-    .trend-bar i { transform: scaleX(1.12); filter: brightness(1.18); }
+    .trend-value {
+      color: var(--na-primary);
+      font-weight: 700;
+      transform: translateY(-2px);
+    }
+    .trend-bar i {
+      transform: scaleX(1.15);
+      filter: brightness(1.22);
+      box-shadow: 0 -4px 12px var(--na-primary-soft);
+    }
+    .trend-cap {
+      opacity: 1;
+      transform: scale(1.3);
+    }
   }
 }
-.trend-value { overflow: hidden; color: var(--na-muted-foreground); font-size: .6875rem; text-align: center; text-overflow: ellipsis; white-space: nowrap; transition: color 0.16s ease; }
-.trend-bar { display: flex; height: 100%; align-items: end; justify-content: center; border-bottom: 1px solid var(--na-border); }
+.trend-value {
+  overflow: hidden;
+  color: var(--na-muted-foreground);
+  font-size: .6875rem;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.16s ease, transform 0.16s ease;
+}
+.trend-bar {
+  position: relative;
+  display: flex;
+  height: 100%;
+  align-items: end;
+  justify-content: center;
+  border-bottom: 1px solid var(--na-border);
+}
 .trend-bar i {
-  width: min(32px, 62%);
-  min-height: 2px;
+  position: relative;
+  width: min(34px, 64%);
+  min-height: 3px;
   border-radius: 4px 4px 0 0;
-  background: var(--na-primary);
+  background: linear-gradient(180deg, var(--na-primary) 0%, rgba(99, 102, 241, 0.65) 100%);
   transform-origin: bottom center;
-  transition: height 0.75s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s ease, filter 0.2s ease;
+  transition: height 0.85s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease;
+}
+.trend-cap {
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  margin-left: -3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 6px var(--na-primary);
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 .trend-item small { color: var(--na-muted-foreground); font-size: .6875rem; text-align: center; }
 
-.schedule-list, .operation-list { display: grid; }
-.schedule-list button, .operation-list button {
-  display: grid;
-  min-width: 0;
-  min-height: 48px;
-  align-items: center;
-  border: 0;
-  border-bottom: 1px solid var(--na-border);
-  background: transparent;
-  color: var(--na-foreground);
-  text-align: left;
-  transition: background-color 0.16s ease, transform 0.16s ease;
-}
-.schedule-list button { grid-template-columns: 6px 42px minmax(0, 1fr); gap: 10px; padding: 6px 16px; }
-.schedule-list button:last-child, .operation-list button:last-child { border-bottom: 0; }
-.schedule-list i { width: 6px; height: 24px; border-radius: 3px; }
-.schedule-list time { color: var(--na-muted-foreground); font-size: .6875rem; font-variant-numeric: tabular-nums; }
-.schedule-list span { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
-.schedule-list strong { overflow: hidden; font-size: .75rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.schedule-list small { overflow: hidden; color: var(--na-muted-foreground); font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
-.side-empty { display: grid; min-height: 102px; place-items: center; align-content: center; gap: 7px; color: var(--na-muted-foreground); font-size: .75rem; }
-.side-empty :deep(svg) { width: 22px; height: 22px; color: var(--na-primary); }
-.schedule-footer { display: block; overflow: hidden; padding: 8px 16px; border-top: 1px solid var(--na-border); color: var(--na-muted-foreground); font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
-.operation-table-head, .operation-list button { display: grid; min-width: 0; grid-template-columns: 42px minmax(0, 1fr) 40px 34px; align-items: center; gap: 8px; }
-.operation-table-head { margin: 12px 14px 4px; padding: 7px 8px; border-radius: 6px; background: var(--na-table-header); color: var(--na-muted-foreground); font-size: .6875rem; }
-.operation-table-head span:last-child { text-align: center; }
-.operation-list button { min-height: 40px; padding: 0 22px; border: 0; border-bottom: 1px solid var(--na-border); }
-.request-method { overflow: hidden; color: var(--na-primary); font: 600 .6875rem/1 ui-monospace, SFMono-Regular, Menlo, monospace; text-overflow: ellipsis; white-space: nowrap; }
-.request-path { overflow: hidden; font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
-.operation-list time { color: var(--na-muted-foreground); font-size: .6875rem; font-variant-numeric: tabular-nums; }
-.operation-list i { display: inline-grid; min-width: 30px; place-items: center; border-radius: 4px; color: var(--na-on-primary); font-size: .6875rem; font-style: normal; font-variant-numeric: tabular-nums; line-height: 18px; }
-.operation-list i.request-ok { color: var(--na-success); background: var(--na-success-soft); }
-.operation-list i.request-error { color: var(--na-danger); background: var(--na-danger-soft); }
 .daily-risk-summary { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); border-bottom: 1px solid var(--na-border); }
 .daily-risk-total { display: flex; min-width: 0; flex-direction: column; justify-content: center; padding: var(--na-space-md); border-right: 1px solid var(--na-border); }
 .daily-risk-total span, .daily-risk-total small, .daily-risk-summary dt { color: var(--na-muted-foreground); font-size: .75rem; }
@@ -1437,28 +1701,198 @@ button.metric-item { width: 100%; color: inherit; font: inherit; text-align: lef
 .daily-risk-summary dl div { min-width: 0; padding: 0 var(--na-space-xs); }
 .daily-risk-summary dd { margin: 5px 0 0; color: var(--na-foreground); font-size: 1rem; font-variant-numeric: tabular-nums; font-weight: 600; }
 .daily-risk-summary dd.is-warning { color: var(--na-warning); }
-.daily-risk-trend { display: flex; height: 72px; align-items: stretch; gap: var(--na-space-xs); padding: var(--na-space-sm) var(--na-space-md); }
-.daily-risk-trend > span {
+
+.daily-risk-chart-wrap {
   display: flex;
-  min-width: 0;
+  flex-direction: column;
+  padding: 12px 16px 10px;
+}
+.daily-risk-trend {
+  display: flex;
+  height: 86px;
+  align-items: stretch;
+  gap: 6px;
+}
+.risk-col-group {
+  display: flex;
   flex: 1;
-  align-items: end;
-  justify-content: center;
-  gap: 2px;
-  border-bottom: 1px solid var(--na-border);
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 4px 2px;
+  border-radius: 4px;
+  cursor: default;
   transition: background-color 0.16s ease;
+  animation: rowEntrance 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--col-delay, 0ms);
   &:hover {
-    background: var(--na-muted);
+    background: var(--na-table-hover);
+    .risk-new { filter: brightness(1.2); box-shadow: 0 0 8px rgba(239, 68, 68, 0.45); }
+    .risk-resolved { filter: brightness(1.2); box-shadow: 0 0 8px rgba(16, 185, 129, 0.45); }
+    .risk-col-date { color: var(--na-foreground); font-weight: 600; }
   }
 }
-.daily-risk-trend i {
-  width: min(7px, 34%);
-  min-height: 2px;
-  border-radius: 2px 2px 0 0;
-  transition: height 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+.risk-col-bars {
+  display: flex;
+  width: 100%;
+  height: 62px;
+  align-items: end;
+  justify-content: center;
+  gap: 3px;
+  border-bottom: 1px solid var(--na-border);
 }
-.daily-risk-trend .risk-new { background: var(--na-danger); }
-.daily-risk-trend .risk-resolved { background: var(--na-success); }
+.risk-col-bars i {
+  width: min(8px, 42%);
+  min-height: 2px;
+  border-radius: 3px 3px 0 0;
+  transition: height 0.75s cubic-bezier(0.16, 1, 0.3, 1), filter 0.2s ease, box-shadow 0.2s ease;
+}
+.risk-col-bars .risk-new {
+  background: linear-gradient(180deg, #f87171 0%, #dc2626 100%);
+}
+.risk-col-bars .risk-resolved {
+  background: linear-gradient(180deg, #34d399 0%, #059669 100%);
+}
+.risk-col-date {
+  color: var(--na-muted-foreground);
+  font-size: .625rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  transition: color 0.16s ease;
+}
+.risk-chart-legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 8px;
+  padding-top: 6px;
+}
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--na-muted-foreground);
+  font-size: .6875rem;
+}
+.legend-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.legend-dot.is-new { background: #dc2626; box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.2); }
+.legend-dot.is-resolved { background: #059669; box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.2); }
+
+.schedule-list, .operation-list { display: grid; }
+.schedule-list button, .operation-list button {
+  display: grid;
+  min-width: 0;
+  min-height: 48px;
+  align-items: center;
+  border: 0;
+  border-bottom: 1px solid var(--na-border);
+  background: transparent;
+  color: var(--na-foreground);
+  text-align: left;
+  transition: background-color 0.16s ease, transform 0.16s ease;
+}
+.schedule-list button {
+  position: relative;
+  grid-template-columns: 4px 44px minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 8px 18px;
+  animation: rowEntrance 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--item-delay, 0ms);
+  &:hover {
+    background: var(--na-table-hover);
+    transform: translateX(3px);
+    .schedule-arrow {
+      opacity: 1;
+      transform: translateX(2px);
+      color: var(--na-primary);
+    }
+  }
+}
+.schedule-list button:last-child, .operation-list button:last-child { border-bottom: 0; }
+.schedule-stripe { width: 4px; height: 26px; border-radius: 2px; }
+.schedule-time { color: var(--na-muted-foreground); font-size: .6875rem; font-variant-numeric: tabular-nums; }
+.schedule-body { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.schedule-body strong { overflow: hidden; font-size: .75rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.schedule-body small { overflow: hidden; color: var(--na-muted-foreground); font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
+.schedule-arrow {
+  opacity: 0;
+  color: var(--na-muted-foreground);
+  font-size: .875rem;
+  transition: all 0.2s ease;
+}
+
+.side-empty { display: grid; min-height: 102px; place-items: center; align-content: center; gap: 7px; color: var(--na-muted-foreground); font-size: .75rem; }
+.side-empty :deep(svg) { width: 22px; height: 22px; color: var(--na-primary); }
+.schedule-footer { display: block; overflow: hidden; padding: 8px 16px; border-top: 1px solid var(--na-border); color: var(--na-muted-foreground); font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
+
+.operation-table-head, .operation-list button { display: grid; min-width: 0; grid-template-columns: 46px minmax(0, 1fr) 40px 34px; align-items: center; gap: 8px; }
+.operation-table-head { margin: 12px 14px 4px; padding: 7px 8px; border-radius: 6px; background: var(--na-table-header); color: var(--na-muted-foreground); font-size: .6875rem; }
+.operation-table-head span:last-child { text-align: center; }
+.operation-list button {
+  position: relative;
+  min-height: 40px;
+  padding: 0 20px;
+  border: 0;
+  border-bottom: 1px solid var(--na-border);
+  transition: background-color 0.16s ease, transform 0.16s ease;
+  animation: rowEntrance 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--item-delay, 0ms);
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 6px;
+    bottom: 6px;
+    width: 2px;
+    border-radius: 0 2px 2px 0;
+    background: var(--na-primary);
+    transform: scaleY(0);
+    transition: transform 0.18s ease;
+  }
+  &:hover {
+    background: var(--na-table-hover);
+    transform: translateX(3px);
+    &::before {
+      transform: scaleY(1);
+    }
+  }
+}
+.request-method {
+  display: inline-grid;
+  place-items: center;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font: 700 .625rem/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+.method-get { color: #0284c7; background: rgba(2, 132, 199, 0.12); border: 1px solid rgba(2, 132, 199, 0.25); }
+.method-post { color: #6366f1; background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(99, 102, 241, 0.25); }
+.method-put { color: #d97706; background: rgba(217, 119, 6, 0.12); border: 1px solid rgba(217, 119, 6, 0.25); }
+.method-delete { color: #dc2626; background: rgba(220, 38, 38, 0.12); border: 1px solid rgba(220, 38, 38, 0.25); }
+.method-patch { color: #8b5cf6; background: rgba(139, 92, 246, 0.12); border: 1px solid rgba(139, 92, 246, 0.25); }
+.method-http { color: var(--na-muted-foreground); background: var(--na-muted); border: 1px solid var(--na-border); }
+.request-path { overflow: hidden; font-size: .6875rem; text-overflow: ellipsis; white-space: nowrap; }
+.operation-list time { color: var(--na-muted-foreground); font-size: .6875rem; font-variant-numeric: tabular-nums; }
+.operation-list i {
+  display: inline-grid;
+  min-width: 30px;
+  place-items: center;
+  border-radius: 4px;
+  font-size: .6875rem;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+}
+.operation-list i.request-ok { color: var(--na-success); background: var(--na-success-soft); }
+.operation-list i.request-error { color: var(--na-danger); background: var(--na-danger-soft); animation: pulseDanger 1.8s infinite; }
 
 /* Animations */
 @keyframes panelFadeIn {
@@ -1476,6 +1910,28 @@ button.metric-item { width: 100%; color: inherit; font: inherit; text-align: lef
   from {
     opacity: 0;
     transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes rowEntrance {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes trendItemEntrance {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -1553,9 +2009,9 @@ button.metric-item { width: 100%; color: inherit; font: inherit; text-align: lef
   .daily-risk-total { border-right: 0; border-bottom: 1px solid var(--na-border); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .workbench-band, .metric-band, .dashboard-workspace, .metric-item { animation: none; }
-  .progress-track > i, .runtime-track i, .trend-bar i { transition: none; }
+  .workbench-band, .metric-band, .dashboard-workspace, .metric-item, .trend-item, .asset-status-row, .risk-col-group, .schedule-list button, .operation-list button { animation: none; }
+  .progress-track > i, .runtime-track i, .trend-bar i, .health-gauge-meter, .risk-col-bars i { transition: none; }
   .progress-track > i::after { animation: none; display: none; }
-  .live-pulse-dot, .danger-pulse-dot, .runtime-heading i { animation: none; }
+  .live-pulse-dot, .danger-pulse-dot, .runtime-heading i, .health-gauge-center { animation: none; }
 }
 </style>
