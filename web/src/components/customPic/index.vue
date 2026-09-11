@@ -1,11 +1,11 @@
 <template>
   <span class="headerAvatar">
     <template v-if="picType === 'avatar'">
-      <el-avatar v-if="hasAvatar" :size="30" :src="avatar" @error="handleAvatarError" />
+      <el-avatar v-if="hasAvatar" :size="30" :src="cachedAvatar || avatar" @error="handleAvatarError" />
       <el-avatar v-else :size="30" :src="noAvatar" />
     </template>
     <template v-if="picType === 'img'">
-      <img v-if="hasAvatar" :src="avatar" alt="用户头像" class="avatar" @error="handleAvatarError" />
+      <img v-if="hasAvatar" :src="cachedAvatar || avatar" alt="用户头像" class="avatar" @error="handleAvatarError" />
       <img v-else :src="noAvatar" alt="默认用户头像" class="avatar" />
     </template>
     <template v-if="picType === 'file'">
@@ -24,6 +24,7 @@
   import noAvatarPng from '@/assets/noBody.png'
   import { useUserStore } from '@/pinia/modules/user'
   import { resolveAvatarUrl } from '@/utils/avatar'
+  import { getLocalCachedAvatar, fetchAndCacheAvatar } from '@/utils/avatarCache'
   import { computed, ref, watch } from 'vue'
 
   defineOptions({
@@ -63,13 +64,29 @@
   const file = computed(() => resolveAvatarUrl({ picSrc: props.picSrc, fileBaseUrl }))
   const previewSrcList = computed(() => (props.preview && file.value ? [file.value] : []))
 
+  const cachedAvatar = ref(getLocalCachedAvatar(avatar.value))
+
   const handleAvatarError = () => {
     avatarFailed.value = true
   }
 
-  watch(avatar, () => {
+  watch(avatar, async (newVal) => {
     avatarFailed.value = false
-  })
+    if (!newVal) {
+      cachedAvatar.value = null
+      return
+    }
+    const local = getLocalCachedAvatar(newVal)
+    if (local) {
+      cachedAvatar.value = local
+    } else {
+      cachedAvatar.value = newVal
+      const saved = await fetchAndCacheAvatar(newVal)
+      if (saved && saved !== newVal) {
+        cachedAvatar.value = saved
+      }
+    }
+  }, { immediate: true })
 </script>
 
 <style scoped>
