@@ -656,6 +656,242 @@ html.dark .el-cascader__dropdown {
 .el-dropdown { outline: none; }
 .el-dropdown * { outline: none; }
 
+/* 顶部导航栏用户头像触发按钮与下拉卡片 */
+.na-profile-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 3px 10px 3px 4px;
+  border: 1px solid var(--na-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--na-muted) 45%, var(--na-card));
+  color: var(--na-foreground);
+  cursor: pointer;
+  transition: all 160ms ease;
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--na-primary) 40%, var(--na-border));
+    background: var(--na-card);
+    box-shadow: 0 2px 8px rgb(0 0 0 / 4%);
+  }
+}
+
+.na-profile-arrow {
+  font-size: 12px;
+  color: var(--na-muted-foreground);
+  transition: transform 160ms ease;
+}
+
+/* 用户主菜单浮层 Popper */
+.el-dropdown__popper.na-user-dropdown-popper {
+  --el-dropdown-menu-box-shadow: none;
+  border: 1px solid color-mix(in srgb, var(--na-border) 80%, transparent) !important;
+  border-radius: 16px !important;
+  background: var(--na-popover) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  box-shadow:
+    0 20px 48px -8px rgb(15 14 23 / 16%),
+    0 0 0 1px rgb(255 255 255 / 80%) inset,
+    0 2px 8px rgb(0 0 0 / 4%) !important;
+  overflow: hidden;
+
+  .el-dropdown-menu.na-user-dropdown-menu {
+    width: 256px;
+    padding: 8px;
+    background: transparent;
+    border: none;
+  }
+}
+
+html.dark .el-dropdown__popper.na-user-dropdown-popper {
+  box-shadow:
+    0 24px 56px -8px rgb(0 0 0 / 75%),
+    0 0 0 1px rgb(255 255 255 / 8%) inset !important;
+}
+
+/* 用户头部卡片 */
+.dropdown-user-header {
+  padding: 10px 12px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--na-muted) 50%, var(--na-card));
+  border: 1px solid color-mix(in srgb, var(--na-border) 65%, transparent);
+  margin-bottom: 6px;
+
+  .user-info-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .header-avatar {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid var(--na-card);
+    box-shadow: 0 2px 6px rgb(0 0 0 / 8%);
+  }
+
+  .user-meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .user-nickname {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--na-foreground);
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .user-handle {
+    font-size: 11.5px;
+    color: var(--na-muted-foreground);
+  }
+
+  .active-role-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: var(--na-primary-soft);
+    border: 1px solid color-mix(in srgb, var(--na-primary) 22%, transparent);
+    font-size: 11.5px;
+
+    .role-beacon {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--na-success);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--na-success) 24%, transparent);
+      flex-shrink: 0;
+    }
+
+    .role-chip-label {
+      color: var(--na-muted-foreground);
+      font-size: 11px;
+    }
+
+    .role-chip-name {
+      font-weight: 700;
+      color: var(--na-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+}
+
+/* 分割线与分区标题 */
+.dropdown-divider {
+  height: 1px;
+  margin: 5px 2px;
+  background: color-mix(in srgb, var(--na-border) 60%, transparent);
+}
+
+.dropdown-section-title {
+  padding: 4px 10px 2px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--na-muted-foreground);
+  letter-spacing: 0.02em;
+}
+
+/* 角色切换项目 */
+.el-dropdown-menu__item.role-switch-item {
+  min-height: 34px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  margin: 2px 0;
+
+  .role-switch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .role-name-wrap {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12.5px;
+    font-weight: 550;
+    color: var(--na-foreground);
+
+    .role-icon {
+      font-size: 13px;
+      color: var(--na-primary);
+    }
+  }
+
+  .role-switch-badge {
+    padding: 1px 7px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--na-muted);
+    color: var(--na-muted-foreground);
+    transition: all 140ms ease;
+  }
+
+  &:hover {
+    background: var(--na-muted);
+
+    .role-switch-badge {
+      background: var(--na-primary);
+      color: var(--na-on-primary);
+    }
+  }
+}
+
+/* 功能菜单项 */
+.el-dropdown-menu__item.menu-action-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 36px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  margin: 2px 0;
+  font-size: 12.5px;
+  font-weight: 550;
+  color: var(--na-foreground);
+  transition: all 140ms ease;
+
+  .action-icon {
+    font-size: 15px;
+    flex-shrink: 0;
+
+    &.is-user { color: var(--na-primary); }
+    &.is-calendar { color: #f59e0b; }
+    &.is-danger { color: var(--na-danger); }
+  }
+
+  &:hover {
+    background: var(--na-muted);
+    color: var(--na-primary);
+  }
+
+  &.is-logout {
+    color: var(--na-muted-foreground);
+
+    &:hover {
+      background: color-mix(in srgb, var(--na-danger) 10%, transparent);
+      color: var(--na-danger);
+    }
+  }
+}
+
+
 
 /* ==========================================================================
    6. Tables & Cards (数据表格与通用卡片)
