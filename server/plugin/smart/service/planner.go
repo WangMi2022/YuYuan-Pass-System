@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -34,9 +35,12 @@ type PlanRequest struct {
 }
 
 type AssistantPlan struct {
-	Intent  string     `json:"intent"`
-	Calls   []ToolCall `json:"calls"`
-	Planner string     `json:"planner"`
+	Intent          string     `json:"intent"`
+	Calls           []ToolCall `json:"calls"`
+	Planner         string     `json:"planner"`
+	Clarification   string     `json:"clarification,omitempty"`
+	NeedsAssetModel bool       `json:"-"`
+	ModelUsed       bool       `json:"modelUsed,omitempty"`
 }
 
 type Planner interface {
@@ -84,13 +88,30 @@ func (p *RulePlanner) Plan(_ context.Context, request PlanRequest) (AssistantPla
 	}
 
 	knowledgeDomain := containsAny(q, "制度", "手册", "流程文档", "合同", "会议纪要", "知识库", "文档里", "文档中")
-	assetDomain := containsAny(q, "资产", "设备", "电脑", "打印机")
+	assetDomain := containsAny(q, "资产", "设备", "电脑", "打印机", "过保", "质保", "保修")
 	custodian := extractAssetCustodian(question)
-	invoiceDomain := containsAny(q, "发票", "金额") || (strings.Contains(q, "报销") && !knowledgeDomain)
+	invoiceDomain := strings.Contains(q, "发票") || (strings.Contains(q, "金额") && !assetDomain) || (strings.Contains(q, "报销") && !knowledgeDomain)
 	scheduleDomain := containsAny(q, "日程", "安排", "行程", "会议安排")
 	announcementDomain := containsAny(q, "公告", "通知", "未读")
 
+	clarification := ""
+	needsAssetModel := false
 	switch {
+	case assetDomain && !knowledgeDomain && !containsAny(q, "风险", "异常", "流转单", "领用单", "维修单", "入库单", "报废单", "流转记录", "单据") && !(containsAny(q, "详情", "明细") && assetDetailID.MatchString(question)):
+		query, message, needsModel := ruleAssetQuery(question, p.now().In(p.location))
+		clarification, needsAssetModel = message, needsModel
+		if message == "" {
+			arguments := map[string]any{"query": query}
+			// Retain the legacy holder argument for existing clients and traces.
+			if custodian != "" {
+				arguments["custodian"] = custodian
+			}
+			if containsAny(q, "质保", "保修") && containsAny(q, "未来", "即将") && len(query.OrderBy) == 0 && query.GroupBy == "" && query.Where != nil && len(query.Where.All) == 2 && query.Where.All[0].Field == "warrantyEndDate" && query.Where.All[1].Field == "warrantyEndDate" {
+				appendCall("asset.warranty.expiring", "warranty", arguments)
+			} else {
+				appendCall("asset.search", "asset", arguments)
+			}
+		}
 	case containsAny(q, "质保", "保修"):
 		appendCall("asset.warranty.expiring", "warranty", nil)
 	case containsAny(q, "风险", "异常"):
@@ -132,15 +153,21 @@ func (p *RulePlanner) Plan(_ context.Context, request PlanRequest) (AssistantPla
 		appendCall("knowledge.search", "knowledge", map[string]any{"query": question, "limit": 5})
 	}
 
-	if len(calls) == 0 {
+	if len(calls) == 0 && clarification == "" {
 		appendCall("asset.search", "asset", map[string]any{"keyword": extractKeyword(question)})
 	}
 	intents := make([]string, 0, len(calls))
 	for _, call := range calls {
 		intents = append(intents, call.Intent)
 	}
-	return AssistantPlan{Intent: strings.Join(intents, "+"), Calls: calls, Planner: rulePlannerName}, nil
+	intent := strings.Join(intents, "+")
+	if clarification != "" {
+		intent = "clarification"
+	}
+	return AssistantPlan{Intent: intent, Calls: calls, Planner: rulePlannerName, Clarification: clarification, NeedsAssetModel: needsAssetModel}, nil
 }
+
+var assetDetailID = regexp.MustCompile(`(?i)(?:id|编号|#)\s*[:：]?\s*\d+`)
 
 func (p *RulePlanner) scheduleArguments(question string) map[string]any {
 	now := p.now().In(p.location)

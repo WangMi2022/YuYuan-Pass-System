@@ -649,6 +649,10 @@ curl 'http://localhost:8888/asset/list?page=1&pageSize=20' \
 
 响应中的 `readOnly` 必须为 `true`，`citations` 至少包含查询范围、Tool、命中数量或业务对象、前端 `path` 和 `params`。引用可从当前结果和历史会话跳转到对应业务页。服务在创建会话前先校验 Tool 对应的原业务 Casbin 权限，无权限请求不会留下空会话。模型不可用时仍返回确定性 `answer` 和 `data`；第一版不会执行模型生成的未注册 Tool 或任何写操作。
 
+资产条件查询扩展（2026-09-11）：请求仍为 `question/sessionId`，客户端无需提交 SQL 或筛选对象。`asset.search` 和质保查询的业务 `data` 保留 `list/total`，新增 `quantity/originalValue/currentValue/criteria/query/page/pageSize`；分组时另有 `groups/groupTotal`。`total` 始终表示全部匹配的资产档案数，`quantity` 表示实物数量合计。`planner=llm`、`modelUsed=true` 表示模型参与条件解析，回答本身由后端生成。
+
+需要澄清时业务码仍为 `0`，`intent=clarification`、`data.needsClarification=true`，`answer` 说明待补充口径，此时没有工具执行，也没有 `total=0`。用户可在同一 `sessionId` 对到期口径回复“质保”，继续原资产查询。模型失败时，仅完整识别的规则查询可以执行，其余返回澄清。所有结构化条件均经白名单校验；维修次数条件额外要求 `/assetOperation/list` 权限。
+
 ### 15.2 M6 智能日报
 
 | 方法 | 路径 | 请求 | 说明 |

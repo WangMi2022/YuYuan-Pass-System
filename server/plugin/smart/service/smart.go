@@ -36,10 +36,11 @@ func (s *smartService) Tools(authorityID uint) []ToolDefinition {
 }
 
 type toolResult struct {
-	Data      any
-	Answer    string
-	Citations []Citation
-	Coverage  []string
+	Data          any
+	Answer        string
+	Citations     []Citation
+	Coverage      []string
+	Authoritative bool
 }
 
 type invoiceProviderQualityRow struct {
@@ -66,6 +67,14 @@ func extractKeyword(question string) string {
 }
 
 func isWriteIntent(question string) bool {
+	// A state/history noun phrase is a query even without “查询/哪些”.
+	// Explicit imperatives still take precedence over that interpretation.
+	if assetWriteCommand.MatchString(strings.TrimSpace(question)) || explicitAssetWriteCommand.MatchString(strings.TrimSpace(question)) {
+		return true
+	}
+	if containsAny(question, "资产", "设备", "电脑", "打印机") && (containsAny(question, "维修中", "已报废", "已领用", "待入库") || assetHistoryQuery.MatchString(question)) {
+		return false
+	}
 	for _, marker := range []string{"查询", "查找", "搜索", "查看", "列出", "统计", "汇总", "多少", "哪些", "明细", "详情", "情况"} {
 		if strings.Contains(question, marker) {
 			return false
@@ -79,6 +88,10 @@ func isWriteIntent(question string) bool {
 	return false
 }
 
+var assetWriteCommand = regexp.MustCompile(`^(?:(?:请|帮我|帮忙|立即|马上)\s*)?(?:创建|新增|删除|修改|提交|确认|审核|报废|领用|调拨|归还|维修|入库|出库)(?:一下|一张|一条|这个|这台|这张|资产\s*[0-9]|设备\s*[0-9]|\s*[0-9])`)
+var explicitAssetWriteCommand = regexp.MustCompile(`^(?:(?:请|帮我|帮忙|立即|马上)\s*)+(?:创建|新增|删除|修改|提交|确认|审核|报废|领用|调拨|归还|维修|入库|出库)`)
+var assetHistoryQuery = regexp.MustCompile(`(?:维修|领用|调拨|归还).*(?:超过|至少|不少于|不超过|大于|小于).*(?:次|单)`)
+
 func (s *smartService) Query(ctx context.Context, userID, authorityID uint, question string, sessionID uint) (CopilotResult, error) {
 	question = strings.TrimSpace(question)
 	if userID == 0 || question == "" {
@@ -90,8 +103,20 @@ func (s *smartService) Query(ctx context.Context, userID, authorityID uint, ques
 	if isWriteIntent(question) {
 		return CopilotResult{}, errors.New("业务助手仅支持只读查询，不能创建、修改、提交或删除业务数据")
 	}
-	orchestrator := NewAssistantOrchestrator(s, NewRulePlanner(nil), defaultToolRegistry)
-	assistantResult, err := orchestrator.Ask(ctx, AssistantActor{UserID: userID, AuthorityID: authorityID}, question)
+	planningQuestion, err := s.assetClarificationQuestion(ctx, userID, authorityID, sessionID, question)
+	if err != nil {
+		return CopilotResult{}, err
+	}
+	var planner Planner = assetQueryPlanner{rules: NewRulePlanner(nil), gateway: ai.Default, registry: defaultToolRegistry}
+	pagePlan, err := s.assetPagingPlan(ctx, userID, authorityID, sessionID, question)
+	if err != nil {
+		return CopilotResult{}, err
+	}
+	if pagePlan != nil {
+		planner = assetPagingPlanner{plan: *pagePlan}
+	}
+	orchestrator := NewAssistantOrchestrator(s, planner, defaultToolRegistry)
+	assistantResult, err := orchestrator.Ask(ctx, AssistantActor{UserID: userID, AuthorityID: authorityID}, planningQuestion)
 	if err != nil {
 		return CopilotResult{}, err
 	}
@@ -120,6 +145,9 @@ func (s *smartService) Query(ctx context.Context, userID, authorityID uint, ques
 		executedTools[strconv.Itoa(index)] = trace
 	}
 	status := "success"
+	if assistantResult.Plan.Clarification != "" {
+		status = "clarification"
+	}
 	if assistantResult.Partial {
 		status = "partial"
 	}
@@ -176,34 +204,9 @@ func (s *smartService) executeRegisteredTool(ctx context.Context, actor Assistan
 	authorityID := actor.AuthorityID
 	tool := call.Name
 	question := call.Question
-	keyword := stringArgument(call.Arguments, "keyword")
-	custodian := stringArgument(call.Arguments, "custodian")
-	if keyword == "" && custodian == "" {
-		keyword = extractKeyword(question)
-	}
 	switch tool {
 	case "asset.search":
-		search := assetRequest.AssetSearch{PageInfo: commonRequest.PageInfo{Page: 1, PageSize: 20, Keyword: keyword}}
-		var list []assetModel.Asset
-		var total int64
-		var err error
-		if custodian != "" {
-			list, total, err = assetService.Asset.ListByCustodian(search, custodian)
-		} else {
-			list, total, err = assetService.Asset.List(search)
-		}
-		if err != nil {
-			return result, err
-		}
-		result.Data = map[string]any{"list": list, "total": total, "keyword": keyword}
-		result.Answer = fmt.Sprintf("资产查询命中 %d 项。", total)
-		if custodian != "" {
-			result.Data.(map[string]any)["custodian"] = custodian
-			result.Answer = fmt.Sprintf("%s 名下共有 %d 条资产记录。", custodian, total)
-		}
-		for _, item := range list {
-			result.Citations = append(result.Citations, Citation{Type: "asset", ID: item.ID, Label: item.AssetCode + " " + item.Name, Path: "/assetInventory", Params: "id=" + strconv.Itoa(int(item.ID))})
-		}
+		return s.executeAssetQuery(ctx, call)
 	case "asset.detail":
 		idPattern := regexp.MustCompile(`(?i)(?:资产|asset)?\s*(?:id|编号)?\s*[:：#]?\s*(\d+)`)
 		match := idPattern.FindStringSubmatch(question)
@@ -229,17 +232,7 @@ func (s *smartService) executeRegisteredTool(ctx context.Context, actor Assistan
 			result.Citations = append(result.Citations, Citation{Type: "risk", ID: item.ID, Label: item.Title, Path: "/assetRiskCenter", Params: "id=" + strconv.Itoa(int(item.ID))})
 		}
 	case "asset.warranty.expiring":
-		end := time.Now().AddDate(0, 0, 30)
-		var list []assetModel.Asset
-		err := global.GVA_DB.Preload("Category").Where("warranty_end_date IS NOT NULL AND warranty_end_date >= ? AND warranty_end_date <= ?", time.Now(), end).Order("warranty_end_date ASC").Limit(50).Find(&list).Error
-		if err != nil {
-			return result, err
-		}
-		result.Data = map[string]any{"list": list, "until": end.Format("2006-01-02")}
-		result.Answer = fmt.Sprintf("未来 30 天内有 %d 项资产质保到期。", len(list))
-		for _, item := range list {
-			result.Citations = append(result.Citations, Citation{Type: "asset", ID: item.ID, Label: item.AssetCode + " " + item.Name, Path: "/assetInventory"})
-		}
+		return s.executeAssetQuery(ctx, call)
 	case "asset.custodian.summary":
 		var rows []struct {
 			Custodian string  `json:"custodian"`

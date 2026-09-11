@@ -54,6 +54,9 @@ func (o *AssistantOrchestrator) Ask(ctx context.Context, actor AssistantActor, q
 	if err != nil {
 		return AssistantAnswer{}, err
 	}
+	if plan.Clarification != "" {
+		return AssistantAnswer{Plan: plan, Answer: plan.Clarification, Data: map[string]any{"needsClarification": true}, ModelUsed: plan.ModelUsed, DurationMS: time.Since(startedAt).Milliseconds()}, nil
+	}
 	if len(plan.Calls) == 0 {
 		return AssistantAnswer{}, errors.New("未规划出可执行的只读查询")
 	}
@@ -93,10 +96,16 @@ func (o *AssistantOrchestrator) Ask(ctx context.Context, actor AssistantActor, q
 	}
 	fallbackReason := ""
 	answer := deterministic
-	modelUsed := false
+	modelUsed := plan.ModelUsed
+	authoritative := false
+	for _, execution := range executions {
+		if execution.Result.Authoritative {
+			authoritative = true
+		}
+	}
 	if partial {
 		fallbackReason = "partial-tool-failure"
-	} else {
+	} else if !authoritative {
 		modelAnswer, available := o.service.tryModelSummary(ctx, actor.UserID, actor.AuthorityID, question, strings.Join(tools, ","), deterministic, dataByTool)
 		if available && modelSummaryCovers(modelAnswer, executions) {
 			answer = modelAnswer

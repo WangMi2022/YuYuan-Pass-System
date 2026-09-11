@@ -239,6 +239,8 @@ flowchart LR
 
 业务模块只依赖 `Gateway.Complete/Vision/Stream`，不持有 Provider Endpoint 和密钥。调用身份由认证 context 覆盖，失败和阻断路径同样写审计。图片仅允许配置白名单中的模块外发，Provider Endpoint 默认拒绝私有网络地址。
 
+业务助手的资产条件查询先用规则解析明确问法，再按需通过 Gateway 解析复杂条件。`plugin/asset/service/query.go` 统一校验字段、比较符、条件树、排序和分页，执行参数化查询并计算全量统计；Tool Registry 负责资产及维修记录的读取权限。模型不生成 SQL，也不改写资产查询事实。含糊条件返回可追问的澄清消息，分页复用已审计的结构化条件。当前部门筛选仍使用保管人的“部门-姓名”格式，不能代替第 7.1 节尚待实施的 Tenant/Data Scope 迁移。
+
 ## 9. 数据一致性策略
 
 - 单数据库业务更新使用 GORM 事务。

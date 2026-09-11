@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+
+	assetService "github.com/WangMi2022/mit-assets-admin/server/plugin/asset/service"
 )
 
 type ToolPermissionChecker func(authorityID uint, path, method string) bool
@@ -26,7 +28,7 @@ func NewToolRegistry(permissionChecker ToolPermissionChecker) *ToolRegistry {
 		specs:             make(map[string]ToolSpec),
 		permissionChecker: permissionChecker,
 	}
-	registry.register(ToolSpec{Definition: ToolDefinition{Name: "asset.search", Description: "按编号、名称、品牌、型号、序列号或指定保管人查询资产", ReadOnly: true, InputSchema: assetSearchSchema()}, Intent: "asset", PermissionPath: "/asset/list"})
+	registry.register(ToolSpec{Definition: ToolDefinition{Name: "asset.search", Description: "按日期、金额、状态、部门、保管人等组合筛选资产，支持排序、分组和全量统计", ReadOnly: true, InputSchema: assetSearchSchema()}, Intent: "asset", PermissionPath: "/asset/list"})
 	registry.register(ToolSpec{Definition: ToolDefinition{Name: "asset.detail", Description: "查询单项资产详情", ReadOnly: true, InputSchema: objectSchema("id", "integer")}, Intent: "asset_detail", PermissionPath: "/asset/detail"})
 	registry.register(ToolSpec{Definition: ToolDefinition{Name: "asset.risk.list", Description: "查询开放资产风险和异常", ReadOnly: true}, Intent: "risk", PermissionPath: "/assetRisk/list"})
 	registry.register(ToolSpec{Definition: ToolDefinition{Name: "asset.warranty.expiring", Description: "查询即将到期的资产质保", ReadOnly: true, InputSchema: objectSchema("days", "integer")}, Intent: "warranty", PermissionPath: "/asset/list"})
@@ -50,9 +52,16 @@ func objectSchema(property, propertyType string) map[string]any {
 }
 
 func assetSearchSchema() map[string]any {
+	querySchema := assetService.AssetQuerySchema()
+	// Definitions are rooted at the tool input schema, so nested references
+	// resolve to the same filter definition as the standalone query schema.
+	definitions := querySchema["$defs"]
+	delete(querySchema, "$defs")
 	return map[string]any{
-		"type": "object",
+		"type":  "object",
+		"$defs": definitions,
 		"properties": map[string]any{
+			"query":     querySchema,
 			"keyword":   map[string]any{"type": "string"},
 			"custodian": map[string]any{"type": "string", "description": "保管人姓名或部门-姓名，仅匹配保管人字段"},
 		},
@@ -129,6 +138,15 @@ func (r *ToolRegistry) Execute(ctx context.Context, service *smartService, actor
 	}
 	if !r.allowed(actor.AuthorityID, spec) {
 		return toolResult{}, ToolPermissionError{Tool: call.Name}
+	}
+	if call.Name == "asset.search" || call.Name == "asset.warranty.expiring" {
+		query, err := assetQueryFromCall(call)
+		if err != nil {
+			return toolResult{}, err
+		}
+		if assetService.AssetQueryUsesMaintenance(query) && !r.permissionChecker(actor.AuthorityID, "/assetOperation/list", "GET") {
+			return toolResult{}, ToolPermissionError{Tool: "asset.operation.summary"}
+		}
 	}
 	return service.executeRegisteredTool(ctx, actor, call)
 }
