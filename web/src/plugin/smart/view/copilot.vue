@@ -84,7 +84,7 @@
                 :icon="Delete"
                 :loading="deletingSessionId === item.ID"
                 :aria-label="`删除会话：${item.title || '未命名会话'}`"
-                @click="removeSession(item)"
+                @click.stop="removeSession(item)"
               />
             </el-tooltip>
           </div>
@@ -750,6 +750,7 @@ function resultFacts(item) {
   if (!data || Array.isArray(data) || typeof data !== 'object') return []
   if (Array.isArray(data.list)) {
     const total = Number.isFinite(Number(data.total)) ? Number(data.total) : data.list.length
+    if (total === 0 && data.list.length === 0) return []
     return [{ label: '匹配记录', value: `${total} 条` }]
   }
   return Object.entries(data)
@@ -1679,14 +1680,16 @@ onMounted(loadSessions)
 }
 
 .tool-badges {
-  display: flex;
+  display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  margin-bottom: 12px;
-  padding: 6px 10px;
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: 10px;
+  padding: 4px 10px;
   border: 1px solid color-mix(in srgb, var(--na-border) 60%, transparent);
-  border-radius: 8px;
+  border-radius: 6px;
   background: color-mix(in srgb, var(--na-card) 95%, var(--na-muted));
 
   .tool-badges-title {
