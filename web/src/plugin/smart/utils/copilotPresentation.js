@@ -72,6 +72,31 @@ export function messageStatus(item) {
   return { label: '已完成', className: 'message-status--complete' }
 }
 
+export function clarificationOptions(item) {
+  if (!isClarificationMessage(item)) return []
+  const candidates = item?.clarificationOptions
+    ?? item?.ClarificationOptions
+    ?? item?.data?.clarificationOptions
+    ?? item?.Data?.clarificationOptions
+  if (!Array.isArray(candidates)) return []
+  const parsed = candidates.slice(0, 8).flatMap((raw) => {
+    if (!raw || typeof raw !== 'object') return []
+    const label = String(raw.label ?? raw.Label ?? '').trim()
+    const value = String(raw.value ?? raw.Value ?? '').trim()
+    if (!label || !value) return []
+    const description = String(raw.description ?? raw.Description ?? '').trim()
+    return [{
+      label,
+      value,
+      description
+    }]
+  })
+  return parsed.slice(0, 6).map((option, index) => ({
+    ...option,
+    key: String.fromCharCode(65 + index)
+  }))
+}
+
 export function shouldHideBusinessColumn(key) {
   return internalColumns.has(key)
 }

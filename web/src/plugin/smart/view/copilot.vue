@@ -285,6 +285,34 @@
                   <AssistantMarkdown :source="item.content" />
                 </div>
 
+                <section
+                  v-if="clarificationOptions(item).length"
+                  class="clarification-options"
+                  aria-label="请选择查询口径"
+                >
+                  <div class="clarification-options__heading">
+                    <strong>请选择查询口径</strong>
+                    <span>点击后将自动继续查询</span>
+                  </div>
+                  <div class="clarification-options__list">
+                    <button
+                      v-for="option in clarificationOptions(item)"
+                      :key="`${item.clientId || item.ID}-${option.key}`"
+                      type="button"
+                      class="clarification-option"
+                      :disabled="sending"
+                      @click="submitClarificationOption(option)"
+                    >
+                      <span class="clarification-option__key" aria-hidden="true">{{ option.key }}</span>
+                      <span class="clarification-option__copy">
+                        <strong>{{ option.label }}</strong>
+                        <small>{{ option.description }}</small>
+                      </span>
+                      <el-icon aria-hidden="true"><ArrowRight /></el-icon>
+                    </button>
+                  </div>
+                </section>
+
                 <p v-if="item.partial" class="partial-note">
                   本次仅展示已完成查询的结果；未完成的查询原因已在回答中说明。
                 </p>
@@ -517,6 +545,7 @@ import { useUserStore } from '@/pinia/modules/user'
 import {
   businessColumnLabel,
   businessColumnValue,
+  clarificationOptions,
   isClarificationMessage,
   messageStatus,
   shouldHideBusinessColumn
@@ -912,8 +941,8 @@ async function removeSession(item) {
   }
 }
 
-async function submitQuestion() {
-  const content = question.value.trim()
+async function submitQuestion(nextQuestion = null) {
+  const content = typeof nextQuestion === 'string' ? nextQuestion.trim() : question.value.trim()
   if (!content || sending.value) return
   sending.value = true
   await scrollToLatest()
@@ -932,6 +961,7 @@ async function submitQuestion() {
         content: res.data.answer,
         intent: res.data.intent,
         clarification: res.data.data?.needsClarification === true,
+        clarificationOptions: res.data.clarificationOptions || res.data.data?.clarificationOptions,
         tool: res.data.tool,
         tools: res.data.tools,
         partial: res.data.partial,
@@ -949,6 +979,11 @@ async function submitQuestion() {
   } finally {
     sending.value = false
   }
+}
+
+function submitClarificationOption(option) {
+  if (!option?.value || sending.value) return
+  submitQuestion(option.value)
 }
 
 onMounted(loadSessions)
@@ -1076,17 +1111,6 @@ onMounted(loadSessions)
     border-color: color-mix(in srgb, var(--na-primary) 35%, var(--na-border));
     background: color-mix(in srgb, var(--na-primary-soft) 85%, var(--na-card));
     box-shadow: 0 2px 8px color-mix(in srgb, var(--na-primary) 12%, transparent);
-
-    &::before {
-      position: absolute;
-      top: 10px;
-      bottom: 10px;
-      left: 0;
-      width: 3px;
-      border-radius: 0 4px 4px 0;
-      background: var(--na-primary);
-      content: '';
-    }
   }
 }
 
@@ -1738,11 +1762,115 @@ onMounted(loadSessions)
   overflow-wrap: anywhere;
 }
 
+.clarification-options {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--na-border) 70%, transparent);
+
+  &__heading {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 8px;
+
+    strong {
+      color: var(--na-foreground);
+      font-size: 0.8125rem;
+    }
+
+    span {
+      color: var(--na-muted-foreground);
+      font-size: 0.6875rem;
+    }
+  }
+
+  &__list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 8px;
+  }
+}
+
+.clarification-option {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  border: 1px solid var(--na-border);
+  border-radius: 8px;
+  background: var(--na-card);
+  color: var(--na-foreground);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+
+  &:hover:not(:disabled),
+  &:focus-visible:not(:disabled) {
+    border-color: var(--na-primary);
+    background: var(--na-primary-soft);
+    outline: none;
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible:not(:disabled) {
+    box-shadow: 0 0 0 3px var(--na-ring);
+  }
+
+  &:disabled {
+    cursor: wait;
+    opacity: 0.58;
+  }
+
+  &__key {
+    display: grid;
+    width: 25px;
+    height: 25px;
+    flex: 0 0 25px;
+    place-items: center;
+    border-radius: 7px;
+    background: var(--na-primary-soft);
+    color: var(--na-primary);
+    font-size: 0.75rem;
+    font-weight: 800;
+  }
+
+  &__copy {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+
+    strong,
+    small {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    strong {
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    small {
+      color: var(--na-muted-foreground);
+      font-size: 0.6875rem;
+    }
+  }
+
+  > .el-icon {
+    flex: 0 0 auto;
+    color: var(--na-muted-foreground);
+  }
+}
+
 .partial-note {
   margin: 12px 0 0;
   padding: 8px 12px;
-  border-left: 3px solid var(--na-warning);
-  border-radius: 0 6px 6px 0;
+  border: 1px solid color-mix(in srgb, var(--na-warning) 35%, var(--na-border));
+  border-radius: 6px;
   background: var(--na-warning-soft);
   color: var(--na-action-warning);
   font-size: 0.75rem;

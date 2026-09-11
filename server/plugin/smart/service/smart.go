@@ -142,7 +142,7 @@ func (s *smartService) Query(ctx context.Context, userID, authorityID uint, ques
 	}
 	tool := strings.Join(assistantResult.Tools, ",")
 	userMessage := model.CopilotMessage{SessionID: session.ID, UserID: userID, AuthorityID: authorityID, Role: model.MessageRoleUser, Content: question, Intent: assistantResult.Plan.Intent, Tool: tool}
-	assistantMessage := model.CopilotMessage{SessionID: session.ID, UserID: userID, AuthorityID: authorityID, Role: model.MessageRoleAssistant, Content: assistantResult.Answer, Intent: assistantResult.Plan.Intent, Tool: tool, Citations: citationsJSON}
+	assistantMessage := model.CopilotMessage{SessionID: session.ID, UserID: userID, AuthorityID: authorityID, Role: model.MessageRoleAssistant, Content: assistantResult.Answer, Intent: assistantResult.Plan.Intent, Tool: tool, Citations: citationsJSON, ClarificationOptions: common.JSONSlice[model.ClarificationOption](assistantResult.Plan.ClarificationOptions)}
 	plannedTools := common.JSONMap{}
 	executedTools := common.JSONMap{}
 	for index, call := range assistantResult.Plan.Calls {
@@ -189,7 +189,7 @@ func (s *smartService) Query(ctx context.Context, userID, authorityID uint, ques
 		SessionID: session.ID, Question: question, Intent: assistantResult.Plan.Intent,
 		Tool: tool, Tools: assistantResult.Tools, Planner: assistantResult.Plan.Planner,
 		Partial: assistantResult.Partial, Scope: "当前用户可访问的数据范围",
-		Answer: assistantResult.Answer, Data: assistantResult.Data, Citations: assistantResult.Citations,
+		Answer: assistantResult.Answer, Data: assistantResult.Data, ClarificationOptions: assistantResult.Plan.ClarificationOptions, Citations: assistantResult.Citations,
 		GeneratedAt: now.Format(time.RFC3339), ReadOnly: true, ModelUsed: assistantResult.ModelUsed,
 	}, nil
 }

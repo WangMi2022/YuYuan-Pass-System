@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/smart/model"
 )
 
 const (
@@ -35,12 +37,43 @@ type PlanRequest struct {
 }
 
 type AssistantPlan struct {
-	Intent          string     `json:"intent"`
-	Calls           []ToolCall `json:"calls"`
-	Planner         string     `json:"planner"`
-	Clarification   string     `json:"clarification,omitempty"`
-	NeedsAssetModel bool       `json:"-"`
-	ModelUsed       bool       `json:"modelUsed,omitempty"`
+	Intent               string                      `json:"intent"`
+	Calls                []ToolCall                  `json:"calls"`
+	Planner              string                      `json:"planner"`
+	Clarification        string                      `json:"clarification,omitempty"`
+	ClarificationOptions []model.ClarificationOption `json:"clarificationOptions,omitempty"`
+	NeedsAssetModel      bool                        `json:"-"`
+	ModelUsed            bool                        `json:"modelUsed,omitempty"`
+}
+
+func normalizeClarificationOptions(options []model.ClarificationOption) []model.ClarificationOption {
+	capacity := len(options)
+	if capacity > 6 {
+		capacity = 6
+	}
+	result := make([]model.ClarificationOption, 0, capacity)
+	seen := make(map[string]struct{}, len(options))
+	for _, option := range options {
+		label := strings.TrimSpace(option.Label)
+		value := strings.TrimSpace(option.Value)
+		if label == "" || value == "" || len(result) >= 6 {
+			continue
+		}
+		if len([]rune(label)) > 160 || len([]rune(value)) > 500 {
+			continue
+		}
+		if _, exists := seen[value]; exists {
+			continue
+		}
+		seen[value] = struct{}{}
+		key := string(rune('A' + len(result)))
+		description := strings.TrimSpace(option.Description)
+		if len([]rune(description)) > 240 {
+			description = string([]rune(description)[:240])
+		}
+		result = append(result, model.ClarificationOption{Key: key, Label: label, Value: value, Description: description})
+	}
+	return result
 }
 
 type Planner interface {

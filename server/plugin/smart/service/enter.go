@@ -22,21 +22,22 @@ type Citation struct {
 }
 
 type CopilotResult struct {
-	SessionID   uint                   `json:"sessionId"`
-	Question    string                 `json:"question"`
-	Intent      string                 `json:"intent"`
-	Tool        string                 `json:"tool"`
-	Tools       []string               `json:"tools,omitempty"`
-	Planner     string                 `json:"planner,omitempty"`
-	Partial     bool                   `json:"partial,omitempty"`
-	Scope       string                 `json:"scope"`
-	Answer      string                 `json:"answer"`
-	Data        any                    `json:"data"`
-	Citations   []Citation             `json:"citations"`
-	GeneratedAt string                 `json:"generatedAt"`
-	ReadOnly    bool                   `json:"readOnly"`
-	ModelUsed   bool                   `json:"modelUsed"`
-	Messages    []model.CopilotMessage `json:"messages,omitempty"`
+	SessionID            uint                        `json:"sessionId"`
+	Question             string                      `json:"question"`
+	Intent               string                      `json:"intent"`
+	Tool                 string                      `json:"tool"`
+	Tools                []string                    `json:"tools,omitempty"`
+	Planner              string                      `json:"planner,omitempty"`
+	Partial              bool                        `json:"partial,omitempty"`
+	Scope                string                      `json:"scope"`
+	Answer               string                      `json:"answer"`
+	Data                 any                         `json:"data"`
+	ClarificationOptions []model.ClarificationOption `json:"clarificationOptions,omitempty"`
+	Citations            []Citation                  `json:"citations"`
+	GeneratedAt          string                      `json:"generatedAt"`
+	ReadOnly             bool                        `json:"readOnly"`
+	ModelUsed            bool                        `json:"modelUsed"`
+	Messages             []model.CopilotMessage      `json:"messages,omitempty"`
 }
 
 type ReportListInput struct {

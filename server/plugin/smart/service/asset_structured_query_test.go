@@ -202,6 +202,9 @@ func TestStructuredAssetQueryClarifiesBeforeCountingAndKeepsFollowupScope(t *tes
 	if err != nil || first.Intent != "clarification" || len(first.Tools) != 0 || strings.Contains(first.Answer, "0 项") {
 		t.Fatalf("clarification: %#v, %v", first, err)
 	}
+	if len(first.ClarificationOptions) != 0 {
+		t.Fatalf("rule fallback invented clarification options: %#v", first.ClarificationOptions)
+	}
 	var runs []smartModel.CopilotRun
 	if err := global.GVA_DB.Where("session_id = ?", first.SessionID).Find(&runs).Error; err != nil || len(runs) != 1 || runs[0].Status != "clarification" {
 		t.Fatalf("run: %#v, %v", runs, err)
@@ -306,6 +309,25 @@ func TestStructuredAssetModelPlansValidatedQueryAndCannotRewriteFacts(t *testing
 	}
 	if !strings.Contains(result.Answer, "购置日期") || gateway.request.Operation != "asset-query-plan" || gateway.request.PermissionPath != "/smart/copilot/query" {
 		t.Fatalf("facts/context lost: %#v", result)
+	}
+}
+
+func TestStructuredAssetModelOptionsAreSanitizedAndReturned(t *testing.T) {
+	now := structuredQueryFixture(t)
+	global.GVA_CONFIG.AI.Enabled = true
+	gateway := &structuredQueryGateway{content: `{"query":null,"clarification":"请明确要按哪种日期筛选。","unhandled":[],"options":[{"key":"X","label":"按合同到期","value":"合同已到期","description":"按合同到期日筛选"},{"key":"Y","label":"按合同到期","value":"合同已到期"},{"key":"Z","label":"按服务到期","value":"服务已到期"}]}`}
+	registry := NewToolRegistry(func(uint, string, string) bool { return true })
+	planner := assetQueryPlanner{rules: NewRulePlanner(func() time.Time { return now }), gateway: gateway, registry: registry}
+	result, err := NewAssistantOrchestrator(Smart, planner, registry).Ask(context.Background(), AssistantActor{UserID: 1, AuthorityID: 888}, "行政部王磊名下有哪些过期资产")
+	if err != nil || result.Plan.Clarification == "" || len(result.Plan.ClarificationOptions) != 2 {
+		t.Fatalf("model options: %#v, %v", result, err)
+	}
+	if got := result.Plan.ClarificationOptions; got[0].Key != "A" || got[1].Key != "B" || got[1].Label != "按服务到期" {
+		t.Fatalf("normalized options: %#v", got)
+	}
+	data, ok := result.Data.(map[string]any)
+	if !ok || len(data["clarificationOptions"].([]smartModel.ClarificationOption)) != 2 {
+		t.Fatalf("response options: %#v", result.Data)
 	}
 }
 

@@ -30,16 +30,24 @@ type CopilotSession struct {
 
 func (CopilotSession) TableName() string { return "ai_copilot_sessions" }
 
+type ClarificationOption struct {
+	Key         string `json:"key"`
+	Label       string `json:"label"`
+	Value       string `json:"value"`
+	Description string `json:"description,omitempty"`
+}
+
 type CopilotMessage struct {
 	global.GVA_MODEL
-	SessionID   uint           `json:"sessionId" gorm:"not null;index"`
-	UserID      uint           `json:"userId" gorm:"not null;index"`
-	AuthorityID uint           `json:"authorityId" gorm:"not null;index"`
-	Role        string         `json:"role" gorm:"size:20;not null"`
-	Content     string         `json:"content" gorm:"type:text;not null"`
-	Intent      string         `json:"intent" gorm:"size:40;index"`
-	Tool        string         `json:"tool" gorm:"size:80;index"`
-	Citations   common.JSONMap `json:"citations" gorm:"serializer:json;type:jsonb"`
+	SessionID            uint                                  `json:"sessionId" gorm:"not null;index"`
+	UserID               uint                                  `json:"userId" gorm:"not null;index"`
+	AuthorityID          uint                                  `json:"authorityId" gorm:"not null;index"`
+	Role                 string                                `json:"role" gorm:"size:20;not null"`
+	Content              string                                `json:"content" gorm:"type:text;not null"`
+	Intent               string                                `json:"intent" gorm:"size:40;index"`
+	Tool                 string                                `json:"tool" gorm:"size:80;index"`
+	Citations            common.JSONMap                        `json:"citations" gorm:"serializer:json;type:jsonb"`
+	ClarificationOptions common.JSONSlice[ClarificationOption] `json:"clarificationOptions,omitempty" gorm:"serializer:json;type:jsonb"`
 }
 
 func (CopilotMessage) TableName() string { return "ai_copilot_messages" }

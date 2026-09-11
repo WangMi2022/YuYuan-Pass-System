@@ -55,7 +55,11 @@ func (o *AssistantOrchestrator) Ask(ctx context.Context, actor AssistantActor, q
 		return AssistantAnswer{}, err
 	}
 	if plan.Clarification != "" {
-		return AssistantAnswer{Plan: plan, Answer: plan.Clarification, Data: map[string]any{"needsClarification": true}, ModelUsed: plan.ModelUsed, DurationMS: time.Since(startedAt).Milliseconds()}, nil
+		data := map[string]any{"needsClarification": true}
+		if len(plan.ClarificationOptions) > 0 {
+			data["clarificationOptions"] = plan.ClarificationOptions
+		}
+		return AssistantAnswer{Plan: plan, Answer: plan.Clarification, Data: data, ModelUsed: plan.ModelUsed, DurationMS: time.Since(startedAt).Milliseconds()}, nil
 	}
 	if len(plan.Calls) == 0 {
 		return AssistantAnswer{}, errors.New("未规划出可执行的只读查询")
