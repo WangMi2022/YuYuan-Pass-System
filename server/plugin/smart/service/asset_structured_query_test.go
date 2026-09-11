@@ -211,12 +211,45 @@ func TestStructuredAssetQueryClarifiesBeforeCountingAndKeepsFollowupScope(t *tes
 	if err := global.GVA_DB.Model(&assetModel.Asset{}).Where("asset_code = ?", "QUERY-EXPIRED").Update("warranty_end_date", yesterday).Error; err != nil {
 		t.Fatal(err)
 	}
-	second, err := Smart.Query(context.Background(), 1, 888, "质保", first.SessionID)
+	second, err := Smart.Query(context.Background(), 1, 888, "是的", first.SessionID)
 	if err != nil || second.Intent == "clarification" || !strings.Contains(second.Answer, "行政部-王磊") {
 		t.Fatalf("followup: %#v, %v", second, err)
 	}
 	if _, err := Smart.Query(context.Background(), 2, 888, "质保", first.SessionID); err == nil {
 		t.Fatal("cross-user session accessed")
+	}
+}
+
+func TestAssetClarificationRecognizesAffirmativeWarrantyReplies(t *testing.T) {
+	for _, reply := range []string{"是的", "对", "对的", "没错", "是质保"} {
+		if !isWarrantyClarificationReply(reply) {
+			t.Errorf("reply %q was not recognized as warranty clarification", reply)
+		}
+	}
+}
+
+func TestRiskToolReturnsUserFacingRows(t *testing.T) {
+	db := setupSmartTestDB(t)
+	category := assetModel.Category{Name: "办公设备", Code: "RISK-OFFICE", Enabled: true}
+	if err := db.Create(&category).Error; err != nil {
+		t.Fatal(err)
+	}
+	asset := assetModel.Asset{AssetCode: "RISK-001", Name: "会议室投影仪", CategoryID: category.ID, Custodian: "行政部-王磊", Status: assetModel.AssetStatusInUse, Quantity: 1}
+	if err := db.Create(&asset).Error; err != nil {
+		t.Fatal(err)
+	}
+	event := assetModel.AssetRiskEvent{Fingerprint: "risk-user-facing", AssetID: asset.ID, RuleCode: "WARRANTY_EXPIRED", RuleVersion: 1, Category: "warranty", Severity: assetModel.RiskSeverityHigh, Status: assetModel.RiskStatusAcknowledged, Title: "资产质保已过期", Description: "质保日期早于今天", FirstDetectedAt: time.Now(), LastDetectedAt: time.Now(), LastScanRunID: 1}
+	if err := db.Create(&event).Error; err != nil {
+		t.Fatal(err)
+	}
+	result, err := Smart.executeRegisteredTool(context.Background(), AssistantActor{UserID: 1, AuthorityID: 888}, ToolCall{Name: "asset.risk.list"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	data := result.Data.(map[string]any)
+	rows, ok := data["list"].([]assetRiskQueryRow)
+	if !ok || len(rows) != 1 || rows[0].AssetCode != "RISK-001" || rows[0].AssetName != "会议室投影仪" || rows[0].Custodian != "行政部-王磊" {
+		t.Fatalf("unexpected user-facing risk rows: %#v", data["list"])
 	}
 }
 

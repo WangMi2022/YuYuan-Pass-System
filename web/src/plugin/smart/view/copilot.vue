@@ -260,10 +260,13 @@
                   <div class="assistant-meta">
                     <span
                       class="message-status"
-                      :class="item.partial ? 'message-status--partial' : 'message-status--complete'"
+                      :class="messageStatus(item).className"
                     >
-                      <el-icon aria-hidden="true"><CircleCheck /></el-icon>
-                      {{ item.partial ? '部分结果' : '已完成' }}
+                      <el-icon aria-hidden="true">
+                        <QuestionFilled v-if="isClarificationMessage(item)" />
+                        <CircleCheck v-else />
+                      </el-icon>
+                      {{ messageStatus(item).label }}
                     </span>
                     <time v-if="messageTime(item)" class="message-time">{{ formatTime(messageTime(item)) }}</time>
                   </div>
@@ -499,6 +502,7 @@ import {
   Lock,
   Plus,
   Position,
+  QuestionFilled,
   Refresh,
   Search,
   Tickets,
@@ -510,6 +514,13 @@ import AppEmptyState from '@/components/page/AppEmptyState.vue'
 import AssistantMarkdown from '@/plugin/smart/components/AssistantMarkdown.vue'
 import { deleteCopilotSession, getCopilotSession, getCopilotSessions, getCopilotTools, queryCopilot } from '@/plugin/smart/api/smart'
 import { useUserStore } from '@/pinia/modules/user'
+import {
+  businessColumnLabel,
+  businessColumnValue,
+  isClarificationMessage,
+  messageStatus,
+  shouldHideBusinessColumn
+} from '@/plugin/smart/utils/copilotPresentation'
 
 defineOptions({ name: 'SmartCopilot' })
 
@@ -653,7 +664,7 @@ const countFactKeys = new Set(['confirmedCount', 'ConfirmedCount', 'pendingCount
 const currencyFactKeys = new Set(['totalCents', 'TotalCents'])
 
 const hiddenColumns = new Set(['ID', 'id', 'CreatedAt', 'createdAt', 'UpdatedAt', 'updatedAt', 'DeletedAt', 'deletedAt', 'categoryId', 'CategoryID', 'userId', 'UserID'])
-const preferredColumns = ['assetCode', 'AssetCode', 'name', 'Name', 'title', 'Title', 'status', 'Status', 'severity', 'Severity', 'warrantyEndDate', 'WarrantyEndDate', 'date', 'Date', 'time', 'Time', 'sellerName', 'SellerName', 'invoiceNumber', 'InvoiceNumber']
+const preferredColumns = ['assetCode', 'AssetCode', 'assetName', 'name', 'Name', 'title', 'Title', 'status', 'Status', 'severity', 'Severity', 'warrantyEndDate', 'WarrantyEndDate', 'date', 'Date', 'time', 'Time', 'sellerName', 'SellerName', 'invoiceNumber', 'InvoiceNumber']
 
 function getCategoryCount(cat) {
   if (cat.key === 'all') return tools.value.length
@@ -706,7 +717,7 @@ function tableColumns(item) {
   const first = tableRows(item)[0]
   if (!first || typeof first !== 'object') return []
   return Object.keys(first)
-    .filter((key) => !hiddenColumns.has(key) && typeof first[key] !== 'object')
+    .filter((key) => !hiddenColumns.has(key) && !shouldHideBusinessColumn(key) && typeof first[key] !== 'object')
     .sort((left, right) => {
       const leftIndex = preferredColumns.indexOf(left)
       const rightIndex = preferredColumns.indexOf(right)
@@ -716,7 +727,7 @@ function tableColumns(item) {
 }
 
 function columnLabel(key) {
-  return columnLabels[key] || key
+  return columnLabels[key] || businessColumnLabel(key)
 }
 
 function displayValue(value) {
@@ -730,7 +741,7 @@ function displayColumnValue(key, value) {
   if (currencyFactKeys.has(key) && Number.isFinite(Number(value))) {
     return new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(Number(value) / 100)
   }
-  return displayValue(value)
+  return businessColumnValue(key, value)
 }
 
 function factLabel(key) {
@@ -748,13 +759,14 @@ function displayFactValue(key, value) {
 function resultFacts(item) {
   const data = item?.data
   if (!data || Array.isArray(data) || typeof data !== 'object') return []
+  if (isClarificationMessage(item)) return []
   if (Array.isArray(data.list)) {
     const total = Number.isFinite(Number(data.total)) ? Number(data.total) : data.list.length
     if (total === 0 && data.list.length === 0) return []
     return [{ label: '匹配记录', value: `${total} 条` }]
   }
   return Object.entries(data)
-    .filter(([key]) => !['from', 'to', 'label', 'query'].includes(key))
+    .filter(([key]) => !['from', 'to', 'label', 'query', 'needsClarification'].includes(key) && !shouldHideBusinessColumn(key))
     .slice(0, 4)
     .map(([key, value]) => {
       if (value?.error) return { label: toolLabel(key), value: '未完成' }
@@ -918,6 +930,8 @@ async function submitQuestion() {
         clientId: `assistant-${messageID}`,
         role: 'assistant',
         content: res.data.answer,
+        intent: res.data.intent,
+        clarification: res.data.data?.needsClarification === true,
         tool: res.data.tool,
         tools: res.data.tools,
         partial: res.data.partial,
@@ -1667,6 +1681,11 @@ onMounted(loadSessions)
         color: var(--na-action-success);
       }
       &--partial {
+        background: var(--na-warning-soft);
+        color: var(--na-action-warning);
+      }
+
+      &--clarification {
         background: var(--na-warning-soft);
         color: var(--na-action-warning);
       }

@@ -127,14 +127,24 @@ func (s *smartService) assetClarificationQuestion(ctx context.Context, userID, a
 	}
 	reply := strings.Trim(question, " 。！!？?")
 	if containsAny(messages[1].Content, "过期", "到期") {
-		switch reply {
-		case "质保", "保修", "质保过期", "质保已过期", "质保到期", "过保", "是质保", "是保修":
+		if isWarrantyClarificationReply(reply) {
 			return strings.NewReplacer("过期", "质保已过期", "到期", "质保已到期").Replace(messages[1].Content), nil
+		}
+		switch reply {
 		case "使用年限", "借用逾期":
 			return "查询超过" + reply + "的资产", nil
 		}
 	}
 	return question, nil
+}
+
+func isWarrantyClarificationReply(reply string) bool {
+	switch strings.TrimSpace(reply) {
+	case "质保", "保修", "质保过期", "质保已过期", "质保到期", "过保", "是质保", "是保修", "是", "是的", "对", "对的", "没错", "正确":
+		return true
+	default:
+		return false
+	}
 }
 
 type assetPagingPlanner struct{ plan AssistantPlan }

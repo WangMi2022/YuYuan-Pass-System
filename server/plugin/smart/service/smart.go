@@ -50,6 +50,18 @@ type invoiceProviderQualityRow struct {
 	AvgDuration float64 `json:"avgDurationMs"`
 }
 
+type assetRiskQueryRow struct {
+	AssetCode      string    `json:"assetCode"`
+	AssetName      string    `json:"assetName"`
+	Custodian      string    `json:"custodian,omitempty"`
+	Title          string    `json:"title"`
+	Severity       string    `json:"severity"`
+	Status         string    `json:"status"`
+	Description    string    `json:"description,omitempty"`
+	Recommendation string    `json:"recommendation,omitempty"`
+	LastDetectedAt time.Time `json:"lastDetectedAt"`
+}
+
 func classify(question string) (intent, tool string) {
 	plan, err := NewRulePlanner(nil).Plan(context.Background(), PlanRequest{Question: question})
 	if err != nil || len(plan.Calls) == 0 {
@@ -226,7 +238,15 @@ func (s *smartService) executeRegisteredTool(ctx context.Context, actor Assistan
 		if err != nil {
 			return result, err
 		}
-		result.Data = map[string]any{"list": list, "total": total}
+		rows := make([]assetRiskQueryRow, 0, len(list))
+		for _, item := range list {
+			rows = append(rows, assetRiskQueryRow{
+				AssetCode: item.Asset.AssetCode, AssetName: item.Asset.Name, Custodian: item.Asset.Custodian,
+				Title: item.Title, Severity: item.Severity, Status: item.Status,
+				Description: item.Description, Recommendation: item.Recommendation, LastDetectedAt: item.LastDetectedAt,
+			})
+		}
+		result.Data = map[string]any{"list": rows, "total": total}
 		result.Answer = fmt.Sprintf("当前风险中心共有 %d 条风险记录。", total)
 		for _, item := range list {
 			result.Citations = append(result.Citations, Citation{Type: "risk", ID: item.ID, Label: item.Title, Path: "/assetRiskCenter", Params: "id=" + strconv.Itoa(int(item.ID))})
