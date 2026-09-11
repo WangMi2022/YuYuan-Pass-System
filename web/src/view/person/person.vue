@@ -1,24 +1,11 @@
 <template>
-  <div class="na-page profile-container">
-    <!-- 头部个人档案名片 Hero -->
-    <section class="profile-hero" aria-labelledby="profile-title">
-      <div class="profile-banner">
-        <div class="profile-banner__copy">
-          <span class="profile-kicker">✦ 账户档案 · 个人主页</span>
-          <p>维护个人核心档案、通讯凭据与系统权限范围</p>
-        </div>
-        <div class="profile-banner__status">
-          <span class="status-chip" :class="`status--${accountStatus.type}`">
-            <span class="status-beacon" />
-            {{ accountStatus.label }} · 企业安全认证
-          </span>
-        </div>
-      </div>
-
-      <div class="profile-identity">
+  <div class="na-page na-page--list profile-page">
+    <!-- 1. 顶部宽幅个人档案名片 Studio Banner (占满宽度，高度紧凑精致) -->
+    <header class="profile-hero-banner" aria-labelledby="profile-title">
+      <div class="hero-left">
         <!-- 头像区 -->
-        <div class="profile-avatar-wrapper">
-          <div class="avatar-ring-outer">
+        <div class="avatar-box">
+          <div class="avatar-ring">
             <SelectImage
               v-model="userStore.userInfo.headerImg"
               file-type="image"
@@ -27,373 +14,338 @@
               rounded
             />
           </div>
-          <span class="profile-avatar-note">
+          <span class="avatar-badge">
             <el-icon><Camera /></el-icon>
-            点击更换头像
+            更换
           </span>
         </div>
 
-        <!-- 姓名、账号、角色 -->
-        <div class="profile-identity__main">
-          <div class="profile-name-row">
+        <!-- 身份与昵称区 -->
+        <div class="identity-info">
+          <div class="name-row">
             <template v-if="!editFlag">
-              <h1 id="profile-title">{{ displayName }}</h1>
+              <h1 id="profile-title" class="user-display-name">{{ displayName }}</h1>
               <el-tooltip content="编辑显示昵称" placement="top">
-                <el-button text circle :icon="Edit" class="edit-nickname-btn" aria-label="编辑昵称" @click="openEdit" />
+                <el-button text circle :icon="Edit" class="edit-btn" aria-label="编辑昵称" @click="openEdit" />
               </el-tooltip>
             </template>
             <template v-else>
-              <div class="profile-name-edit-box">
-                <el-input v-model="nickName" class="profile-name-input" placeholder="请输入新昵称" aria-label="昵称" />
-                <el-button type="primary" :loading="savingNickname" @click="enterEdit">保存</el-button>
-                <el-button plain @click="closeEdit">取消</el-button>
+              <div class="name-edit-wrap">
+                <el-input v-model="nickName" class="name-input" placeholder="请输入新昵称" />
+                <el-button type="primary" size="small" :loading="savingNickname" @click="enterEdit">保存</el-button>
+                <el-button plain size="small" @click="closeEdit">取消</el-button>
               </div>
             </template>
+            <span class="status-pill" :class="`is-${accountStatus.type}`">
+              <span class="status-dot" />
+              {{ accountStatus.label }} · 企业安全认证
+            </span>
           </div>
 
-          <div class="profile-account-line">
-            <span class="account-handle">@{{ userStore.userInfo.userName || '未设置账号' }}</span>
-            <span class="profile-dot">·</span>
-            <span class="primary-role-badge">
+          <div class="meta-row">
+            <span class="user-handle font-mono">@{{ userStore.userInfo.userName || '未设置账号' }}</span>
+            <span class="sep-dot">·</span>
+            <span class="primary-role-chip">
               <el-icon><Stamp /></el-icon>
               {{ primaryRole }}
             </span>
-          </div>
-
-          <div class="profile-identity__tags">
-            <span class="identity-tag is-uid">UID #{{ userId }}</span>
-            <span v-if="roleNames.length" class="identity-tag is-role-count">
-              <el-icon><User /></el-icon>
-              {{ roleNames.length }} 个权限组
-            </span>
-            <span class="identity-tag is-security">
+            <span class="sep-dot">·</span>
+            <span class="uid-tag font-mono">UID #{{ userId }}</span>
+            <span class="sep-dot">·</span>
+            <span class="sec-tag">
               <el-icon><CircleCheck /></el-icon>
               安全策略正常
             </span>
           </div>
-        </div>
 
-        <!-- 右侧核心指标小卡片 -->
-        <div class="profile-hero-stats">
-          <div class="stat-card">
-            <div class="stat-card__icon"><el-icon><Calendar /></el-icon></div>
-            <div class="stat-card__info">
-              <span class="stat-card__label">加入系统</span>
-              <strong class="stat-card__value">{{ createdAtText }}</strong>
+          <div v-if="roleNames.length > 1" class="multi-roles-row">
+            <span class="roles-label">所属权限组：</span>
+            <span v-for="role in roleNames" :key="role" class="sub-role-tag">
+              <el-icon><Stamp /></el-icon>
+              {{ role }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧指标卡片与快捷操作 -->
+      <div class="hero-right">
+        <div class="metric-tiles">
+          <div class="metric-tile">
+            <div class="tile-icon"><el-icon><Calendar /></el-icon></div>
+            <div class="tile-body">
+              <span class="tile-label">加入系统</span>
+              <strong class="tile-val">{{ createdAtText }}</strong>
             </div>
           </div>
-          <div class="stat-card">
-            <div class="stat-card__icon" :class="{ 'is-full': profileCompletion === 100 }">
+          <div class="metric-tile">
+            <div class="tile-icon is-health" :class="{ 'is-perfect': profileCompletion === 100 }">
               <el-icon><Compass /></el-icon>
             </div>
-            <div class="stat-card__info">
-              <span class="stat-card__label">资料完整度</span>
-              <strong class="stat-card__value" :class="{ 'text-success': profileCompletion === 100 }">
+            <div class="tile-body">
+              <span class="tile-label">资料完整度</span>
+              <strong class="tile-val" :class="{ 'is-perfect-text': profileCompletion === 100 }">
                 {{ profileCompletion }}%
               </strong>
             </div>
           </div>
-          <div class="stat-card">
-            <div class="stat-card__icon"><el-icon><Lock /></el-icon></div>
-            <div class="stat-card__info">
-              <span class="stat-card__label">密码安全</span>
-              <strong class="stat-card__value">已启用</strong>
+          <div class="metric-tile">
+            <div class="tile-icon is-security"><el-icon><Lock /></el-icon></div>
+            <div class="tile-body">
+              <span class="tile-label">密码保护</span>
+              <strong class="tile-val">已激活</strong>
+            </div>
+          </div>
+          <div class="metric-tile">
+            <div class="tile-icon is-audit"><el-icon><Monitor /></el-icon></div>
+            <div class="tile-body">
+              <span class="tile-label">操作审计</span>
+              <strong class="tile-val font-mono">实时生效</strong>
             </div>
           </div>
         </div>
+
+        <div class="hero-actions">
+          <el-button type="primary" :icon="Lock" @click="showPassword = true">
+            修改登录密码
+          </el-button>
+          <el-button plain :icon="Calendar" @click="navTo('workSchedule')">
+            工作日历
+          </el-button>
+        </div>
       </div>
-    </section>
+    </header>
 
-    <!-- 下半部分两栏 Bento 布局 -->
-    <div class="profile-content">
-      <!-- 左侧：资料卡片与安全中心 -->
-      <main class="profile-main">
-        <!-- 卡片 1：账号核心资料 -->
-        <section class="profile-card" aria-labelledby="account-info-title">
-          <header class="profile-card__header">
-            <div class="card-title-group">
-              <div class="card-title-icon is-user">
-                <el-icon><User /></el-icon>
-              </div>
-              <div>
-                <h2 id="account-info-title">账号基本资料</h2>
-                <p>用于识别当前账号体系与全局权限范围的基本标识</p>
-              </div>
+    <!-- 2. 下半部分：全屏等高 3 栏 Bento Studio 网格 (填满页面，宽幅舒展) -->
+    <div class="profile-grid">
+      <!-- 栏目 1：账号核心档案与权限范围 -->
+      <section class="profile-card col-account" aria-labelledby="account-card-title">
+        <div class="card-head">
+          <div class="head-icon is-user"><el-icon><User /></el-icon></div>
+          <div class="head-text">
+            <h2 id="account-card-title">账号核心资料</h2>
+            <p>系统登录唯一凭据与组织授权范围</p>
+          </div>
+        </div>
+
+        <div class="account-items-grid">
+          <div class="account-item">
+            <div class="item-label">
+              <span>系统登录账号</span>
+              <el-icon class="icon-muted"><User /></el-icon>
             </div>
-          </header>
+            <div class="item-val font-mono">{{ userStore.userInfo.userName || '未设置' }}</div>
+            <div class="item-desc">全局唯一凭据，不可在此页面变更</div>
+          </div>
 
-          <div class="profile-detail-grid">
-            <div class="profile-detail-item">
-              <div class="detail-item-top">
-                <span class="profile-detail-label">系统登录账号</span>
-                <el-icon class="detail-item-icon"><User /></el-icon>
-              </div>
-              <strong class="detail-item-val font-mono">{{ userStore.userInfo.userName || '未设置' }}</strong>
-              <small class="detail-item-desc">唯一凭证，不可在此页面变更</small>
+          <div class="account-item">
+            <div class="item-label">
+              <span>当前显示昵称</span>
+              <el-button text type="primary" size="small" :icon="Edit" @click="openEdit">编辑</el-button>
             </div>
+            <div class="item-val">{{ displayName }}</div>
+            <div class="item-desc">用于内部协同沟通与操作日志展示</div>
+          </div>
 
-            <div class="profile-detail-item">
-              <div class="detail-item-top">
-                <span class="profile-detail-label">当前显示昵称</span>
-                <el-button text type="primary" size="small" :icon="Edit" @click="openEdit">编辑</el-button>
-              </div>
-              <strong class="detail-item-val">{{ displayName }}</strong>
-              <small class="detail-item-desc">用于内部协同沟通与操作日志展示</small>
+          <div class="account-item">
+            <div class="item-label">
+              <span>核心授权角色</span>
+              <el-icon class="icon-muted"><Stamp /></el-icon>
             </div>
+            <div class="item-val font-semibold">{{ primaryRole }}</div>
+            <div class="item-desc">由超级管理员统一设定与授权</div>
+          </div>
 
-            <div class="profile-detail-item">
-              <div class="detail-item-top">
-                <span class="profile-detail-label">核心主角色</span>
-                <el-icon class="detail-item-icon"><Stamp /></el-icon>
-              </div>
-              <strong class="detail-item-val">{{ primaryRole }}</strong>
-              <small class="detail-item-desc">由超级管理员统一设定与授权</small>
+          <div class="account-item">
+            <div class="item-label">
+              <span>账号运行状态</span>
+              <el-icon class="icon-muted"><CircleCheck /></el-icon>
             </div>
+            <div class="item-val status-val">
+              <span class="status-dot" :class="`status-dot--${accountStatus.type}`" />
+              {{ accountStatus.label }}
+            </div>
+            <div class="item-desc">{{ accountStatus.description }}</div>
+          </div>
+        </div>
 
-            <div class="profile-detail-item">
-              <div class="detail-item-top">
-                <span class="profile-detail-label">账号当前状态</span>
-                <el-icon class="detail-item-icon"><CircleCheck /></el-icon>
-              </div>
-              <strong class="detail-item-val status-badge-inline">
-                <span :class="['status-dot', `status-dot--${accountStatus.type}`]" />
-                {{ accountStatus.label }}
-              </strong>
-              <small class="detail-item-desc">{{ accountStatus.description }}</small>
+        <!-- 关联角色组展示 -->
+        <div class="authority-section">
+          <div class="section-title">
+            <span>全部所属权限角色组 ({{ roleNames.length }})</span>
+          </div>
+          <div class="role-tags-wrap">
+            <span v-for="role in roleNames" :key="role" class="role-badge">
+              <el-icon><Stamp /></el-icon>
+              {{ role }}
+            </span>
+          </div>
+        </div>
+
+        <!-- 系统元信息清单 -->
+        <div class="sys-meta-panel">
+          <div class="meta-row-item">
+            <span class="meta-k">系统用户编号</span>
+            <span class="meta-v font-mono">UID #{{ userId }}</span>
+          </div>
+          <div class="meta-row-item">
+            <span class="meta-k">注册创建时间</span>
+            <span class="meta-v">{{ createdAtText }}</span>
+          </div>
+          <div class="meta-row-item">
+            <span class="meta-k">认证防护协议</span>
+            <span class="meta-v">JWT Bearer 企业级安全认证</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 栏目 2：联系方式与安全中枢 -->
+      <section class="profile-card col-security" aria-labelledby="security-card-title">
+        <div class="card-head">
+          <div class="head-icon is-security"><el-icon><Lock /></el-icon></div>
+          <div class="head-text">
+            <h2 id="security-card-title">联系方式与安全中心</h2>
+            <p>密保手机、通知邮箱与核心凭证安全</p>
+          </div>
+        </div>
+
+        <!-- 企业级安全态势横幅 -->
+        <div class="security-banner">
+          <el-icon class="shield-icon"><CircleCheck /></el-icon>
+          <div class="banner-body">
+            <strong>企业级安全防护已激活</strong>
+            <p>所有关键凭据均进行硬件加密存储，涉及敏感操作需二次校验</p>
+          </div>
+        </div>
+
+        <!-- 密保手机 -->
+        <div class="contact-card-row">
+          <div class="contact-icon is-phone"><el-icon><Phone /></el-icon></div>
+          <div class="contact-main">
+            <div class="contact-top">
+              <span class="contact-title">密保手机</span>
+              <span v-if="userStore.userInfo.phone" class="tag-verified">已绑定</span>
+              <span v-else class="tag-unverified">待绑定</span>
+            </div>
+            <strong class="contact-number font-mono">{{ userStore.userInfo.phone || '未设置手机号' }}</strong>
+            <span class="contact-tip">{{ contactCapabilities.phone.reason }}</span>
+          </div>
+          <el-button type="primary" plain size="small" class="contact-action-btn" @click="openPhoneDialog">
+            {{ userStore.userInfo.phone ? '修改手机号' : '绑定手机号' }}
+          </el-button>
+        </div>
+
+        <!-- 密保邮箱 -->
+        <div class="contact-card-row">
+          <div class="contact-icon is-email"><el-icon><Message /></el-icon></div>
+          <div class="contact-main">
+            <div class="contact-top">
+              <span class="contact-title">密保邮箱</span>
+              <span v-if="userStore.userInfo.email" class="tag-verified">已绑定</span>
+              <span v-else class="tag-unverified">待绑定</span>
+            </div>
+            <strong class="contact-number font-mono">{{ userStore.userInfo.email || '未设置邮箱' }}</strong>
+            <span class="contact-tip">{{ contactCapabilities.email.reason }}</span>
+          </div>
+          <el-button type="primary" plain size="small" class="contact-action-btn" @click="openEmailDialog">
+            {{ userStore.userInfo.email ? '修改邮箱' : '绑定邮箱' }}
+          </el-button>
+        </div>
+
+        <!-- 登录密码 -->
+        <div class="contact-card-row">
+          <div class="contact-icon is-pwd"><el-icon><Key /></el-icon></div>
+          <div class="contact-main">
+            <div class="contact-top">
+              <span class="contact-title">账号登录密码</span>
+              <span class="tag-verified is-pwd">安全强度 良好</span>
+            </div>
+            <strong class="contact-number font-mono">••••••••••••</strong>
+            <span class="contact-tip">建议每 90 天定期更新一次密码，保障账户安全</span>
+          </div>
+          <el-button type="primary" plain size="small" class="contact-action-btn" @click="showPassword = true">
+            修改密码
+          </el-button>
+        </div>
+      </section>
+
+      <!-- 栏目 3：健康度仪表盘 & 快捷协同入口 -->
+      <div class="col-side-group">
+        <!-- 资料健康度卡片 -->
+        <section class="profile-card card-health" aria-labelledby="health-card-title">
+          <div class="card-head">
+            <div class="head-icon is-health"><el-icon><CircleCheck /></el-icon></div>
+            <div class="head-text">
+              <h2 id="health-card-title">资料健康度</h2>
+              <p>完善个人档案以保障系统高效协同</p>
             </div>
           </div>
 
-          <!-- 关联角色组展示 -->
-          <div v-if="roleNames.length > 1" class="profile-roles-card">
-            <div class="roles-header">
-              <span class="profile-detail-label">全部所属权限角色组 ({{ roleNames.length }})</span>
-            </div>
-            <div class="profile-role-list">
-              <span v-for="role in roleNames" :key="role" class="role-pill-tag">
-                <el-icon><Stamp /></el-icon>
-                {{ role }}
-              </span>
-            </div>
-          </div>
-        </section>
-
-        <!-- 卡片 2：联系方式与安全中枢 -->
-        <section class="profile-card" aria-labelledby="contact-info-title">
-          <header class="profile-card__header">
-            <div class="card-title-group">
-              <div class="card-title-icon is-security">
-                <el-icon><Lock /></el-icon>
-              </div>
-              <div>
-                <h2 id="contact-info-title">联系方式与安全中心</h2>
-                <p>管理密保手机、通知邮箱与登录密码，保障核心资产与数据安全</p>
-              </div>
-            </div>
-          </header>
-
-          <!-- 安全合规提示条 -->
-          <div class="security-posture-banner">
-            <el-icon><CircleCheck /></el-icon>
-            <div>
-              <strong>企业级安全防护已激活</strong>
-              <span>所有关键凭据均进行硬件加密存储，涉及敏感操作前需二次校验密保手机或邮箱。</span>
-            </div>
-          </div>
-
-          <div class="profile-contact-list">
-            <!-- 手机绑定 -->
-            <div class="profile-contact-row">
-              <div class="profile-contact-icon is-phone">
-                <el-icon><Phone /></el-icon>
-              </div>
-              <div class="profile-contact-info">
-                <div class="contact-title-line">
-                  <span class="profile-detail-label">密保手机</span>
-                  <span v-if="userStore.userInfo.phone" class="verified-tag">已绑定</span>
-                  <span v-else class="unverified-tag">待绑定</span>
-                </div>
-                <strong class="contact-val font-mono">{{ userStore.userInfo.phone || '未设置手机号' }}</strong>
-                <small class="contact-hint">{{ contactCapabilities.phone.reason }}</small>
-              </div>
-              <el-button
-                type="primary"
-                plain
-                class="profile-row-action"
-                @click="openPhoneDialog"
-              >
-                {{ userStore.userInfo.phone ? '修改手机号' : '绑定手机号' }}
-              </el-button>
-            </div>
-
-            <!-- 邮箱绑定 -->
-            <div class="profile-contact-row">
-              <div class="profile-contact-icon is-email">
-                <el-icon><Message /></el-icon>
-              </div>
-              <div class="profile-contact-info">
-                <div class="contact-title-line">
-                  <span class="profile-detail-label">密保邮箱</span>
-                  <span v-if="userStore.userInfo.email" class="verified-tag">已绑定</span>
-                  <span v-else class="unverified-tag">待绑定</span>
-                </div>
-                <strong class="contact-val font-mono">{{ userStore.userInfo.email || '未设置邮箱' }}</strong>
-                <small class="contact-hint">{{ contactCapabilities.email.reason }}</small>
-              </div>
-              <el-button
-                type="primary"
-                plain
-                class="profile-row-action"
-                @click="openEmailDialog"
-              >
-                {{ userStore.userInfo.email ? '修改邮箱' : '绑定邮箱' }}
-              </el-button>
-            </div>
-
-            <!-- 登录密码 -->
-            <div class="profile-contact-row">
-              <div class="profile-contact-icon is-password">
-                <el-icon><Key /></el-icon>
-              </div>
-              <div class="profile-contact-info">
-                <div class="contact-title-line">
-                  <span class="profile-detail-label">账号登录密码</span>
-                  <span class="verified-tag is-pwd">安全强度 良好</span>
-                </div>
-                <strong class="contact-val font-mono">••••••••••••</strong>
-                <small class="contact-hint">建议每 90 天定期更新一次密码，避免与其他第三方系统相同</small>
-              </div>
-              <el-button
-                type="primary"
-                plain
-                class="profile-row-action"
-                @click="showPassword = true"
-              >
-                修改密码
-              </el-button>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      <!-- 右侧辅助侧栏 -->
-      <aside class="profile-aside">
-        <!-- 卡片 3：资料健康度与检查清单 -->
-        <section class="profile-card profile-completion-card" aria-labelledby="completion-title">
-          <header class="profile-card__header">
-            <div class="card-title-group">
-              <div class="card-title-icon is-health">
-                <el-icon><CircleCheck /></el-icon>
-              </div>
-              <div>
-                <h2 id="completion-title">资料健康度</h2>
-                <p>完善个人档案以保障系统高效协同</p>
-              </div>
-            </div>
-          </header>
-
-          <div class="profile-progress-row">
-            <div class="progress-ring-box">
+          <div class="health-progress-wrap">
+            <div class="ring-wrapper">
               <el-progress
                 type="circle"
                 :percentage="profileCompletion"
-                :width="88"
+                :width="82"
                 :stroke-width="7"
                 :color="progressColor"
               />
             </div>
-            <div class="progress-copy">
+            <div class="health-progress-info">
               <strong>{{ completionTitle }}</strong>
               <p>{{ completionHint }}</p>
             </div>
           </div>
 
-          <ul class="profile-check-list">
-            <li
-              v-for="item in profileChecks"
-              :key="item.key"
-              :class="{ 'is-complete': item.complete }"
-            >
-              <div class="check-item-left">
-                <span class="check-icon">
-                  <el-icon v-if="item.complete"><CircleCheck /></el-icon>
-                  <el-icon v-else><Warning /></el-icon>
-                </span>
-                <span class="check-label">{{ item.label }}</span>
+          <ul class="health-check-list">
+            <li v-for="item in profileChecks" :key="item.key" :class="{ 'is-done': item.complete }">
+              <div class="check-title">
+                <el-icon v-if="item.complete" class="icon-done"><CircleCheck /></el-icon>
+                <el-icon v-else class="icon-pending"><Warning /></el-icon>
+                <span>{{ item.label }}</span>
               </div>
-              <span class="check-badge" :class="item.complete ? 'is-done' : 'is-pending'">
+              <span class="check-chip" :class="item.complete ? 'is-chip-done' : 'is-chip-pending'">
                 {{ item.complete ? '已完善' : '待补充' }}
               </span>
             </li>
           </ul>
         </section>
 
-        <!-- 卡片 4：账户系统概况 -->
-        <section class="profile-card profile-security-card" aria-labelledby="security-title">
-          <header class="profile-card__header">
-            <div class="card-title-group">
-              <div class="card-title-icon is-monitor">
-                <el-icon><Monitor /></el-icon>
-              </div>
-              <div>
-                <h2 id="security-title">账户系统概况</h2>
-                <p>当前登录身份凭证元数据</p>
-              </div>
+        <!-- 快捷协同功能导航卡片 -->
+        <section class="profile-card card-quick" aria-labelledby="quick-card-title">
+          <div class="card-head">
+            <div class="head-icon is-nav"><el-icon><Compass /></el-icon></div>
+            <div class="head-text">
+              <h2 id="quick-card-title">快捷协同直达</h2>
+              <p>系统常用核心模块与工作台入口</p>
             </div>
-          </header>
+          </div>
 
-          <dl class="profile-overview-list">
-            <div class="overview-item">
-              <dt>系统用户编号</dt>
-              <dd><span class="font-mono uid-chip">UID #{{ userId }}</span></dd>
-            </div>
-            <div class="overview-item">
-              <dt>核心权限组</dt>
-              <dd>{{ primaryRole }}</dd>
-            </div>
-            <div class="overview-item">
-              <dt>注册创建时间</dt>
-              <dd>{{ createdAtText }}</dd>
-            </div>
-            <div class="overview-item">
-              <dt>全链路操作审计</dt>
-              <dd><span class="audit-chip">● 实时审计中</span></dd>
-            </div>
-          </dl>
-        </section>
-
-        <!-- 卡片 5：快捷工作导航 -->
-        <section class="profile-card profile-quick-nav">
-          <header class="profile-card__header">
-            <div class="card-title-group">
-              <div class="card-title-icon is-nav">
-                <el-icon><Compass /></el-icon>
+          <div class="quick-nav-group">
+            <button type="button" class="quick-btn" @click="navTo('workSchedule')">
+              <div class="btn-left">
+                <el-icon class="icon-amber"><Calendar /></el-icon>
+                <span>查看我的工作日历</span>
               </div>
-              <div>
-                <h2>快捷功能直达</h2>
-                <p>常用协同中心与系统设置入口</p>
-              </div>
-            </div>
-          </header>
-
-          <div class="quick-nav-links">
-            <button type="button" class="quick-nav-btn" @click="navTo('workSchedule')">
-              <el-icon class="icon-amber"><Calendar /></el-icon>
-              <span>查看我的工作日历</span>
-              <el-icon class="nav-arrow"><Right /></el-icon>
+              <el-icon class="arrow-icon"><Right /></el-icon>
             </button>
-            <button type="button" class="quick-nav-btn" @click="navTo('dashboard')">
-              <el-icon class="icon-blue"><Monitor /></el-icon>
-              <span>返回首屏驾驶舱</span>
-              <el-icon class="nav-arrow"><Right /></el-icon>
+            <button type="button" class="quick-btn" @click="navTo('dashboard')">
+              <div class="btn-left">
+                <el-icon class="icon-blue"><Monitor /></el-icon>
+                <span>返回首屏驾驶舱</span>
+              </div>
+              <el-icon class="arrow-icon"><Right /></el-icon>
             </button>
-            <button type="button" class="quick-nav-btn" @click="navTo('aiOperations')">
-              <el-icon class="icon-purple"><Cpu /></el-icon>
-              <span>智能能力与模型接入</span>
-              <el-icon class="nav-arrow"><Right /></el-icon>
+            <button type="button" class="quick-btn" @click="navTo('aiOperations')">
+              <div class="btn-left">
+                <el-icon class="icon-purple"><Cpu /></el-icon>
+                <span>智能能力与模型接入</span>
+              </div>
+              <el-icon class="arrow-icon"><Right /></el-icon>
             </button>
           </div>
         </section>
-      </aside>
+      </div>
     </div>
 
     <!-- 弹窗 1：修改密码 -->
@@ -1060,125 +1012,50 @@ watch(() => userStore.userInfo.headerImg, async (val) => {
 </script>
 
 <style scoped lang="scss">
-.profile-container {
-  --profile-gap: 20px;
-  max-width: 1320px;
-  margin: 0 auto;
-  padding-bottom: 36px;
-}
-
-/* 头部 Hero 卡片 */
-.profile-hero {
-  position: relative;
-  overflow: hidden;
-  margin-bottom: var(--profile-gap);
-  border-radius: 18px;
-  border: 1px solid var(--na-border, #e2e0ec);
-  background: var(--na-card, #ffffff);
-  box-shadow: 0 10px 30px -6px rgba(109, 93, 251, 0.08), 0 2px 8px -2px rgba(17, 24, 39, 0.04);
-}
-
-.profile-banner {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-  min-height: 126px;
-  padding: 24px 32px 42px;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--na-primary, #6d5dfb) 12%, #ffffff) 0%, color-mix(in srgb, var(--na-primary, #6d5dfb) 4%, var(--na-card, #ffffff)) 100%);
-  border-bottom: 1px solid color-mix(in srgb, var(--na-primary, #6d5dfb) 12%, var(--na-border, #e2e0ec));
-
-  &__copy {
-    p {
-      margin: 8px 0 0;
-      color: var(--na-muted-foreground, #706b82);
-      font-size: 13.5px;
-    }
-  }
-
-  &__status {
-    flex-shrink: 0;
-  }
-}
-
-.profile-kicker {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 10px;
-  border-radius: 100px;
-  background: var(--na-card, #ffffff);
-  border: 1px solid color-mix(in srgb, var(--na-primary) 20%, transparent);
-  color: var(--na-primary, #6d5dfb);
-  font-size: 12px;
-  font-weight: 700;
-  box-shadow: 0 2px 6px rgba(109, 93, 251, 0.08);
-}
-
-.status-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
-  border-radius: 100px;
-  font-size: 12px;
-  font-weight: 650;
-  background: var(--na-card, #ffffff);
-  border: 1px solid var(--na-border, #e2e0ec);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
-
-  &.status--success {
-    color: var(--na-success, #059669);
-    border-color: color-mix(in srgb, var(--na-success) 30%, transparent);
-
-    .status-beacon {
-      background: var(--na-success, #059669);
-      box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.2);
-    }
-  }
-
-  &.status--danger {
-    color: var(--na-danger, #dc2626);
-    border-color: color-mix(in srgb, var(--na-danger) 30%, transparent);
-
-    .status-beacon {
-      background: var(--na-danger, #dc2626);
-      box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.2);
-    }
-  }
-}
-
-.status-beacon {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  animation: beacon-pulse 2s infinite ease-out;
-}
-
-/* 个人信息主区 */
-.profile-identity {
-  display: grid;
-  grid-template-columns: 140px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 28px;
-  padding: 0 32px 28px;
-  margin-top: -46px;
-}
-
-.profile-avatar-wrapper {
-  position: relative;
-  z-index: 2;
+/* 页面满宽根容器 */
+.profile-page {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 16px 20px 28px !important;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 8px;
+  gap: 16px;
+}
 
-  .avatar-ring-outer {
-    padding: 4px;
+/* 1. 顶部宽幅个人档案 Studio Hero */
+.profile-hero-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 20px 24px;
+  border-radius: 16px;
+  border: 1px solid var(--na-border);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--na-primary) 6%, var(--na-card)) 0%, var(--na-card) 60%);
+  box-shadow: 0 4px 20px -4px rgb(0 0 0 / 4%);
+}
+
+.hero-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.avatar-box {
+  position: relative;
+  flex-shrink: 0;
+
+  .avatar-ring {
+    padding: 3px;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--na-primary, #6d5dfb) 0%, #38bdf8 100%);
-    box-shadow: 0 8px 22px rgba(109, 93, 251, 0.25);
-    transition: transform 0.25s ease;
+    background: linear-gradient(135deg, var(--na-primary) 0%, #38bdf8 100%);
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--na-primary) 24%, transparent);
+    transition: transform 200ms ease;
 
     &:hover {
       transform: scale(1.03);
@@ -1187,898 +1064,846 @@ watch(() => userStore.userInfo.headerImg, async (val) => {
 
   :deep(.select-image-root),
   :deep(.w-40) {
-    width: 114px;
-    height: 114px;
-    border: 3px solid var(--na-card, #ffffff);
+    width: 84px !important;
+    height: 84px !important;
+    border: 3px solid var(--na-card);
     border-radius: 50%;
-    background: var(--na-muted, #f3f2f7);
+    background: var(--na-muted);
     overflow: hidden;
   }
 }
 
-.profile-avatar-note {
+.avatar-badge {
+  position: absolute;
+  bottom: 0;
+  right: -2px;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  color: var(--na-muted-foreground, #706b82);
-  font-size: 11.5px;
-  white-space: nowrap;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 20px;
+  background: var(--na-card);
+  border: 1px solid var(--na-border);
+  color: var(--na-foreground);
+  font-size: 11px;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 8%);
+  pointer-events: none;
 }
 
-.profile-identity__main {
+.identity-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   min-width: 0;
-  padding-top: 36px;
 }
 
-.profile-name-row {
+.name-row {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 
-  h1 {
+  .user-display-name {
     margin: 0;
-    color: var(--na-foreground, #19172c);
-    font-size: 26px;
+    color: var(--na-foreground);
+    font-size: 22px;
     font-weight: 750;
     line-height: 1.2;
     letter-spacing: -0.01em;
   }
 }
 
-.edit-nickname-btn {
-  color: var(--na-muted-foreground, #706b82);
-  transition: all 0.15s ease;
+.edit-btn {
+  color: var(--na-muted-foreground);
+  transition: all 150ms ease;
 
   &:hover {
-    color: var(--na-primary, #6d5dfb);
-    background: var(--na-primary-soft, rgba(109, 93, 251, 0.12));
+    color: var(--na-primary);
+    background: var(--na-primary-soft);
   }
 }
 
-.profile-name-edit-box {
-  display: flex;
+.name-edit-wrap {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 
-  .profile-name-input {
-    width: 220px;
+  .name-input {
+    width: 180px;
   }
 }
 
-.profile-account-line {
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--na-card);
+  border: 1px solid var(--na-border);
+
+  &.is-success {
+    color: var(--na-success);
+    border-color: color-mix(in srgb, var(--na-success) 30%, transparent);
+
+    .status-dot {
+      background: var(--na-success);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--na-success) 24%, transparent);
+    }
+  }
+
+  &.is-danger {
+    color: var(--na-danger);
+    border-color: color-mix(in srgb, var(--na-danger) 30%, transparent);
+
+    .status-dot {
+      background: var(--na-danger);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--na-danger) 24%, transparent);
+    }
+  }
+}
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  animation: beacon-pulse 2s infinite ease-out;
+}
+
+@keyframes beacon-pulse {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+.meta-row {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-  margin: 6px 0 10px;
-  color: var(--na-muted-foreground, #706b82);
-  font-size: 13.5px;
+  font-size: 13px;
+  color: var(--na-muted-foreground);
 
-  .account-handle {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  .user-handle {
     font-weight: 600;
-    color: var(--na-foreground, #19172c);
+    color: var(--na-foreground);
   }
 
-  .primary-role-badge {
+  .sep-dot {
+    color: var(--na-border-strong);
+  }
+
+  .primary-role-chip {
     display: inline-flex;
     align-items: center;
     gap: 4px;
     padding: 1px 8px;
     border-radius: 6px;
-    background: var(--na-primary-soft, rgba(109, 93, 251, 0.1));
-    color: var(--na-primary, #6d5dfb);
+    background: var(--na-primary-soft);
+    color: var(--na-primary);
     font-size: 12px;
     font-weight: 650;
   }
 
-  .profile-dot {
-    color: var(--na-border-strong, #d5d1e2);
+  .uid-tag {
+    font-weight: 700;
+    color: var(--na-muted-foreground);
+  }
+
+  .sec-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--na-success);
+    font-size: 12px;
+    font-weight: 600;
   }
 }
 
-.profile-identity__tags {
+.multi-roles-row {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
+  margin-top: 2px;
+  font-size: 12px;
+
+  .roles-label {
+    color: var(--na-muted-foreground);
+  }
+
+  .sub-role-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 7px;
+    border-radius: 5px;
+    background: color-mix(in srgb, var(--na-muted) 60%, var(--na-card));
+    border: 1px solid var(--na-border);
+    color: var(--na-foreground);
+    font-size: 11.5px;
+  }
 }
 
-.identity-tag {
-  display: inline-flex;
+/* 右侧指标与操作 */
+.hero-right {
+  display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 3px 9px;
-  border-radius: 6px;
-  font-size: 11.5px;
-  font-weight: 600;
-  border: 1px solid var(--na-border, #e2e0ec);
-  background: var(--na-muted, #f3f2f7);
-  color: var(--na-muted-foreground, #706b82);
-
-  &.is-uid {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    color: var(--na-foreground, #19172c);
-    font-weight: 700;
-  }
-
-  &.is-role-count {
-    background: var(--na-primary-soft, rgba(109, 93, 251, 0.08));
-    color: var(--na-primary, #6d5dfb);
-    border-color: color-mix(in srgb, var(--na-primary) 20%, transparent);
-  }
-
-  &.is-security {
-    background: var(--na-success-soft, rgba(5, 150, 105, 0.08));
-    color: var(--na-success, #059669);
-    border-color: color-mix(in srgb, var(--na-success) 20%, transparent);
-  }
+  gap: 20px;
+  flex-wrap: wrap;
 }
 
-/* 顶部右侧指标卡片 */
-.profile-hero-stats {
+.metric-tiles {
   display: grid;
-  grid-template-columns: repeat(3, minmax(100px, 1fr));
+  grid-template-columns: repeat(4, auto);
   gap: 12px;
-  padding-left: 24px;
-  margin-top: 32px;
-  border-left: 1px solid var(--na-border, #e2e0ec);
 }
 
-.stat-card {
+.metric-tile {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 8px 14px;
   border-radius: 12px;
-  background: var(--na-muted, #f3f2f7);
-  border: 1px solid var(--na-border, #e2e0ec);
+  background: var(--na-muted);
+  border: 1px solid var(--na-border);
 
-  &__icon {
+  .tile-icon {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 34px;
-    height: 34px;
+    width: 32px;
+    height: 32px;
     border-radius: 8px;
-    background: var(--na-card, #ffffff);
-    color: var(--na-primary, #6d5dfb);
-    font-size: 16px;
-    flex-shrink: 0;
+    background: var(--na-card);
+    color: var(--na-primary);
+    font-size: 15px;
 
-    &.is-full {
-      color: var(--na-success, #059669);
+    &.is-health {
+      color: #0284c7;
+
+      &.is-perfect {
+        color: var(--na-success);
+      }
+    }
+
+    &.is-security {
+      color: #f59e0b;
+    }
+
+    &.is-audit {
+      color: var(--na-success);
     }
   }
 
-  &__info {
+  .tile-body {
     display: flex;
     flex-direction: column;
-    min-width: 0;
   }
 
-  &__label {
-    color: var(--na-muted-foreground, #706b82);
+  .tile-label {
     font-size: 11px;
-    white-space: nowrap;
+    color: var(--na-muted-foreground);
   }
 
-  &__value {
-    color: var(--na-foreground, #19172c);
-    font-size: 14px;
+  .tile-val {
+    font-size: 13.5px;
     font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    color: var(--na-foreground);
 
-    &.text-success {
-      color: var(--na-success, #059669);
+    &.is-perfect-text {
+      color: var(--na-success);
     }
   }
 }
 
-/* 下半部分双栏布局 */
-.profile-content {
-  display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(320px, 0.9fr);
-  gap: var(--profile-gap);
-  align-items: start;
+.hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.profile-main,
-.profile-aside {
-  min-width: 0;
+/* 2. 下半部分 3 列全屏 Bento 布局 */
+.profile-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+/* 通用卡片外壳 */
+.profile-card {
+  padding: 20px 22px;
+  border-radius: 16px;
+  border: 1px solid var(--na-border);
+  background: var(--na-card);
+  box-shadow: 0 4px 16px -2px rgb(0 0 0 / 4%);
   display: flex;
   flex-direction: column;
-  gap: var(--profile-gap);
+  transition: all 180ms ease;
 }
 
-/* 通用模块卡片 */
-.profile-card {
-  padding: 24px;
-  border-radius: 16px;
-  border: 1px solid var(--na-border, #e2e0ec);
-  background: var(--na-card, #ffffff);
-  box-shadow: 0 4px 16px -2px rgba(17, 24, 39, 0.04);
-  transition: all 0.2s ease;
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
 
-  &__header {
+  .head-icon {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-    margin-bottom: 20px;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    font-size: 18px;
+    flex-shrink: 0;
 
-    .card-title-group {
-      display: flex;
-      align-items: center;
-      gap: 12px;
+    &.is-user {
+      background: var(--na-primary-soft);
+      color: var(--na-primary);
     }
 
-    .card-title-icon {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 38px;
-      height: 38px;
-      border-radius: 10px;
-      font-size: 18px;
-      flex-shrink: 0;
-
-      &.is-user {
-        background: var(--na-primary-soft, rgba(109, 93, 251, 0.12));
-        color: var(--na-primary, #6d5dfb);
-      }
-
-      &.is-security {
-        background: rgba(14, 165, 233, 0.12);
-        color: #0284c7;
-      }
-
-      &.is-health {
-        background: var(--na-success-soft, rgba(5, 150, 105, 0.12));
-        color: var(--na-success, #059669);
-      }
-
-      &.is-monitor {
-        background: rgba(245, 158, 11, 0.12);
-        color: #d97706;
-      }
-
-      &.is-nav {
-        background: var(--na-primary-soft, rgba(109, 93, 251, 0.12));
-        color: var(--na-primary, #6d5dfb);
-      }
+    &.is-security {
+      background: rgba(14, 165, 233, 0.12);
+      color: #0284c7;
     }
 
+    &.is-health {
+      background: var(--na-success-soft);
+      color: var(--na-success);
+    }
+
+    &.is-nav {
+      background: var(--na-primary-soft);
+      color: var(--na-primary);
+    }
+  }
+
+  .head-text {
     h2 {
       margin: 0;
-      color: var(--na-foreground, #19172c);
-      font-size: 16.5px;
+      font-size: 16px;
       font-weight: 700;
+      color: var(--na-foreground);
       line-height: 1.3;
     }
 
     p {
-      margin: 4px 0 0;
-      color: var(--na-muted-foreground, #706b82);
-      font-size: 12.5px;
+      margin: 2px 0 0;
+      font-size: 12px;
+      color: var(--na-muted-foreground);
     }
   }
 }
 
-/* 账号基本资料网格 */
-.profile-detail-grid {
+/* 栏目 1：账号核心资料 */
+.account-items-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
-.profile-detail-item {
-  display: flex;
-  flex-direction: column;
-  padding: 16px 18px;
+.account-item {
+  padding: 12px 14px;
   border-radius: 12px;
-  border: 1px solid var(--na-border, #e2e0ec);
-  background: var(--na-table-header, #faf9fc);
-  transition: all 0.2s ease;
+  border: 1px solid var(--na-border);
+  background: color-mix(in srgb, var(--na-muted) 50%, var(--na-card));
+  transition: all 160ms ease;
 
   &:hover {
     border-color: color-mix(in srgb, var(--na-primary) 35%, var(--na-border));
-    background: var(--na-card, #ffffff);
-    box-shadow: 0 4px 12px rgba(109, 93, 251, 0.05);
+    background: var(--na-card);
   }
 
-  .detail-item-top {
+  .item-label {
     display: flex;
     align-items: center;
     justify-content: space-between;
-  }
+    font-size: 11.5px;
+    color: var(--na-muted-foreground);
 
-  .detail-item-icon {
-    color: var(--na-muted-foreground, #706b82);
-    font-size: 15px;
-  }
-
-  .profile-detail-label {
-    color: var(--na-muted-foreground, #706b82);
-    font-size: 12px;
-    font-weight: 600;
-  }
-
-  .detail-item-val {
-    margin: 8px 0 4px;
-    color: var(--na-foreground, #19172c);
-    font-size: 15px;
-    font-weight: 700;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-
-    &.font-mono {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    .icon-muted {
+      font-size: 13px;
     }
   }
 
-  .detail-item-desc {
-    color: var(--na-muted-foreground, #706b82);
-    font-size: 11.5px;
+  .item-val {
+    margin: 6px 0 2px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--na-foreground);
+
+    &.status-val {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--na-success);
+    }
+  }
+
+  .item-desc {
+    font-size: 11px;
+    color: var(--na-muted-foreground);
   }
 }
 
-.status-badge-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-
-  &--success { background: var(--na-success, #059669); }
-  &--danger { background: var(--na-danger, #dc2626); }
-}
-
-/* 权限角色组展示卡片 */
-.profile-roles-card {
-  margin-top: 16px;
-  padding: 14px 18px;
+.authority-section {
+  margin-bottom: 16px;
+  padding: 12px 14px;
   border-radius: 12px;
-  background: var(--na-muted, #f3f2f7);
-  border: 1px solid var(--na-border, #e2e0ec);
+  background: color-mix(in srgb, var(--na-muted) 35%, var(--na-card));
+  border: 1px solid var(--na-border);
 
-  .roles-header {
-    margin-bottom: 10px;
-  }
-}
-
-.profile-role-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.role-pill-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  border-radius: 8px;
-  background: var(--na-card, #ffffff);
-  border: 1px solid var(--na-border, #e2e0ec);
-  color: var(--na-foreground, #19172c);
-  font-size: 12px;
-  font-weight: 600;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-
-  .el-icon {
-    color: var(--na-primary, #6d5dfb);
-  }
-}
-
-/* 联系方式与安全中枢卡片 */
-.security-posture-banner {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 12px 16px;
-  margin-bottom: 18px;
-  border-radius: 10px;
-  background: var(--na-success-soft, rgba(5, 150, 105, 0.08));
-  border: 1px solid color-mix(in srgb, var(--na-success) 22%, transparent);
-  color: var(--na-success, #059669);
-
-  .el-icon {
-    font-size: 18px;
-    margin-top: 2px;
-    flex-shrink: 0;
-  }
-
-  strong {
-    display: block;
-    font-size: 13px;
-    font-weight: 650;
-    color: var(--na-foreground, #19172c);
-  }
-
-  span {
-    display: block;
-    margin-top: 2px;
-    color: var(--na-muted-foreground, #706b82);
+  .section-title {
     font-size: 12px;
-    line-height: 1.5;
-  }
-}
-
-.profile-contact-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.profile-contact-row {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px 18px;
-  border-radius: 12px;
-  border: 1px solid var(--na-border, #e2e0ec);
-  background: var(--na-card, #ffffff);
-  transition: all 0.2s ease;
-
-  &:hover {
-    border-color: var(--na-border-strong, #d5d1e2);
-    background: var(--na-table-hover, #f6f4fc);
-    transform: translateX(2px);
-  }
-}
-
-.profile-contact-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 10px;
-  font-size: 18px;
-  flex-shrink: 0;
-
-  &.is-phone {
-    background: rgba(2, 132, 199, 0.12);
-    color: #0284c7;
+    font-weight: 600;
+    color: var(--na-muted-foreground);
+    margin-bottom: 8px;
   }
 
-  &.is-email {
-    background: var(--na-success-soft, rgba(5, 150, 105, 0.12));
-    color: var(--na-success, #059669);
-  }
-
-  &.is-password {
-    background: var(--na-primary-soft, rgba(109, 93, 251, 0.12));
-    color: var(--na-primary, #6d5dfb);
-  }
-}
-
-.profile-contact-info {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-width: 0;
-
-  .contact-title-line {
+  .role-tags-wrap {
     display: flex;
     align-items: center;
-    gap: 8px;
+    flex-wrap: wrap;
+    gap: 6px;
   }
 
-  .contact-val {
-    margin: 4px 0 2px;
-    color: var(--na-foreground, #19172c);
-    font-size: 14.5px;
-    font-weight: 650;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .contact-hint {
-    color: var(--na-muted-foreground, #706b82);
-    font-size: 11.5px;
-  }
-}
-
-.verified-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: var(--na-success-soft, rgba(5, 150, 105, 0.1));
-  color: var(--na-success, #059669);
-  font-size: 10.5px;
-  font-weight: 700;
-
-  &.is-pwd {
-    background: var(--na-primary-soft, rgba(109, 93, 251, 0.1));
-    color: var(--na-primary, #6d5dfb);
+  .role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: 6px;
+    background: var(--na-primary-soft);
+    color: var(--na-primary);
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid color-mix(in srgb, var(--na-primary) 20%, transparent);
   }
 }
 
-.unverified-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: var(--na-warning-soft, rgba(217, 119, 6, 0.1));
-  color: var(--na-warning, #d97706);
-  font-size: 10.5px;
-  font-weight: 700;
-}
-
-.profile-row-action {
-  flex-shrink: 0;
-  border-radius: 8px;
-  font-weight: 600;
-}
-
-/* 侧边栏卡片：资料完整度 */
-.profile-progress-row {
+.sys-meta-panel {
+  margin-top: auto;
   display: flex;
-  align-items: center;
-  gap: 18px;
-  padding: 6px 0 18px;
-  border-bottom: 1px solid var(--na-border, #e2e0ec);
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--na-muted) 45%, var(--na-card));
+  border: 1px solid var(--na-border);
 
-  .progress-ring-box {
+  .meta-row-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+
+    .meta-k {
+      color: var(--na-muted-foreground);
+    }
+
+    .meta-v {
+      font-weight: 600;
+      color: var(--na-foreground);
+    }
+  }
+}
+
+/* 栏目 2：联系方式与安全中心 */
+.security-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--na-success-soft);
+  border: 1px solid color-mix(in srgb, var(--na-success) 25%, transparent);
+  margin-bottom: 14px;
+
+  .shield-icon {
+    color: var(--na-success);
+    font-size: 16px;
+    margin-top: 2px;
     flex-shrink: 0;
   }
 
-  .progress-copy {
+  .banner-body {
     strong {
       display: block;
-      color: var(--na-foreground, #19172c);
-      font-size: 15px;
+      color: var(--na-success);
+      font-size: 12.5px;
       font-weight: 700;
     }
 
     p {
-      margin: 4px 0 0;
-      color: var(--na-muted-foreground, #706b82);
-      font-size: 12px;
-      line-height: 1.5;
+      margin: 2px 0 0;
+      color: var(--na-muted-foreground);
+      font-size: 11.5px;
+      line-height: 1.4;
     }
   }
 }
 
-.profile-check-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin: 16px 0 0;
-  padding: 0;
-  list-style: none;
-
-  li {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 12px;
-    border-radius: 8px;
-    background: var(--na-muted, #f3f2f7);
-    transition: all 0.15s ease;
-
-    .check-item-left {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .check-icon {
-      display: inline-flex;
-      font-size: 15px;
-      color: var(--na-muted-foreground, #706b82);
-    }
-
-    .check-label {
-      color: var(--na-foreground, #19172c);
-      font-size: 12.5px;
-      font-weight: 600;
-    }
-
-    .check-badge {
-      display: inline-flex;
-      font-size: 11px;
-      font-weight: 600;
-      padding: 1px 6px;
-      border-radius: 4px;
-
-      &.is-done {
-        color: var(--na-success, #059669);
-        background: var(--na-success-soft, rgba(5, 150, 105, 0.12));
-      }
-
-      &.is-pending {
-        color: var(--na-warning, #d97706);
-        background: var(--na-warning-soft, rgba(217, 119, 6, 0.12));
-      }
-    }
-
-    &.is-complete {
-      .check-icon {
-        color: var(--na-success, #059669);
-      }
-    }
-  }
-}
-
-/* 侧边栏卡片：账户系统概览 */
-.profile-overview-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin: 0;
-
-  .overview-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 0;
-    border-bottom: 1px dashed var(--na-border, #e2e0ec);
-
-    &:last-child {
-      border-bottom: 0;
-    }
-
-    dt {
-      color: var(--na-muted-foreground, #706b82);
-      font-size: 12.5px;
-    }
-
-    dd {
-      margin: 0;
-      color: var(--na-foreground, #19172c);
-      font-size: 13px;
-      font-weight: 650;
-      text-align: right;
-    }
-  }
-}
-
-.uid-chip {
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: var(--na-muted, #f3f2f7);
-  font-size: 12px;
-}
-
-.audit-chip {
-  color: var(--na-success, #059669);
-  font-size: 12px;
-}
-
-/* 快捷直达卡片 */
-.quick-nav-links {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.quick-nav-btn {
+.contact-card-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 11px 14px;
-  border: 1px solid var(--na-border, #e2e0ec);
-  border-radius: 10px;
-  background: var(--na-card, #ffffff);
-  color: var(--na-foreground, #19172c);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--na-border);
+  background: color-mix(in srgb, var(--na-muted) 35%, var(--na-card));
+  margin-bottom: 12px;
+  transition: all 160ms ease;
 
   &:hover {
-    border-color: var(--na-primary, #6d5dfb);
-    background: var(--na-primary-soft, rgba(109, 93, 251, 0.06));
-    color: var(--na-primary, #6d5dfb);
-    transform: translateX(3px);
-
-    .nav-arrow {
-      color: var(--na-primary, #6d5dfb);
-      transform: translateX(2px);
-    }
+    border-color: color-mix(in srgb, var(--na-primary) 35%, var(--na-border));
+    background: var(--na-card);
   }
 
-  .icon-amber { color: #d97706; font-size: 16px; margin-right: 8px; }
-  .icon-blue { color: #0284c7; font-size: 16px; margin-right: 8px; }
-  .icon-purple { color: #8b5cf6; font-size: 16px; margin-right: 8px; }
-
-  .nav-arrow {
-    color: var(--na-muted-foreground, #706b82);
-    font-size: 13px;
-    transition: all 0.2s ease;
-  }
-}
-
-/* 弹窗通用现代设计 */
-.modern-profile-dialog {
-  border-radius: 16px;
-  overflow: hidden;
-
-  :deep(.el-dialog__header) {
-    margin: 0;
-    padding: 20px 24px 16px;
-    border-bottom: 1px solid var(--na-border, #e2e0ec);
-  }
-
-  :deep(.el-dialog__body) {
-    padding: 20px 24px 8px;
-  }
-
-  :deep(.el-dialog__footer) {
-    padding: 14px 24px 20px;
-    border-top: 1px solid var(--na-border, #e2e0ec);
-  }
-}
-
-.dialog-header-custom {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-
-  .dialog-icon-circle {
+  .contact-icon {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     border-radius: 10px;
-    background: var(--na-primary-soft, rgba(109, 93, 251, 0.12));
-    color: var(--na-primary, #6d5dfb);
-    font-size: 18px;
+    font-size: 16px;
+    flex-shrink: 0;
+
+    &.is-phone {
+      background: rgba(14, 165, 233, 0.12);
+      color: #0284c7;
+    }
+
+    &.is-email {
+      background: var(--na-primary-soft);
+      color: var(--na-primary);
+    }
+
+    &.is-pwd {
+      background: rgba(245, 158, 11, 0.12);
+      color: #d97706;
+    }
+  }
+
+  .contact-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .contact-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .contact-title {
+      font-size: 12px;
+      color: var(--na-muted-foreground);
+    }
+
+    .tag-verified {
+      display: inline-flex;
+      align-items: center;
+      padding: 0 6px;
+      border-radius: 4px;
+      font-size: 10.5px;
+      font-weight: 650;
+      background: var(--na-success-soft);
+      color: var(--na-success);
+
+      &.is-pwd {
+        background: var(--na-primary-soft);
+        color: var(--na-primary);
+      }
+    }
+
+    .tag-unverified {
+      display: inline-flex;
+      align-items: center;
+      padding: 0 6px;
+      border-radius: 4px;
+      font-size: 10.5px;
+      font-weight: 650;
+      background: color-mix(in srgb, var(--na-muted) 80%, var(--na-card));
+      color: var(--na-muted-foreground);
+    }
+  }
+
+  .contact-number {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--na-foreground);
+  }
+
+  .contact-tip {
+    font-size: 11px;
+    color: var(--na-muted-foreground);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .contact-action-btn {
+    border-radius: 8px;
     flex-shrink: 0;
   }
+}
 
-  h3 {
-    margin: 0;
-    color: var(--na-foreground, #19172c);
-    font-size: 17px;
-    font-weight: 700;
+/* 栏目 3：健康度与快捷直达 */
+.col-side-group {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.card-health {
+  .health-progress-wrap {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+
+    .ring-wrapper {
+      flex-shrink: 0;
+    }
+
+    .health-progress-info {
+      strong {
+        display: block;
+        font-size: 14.5px;
+        font-weight: 700;
+        color: var(--na-foreground);
+      }
+
+      p {
+        margin: 4px 0 0;
+        font-size: 12px;
+        color: var(--na-muted-foreground);
+        line-height: 1.4;
+      }
+    }
   }
 
-  p {
-    margin: 3px 0 0;
-    color: var(--na-muted-foreground, #706b82);
-    font-size: 12px;
+  .health-check-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--na-muted) 45%, var(--na-card));
+      border: 1px solid transparent;
+      font-size: 12.5px;
+      transition: all 140ms ease;
+
+      &.is-done {
+        border-color: color-mix(in srgb, var(--na-success) 20%, transparent);
+
+        .icon-done {
+          color: var(--na-success);
+        }
+      }
+
+      &:not(.is-done) {
+        border-color: color-mix(in srgb, var(--na-border) 60%, transparent);
+
+        .icon-pending {
+          color: var(--na-muted-foreground);
+        }
+      }
+    }
+
+    .check-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--na-foreground);
+      font-weight: 550;
+    }
+
+    .check-chip {
+      padding: 1px 7px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+
+      &.is-chip-done {
+        background: var(--na-success-soft);
+        color: var(--na-success);
+      }
+
+      &.is-chip-pending {
+        background: var(--na-muted);
+        color: var(--na-muted-foreground);
+      }
+    }
   }
 }
 
-.dialog-modern-form {
-  :deep(.el-form-item__label) {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--na-foreground, #19172c);
-    padding-bottom: 6px;
+.card-quick {
+  .quick-nav-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
 
-  :deep(.el-input__wrapper) {
+  .quick-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 10px 14px;
     border-radius: 10px;
-    background: var(--na-table-header, #faf9fc);
-    box-shadow: 0 0 0 1px var(--na-border, #e2e0ec) inset;
-    min-height: 42px;
+    border: 1px solid var(--na-border);
+    background: color-mix(in srgb, var(--na-muted) 35%, var(--na-card));
+    cursor: pointer;
+    transition: all 160ms ease;
 
     &:hover {
-      box-shadow: 0 0 0 1px var(--na-primary, #6d5dfb) inset;
+      border-color: var(--na-primary);
+      background: var(--na-primary-soft);
+      transform: translateX(2px);
+
+      .arrow-icon {
+        color: var(--na-primary);
+        transform: translateX(2px);
+      }
     }
 
-    &.is-focus {
-      box-shadow: 0 0 0 2px var(--na-primary, #6d5dfb) inset;
-      background: var(--na-card, #ffffff);
+    .btn-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--na-foreground);
+
+      .icon-amber { color: #f59e0b; font-size: 16px; }
+      .icon-blue { color: #0ea5e9; font-size: 16px; }
+      .icon-purple { color: #8b5cf6; font-size: 16px; }
+    }
+
+    .arrow-icon {
+      color: var(--na-muted-foreground);
+      font-size: 14px;
+      transition: all 160ms ease;
     }
   }
 }
 
-/* 手机与邮箱弹窗特定样式 */
+/* 弹窗通用样式 */
+.dialog-header-custom,
 .contact-dialog__heading {
   display: flex;
   align-items: center;
   gap: 12px;
+
+  h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--na-foreground);
+  }
+
+  p {
+    margin: 2px 0 0;
+    font-size: 12px;
+    color: var(--na-muted-foreground);
+  }
 }
 
+.dialog-icon-circle,
 .contact-dialog__icon {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 40px;
   height: 40px;
-  border-radius: 10px;
-  background: rgba(2, 132, 199, 0.12);
-  color: #0284c7;
+  border-radius: 12px;
   font-size: 18px;
   flex-shrink: 0;
 
+  &.is-lock {
+    background: var(--na-primary-soft);
+    color: var(--na-primary);
+  }
+
   &--email {
-    background: var(--na-success-soft, rgba(5, 150, 105, 0.12));
-    color: var(--na-success, #059669);
+    background: rgba(14, 165, 233, 0.12);
+    color: #0284c7;
   }
 }
 
-.contact-dialog__heading h3 {
-  margin: 0;
-  color: var(--na-foreground, #19172c);
-  font-size: 17px;
-  font-weight: 700;
+.contact-dialog__icon:not(.contact-dialog__icon--email) {
+  background: rgba(14, 165, 233, 0.12);
+  color: #0284c7;
 }
 
-.contact-dialog__heading p {
-  margin: 3px 0 0;
-  color: var(--na-muted-foreground, #706b82);
-  font-size: 12px;
+.dialog-modern-form,
+.contact-form {
+  padding-top: 10px;
+
+  :deep(.el-form-item__label) {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--na-foreground);
+    padding-bottom: 6px;
+  }
 }
 
 .contact-verification-state {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 12px 14px;
+  padding: 10px 14px;
   border-radius: 10px;
-  background: var(--na-warning-soft, rgba(217, 119, 6, 0.1));
-  color: var(--na-warning, #d97706);
+  background: var(--na-muted);
+  border: 1px solid var(--na-border);
   font-size: 12px;
+  margin-bottom: 14px;
 
   &.is-ready {
-    background: var(--na-success-soft, rgba(5, 150, 105, 0.1));
-    color: var(--na-success, #059669);
+    background: var(--na-success-soft);
+    border-color: color-mix(in srgb, var(--na-success) 30%, transparent);
+    color: var(--na-success);
   }
 
   strong {
     display: block;
-    color: var(--na-foreground, #19172c);
-    font-size: 13px;
-    font-weight: 650;
+    margin-bottom: 2px;
   }
 
   span {
-    display: block;
-    margin-top: 2px;
-    color: var(--na-muted-foreground, #706b82);
-  }
-}
-
-.contact-form {
-  margin-top: 16px;
-
-  :deep(.el-form-item__label) {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--na-foreground, #19172c);
-    padding-bottom: 6px;
-  }
-
-  :deep(.el-input__wrapper) {
-    border-radius: 10px;
-    min-height: 42px;
+    color: var(--na-muted-foreground);
   }
 }
 
 .contact-code-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 130px;
+  grid-template-columns: 1fr auto;
   gap: 10px;
   width: 100%;
-
-  .el-button {
-    border-radius: 10px;
-  }
 }
 
 .contact-field-hint {
   margin: 6px 0 0;
-  color: var(--na-muted-foreground, #706b82);
   font-size: 11.5px;
+  color: var(--na-muted-foreground);
 }
 
 .dialog-footer {
@@ -2086,50 +1911,56 @@ watch(() => userStore.userInfo.headerImg, async (val) => {
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
-
-  .el-button {
-    border-radius: 8px;
-    min-width: 80px;
-  }
 }
 
 /* 响应式适配 */
-@media (max-width: 960px) {
-  .profile-content {
-    grid-template-columns: 1fr;
+@media (max-width: 1320px) {
+  .metric-tiles {
+    grid-template-columns: repeat(2, auto);
   }
 
-  .profile-hero-stats {
+  .profile-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .col-side-group {
     grid-column: 1 / -1;
-    border-left: 0;
-    border-top: 1px solid var(--na-border, #e2e0ec);
-    padding-left: 0;
-    padding-top: 16px;
-    margin-top: 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
 }
 
-@media (max-width: 680px) {
-  .profile-identity {
-    grid-template-columns: 100px minmax(0, 1fr);
-    padding: 0 20px 20px;
-    gap: 16px;
-    margin-top: -32px;
+@media (max-width: 960px) {
+  .profile-hero-banner {
+    flex-direction: column;
+    align-items: stretch;
   }
 
-  .profile-avatar-wrapper {
-    :deep(.select-image-root),
-    :deep(.w-40) {
-      width: 90px;
-      height: 90px;
-    }
+  .hero-right {
+    justify-content: space-between;
   }
 
-  .profile-detail-grid {
+  .profile-grid {
     grid-template-columns: 1fr;
   }
 
-  .profile-hero-stats {
+  .col-side-group {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero-left {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .metric-tiles {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .account-items-grid {
     grid-template-columns: 1fr;
   }
 }
