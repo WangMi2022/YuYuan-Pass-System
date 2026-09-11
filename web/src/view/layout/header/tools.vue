@@ -19,26 +19,28 @@
     </el-dropdown>
 
     <button type="button" class="na-search-trigger" aria-label="全局搜索" @click="handleCommand">
-      <el-icon><Search /></el-icon>
+      <el-icon class="search-icon"><Search /></el-icon>
       <span>搜索菜单与功能</span>
       <kbd>{{ first }} K</kbd>
     </button>
 
     <notification-center />
 
-    <button type="button" class="na-icon-button" aria-label="系统设置" @click="toggleSetting">
-      <el-icon>
-        <Setting />
-      </el-icon>
-    </button>
+    <el-tooltip content="系统界面配置" placement="bottom" :show-after="400">
+      <button type="button" class="na-icon-button" aria-label="系统设置" @click="toggleSetting">
+        <el-icon>
+          <Setting />
+        </el-icon>
+      </button>
+    </el-tooltip>
 
-    <button type="button" class="na-icon-button" aria-label="刷新页面" @click="toggleRefresh">
-      <el-icon
-          :class="showRefreshAnmite ? 'animate-spin' : ''"
-      >
-        <Refresh />
-      </el-icon>
-    </button>
+    <el-tooltip content="刷新当前页面" placement="bottom" :show-after="400">
+      <button type="button" class="na-icon-button" aria-label="刷新页面" @click="toggleRefresh">
+        <el-icon :class="showRefreshAnmite ? 'animate-spin' : ''">
+          <Refresh />
+        </el-icon>
+      </button>
+    </el-tooltip>
 
     <gva-setting v-model:drawer="showSettingDrawer"></gva-setting>
     <command-menu ref="command" />

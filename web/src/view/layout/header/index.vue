@@ -42,6 +42,7 @@
 
     <div class="na-header-right">
       <tools />
+      <div class="na-header-divider" aria-hidden="true" />
       <el-dropdown
         trigger="click"
         popper-class="na-user-dropdown-popper"

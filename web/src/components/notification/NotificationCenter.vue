@@ -18,7 +18,6 @@
             :aria-label="notificationLabel"
           >
             <el-icon class="notification-trigger__icon"><Bell /></el-icon>
-            <span v-if="unreadCount > 0" class="notification-trigger__beacon" aria-hidden="true" />
           </button>
         </el-badge>
       </template>
@@ -585,15 +584,20 @@ onBeforeUnmount(() => {
   display: inline-flex;
 
   :deep(.el-badge__content.is-fixed) {
-    top: 6px;
-    right: 8px;
-    height: 18px;
-    padding: 0 5px;
+    top: 2px;
+    right: 3px;
+    transform: translate(25%, -25%);
+    height: 16px;
+    min-width: 16px;
+    padding: 0 4px;
     border: 2px solid var(--na-card, #ffffff);
-    font-size: 11px;
+    border-radius: 10px;
+    background: #ef4444;
+    color: #ffffff;
+    font-size: 10px;
     font-weight: 700;
-    line-height: 14px;
-    box-shadow: 0 2px 6px rgba(220, 38, 38, 0.35);
+    line-height: 12px;
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
   }
 }
 
@@ -602,48 +606,35 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   border: 1px solid var(--na-border, #e2e0ec);
   border-radius: 10px;
-  background: var(--na-card, #ffffff);
-  color: var(--na-foreground, #19172c);
+  background: color-mix(in srgb, var(--na-muted, #f3f2f7) 45%, var(--na-card, #ffffff));
+  color: var(--na-muted-foreground);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
-    border-color: var(--na-primary, #6d5dfb);
-    background: var(--na-primary-soft, rgba(109, 93, 251, 0.08));
-    color: var(--na-primary, #6d5dfb);
+    border-color: color-mix(in srgb, var(--na-primary) 35%, var(--na-border));
+    background: var(--na-card, #ffffff);
+    color: var(--na-primary);
     transform: translateY(-1px);
-    box-shadow: 0 3px 10px rgba(109, 93, 251, 0.15);
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--na-foreground) 4%, transparent);
+
+    .notification-trigger__icon {
+      color: var(--na-primary);
+    }
   }
 
   &.has-unread {
-    color: var(--na-primary, #6d5dfb);
+    color: var(--na-foreground);
   }
 
   &__icon {
-    font-size: 18px;
+    font-size: 16px;
+    transition: color 180ms ease, transform 180ms ease;
   }
-
-  &__beacon {
-    position: absolute;
-    top: 6px;
-    right: 6px;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--na-danger, #dc2626);
-    box-shadow: 0 0 0 2px var(--na-card, #ffffff);
-    animation: beacon-pulse 2s infinite ease-out;
-  }
-}
-
-@keyframes beacon-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
-  70% { box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
 }
 
 .notification-panel {

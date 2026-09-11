@@ -31,7 +31,7 @@
     </el-tabs>
 
     <el-tooltip
-      content="清理分页导航（保留首页）"
+      content="清理其他分页标签（保留工作台首页）"
       placement="bottom"
       :show-after="300"
     >
@@ -42,7 +42,8 @@
         aria-label="清理分页导航，保留首页"
         @click="closeAll"
       >
-        清理
+        <el-icon class="clear-icon"><Delete /></el-icon>
+        <span>清理</span>
       </button>
     </el-tooltip>
 
@@ -68,6 +69,7 @@
   import { useUserStore } from '@/pinia/modules/user'
   import { fmtTitle } from '@/utils/fmtRouterTitle'
   import { useEventListener } from '@vueuse/core'
+  import { Delete } from '@element-plus/icons-vue'
 
   defineOptions({
     name: 'HistoryComponent'

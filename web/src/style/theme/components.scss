@@ -656,24 +656,35 @@ html.dark .el-cascader__dropdown {
 .el-dropdown { outline: none; }
 .el-dropdown * { outline: none; }
 
-/* 顶部导航栏用户头像触发按钮与下拉卡片 */
 .na-profile-trigger {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 34px;
-  padding: 3px 10px 3px 4px;
+  height: 36px;
+  min-height: 36px;
+  padding: 2px 10px 2px 4px;
   border: 1px solid var(--na-border);
-  border-radius: 12px;
+  border-radius: 10px;
   background: color-mix(in srgb, var(--na-muted) 45%, var(--na-card));
   color: var(--na-foreground);
   cursor: pointer;
-  transition: all 160ms ease;
+  transition: all 180ms cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
-    border-color: color-mix(in srgb, var(--na-primary) 40%, var(--na-border));
+    border-color: color-mix(in srgb, var(--na-primary) 35%, var(--na-border));
     background: var(--na-card);
-    box-shadow: 0 2px 8px rgb(0 0 0 / 4%);
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--na-foreground) 4%, transparent);
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+    box-shadow: none;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--na-ring);
+    outline-offset: 1px;
   }
 }
 
