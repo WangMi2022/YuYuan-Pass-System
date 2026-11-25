@@ -210,3 +210,29 @@ docker compose --env-file .env -f docker-compose.yml up -d --force-recreate serv
 | 全部 assets | 含 `gva-` 的文件数 0 |
 
 该冒烟验证了重命名在真实容器运行时的行为，但不替代生产 `release-acceptance.sh`（需要真实 PG/Redis/S3）。
+
+### 8.6 本地 `release-acceptance.sh` 完整验收（2026-11-25）
+
+在隔离的 Docker Compose 环境（`maa-accept` 项目，SQLite + 临时 Redis，端口 18080/18888）中，使用重命名后的镜像和脚本完整执行了发布门禁：
+
+```
+[PASS] compose.services       期望服务均已声明：server web
+[PASS] containers.running     期望容器均处于 running 状态
+[PASS] containers.restarts    容器重启次数未超过 0
+[PASS] api.direct             Server /health 正常
+[PASS] api.database           API 已完成数据库初始化
+[PASS] web.home               Web 首页内容与应用挂载点正常
+[PASS] api.proxy              Web → Nginx → Server 反代链路正常
+[PASS] web.asset              当前版本 JavaScript 入口可访问且非空
+验收汇总: passed=8 failed=0
+上线验收通过：当前版本可以标记为上线成功。  (exit 0)
+```
+
+验证到的重命名运行时行为：
+
+- server 启动横幅 `欢迎使用 mit-assets-admin`，日志前缀 `[mit-assets-admin]`
+- `MAA_INSTALL_MODE` / `MAA_INSTALL_TOKEN` 环境变量与 `X-Install-Token` loopback 校验链路正常（`/init/initdb` 授权通过）
+- 12 个业务插件（asset/invoice/smart/document/announcement/schedule/site/systemsetting/aioperations 等）在重命名后全部注册成功
+- 容器按 server → redis → web 顺序启动时 `RestartCount=0`
+
+**环境说明**：本地 SQLite 模式下 `initdb` 期间插件权限迁移会早于 `casbin_rule` 建表，日志出现 `no such table: casbin_rule` 告警，属既有初始化时序，不影响最终 `checkdb=needInit:false` 与验收结果；生产 PostgreSQL 走 `init-db.sh` 路径不受影响。SQLite 模式需将 `sqlite.path` 指向持久化挂载（本次为 `/app/data`），否则容器重建后数据库丢失。
