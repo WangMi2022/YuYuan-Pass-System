@@ -1,0 +1,6 @@
+@use '@/style/main.scss';
+@use '@/style/reset';
+
+/* All Element Plus overrides now live in src/style/theme/ (loaded last from
+ * main.js). This file only keeps the reset + app utility imports that must
+ * load before everything else. */

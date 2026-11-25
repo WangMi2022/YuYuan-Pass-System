@@ -1,0 +1,471 @@
+# mit-assets-admin 数据字典
+
+## 1. 通用字段
+
+大多数 GORM 实体嵌入 `global.MAA_MODEL`，通常包含：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `ID` | uint | 主键 |
+| `CreatedAt` | timestamp | 创建时间 |
+| `UpdatedAt` | timestamp | 更新时间 |
+| `DeletedAt` | nullable timestamp | GORM 软删除时间，具体表是否使用以模型为准 |
+
+业务金额与日期遵循：
+
+- 资产金额使用数据库 numeric 和 Go `float64`，展示时统一保留两位小数。
+- 发票金额使用 `int64` 分，避免浮点误差。
+- 业务日期与时间戳分离：资产单据 `businessDate` 是业务日；创建时间是系统记录时间。
+
+## 2. 核心实体关系
+
+```mermaid
+erDiagram
+    ASSET_CATEGORY ||--o{ ASSET : classifies
+    ASSET ||--o{ ASSET_OPERATION_ITEM : included_in
+    ASSET_OPERATION_ORDER ||--o{ ASSET_OPERATION_ITEM : contains
+    ASSET_OPERATION_ORDER ||--o{ ASSET_OPERATION_RECORD : produces
+    ASSET ||--o{ ASSET_RISK_EVENT : triggers
+    ASSET_RISK_EVENT ||--o{ ASSET_RISK_EVENT_LOG : records
+    ASSET_RECOGNITION_JOB o|--o| ASSET : confirms
+    INVOICE_CATEGORY ||--o{ INVOICE : classifies
+    INVOICE ||--o{ INVOICE_ITEM : contains
+    INVOICE ||--o{ RECOGNITION_JOB : recognizes
+    INVOICE ||--o{ INVOICE_VERIFICATION : verifies
+    INVOICE ||--o{ INVOICE_REVIEW_CORRECTION : corrected_by
+    USER ||--o{ WORK_SCHEDULE : owns
+    WORK_SCHEDULE ||--o{ WORK_SCHEDULE_NOTIFICATION : generates
+    ANNOUNCEMENT ||--o{ ANNOUNCEMENT_READ : read_by
+```
+
+## 3. 资产域
+
+### 3.1 `asset_categories`
+
+| 字段 | 说明 |
+| --- | --- |
+| `name` | 分类名称 |
+| `code` | 分类编码，业务唯一 |
+| `color` | 统计与标签颜色 |
+| `description` | 分类说明 |
+| `sort` | 排序值 |
+| `enabled` | 是否启用 |
+
+### 3.2 `assets`
+
+| 字段 | 说明 |
+| --- | --- |
+| `asset_code` | 资产编号，唯一业务标识；API 字段为 `assetCode` |
+| `name` | 资产名称 |
+| `category_id` | 分类外键 |
+| `brand` / `model` | 品牌和规格型号 |
+| `serial_number` | 序列号 |
+| `specifications` | 规格参数，最长 1000 字符 |
+| `production_date` | 铭牌生产日期 |
+| `quantity` / `unit` | 数量和计量单位 |
+| `unit_price` | 采购单价 |
+| `original_value` | 原值，数量 × 单价 |
+| `current_value` | 当前估值 |
+| `status` | 生命周期状态 |
+| `location` | 当前存放位置文本 |
+| `custodian` | 当前保管人文本 |
+| `supplier` | 供应商 |
+| `purchase_date` | 购置日期 |
+| `warranty_end_date` | 质保到期日 |
+| `photos` | JSONB 图片元数据数组 |
+| `remarks` | 备注 |
+
+资产状态：
+
+| 值 | 说明 |
+| --- | --- |
+| `pending_inbound` | 待入库 |
+| `idle` | 闲置 |
+| `in_use` | 使用中 |
+| `maintenance` | 维修中 |
+| `retired` | 已处置/已报废 |
+
+### 3.3 `asset_locations`
+
+| 字段 | 说明 |
+| --- | --- |
+| `name` | 位置名称 |
+| `type` | inbound/usage/transfer/return/maintenance/disposal |
+| `code` | 位置编码 |
+| `description` | 说明 |
+| `sort` | 排序 |
+| `enabled` | 是否可用于新单据 |
+
+`type + name` 建立唯一索引，允许不同业务类型出现同名位置。注意报废业务单类型是 `scrap`，对应的位置字典类型是 `disposal`。
+
+资产照片只在 `assets.photos` 中保存对象元数据，原始图片进入 S3 兼容对象存储；Compose 示例默认使用 `maa-assets` 桶和 `assets/` 前缀，浏览器通过后端受控代理读取私有对象。数据库删除和对象删除属于跨资源操作，失败时由清理任务重试。
+
+### 3.4 `asset_operation_orders`
+
+| 字段 | 说明 |
+| --- | --- |
+| `order_no` | 业务单号，唯一 |
+| `type` | `inbound/issue/transfer/return/maintenance/scrap` |
+| `status` | `draft` 或 `completed` |
+| `business_date` | 业务日期 |
+| `target_location` | 目标位置文本快照 |
+| `target_custodian` | 目标保管人文本快照 |
+| `reason` / `remarks` | 原因和备注 |
+| `created_by` / `submitted_by` | 创建人和提交人 |
+| `submitted_at` | 提交时间 |
+
+### 3.5 `asset_operation_items`
+
+保存单据与资产的关联，以及提交时需要的资产显示快照。
+
+### 3.6 `asset_operation_records`
+
+保存每次正式流转的不可变审计记录，包括资产在流转前后的状态、位置、保管人和价值等快照。审计查询不应只依赖当前 `assets` 主表。
+
+### 3.7 `asset_risk_rules`
+
+| 字段 | 说明 |
+| --- | --- |
+| `code` | 稳定规则编码，唯一 |
+| `name` | 规则名称 |
+| `category` | `status/value/return/maintenance/warranty/duplicate` |
+| `severity` | `low/medium/high/critical` |
+| `description` / `recommendation` | 规则说明和默认处置建议 |
+| `parameters` | JSONB 阈值，只接受规则白名单参数 |
+| `enabled` | 是否参与扫描 |
+| `version` | 规则版本；等级、参数或启停更新时递增 |
+
+### 3.8 `asset_risk_events`
+
+| 字段 | 说明 |
+| --- | --- |
+| `fingerprint` | 资产、规则编码、规则版本和关键证据组成的 SHA-256 唯一指纹 |
+| `asset_id` | 关联资产 ID |
+| `rule_code` / `rule_version` | 命中规则及版本快照 |
+| `category` / `severity` | 风险类别和等级 |
+| `status` | `open/acknowledged/resolved/ignored` |
+| `title` / `description` | 风险标题和说明 |
+| `evidence` | JSONB 证据快照 |
+| `recommendation` | 建议动作 |
+| `first_detected_at` / `last_detected_at` | 首次与最近命中时间 |
+| `last_scan_run_id` | 最近命中的扫描运行 ID |
+| `assigned_to` / `assigned_to_name` | 当前处理人 |
+| `handled_by` / `handled_by_name` / `handled_at` | 最终处理主体与时间 |
+| `resolution_note` | 解决或忽略说明 |
+
+`resolved` 事件再次命中同一指纹时自动重开；`ignored` 保持人工忽略状态。规则版本进入指纹，因此升级规则不会覆盖旧版本证据。
+
+### 3.9 `asset_risk_event_logs`
+
+| 字段 | 说明 |
+| --- | --- |
+| `event_id` | 风险事件 ID |
+| `action` | 检出、确认、解决、忽略、重开、分配或系统自动动作 |
+| `from_state` / `to_state` | 动作前后状态 |
+| `actor_id` / `actor_name` | 操作主体，系统动作 ID 为 0 |
+| `note` | 处理说明或系统原因 |
+
+该表是风险处理时间线，不随事件当前状态改变而覆盖。
+
+### 3.10 `asset_risk_scan_runs`
+
+| 字段 | 说明 |
+| --- | --- |
+| `trigger_type` | `manual` 或 `scheduled` |
+| `status` | `running/success/failed` |
+| `started_at` / `finished_at` | 开始与完成时间 |
+| `heartbeat_at` | 最近批次心跳，用于并发保护和僵死识别 |
+| `resume_count` | 已续扫次数，自动恢复最多 3 次 |
+| `cursor_asset_id` | 最近完成批次的资产游标 |
+| `scanned_assets` | 已扫描资产数 |
+| `new_events` / `updated_events` / `closed_events` | 新增、更新和自动关闭风险数 |
+| `error_message` | 失败摘要，最大保留 2000 字符 |
+| `triggered_by` / `triggered_by_name` | 手动触发用户或系统任务 |
+
+数据库使用条件唯一索引确保同一时刻最多一条 `running` 记录；心跳超过 15 分钟的任务会标记失败，后续按续扫策略恢复。
+
+### 3.11 `asset_recognition_jobs`
+
+| 字段 | 说明 |
+| --- | --- |
+| `status` | `pending/processing/reviewing/completed/failed/deleting` |
+| `attempts` / `max_attempts` | 当前与最大识别尝试次数 |
+| `provider` / `model` / `prompt_version` | 实际模型与 Prompt 版本 |
+| `file_keys` | JSONB 输入图片元数据；响应字段为 `fileKeys` |
+| `result` | JSONB 模型合并后的结构化结果 |
+| `draft` | JSONB 人工可修正资产草稿 |
+| `field_confidences` | JSONB 字段置信度映射 |
+| `warnings` | JSONB 低置信、分类、日期和重复警告 |
+| `duplicate_candidates` | JSONB 完全或标准化序列号重复候选 |
+| `storage_*` | 创建任务时固化的 local/MinIO 存储位置 |
+| `next_run_at` / `locked_at` / `lock_token` | Worker 或删除清理租约 |
+| `last_error` | 最近识别或临时图片清理错误 |
+| `created_by` / `authority_id` | 创建用户和主角色，用于数据范围 |
+| `draft_updated_by/at` | 最近人工草稿修改人和时间 |
+| `completed_at` | 识别完成或正式确认时间 |
+| `confirmed_asset_id` | 正式资产唯一关联，唯一索引 |
+| `confirmed_by/at` | 确认建档用户和时间 |
+
+`completed` 任务不能删除或再次确认。`deleting` 仅用于图片部分清理失败，不能进入识别 Worker；缺失对象按已删除处理，允许幂等重试清理。
+
+`result` 和 `draft` 只保存标准字段。Prompt V3 允许模型临时返回 `productName`、`manufacturer`、`warrantyMonths`，服务端按“标准字段优先、标准字段为空或为 0 时才用别名补位”的规则归一为 `name`、`brand`、`recommendedWarrantyMonths`，并同步归一字段置信度；别名本身不持久化。除这三组别名外的未知字段仍被 JSON Schema 拒绝。
+
+## 4. 发票域
+
+### 4.1 `invoice_categories`
+
+发票统计分类，字段包括名称、编码、说明、颜色、排序和启用状态。
+
+### 4.2 `invoices`
+
+| 字段 | 说明 |
+| --- | --- |
+| `direction` | 收入/支出方向，默认 `expense` |
+| `invoice_type` | 业务票种 |
+| `verification_type` | 验真标准票种 |
+| `verification_amount_mode` | 验真金额使用不含税金额或价税合计 |
+| `invoice_code` / `invoice_number` | 发票代码和号码 |
+| `check_code` | 校验码 |
+| `duplicate_key` | 已确认发票防重键，唯一 |
+| `issue_date` | 开票日期 |
+| `buyer_*` / `seller_*` | 购销双方名称和税号 |
+| `amount_cents` | 不含税金额，单位分 |
+| `tax_cents` | 税额，单位分 |
+| `total_cents` | 价税合计，单位分 |
+| `currency` | 币种，默认 CNY |
+| `category_id` | 分类外键 |
+| `classification_source` | `auto` 或 `manual` |
+| `suggested_category_id` | 识别/规则建议分类，用于接受率统计 |
+| `status` | 发票处理状态 |
+| `recognition_provider/model/prompt_version` | 实际识别来源和 Prompt 版本 |
+| `recognition_confidence/duration_ms` | 总体置信度与识别耗时 |
+| `field_confidences` | JSON 字段置信度映射 |
+| `recognition_error` | 最近识别失败摘要 |
+| `review_captured_at` | 已开始采集字段级人工修正数据的时间 |
+| `verification_status` | 验真状态 |
+| `file_key` 等 | 原始证据对象信息 |
+| `confirmed_by/at` | 确认人和确认时间 |
+
+处理状态：
+
+| 值 | 说明 |
+| --- | --- |
+| `uploaded` | 文件已上传 |
+| `recognizing` | 识别中 |
+| `pending_review` | 待人工复核 |
+| `confirmed` | 已确认 |
+| `recognition_failed` | 识别失败 |
+
+验真状态：`unverified`、`verifying`、`verified_valid`、`verified_voided`、`verified_red`、`inconsistent`、`not_found`、`deferred`、`expired`、`unavailable`。
+
+### 4.3 `invoice_items`
+
+发票明细行，包含名称、规格、数量、单价、金额、税率和税额等字段。财务统计禁止用二进制浮点直接累计。
+
+### 4.4 `invoice_recognition_jobs`
+
+持久化识别任务：Provider、模型、Prompt 版本、状态、尝试次数、租约、耗时、多模态回退标记、完成时间和失败详情。状态包括 `pending`、`processing`、`completed`、`failed`。
+
+### 4.5 `invoice_verifications`
+
+每次验真尝试的历史记录，包括结果、差异和时间。对外响应应过滤提供方敏感原始数据。
+
+### 4.6 `invoice_classification_rules`
+
+分类匹配规则，维护匹配字段、关键词、目标分类、分值、优先级和启用状态。
+
+### 4.7 `invoice_file_cleanup_jobs`
+
+发票删除后的对象清理任务。通过租约和重试实现幂等，避免数据库已删除但对象文件永久残留。
+
+### 4.8 `invoice_review_corrections`
+
+| 字段 | 说明 |
+| --- | --- |
+| `invoice_id` | 发票 ID，与 `field_name` 组成唯一索引 |
+| `recognition_job_id` / `invocation_id` | 可选识别任务与 AI 调用审计关联 |
+| `field_name` | 被人工修改的字段名 |
+| `recognized_value` | 原始识别值；敏感字段保存 SHA-256 摘要 |
+| `corrected_value` | 当前人工值；敏感字段保存 SHA-256 摘要 |
+| `confidence` | 原字段识别置信度 |
+| `provider` / `model` / `prompt_version` | 识别来源快照 |
+| `corrected_by/at` | 最近修正人和时间 |
+| `confirmed` | 修正是否已进入正式确认结果 |
+
+一张发票同一字段只保留一条当前差异。后续人工修改仍使用原识别值作为基线；改回原识别值时删除差异，确认时只更新 `confirmed`，不覆盖差异来源。
+
+`invoices.review_captured_at` 用于标识该发票何时开始具备字段级复核来源。该值为空的历史发票不会补造 `invoice_review_corrections`，质量聚合将其单独计入历史缺口；字段修改率只基于功能上线后的真实复核数据计算。
+
+## 5. 文档域
+
+### `document_files`
+
+| 字段 | 说明 |
+| --- | --- |
+| `title` | 文档标题 |
+| `original_name` | 上传文件名 |
+| `file_ext` | 扩展名 |
+| `file_size` | 文件大小，字节 |
+| `mime_type` | MIME |
+| `storage_type` | 存储类型 |
+| `file_key` | 对象 key |
+| `file_url` | 访问地址或代理信息 |
+| `content` | 在线编辑内容 |
+| `editable` | 是否支持在线编辑 |
+| `remarks` | 备注 |
+
+列表响应刻意不返回 `content` 和存储地址，避免批量读取大字段与泄露内部对象信息。
+
+## 6. 公告域
+
+### 6.1 `gva_announcements_info`
+
+- `title`、`content`、`user_id`。
+- `attachments`：JSON 附件数组。
+- `status`：草稿或已发布。
+- `published_at`：发布时间。
+
+### 6.2 `gva_announcement_reads`
+
+以 `user_id + announcement_id` 唯一，保存 `read_at`，用于跨设备未读同步。
+
+## 7. 日程域
+
+### 7.1 `work_schedules`
+
+| 字段 | 说明 |
+| --- | --- |
+| `user_id` | 所属用户，只由认证上下文确定 |
+| `client_key` | 旧客户端数据迁移幂等键 |
+| `title` | 标题 |
+| `schedule_date` / `schedule_time` | 首次发生日期和时间 |
+| `type` | 日程类型 |
+| `note` | 备注 |
+| `recurrence_enabled` | 是否重复 |
+| `recurrence_mode` | daily/weekly/monthly |
+| `recurrence_weekday(s)` | 每周规则 |
+| `recurrence_month_day(s)` | 每月规则 |
+
+### 7.2 `work_schedule_notifications`
+
+持久化到期提醒，以 `user_id + schedule_id + occurrence_at` 唯一，保证 Cron 重试和进程重启不重复生成。
+
+## 8. 站点与外观
+
+| 表 | 说明 |
+| --- | --- |
+| `site_bookmarks` | 站点名称、URL、分类、说明、颜色、排序、启用、访问次数和最近访问时间 |
+| `system_login_logos` | 当前自定义登录图标 |
+| `system_login_backgrounds` | 登录背景图库、创建人和启用状态 |
+
+## 9. AI Gateway
+
+### 9.1 `ai_model_invocations`
+
+模型调用审计摘要。该表禁止保存完整 Prompt、业务 Payload、图片、模型输出和 Provider 密钥。
+
+| 字段 | 说明 |
+| --- | --- |
+| `request_id` | UUID 调用追踪 ID，唯一 |
+| `user_id` / `authority_id` | 认证用户和角色 |
+| `module` / `operation` | 业务模块和动作 |
+| `provider` / `model` | 实际 Provider 和模型 |
+| `prompt_key` / `prompt_version` | 使用的 Prompt 版本 |
+| `input_tokens` / `output_tokens` | Provider 返回或本地估算的 Token |
+| `estimated_cost_micros` | 按配置单价估算的费用微单位 |
+| `duration_ms` | 调用耗时毫秒 |
+| `status` | `success/failed/blocked` |
+| `error_type` | `disabled/validation/policy/quota/provider/timeout/schema` |
+| `object_type` / `object_id` | 可选业务对象关联 |
+| `redaction_count` | 本次脱敏命中数 |
+| `input_hash` / `output_hash` | 输入和输出 SHA-256 哈希 |
+
+### 9.2 `ai_usage_quotas`
+
+| 字段 | 说明 |
+| --- | --- |
+| `scope_type` | `global/module/authority/user` |
+| `scope_id` | `global`、模块标识、角色 ID 或用户 ID |
+| `daily_requests` | 每日请求上限，0 不限制 |
+| `daily_tokens` | 每日 Token 上限，0 不限制 |
+| `monthly_cost_micros` | 每月费用上限，0 不限制 |
+| `max_concurrency` | 最大并发，0 不限制 |
+| `enabled` | 是否参与配额匹配 |
+
+`scope_type + scope_id` 唯一。单实例内通过原子预占避免并发突发绕过；多 Server 实例部署需改用共享原子计数。
+
+### 9.3 `ai_prompt_templates`
+
+| 字段 | 说明 |
+| --- | --- |
+| `prompt_key` | 稳定业务标识 |
+| `version` | 从 1 递增的版本号 |
+| `content` | Prompt 模板正文 |
+| `output_schema` | 可选 JSON Schema |
+| `status` | `draft/active/retired` |
+| `created_by` | 创建用户 |
+| `activated_at` | 激活时间 |
+
+`prompt_key + version` 唯一。同一 `prompt_key` 仅保留一个 `active` 版本；新建版本发生并发冲突时服务层重新分配版本号。
+
+## 10. 智能中心
+
+### 10.1 `ai_copilot_sessions`
+
+保存业务助手会话标题和最后活动时间。`user_id + authority_id` 是强制归属范围，查询、详情和删除都必须同时带用户与当前角色条件。
+
+### 10.2 `ai_copilot_messages`
+
+| 字段 | 说明 |
+| --- | --- |
+| `session_id` / `user_id` / `authority_id` | 会话、用户和角色归属，不能只按会话 ID 查询 |
+| `role` | `user` 或 `assistant` |
+| `content` | 面向用户的文本摘要，不保存未经处理的模型原始响应 |
+| `intent` / `tool` | 确定性意图和注册 Tool 名称 |
+| `citations` | 查询范围、业务对象和前端跳转引用 JSON |
+
+### 10.3 `smart_daily_reports`
+
+以 `user_id + authority_id + report_date` 唯一保存日报指标快照、摘要、生成方式和时间，并使用数据库 Upsert 处理并发生成。角色切换后不会读取另一个角色生成的历史快照。`metrics` 是确定性 JSON，包含资产流转/质保、风险、发票处理和确认金额、协同待办以及 AI 失败率、耗时和费用；模型摘要失败时不会为空。`generated_by` 为 `deterministic` 或 `deterministic+model`。
+
+### 10.4 `smart_report_subscriptions`
+
+以 `user_id` 唯一保存 `enabled`、本地 `delivery_time`（`HH:MM`）和逗号分隔的 `channels`。渠道只允许 `in_app`、`email`。
+
+### 10.5 `smart_report_deliveries`
+
+| 字段 | 说明 |
+| --- | --- |
+| `user_id` / `report_id` / `channel` | 唯一投递键，避免定时任务重复发送 |
+| `status` | `sending`、`sent`、`failed`；发送前原子抢占，活跃 `sending` 不会重复发送 |
+| `retry_count` | 当前投递尝试次数，最多 3 次 |
+| `last_attempt` / `sent_at` | 最近尝试和成功时间 |
+| `error` | 最近失败原因，不保存邮件正文 |
+
+### 10.6 `smart_drafts`
+
+| 字段 | 说明 |
+| --- | --- |
+| `user_id` | 草稿所属用户 |
+| `dedup_key` | 公告日程草稿的唯一幂等键；普通业务草稿为 `NULL` |
+| `draft_type` | `schedule` 或 `operation` |
+| `source_id` | 公告日程草稿的公告 ID，业务草稿为 0 |
+| `status` | `draft`、`processing`、`accepted`、`discarded` |
+| `payload` | 经校验的日期、资产、位置、保管人、原因和证据 JSON |
+| `confidence` | 0-1 置信度 |
+| `expires_at` | 过期后禁止确认 |
+| `last_error` | 最近一次确认失败原因 |
+
+智能草稿确认不直接写资产主表：日程调用个人日程 Service；业务草稿调用资产流转 Service 且 `submit=false`。因此资产状态变化仍只由人工提交既有流转单产生。公告草稿过期后再次提取会更新同一记录，不创建重复草稿。
+
+## 11. 系统表
+
+系统用户、角色、菜单、API、Casbin、字典、参数、操作记录、登录日志、JWT 黑名单等表继承 Gin-Vue-Admin 模型。维护时优先通过系统模块 API 和迁移逻辑修改，不直接手工破坏权限关联表。
+
+## 12. 迁移与备份原则
+
+1. 生产升级前备份 PostgreSQL 与对象存储。
+2. 自动迁移只解决兼容性建表/加字段，不等同于数据修复方案。
+3. 重命名、拆表、金额口径变化必须提供显式迁移脚本和回滚说明。
+4. 删除包含对象 key 的业务数据前，先设计对象存储清理或补偿任务。
+5. 历史审计表和已确认财务数据不得以普通清理脚本覆盖。

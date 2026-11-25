@@ -1,0 +1,230 @@
+/*
+ * Legacy bridge — reskins the inherited stock system pages (superAdmin,
+ * systemTools, example, generated CRUD pages) without touching their code:
+ *   1. token-based maa-* page containers,
+ *   2. functional rules migrated from the old main.scss / element_visiable.scss,
+ *   3. a normalization layer that maps leftover hardcoded Tailwind utility
+ *      classes (bg-white, dark:bg-slate-900, ...) onto theme tokens.
+ * !important is allowed here on purpose: these rules must beat inline utility
+ * classes scattered across ~40 stock pages we deliberately don't rewrite.
+ */
+
+/* ---- page containers ---- */
+.na-page-host > :is(div, main):not(.na-page):has(> :is(.maa-search-box, .maa-table-box, .maa-form-box)) {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: 24px 28px 36px;
+}
+
+.legacy-admin-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.legacy-admin-page .na-page-header {
+  margin-bottom: 4px;
+}
+
+.legacy-admin-page .na-page-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.maa-search-box,
+.maa-table-box,
+.maa-form-box {
+  position: relative;
+  margin: 0 0 14px !important;
+  padding: 16px !important;
+  border: 1px solid var(--na-border) !important;
+  border-radius: 12px !important;
+  background: var(--na-card) !important;
+  color: var(--na-card-foreground) !important;
+  box-shadow: var(--na-shadow-sm) !important;
+}
+.maa-search-box {
+  padding: 14px 16px 2px !important;
+  background: color-mix(in srgb, var(--na-primary) 3%, var(--na-card)) !important;
+}
+.legacy-admin-page > .maa-search-box,
+.legacy-admin-page > .maa-table-box,
+.legacy-admin-page > .maa-form-box {
+  margin-bottom: 0 !important;
+}
+.maa-search-box + .maa-table-box,
+.maa-table-box + .maa-table-box { margin-top: 0 !important; }
+.maa-table-box:last-child,
+.maa-form-box:last-child { margin-bottom: 0 !important; }
+.maa-table-box {
+  min-height: min(560px, calc(100vh - 188px));
+  overflow: hidden;
+}
+.legacy-admin-page > .maa-table-box {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: min(620px, calc(100vh - 270px));
+}
+.legacy-admin-page > .maa-table-box > .el-table,
+.legacy-admin-page > .maa-table-box > .maa-table-main {
+  flex: 1 1 auto;
+}
+.maa-table-box .el-table { margin: 0 !important; }
+
+.maa-btn-list {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px !important;
+  margin-bottom: 12px !important;
+}
+.maa-table-box > .maa-btn-list:first-child {
+  margin: -2px 0 14px !important;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--na-border);
+}
+.maa-btn-list .el-button + .el-button { margin-left: 0 !important; }
+.maa-btn-list .el-upload .el-button { margin-left: 0 !important; }
+
+.maa-pagination {
+  display: flex;
+  justify-content: flex-end;
+  min-height: 46px;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--na-border);
+}
+.maa-pagination .el-pagination { margin-top: 0; }
+.maa-pagination .el-pagination__jump { display: none !important; }
+.maa-pagination .el-pagination__sizes .el-input { width: 94px; }
+
+.maa-customer-icon { width: 16px; height: 16px; }
+
+/* Inline search forms on stock pages rely on a fixed control width. */
+.el-form--inline .el-form-item > .el-input,
+.el-form--inline .el-form-item .el-cascader,
+.el-form--inline .el-form-item .el-select,
+.el-form--inline .el-form-item .el-date-editor,
+.el-form--inline .el-form-item .el-autocomplete {
+  width: min(13rem, 100%);
+}
+
+.maa-search-box .el-form-item__label {
+  padding-right: 8px;
+  color: var(--na-muted-foreground);
+}
+
+.maa-search-box .el-form--inline {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 2px 0;
+}
+.maa-search-box .el-form--inline .el-form-item {
+  margin-right: 12px;
+  margin-bottom: 12px;
+}
+.maa-search-box .el-form--inline .el-form-item:last-child { margin-right: 0; }
+.maa-table-box > .el-table,
+.maa-form-box > .el-form { position: relative; z-index: 1; }
+
+.maa-table-box .el-table {
+  border-radius: 10px;
+  font-size: 12.5px;
+}
+
+.maa-table-box .el-table th.el-table__cell {
+  height: 40px;
+}
+
+.maa-table-box .el-table td.el-table__cell {
+  height: 42px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.maa-table-box .el-table .cell {
+  line-height: 1.35;
+}
+
+.maa-table-box .el-table .cell > .el-button.is-link,
+.maa-table-box .el-table .cell > .el-button.is-text,
+.maa-table-box .el-table .cell .table-button {
+  min-height: 28px;
+  padding: 4px 6px;
+  border-radius: 7px;
+  font-size: 12px;
+}
+
+.maa-table-box .el-table .cell > .el-button + .el-button,
+.maa-table-box .el-table .cell .table-button + .table-button {
+  margin-left: 2px;
+}
+
+.maa-table-box .el-table .cell:has(> .el-button) {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 2px;
+  min-width: 0;
+}
+
+.maa-table-box .el-table__fixed-right .cell:has(> .el-button),
+.maa-table-box .el-table__fixed .cell:has(> .el-button) {
+  justify-content: center;
+}
+
+.maa-table-box .el-table__empty-block {
+  min-height: 320px;
+}
+
+@media (max-width: 760px) {
+  .na-page-host > :is(div, main):not(.na-page):has(> :is(.maa-search-box, .maa-table-box, .maa-form-box)) {
+    padding: 16px 12px 24px;
+  }
+
+  .maa-search-box,
+  .maa-table-box,
+  .maa-form-box { padding: 14px !important; border-radius: 10px !important; }
+  .maa-table-box { min-height: 420px; }
+  .legacy-admin-page > .maa-table-box { min-height: 420px; }
+  .maa-btn-list { align-items: stretch; }
+  .maa-pagination { justify-content: flex-start; overflow-x: auto; }
+}
+
+/* Shared headings on stock and generated pages. */
+.new-api-theme .page-header,
+.new-api-theme .page-heading,
+.new-api-theme .dashboard-header {
+  color: var(--na-foreground) !important;
+}
+.new-api-theme .page-header h1,
+.new-api-theme .page-heading h1,
+.new-api-theme .dashboard-header h1 {
+  letter-spacing: -.025em;
+}
+.new-api-theme .page-header p,
+.new-api-theme .page-heading p,
+.new-api-theme .dashboard-header p { color: var(--na-muted-foreground) !important; }
+
+/* ---- Normalization of leftover hardcoded utility classes ---- */
+.new-api-theme .bg-white,
+.new-api-theme [class*='bg-white/'] { background-color: var(--na-card) !important; }
+.new-api-theme .bg-gray-50,
+.new-api-theme .bg-slate-50,
+.new-api-theme [class*='bg-slate-50/'] { background-color: var(--na-background) !important; }
+.new-api-theme .text-slate-700,
+.new-api-theme .text-gray-700,
+.new-api-theme .text-black { color: var(--na-foreground) !important; }
+.new-api-theme .text-slate-500,
+.new-api-theme .text-slate-600,
+.new-api-theme .text-gray-500,
+.new-api-theme .text-gray-600 { color: var(--na-muted-foreground) !important; }
+html.dark .new-api-theme [class*='dark:bg-slate-900'],
+html.dark .new-api-theme [class*='dark:bg-slate-800'] { background-color: var(--na-card) !important; }
+html.dark .new-api-theme [class*='dark:text-slate-'],
+html.dark .new-api-theme [class*='dark:text-gray-'] { color: var(--na-muted-foreground) !important; }
+html.dark .new-api-theme [class*='dark:border-slate-'],
+html.dark .new-api-theme [class*='dark:border-gray-'] { border-color: var(--na-border) !important; }

@@ -1,0 +1,20 @@
+package initialize
+
+import (
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/middleware"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/asset/router"
+	"github.com/gin-gonic/gin"
+)
+
+func Router(engine *gin.Engine) {
+	public := engine.Group(global.MAA_CONFIG.System.RouterPrefix)
+	private := engine.Group(global.MAA_CONFIG.System.RouterPrefix)
+	private.Use(middleware.JWTAuth()).Use(middleware.CasbinHandler())
+	router.Router.Asset.Init(public, private)
+	router.Router.Category.Init(public, private)
+	router.Router.Location.Init(public, private)
+	router.Router.Operation.Init(public, private)
+	router.Router.Risk.Init(public, private)
+	router.Router.Recognition.Init(private)
+}

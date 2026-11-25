@@ -1,0 +1,100 @@
+package ast
+
+import (
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"path/filepath"
+	"testing"
+)
+
+func TestPluginInitialize_Injection(t *testing.T) {
+	type fields struct {
+		Type       Type
+		Path       string
+		PluginPath string
+		ImportPath string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		wantErr bool
+	}{
+		{
+			name: "测试 Gva插件 注册注入",
+			fields: fields{
+				Type:       TypePluginInitializeV2,
+				Path:       filepath.Join(global.MAA_CONFIG.AutoCode.Root, global.MAA_CONFIG.AutoCode.Server, "plugin", "maa", "plugin.go"),
+				PluginPath: filepath.Join(global.MAA_CONFIG.AutoCode.Root, global.MAA_CONFIG.AutoCode.Server, "plugin", "register.go"),
+				ImportPath: `"github.com/WangMi2022/mit-assets-admin/server/plugin/maa"`,
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := PluginInitializeV2{
+				Type:       tt.fields.Type,
+				Path:       tt.fields.Path,
+				PluginPath: tt.fields.PluginPath,
+				ImportPath: tt.fields.ImportPath,
+			}
+			file, err := a.Parse("", nil)
+			if err != nil {
+				t.Errorf("Parse() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			a.Injection(file)
+			err = a.Format("", nil, file)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Injection() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestPluginInitialize_Rollback(t *testing.T) {
+	type fields struct {
+		Type        Type
+		Path        string
+		PluginPath  string
+		ImportPath  string
+		PluginName  string
+		StructName  string
+		PackageName string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		wantErr bool
+	}{
+		{
+			name: "测试 Gva插件 回滚",
+			fields: fields{
+				Type:       TypePluginInitializeV2,
+				Path:       filepath.Join(global.MAA_CONFIG.AutoCode.Root, global.MAA_CONFIG.AutoCode.Server, "plugin", "maa", "plugin.go"),
+				PluginPath: filepath.Join(global.MAA_CONFIG.AutoCode.Root, global.MAA_CONFIG.AutoCode.Server, "plugin", "register.go"),
+				ImportPath: `"github.com/WangMi2022/mit-assets-admin/server/plugin/maa"`,
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := PluginInitializeV2{
+				Type:        tt.fields.Type,
+				Path:        tt.fields.Path,
+				PluginPath:  tt.fields.PluginPath,
+				ImportPath:  tt.fields.ImportPath,
+				StructName:  "Plugin",
+				PackageName: "maa",
+			}
+			file, err := a.Parse("", nil)
+			if err != nil {
+				t.Errorf("Parse() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			a.Rollback(file)
+			err = a.Format("", nil, file)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Rollback() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

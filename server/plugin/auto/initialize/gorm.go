@@ -1,0 +1,23 @@
+package initialize
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	autoModel "github.com/WangMi2022/mit-assets-admin/server/plugin/auto/model"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
+)
+
+func Gorm(ctx context.Context) {
+	err := global.MAA_DB.WithContext(ctx).AutoMigrate(
+		new(autoModel.SysAIWorkflowSession),
+		new(autoModel.SysAutoCodeHistory),
+		new(autoModel.SysAutoCodePackage),
+	)
+	if err != nil {
+		err = errors.Wrap(err, "register auto plugin tables failed")
+		zap.L().Error(fmt.Sprintf("%+v", err))
+	}
+}

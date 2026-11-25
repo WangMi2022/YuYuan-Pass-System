@@ -1,0 +1,137 @@
+package utils
+
+import (
+	"crypto/tls"
+	"fmt"
+	"net/smtp"
+	"strings"
+
+	serverConfig "github.com/WangMi2022/mit-assets-admin/server/config"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/email/global"
+
+	"github.com/jordan-wright/email"
+)
+
+//@author: [MiTo]
+//@function: Email
+//@description: Email发送方法
+//@param: subject string, body string
+//@return: error
+
+func Email(To, subject string, body string) error {
+	to := strings.Split(To, ",")
+	return send(to, subject, body)
+}
+
+//@author: [MiTo]
+//@function: ErrorToEmail
+//@description: 给email中间件错误发送邮件到指定邮箱
+//@param: subject string, body string
+//@return: error
+
+func ErrorToEmail(subject string, body string) error {
+	to := strings.Split(global.GlobalConfig.To, ",")
+	if to[len(to)-1] == "" { // 判断切片的最后一个元素是否为空,为空则移除
+		to = to[:len(to)-1]
+	}
+	return send(to, subject, body)
+}
+
+//@author: [MiTo]
+//@function: EmailTest
+//@description: Email测试方法
+//@param: subject string, body string
+//@return: error
+
+func EmailTest(subject string, body string) error {
+	to := []string{global.GlobalConfig.To}
+	return send(to, subject, body)
+}
+
+//@author: [MiTo]
+//@function: send
+//@description: Email发送方法
+//@param: subject string, body string
+//@return: error
+
+func send(to []string, subject string, body string) error {
+	return SendWithConfig(serverConfig.Email{
+		From:        global.GlobalConfig.From,
+		Host:        global.GlobalConfig.Host,
+		Secret:      global.GlobalConfig.Secret,
+		Nickname:    global.GlobalConfig.Nickname,
+		Port:        global.GlobalConfig.Port,
+		IsSSL:       global.GlobalConfig.IsSSL,
+		IsLoginAuth: global.GlobalConfig.IsLoginAuth,
+	}, to, subject, body)
+}
+
+// SendWithConfig sends one message using an explicit SMTP snapshot. It avoids
+// stale plugin state for runtime-managed verification settings.
+func SendWithConfig(configuration serverConfig.Email, to []string, subject string, body string) error {
+	from := configuration.From
+	nickname := configuration.Nickname
+	secret := configuration.Secret
+	host := configuration.Host
+	port := configuration.Port
+	isSSL := configuration.IsSSL
+	isLoginAuth := configuration.IsLoginAuth
+
+	var auth smtp.Auth
+	if isLoginAuth {
+		auth = LoginAuth(from, secret)
+	} else {
+		auth = smtp.PlainAuth("", from, secret, host)
+	}
+	e := email.NewEmail()
+	if nickname != "" {
+		e.From = fmt.Sprintf("%s <%s>", nickname, from)
+	} else {
+		e.From = from
+	}
+	e.To = to
+	e.Subject = subject
+	e.HTML = []byte(body)
+	var err error
+	hostAddr := fmt.Sprintf("%s:%d", host, port)
+	if isSSL {
+		err = e.SendWithTLS(hostAddr, auth, &tls.Config{ServerName: host})
+	} else {
+		err = e.Send(hostAddr, auth)
+	}
+	return err
+}
+
+// LoginAuth 用于IBM、微软邮箱服务器的LOGIN认证方式
+type loginAuth struct {
+	username, password string
+}
+
+func LoginAuth(username, password string) smtp.Auth {
+	return &loginAuth{username, password}
+}
+
+func (a *loginAuth) Start(server *smtp.ServerInfo) (string, []byte, error) {
+	return "LOGIN", []byte{}, nil
+}
+
+func (a *loginAuth) Next(fromServer []byte, more bool) ([]byte, error) {
+	if more {
+		switch string(fromServer) {
+		case "Username:":
+			return []byte(a.username), nil
+		case "Password:":
+			return []byte(a.password), nil
+		default:
+			// 邮箱服务器可能发送的其他提示信息
+			prompt := strings.ToLower(string(fromServer))
+			if strings.Contains(prompt, "username") || strings.Contains(prompt, "user") {
+				return []byte(a.username), nil
+			}
+			if strings.Contains(prompt, "password") || strings.Contains(prompt, "pass") {
+				return []byte(a.password), nil
+			}
+		}
+	}
+	return nil, nil
+}

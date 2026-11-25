@@ -1,0 +1,394 @@
+package system
+
+import (
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/WangMi2022/mit-assets-admin/server/model/common"
+	systemReq "github.com/WangMi2022/mit-assets-admin/server/model/system/request"
+
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/model/system"
+	"github.com/WangMi2022/mit-assets-admin/server/utils"
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+)
+
+//@author: [MiTo]
+//@function: Register
+//@description: 用户注册
+//@param: u model.SysUser
+//@return: userInter system.SysUser, err error
+
+type UserService struct{}
+
+var UserServiceApp = new(UserService)
+
+// maxBulkUserPageSize preserves the bounded bulk selector used by role and
+// token management without making every collection endpoint unbounded.
+const maxBulkUserPageSize = 1000
+
+var errAmbiguousLoginEmail = errors.New("邮箱对应多个账号，请使用用户名登录")
+
+func (userService *UserService) Register(u system.SysUser) (userInter system.SysUser, err error) {
+	var user system.SysUser
+	if !errors.Is(global.MAA_DB.Where("username = ?", u.Username).First(&user).Error, gorm.ErrRecordNotFound) { // 判断用户名是否注册
+		return userInter, errors.New("用户名已注册")
+	}
+	// 否则 附加uuid 密码hash加密 注册
+	u.Password = utils.BcryptHash(u.Password)
+	u.UUID = uuid.New()
+	err = global.MAA_DB.Create(&u).Error
+	return u, err
+}
+
+//@author: [MiTo]
+//@author: [MiTo]
+//@function: Login
+//@description: 用户登录
+//@param: u *model.SysUser
+//@return: err error, userInter *model.SysUser
+
+func (userService *UserService) Login(u *system.SysUser) (userInter *system.SysUser, err error) {
+	if nil == global.MAA_DB {
+		return nil, fmt.Errorf("db not init")
+	}
+
+	rawIdentifier := u.Username
+	identifier := strings.TrimSpace(rawIdentifier)
+	if identifier == "" {
+		return nil, errors.New("登录账号不能为空")
+	}
+
+	var user system.SysUser
+	loadByUsername := func(username string) error {
+		return global.MAA_DB.Where("username = ?", username).
+			Preload("Authorities").
+			Preload("Authority").
+			First(&user).Error
+	}
+	err = loadByUsername(rawIdentifier)
+	if errors.Is(err, gorm.ErrRecordNotFound) && identifier != rawIdentifier {
+		user = system.SysUser{}
+		err = loadByUsername(identifier)
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		var users []system.SysUser
+		err = global.MAA_DB.
+			Where("TRIM(email) <> '' AND LOWER(TRIM(email)) = LOWER(?)", identifier).
+			Limit(2).
+			Preload("Authorities").
+			Preload("Authority").
+			Find(&users).Error
+		if err != nil {
+			return nil, err
+		}
+		switch len(users) {
+		case 0:
+			return &user, gorm.ErrRecordNotFound
+		case 1:
+			user = users[0]
+		default:
+			return nil, errAmbiguousLoginEmail
+		}
+	} else if err != nil {
+		return &user, err
+	}
+
+	if ok := utils.BcryptCheck(u.Password, user.Password); !ok {
+		return nil, errors.New("密码错误")
+	}
+	MenuServiceApp.UserAuthorityDefaultRouter(&user)
+	return &user, nil
+}
+
+//@author: [MiTo]
+//@function: ChangePassword
+//@description: 修改用户密码
+//@param: u *model.SysUser, newPassword string
+//@return: err error
+
+func (userService *UserService) ChangePassword(u *system.SysUser, newPassword string) (err error) {
+	var user system.SysUser
+	err = global.MAA_DB.Select("id, password").Where("id = ?", u.ID).First(&user).Error
+	if err != nil {
+		return err
+	}
+	if ok := utils.BcryptCheck(u.Password, user.Password); !ok {
+		return errors.New("原密码错误")
+	}
+	pwd := utils.BcryptHash(newPassword)
+	err = global.MAA_DB.Model(&user).Updates(map[string]interface{}{
+		"password":         pwd,
+		"security_version": gorm.Expr("security_version + ?", 1),
+	}).Error
+	return err
+}
+
+//@author: [MiTo]
+//@function: GetUserInfoList
+//@description: 分页获取数据
+//@param: info request.PageInfo
+//@return: err error, list interface{}, total int64
+
+func (userService *UserService) GetUserInfoList(info systemReq.GetUserList) (list interface{}, total int64, err error) {
+	db := global.MAA_DB.Model(&system.SysUser{})
+	var userList []system.SysUser
+
+	if info.NickName != "" {
+		db = db.Where("nick_name LIKE ?", "%"+info.NickName+"%")
+	}
+	if info.Phone != "" {
+		db = db.Where("phone LIKE ?", "%"+info.Phone+"%")
+	}
+	if info.Username != "" {
+		db = db.Where("username LIKE ?", "%"+info.Username+"%")
+	}
+	if info.Email != "" {
+		db = db.Where("email LIKE ?", "%"+info.Email+"%")
+	}
+
+	err = db.Count(&total).Error
+	if err != nil {
+		return
+	}
+
+	orderStr := "id desc"
+	if info.OrderKey != "" {
+		allowedOrders := map[string]bool{
+			"id":        true,
+			"username":  true,
+			"nick_name": true,
+			"phone":     true,
+			"email":     true,
+		}
+		if allowedOrders[info.OrderKey] {
+			orderStr = info.OrderKey
+			if info.Desc {
+				orderStr = info.OrderKey + " desc"
+			}
+		}
+	}
+
+	err = db.Scopes(info.PaginateWithMax(maxBulkUserPageSize)).Order(orderStr).Preload("Authorities").Preload("Authority").Find(&userList).Error
+	return userList, total, err
+}
+
+//@author: [MiTo]
+//@function: SetUserAuthority
+//@description: 设置一个用户的权限
+//@param: uuid uuid.UUID, authorityId string
+//@return: err error
+
+func (userService *UserService) SetUserAuthority(id uint, authorityId uint) (err error) {
+
+	assignErr := global.MAA_DB.Where("sys_user_id = ? AND sys_authority_authority_id = ?", id, authorityId).First(&system.SysUserAuthority{}).Error
+	if errors.Is(assignErr, gorm.ErrRecordNotFound) {
+		return errors.New("该用户无此角色")
+	}
+
+	var authority system.SysAuthority
+	err = global.MAA_DB.Where("authority_id = ?", authorityId).First(&authority).Error
+	if err != nil {
+		return err
+	}
+	var authorityMenu []system.SysAuthorityMenu
+	var authorityMenuIDs []string
+	err = global.MAA_DB.Where("sys_authority_authority_id = ?", authorityId).Find(&authorityMenu).Error
+	if err != nil {
+		return err
+	}
+
+	for i := range authorityMenu {
+		authorityMenuIDs = append(authorityMenuIDs, authorityMenu[i].MenuId)
+	}
+
+	var authorityMenus []system.SysBaseMenu
+	err = global.MAA_DB.Preload("Parameters").Where("id in (?)", authorityMenuIDs).Find(&authorityMenus).Error
+	if err != nil {
+		return err
+	}
+	hasMenu := false
+	for i := range authorityMenus {
+		if authorityMenus[i].Name == authority.DefaultRouter {
+			hasMenu = true
+			break
+		}
+	}
+	if !hasMenu {
+		return errors.New("找不到默认路由,无法切换本角色")
+	}
+
+	err = global.MAA_DB.Model(&system.SysUser{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"authority_id":     authorityId,
+		"security_version": gorm.Expr("security_version + ?", 1),
+	}).Error
+	return err
+}
+
+//@author: [MiTo]
+//@function: SetUserAuthorities
+//@description: 设置一个用户的权限
+//@param: id uint, authorityIds []string
+//@return: err error
+
+func (userService *UserService) SetUserAuthorities(adminAuthorityID, id uint, authorityIds []uint) (err error) {
+	return global.MAA_DB.Transaction(func(tx *gorm.DB) error {
+		var user system.SysUser
+		TxErr := tx.Where("id = ?", id).First(&user).Error
+		if TxErr != nil {
+			global.MAA_LOG.Debug(TxErr.Error())
+			return errors.New("查询用户数据失败")
+		}
+		TxErr = tx.Delete(&[]system.SysUserAuthority{}, "sys_user_id = ?", id).Error
+		if TxErr != nil {
+			return TxErr
+		}
+		var useAuthority []system.SysUserAuthority
+		for _, v := range authorityIds {
+			e := AuthorityServiceApp.CheckAuthorityIDAuth(adminAuthorityID, v)
+			if e != nil {
+				return e
+			}
+			useAuthority = append(useAuthority, system.SysUserAuthority{
+				SysUserId: id, SysAuthorityAuthorityId: v,
+			})
+		}
+		TxErr = tx.Create(&useAuthority).Error
+		if TxErr != nil {
+			return TxErr
+		}
+		TxErr = tx.Model(&user).Updates(map[string]interface{}{
+			"authority_id":     authorityIds[0],
+			"security_version": gorm.Expr("security_version + ?", 1),
+		}).Error
+		if TxErr != nil {
+			return TxErr
+		}
+		// 返回 nil 提交事务
+		return nil
+	})
+}
+
+//@author: [MiTo]
+//@function: DeleteUser
+//@description: 删除用户
+//@param: id float64
+//@return: err error
+
+func (userService *UserService) DeleteUser(id int) (err error) {
+	return global.MAA_DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("id = ?", id).Delete(&system.SysUser{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Delete(&[]system.SysUserAuthority{}, "sys_user_id = ?", id).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+//@author: [MiTo]
+//@function: SetUserInfo
+//@description: 设置用户信息
+//@param: reqUser model.SysUser
+//@return: err error, user model.SysUser
+
+func (userService *UserService) SetUserInfo(req system.SysUser) error {
+	return global.MAA_DB.Model(&system.SysUser{}).
+		Select("updated_at", "nick_name", "header_img", "phone", "email", "enable", "security_version").
+		Where("id=?", req.ID).
+		Updates(map[string]interface{}{
+			"updated_at":       time.Now(),
+			"nick_name":        req.NickName,
+			"header_img":       req.HeaderImg,
+			"phone":            req.Phone,
+			"email":            req.Email,
+			"enable":           req.Enable,
+			"security_version": gorm.Expr("security_version + ?", 1),
+		}).Error
+}
+
+//@author: [MiTo]
+//@function: SetSelfInfo
+//@description: 设置用户信息
+//@param: reqUser model.SysUser
+//@return: err error, user model.SysUser
+
+func (userService *UserService) SetSelfInfo(req system.SysUser) error {
+	return global.MAA_DB.Model(&system.SysUser{}).
+		Where("id=?", req.ID).
+		Updates(map[string]interface{}{
+			"nick_name":  req.NickName,
+			"header_img": req.HeaderImg,
+		}).Error
+}
+
+//@author: [MiTo]
+//@function: SetSelfSetting
+//@description: 设置用户配置
+//@param: req datatypes.JSON, uid uint
+//@return: err error
+
+func (userService *UserService) SetSelfSetting(req common.JSONMap, uid uint) error {
+	return global.MAA_DB.Model(&system.SysUser{}).Where("id = ?", uid).Update("origin_setting", req).Error
+}
+
+//@author: [MiTo]
+//@author: [MiTo]
+//@function: GetUserInfo
+//@description: 获取用户信息
+//@param: uuid uuid.UUID
+//@return: err error, user system.SysUser
+
+func (userService *UserService) GetUserInfo(uuid uuid.UUID) (user system.SysUser, err error) {
+	var reqUser system.SysUser
+	err = global.MAA_DB.Preload("Authorities").Preload("Authority").First(&reqUser, "uuid = ?", uuid).Error
+	if err != nil {
+		return reqUser, err
+	}
+	MenuServiceApp.UserAuthorityDefaultRouter(&reqUser)
+	return reqUser, err
+}
+
+//@author: [MiTo]
+//@function: FindUserById
+//@description: 通过id获取用户信息
+//@param: id int
+//@return: err error, user *model.SysUser
+
+func (userService *UserService) FindUserById(id int) (user *system.SysUser, err error) {
+	var u system.SysUser
+	err = global.MAA_DB.Where("id = ?", id).First(&u).Error
+	return &u, err
+}
+
+//@author: [MiTo]
+//@function: FindUserByUuid
+//@description: 通过uuid获取用户信息
+//@param: uuid string
+//@return: err error, user *model.SysUser
+
+func (userService *UserService) FindUserByUuid(uuid string) (user *system.SysUser, err error) {
+	var u system.SysUser
+	if err = global.MAA_DB.Where("uuid = ?", uuid).First(&u).Error; err != nil {
+		return &u, errors.New("用户不存在")
+	}
+	return &u, nil
+}
+
+//@author: [MiTo]
+//@function: ResetPassword
+//@description: 修改用户密码
+//@param: ID uint
+//@return: err error
+
+func (userService *UserService) ResetPassword(ID uint, password string) (err error) {
+	err = global.MAA_DB.Model(&system.SysUser{}).Where("id = ?", ID).Updates(map[string]interface{}{
+		"password":         utils.BcryptHash(password),
+		"security_version": gorm.Expr("security_version + ?", 1),
+	}).Error
+	return err
+}

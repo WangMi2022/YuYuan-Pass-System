@@ -1,0 +1,14 @@
+import service from '@/utils/request'
+
+export const getAIProviders = () => service({ url: '/ai/providers', method: 'get' })
+export const updateAIProviders = (data) => service({ url: '/ai/providers', method: 'put', data })
+export const getAIInvoiceRecognition = () => service({ url: '/ai/invoice-recognition', method: 'get' })
+export const updateAIInvoiceRecognition = (data) => service({ url: '/ai/invoice-recognition', method: 'put', data })
+export const testAIInvoiceRecognition = (data) => service({ url: '/ai/invoice-recognition/test', method: 'post', data })
+export const getAIUsageSummary = () => service({ url: '/ai/usage/summary', method: 'get' })
+export const getAIInvocations = (params) => service({ url: '/ai/invocations', method: 'get', params })
+export const getAIQuotas = (params) => service({ url: '/ai/quotas', method: 'get', params })
+export const saveAIQuota = (data) => service({ url: '/ai/quotas', method: 'put', data })
+export const getAIPrompts = (params) => service({ url: '/ai/prompts', method: 'get', params })
+export const createAIPrompt = (data) => service({ url: '/ai/prompts', method: 'post', data })
+export const activateAIPrompt = (data) => service({ url: '/ai/prompts/activate', method: 'put', data })

@@ -1,0 +1,111 @@
+package reportemail
+
+import (
+	"strings"
+	"testing"
+
+	serverConfig "github.com/WangMi2022/mit-assets-admin/server/config"
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+)
+
+func TestSendToSystemInboxUsesRuntimeConfigAndSanitizesContent(t *testing.T) {
+	global.MAA_CONFIG_LOCK.Lock()
+	previousEmail := global.MAA_CONFIG.Email
+	global.MAA_CONFIG.Email = serverConfig.Email{
+		To:     "Leader <Leader@Example.com>, audit@example.com, leader@example.com",
+		From:   "sender@example.com",
+		Host:   "smtp.example.com",
+		Secret: "smtp-secret",
+		Port:   465,
+		IsSSL:  true,
+	}
+	global.MAA_CONFIG_LOCK.Unlock()
+	previousSender := sendSMTP
+	t.Cleanup(func() {
+		global.MAA_CONFIG_LOCK.Lock()
+		global.MAA_CONFIG.Email = previousEmail
+		global.MAA_CONFIG_LOCK.Unlock()
+		sendSMTP = previousSender
+	})
+
+	var actualRecipients []string
+	var actualBody string
+	sendSMTP = func(configuration serverConfig.Email, recipients []string, subject, body string) error {
+		if configuration.Host != "smtp.example.com" || subject != "风险报告 - 2026-08-21" {
+			t.Fatalf("unexpected email request: host=%q subject=%q", configuration.Host, subject)
+		}
+		actualRecipients = append([]string(nil), recipients...)
+		actualBody = body
+		return nil
+	}
+
+	err := SendToSystemInbox(Message{
+		Subject:  "风险报告 - 2026-08-21",
+		Title:    "风险报告<script>",
+		Subtitle: "生成时间：2026-08-21 14:05:06",
+		Body:     "开放风险 3 条\n<script>alert('x')</script>",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(actualRecipients) != 2 || actualRecipients[0] != "leader@example.com" || actualRecipients[1] != "audit@example.com" {
+		t.Fatalf("unexpected recipients: %#v", actualRecipients)
+	}
+	if strings.Contains(actualBody, "<script>") || !strings.Contains(actualBody, "&lt;script&gt;") || !strings.Contains(actualBody, "2026-08-21 14:05:06") {
+		t.Fatalf("report email body was not rendered safely: %q", actualBody)
+	}
+}
+
+func TestSendToSystemInboxRejectsMissingRecipients(t *testing.T) {
+	global.MAA_CONFIG_LOCK.Lock()
+	previousEmail := global.MAA_CONFIG.Email
+	global.MAA_CONFIG.Email = serverConfig.Email{
+		From: "sender@example.com", Host: "smtp.example.com", Secret: "smtp-secret", Port: 465,
+	}
+	global.MAA_CONFIG_LOCK.Unlock()
+	t.Cleanup(func() {
+		global.MAA_CONFIG_LOCK.Lock()
+		global.MAA_CONFIG.Email = previousEmail
+		global.MAA_CONFIG_LOCK.Unlock()
+	})
+
+	err := SendToSystemInbox(Message{Subject: "日报", Title: "日报", Body: "正文"})
+	if err == nil || !strings.Contains(err.Error(), "基础设置") {
+		t.Fatalf("expected a configured-recipient error, got %v", err)
+	}
+}
+
+func TestRenderHTMLRendersSafeMarkdown(t *testing.T) {
+	body := renderHTML(Message{
+		Title: "智能日报",
+		Body: `# 智能日报
+
+## 一、核心概览
+- **开放风险**：3 条
+- 待复核发票：2 张
+
+<script>alert('x')</script>`,
+	})
+
+	for _, expected := range []string{"<h2", "一、核心概览", "<ul", "<strong", "开放风险"} {
+		if !strings.Contains(body, expected) {
+			t.Fatalf("rendered email is missing %q: %s", expected, body)
+		}
+	}
+	if strings.Contains(body, "<script>") || !strings.Contains(body, "&lt;script&gt;") {
+		t.Fatalf("rendered email did not neutralize raw HTML: %s", body)
+	}
+	if strings.Contains(body, "# 智能日报") || strings.Contains(body, "**开放风险**") {
+		t.Fatalf("rendered email still contains raw Markdown: %s", body)
+	}
+}
+
+func TestRenderHTMLRemovesDuplicateDailyTitle(t *testing.T) {
+	body := renderHTML(Message{Title: "智能日报", Body: "# 今日智能日报\n\n## 一、资产运营\n完整内容。"})
+	if strings.Contains(body, "今日智能日报</h2>") {
+		t.Fatalf("duplicate daily title should be removed: %s", body)
+	}
+	if !strings.Contains(body, "一、资产运营") {
+		t.Fatalf("daily report content was removed with title: %s", body)
+	}
+}

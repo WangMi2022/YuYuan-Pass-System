@@ -1,0 +1,105 @@
+/*
+ * Element Plus variable bridge: maps --el-* onto the --na-* tokens so every
+ * EP component follows the theme. Loaded after element-plus/dist/index.css
+ * and the official dark css-vars, so plain re-declaration wins.
+ *
+ * --el-color-primary and its light/dark ramps are ALSO injected inline at
+ * runtime by setBodyPrimaryColor; the values here are first-paint fallbacks.
+ */
+
+:root {
+  --el-color-primary: var(--na-primary);
+  --el-color-primary-light-3: #9186fc;
+  --el-color-primary-light-5: #b6affd;
+  --el-color-primary-light-7: #d3cefe;
+  --el-color-primary-light-8: #e2dffe;
+  --el-color-primary-light-9: #f0edff;
+  --el-color-primary-dark-2: var(--na-primary-hover);
+
+  --el-color-success: var(--na-success);
+  --el-color-warning: var(--na-warning);
+  --el-color-danger: var(--na-danger);
+  --el-color-error: var(--na-danger);
+  --el-color-info: var(--na-muted-foreground);
+
+  --el-bg-color: var(--na-card);
+  --el-bg-color-page: var(--na-background);
+  --el-bg-color-overlay: var(--na-popover);
+
+  --el-text-color-primary: var(--na-foreground);
+  --el-text-color-regular: color-mix(in srgb, var(--na-foreground) 82%, var(--na-muted-foreground));
+  --el-text-color-secondary: var(--na-muted-foreground);
+  --el-text-color-placeholder: var(--na-muted-foreground);
+  --el-text-color-disabled: color-mix(in srgb, var(--na-muted-foreground) 50%, transparent);
+
+  --el-border-color: var(--na-border-strong);
+  --el-border-color-light: var(--na-border);
+  --el-border-color-lighter: var(--na-border);
+  --el-border-color-extra-light: color-mix(in srgb, var(--na-border) 55%, transparent);
+
+  --el-fill-color: var(--na-muted);
+  --el-fill-color-light: var(--na-muted);
+  --el-fill-color-lighter: color-mix(in srgb, var(--na-muted) 60%, var(--na-card));
+  --el-fill-color-extra-light: color-mix(in srgb, var(--na-muted) 40%, var(--na-card));
+  --el-fill-color-blank: var(--na-card);
+  --el-fill-color-dark: color-mix(in srgb, var(--na-muted) 82%, var(--na-foreground) 4%);
+
+  --el-border-radius-base: 10px;
+  --el-border-radius-small: 8px;
+  --el-border-radius-round: 999px;
+  --el-component-size: 36px;
+  --el-component-size-small: 30px;
+  --el-component-size-large: 42px;
+
+  --el-box-shadow-light: var(--na-shadow-sm);
+  --el-box-shadow: var(--na-shadow-md);
+  --el-box-shadow-dark: var(--na-shadow-md);
+  --el-mask-color: rgb(9 9 11 / 45%);
+
+  --el-font-family: var(--na-font-sans);
+  --el-menu-hover-bg-color: var(--na-muted);
+}
+
+/* Re-assert on dark so this bridge outranks EP's official dark css-vars. */
+html.dark {
+  --el-color-primary: var(--na-primary);
+  --el-color-primary-light-3: #8b7ff6;
+  --el-color-primary-light-5: #6259a8;
+  --el-color-primary-light-7: #433d70;
+  --el-color-primary-light-8: #342f54;
+  --el-color-primary-light-9: #29263e;
+  --el-color-primary-dark-2: var(--na-primary-hover);
+
+  --el-color-success: var(--na-success);
+  --el-color-warning: var(--na-warning);
+  --el-color-danger: var(--na-danger);
+  --el-color-error: var(--na-danger);
+  --el-color-info: var(--na-muted-foreground);
+
+  --el-bg-color: var(--na-card);
+  --el-bg-color-page: var(--na-background);
+  --el-bg-color-overlay: var(--na-popover);
+
+  --el-text-color-primary: var(--na-foreground);
+  --el-text-color-regular: color-mix(in srgb, var(--na-foreground) 82%, var(--na-muted-foreground));
+  --el-text-color-secondary: var(--na-muted-foreground);
+  --el-text-color-placeholder: color-mix(in srgb, var(--na-muted-foreground) 62%, transparent);
+  --el-text-color-disabled: color-mix(in srgb, var(--na-muted-foreground) 50%, transparent);
+
+  --el-border-color: var(--na-border-strong);
+  --el-border-color-light: var(--na-border);
+  --el-border-color-lighter: var(--na-border);
+  --el-border-color-extra-light: color-mix(in srgb, var(--na-border) 55%, transparent);
+
+  --el-fill-color: var(--na-muted);
+  --el-fill-color-light: var(--na-muted);
+  --el-fill-color-lighter: color-mix(in srgb, var(--na-muted) 60%, var(--na-card));
+  --el-fill-color-extra-light: color-mix(in srgb, var(--na-muted) 40%, var(--na-card));
+  --el-fill-color-blank: var(--na-card);
+  --el-fill-color-dark: color-mix(in srgb, var(--na-muted) 82%, var(--na-foreground) 4%);
+
+  --el-box-shadow-light: var(--na-shadow-sm);
+  --el-box-shadow: var(--na-shadow-md);
+  --el-box-shadow-dark: var(--na-shadow-md);
+  --el-mask-color: rgb(0 0 0 / 60%);
+}

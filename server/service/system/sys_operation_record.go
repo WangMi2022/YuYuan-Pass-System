@@ -1,0 +1,90 @@
+package system
+
+import (
+	"context"
+	"time"
+
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/model/common/request"
+	"github.com/WangMi2022/mit-assets-admin/server/model/system"
+	systemReq "github.com/WangMi2022/mit-assets-admin/server/model/system/request"
+)
+
+//@author: [MiTo]
+//@function: CreateSysOperationRecord
+//@description: 创建记录
+//@param: sysOperationRecord model.SysOperationRecord
+//@return: err error
+
+type OperationRecordService struct{}
+
+var OperationRecordServiceApp = new(OperationRecordService)
+
+//@author: [MiTo]
+//@author: [MiTo]
+//@function: DeleteSysOperationRecordByIds
+//@description: 批量删除记录
+//@param: ids request.IdsReq
+//@return: err error
+
+func (operationRecordService *OperationRecordService) DeleteSysOperationRecordByIds(ids request.IdsReq) (err error) {
+	err = global.MAA_DB.Delete(&[]system.SysOperationRecord{}, "id in (?)", ids.Ids).Error
+	return err
+}
+
+// ClearOperationRecords 永久清理指定时间范围内的操作历史；边界均为空时清空全部。
+func (operationRecordService *OperationRecordService) ClearOperationRecords(ctx context.Context, startTime, endTime *time.Time) (deleted int64, err error) {
+	return clearAuditLogs(ctx, &system.SysOperationRecord{}, startTime, endTime)
+}
+
+//@author: [MiTo]
+//@function: DeleteSysOperationRecord
+//@description: 删除操作记录
+//@param: sysOperationRecord model.SysOperationRecord
+//@return: err error
+
+func (operationRecordService *OperationRecordService) DeleteSysOperationRecord(sysOperationRecord system.SysOperationRecord) (err error) {
+	err = global.MAA_DB.Delete(&sysOperationRecord).Error
+	return err
+}
+
+//@author: [MiTo]
+//@function: GetSysOperationRecord
+//@description: 根据id获取单条操作记录
+//@param: id uint
+//@return: sysOperationRecord system.SysOperationRecord, err error
+
+func (operationRecordService *OperationRecordService) GetSysOperationRecord(id uint) (sysOperationRecord system.SysOperationRecord, err error) {
+	err = global.MAA_DB.Where("id = ?", id).First(&sysOperationRecord).Error
+	return
+}
+
+//@author: [MiTo]
+//@author: [MiTo]
+//@function: GetSysOperationRecordInfoList
+//@description: 分页获取操作记录列表
+//@param: info systemReq.SysOperationRecordSearch
+//@return: list interface{}, total int64, err error
+
+func (operationRecordService *OperationRecordService) GetSysOperationRecordInfoList(info systemReq.SysOperationRecordSearch) (list interface{}, total int64, err error) {
+	// 创建db
+	db := global.MAA_DB.Model(&system.SysOperationRecord{})
+	var sysOperationRecords []system.SysOperationRecord
+	// 如果有条件搜索 下方会自动创建搜索语句
+	if info.Method != "" {
+		db = db.Where("method = ?", info.Method)
+	}
+	if info.Path != "" {
+		db = db.Where("path LIKE ?", "%"+info.Path+"%")
+	}
+	if info.Status != 0 {
+		db = db.Where("status = ?", info.Status)
+	}
+	db = applyAuditLogTimeRange(db, info.StartTime, info.EndTime)
+	err = db.Count(&total).Error
+	if err != nil {
+		return
+	}
+	err = db.Order("id desc").Scopes(info.Paginate()).Preload("User").Find(&sysOperationRecords).Error
+	return sysOperationRecords, total, err
+}

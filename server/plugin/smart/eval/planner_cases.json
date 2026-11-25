@@ -1,0 +1,27 @@
+[
+  {
+    "name": "schedule-and-announcement",
+    "question": "今天有哪些日程和未读公告？",
+    "expectedTools": ["schedule.today", "announcement.unread"]
+  },
+  {
+    "name": "today-invoice-without-schedule",
+    "question": "今天有多少待复核发票？",
+    "expectedTools": ["invoice.pending_reviews"]
+  },
+  {
+    "name": "knowledge-policy",
+    "question": "知识库里的报销制度怎么规定？",
+    "expectedTools": ["knowledge.search"]
+  },
+  {
+    "name": "asset-warranty",
+    "question": "查询未来质保到期的资产",
+    "expectedTools": ["asset.warranty.expiring"]
+  },
+  {
+    "name": "invoice-quality",
+    "question": "查看发票识别 Provider 质量",
+    "expectedTools": ["invoice.provider_quality"]
+  }
+]

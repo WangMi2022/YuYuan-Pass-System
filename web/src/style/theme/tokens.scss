@@ -1,0 +1,143 @@
+/*
+ * Design tokens — the single source of truth for the SaaS theme.
+ * Light values on :root, dark values on html.dark.
+ *
+ * Primary tokens (--na-primary and friends, --na-chart-1) are re-injected at
+ * runtime by setBodyPrimaryColor (src/utils/format.js) whenever the user picks
+ * a theme color; values here are first-paint fallbacks and must stay in sync
+ * with the default primaryColor in src/pinia/modules/app.js.
+ */
+
+:root {
+  /* surfaces */
+  --na-background: #f6f5fa;
+  --na-foreground: #19172c;
+  --na-card: #ffffff;
+  --na-card-foreground: #19172c;
+  --na-popover: #ffffff;
+  --na-muted: #f3f2f7;
+  --na-muted-foreground: #706b82;
+
+  /* primary — runtime-injected, fallback = indigo */
+  --na-primary: #6d5dfb;
+  --na-on-primary: #ffffff;
+  --na-primary-hover: #5948eb;
+  --na-primary-soft: rgb(109 93 251 / 10%);
+  --na-accent: rgb(109 93 251 / 12%);
+  --na-accent-foreground: #5543e9;
+  --na-ring: rgb(109 93 251 / 20%);
+
+  /* lines */
+  --na-border: #e2e0ec;
+  --na-border-strong: #d5d1e2;
+  --na-input: #d5d1e2;
+
+  /* status */
+  --na-success: #059669;
+  --na-success-soft: rgb(5 150 105 / 10%);
+  --na-action-success: #047857;
+  --na-on-success: #ffffff;
+  --na-warning: #d97706;
+  --na-warning-soft: rgb(217 119 6 / 12%);
+  --na-action-warning: #b45309;
+  --na-on-warning: #ffffff;
+  --na-danger: #dc2626;
+  --na-danger-soft: rgb(220 38 38 / 10%);
+  --na-action-danger: #b91c1c;
+  --na-on-danger: #ffffff;
+  --na-info: #0284c7;
+  --na-info-soft: rgb(2 132 199 / 10%);
+  --na-action-info: #0369a1;
+  --na-on-info: #ffffff;
+
+  /* categorical chart palette — chart-1 follows the primary color at runtime */
+  --na-chart-1: #6d5dfb;
+  --na-chart-2: #0ea5e9;
+  --na-chart-3: #10b981;
+  --na-chart-4: #f59e0b;
+  --na-chart-5: #8b5cf6;
+  --na-chart-6: #f43f5e;
+  --na-chart-grid: #ececee;
+  --na-chart-label: #71717a;
+
+  /* shell */
+  --na-sidebar: #ffffff;
+  --na-sidebar-border: #e2e0ec;
+  --na-table-header: #faf9fc;
+  --na-table-hover: #f6f4fc;
+
+  /* geometry & depth */
+  --na-radius: 14px;
+  --na-radius-sm: 9px;
+  --na-radius-lg: 14px;
+  --na-shadow-sm: 0 2px 4px rgb(53 45 111 / 4%);
+  --na-shadow-md: 0 12px 28px rgb(53 45 111 / 10%);
+  --na-header-height: 62px;
+  --na-tabs-height: 38px;
+  --na-bottom-navigation-height: 56px;
+
+  /* spacing — 4pt product rhythm */
+  --na-space-2xs: 4px;
+  --na-space-xs: 8px;
+  --na-space-sm: 12px;
+  --na-space-md: 16px;
+  --na-space-lg: 24px;
+  --na-space-xl: 32px;
+  --na-space-2xl: 48px;
+  --na-space-3xl: 64px;
+
+  --na-font-sans: 'Avenir Next', Avenir, 'Segoe UI', 'PingFang SC',
+    'Microsoft YaHei', ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+html.dark {
+  /* surfaces */
+  --na-background: #0d0d12;
+  --na-foreground: #fafafa;
+  --na-card: #14141a;
+  --na-card-foreground: #fafafa;
+  --na-popover: #1c1b24;
+  --na-muted: #201f28;
+  --na-muted-foreground: #a1a1aa;
+
+  /* primary fallbacks (runtime override still applies) */
+  --na-primary-soft: rgb(109 93 251 / 16%);
+  --na-accent: rgb(109 93 251 / 20%);
+  --na-accent-foreground: #a5b4fc;
+  --na-ring: rgb(109 93 251 / 28%);
+
+  /* lines */
+  --na-border: #2b2934;
+  --na-border-strong: #44414e;
+  --na-input: #44414e;
+
+  /* status — lifted for dark surfaces */
+  --na-success: #34d399;
+  --na-success-soft: rgb(52 211 153 / 14%);
+  --na-action-success: #34d399;
+  --na-on-success: #052e16;
+  --na-warning: #fbbf24;
+  --na-warning-soft: rgb(251 191 36 / 14%);
+  --na-action-warning: #fbbf24;
+  --na-on-warning: #422006;
+  --na-danger: #f87171;
+  --na-danger-soft: rgb(248 113 113 / 14%);
+  --na-action-danger: #f87171;
+  --na-on-danger: #450a0a;
+  --na-info: #38bdf8;
+  --na-info-soft: rgb(56 189 248 / 14%);
+  --na-action-info: #38bdf8;
+  --na-on-info: #082f49;
+
+  --na-chart-grid: #232327;
+  --na-chart-label: #a1a1aa;
+
+  /* shell */
+  --na-sidebar: #101015;
+  --na-sidebar-border: #2b2934;
+  --na-table-header: #19181f;
+  --na-table-hover: #201f28;
+
+  --na-shadow-sm: 0 2px 6px rgb(0 0 0 / 42%);
+  --na-shadow-md: 0 12px 34px rgb(0 0 0 / 48%);
+}

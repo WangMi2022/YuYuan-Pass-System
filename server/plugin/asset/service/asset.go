@@ -1,0 +1,280 @@
+package service
+
+import (
+	"errors"
+	"math"
+	"strings"
+
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/asset/model"
+	assetRequest "github.com/WangMi2022/mit-assets-admin/server/plugin/asset/model/request"
+	assetResponse "github.com/WangMi2022/mit-assets-admin/server/plugin/asset/model/response"
+	"gorm.io/gorm"
+)
+
+var Asset = new(assetService)
+
+type assetService struct{}
+
+var allowedStatuses = map[string]struct{}{
+	model.AssetStatusPendingInbound: {},
+	model.AssetStatusIdle:           {},
+	model.AssetStatusInUse:          {},
+	model.AssetStatusMaintenance:    {},
+	model.AssetStatusRetired:        {},
+}
+
+func money(value float64) float64 { return math.Round(value*100) / 100 }
+
+func prepareAsset(asset *model.Asset, creating bool) error {
+	asset.AssetCode = strings.ToUpper(strings.TrimSpace(asset.AssetCode))
+	asset.Name = strings.TrimSpace(asset.Name)
+	asset.Brand = strings.TrimSpace(asset.Brand)
+	asset.Model = strings.TrimSpace(asset.Model)
+	asset.SerialNumber = strings.TrimSpace(asset.SerialNumber)
+	asset.Specifications = strings.TrimSpace(asset.Specifications)
+	asset.Unit = strings.TrimSpace(asset.Unit)
+	if asset.AssetCode == "" || asset.Name == "" {
+		return errors.New("资产编号和资产名称不能为空")
+	}
+	if asset.CategoryID == 0 {
+		return errors.New("请选择资产分类")
+	}
+	if asset.Quantity <= 0 {
+		return errors.New("资产数量必须大于 0")
+	}
+	if asset.UnitPrice < 0 || asset.CurrentValue < 0 {
+		return errors.New("金额不能为负数")
+	}
+	if asset.Unit == "" {
+		asset.Unit = "件"
+	}
+	if creating {
+		asset.Status = model.AssetStatusPendingInbound
+		asset.Location = ""
+		asset.Custodian = ""
+	}
+	if asset.Status != "" {
+		if _, ok := allowedStatuses[asset.Status]; !ok {
+			return errors.New("资产状态不合法")
+		}
+	}
+	asset.OriginalValue = money(float64(asset.Quantity) * asset.UnitPrice)
+	asset.UnitPrice = money(asset.UnitPrice)
+	asset.CurrentValue = money(asset.CurrentValue)
+	if creating && asset.CurrentValue == 0 && asset.OriginalValue > 0 && asset.Status != model.AssetStatusRetired {
+		asset.CurrentValue = asset.OriginalValue
+	}
+	if asset.CurrentValue > asset.OriginalValue && asset.OriginalValue > 0 {
+		return errors.New("当前估值不能高于资产原值")
+	}
+	return nil
+}
+
+func (s *assetService) Create(asset *model.Asset) error {
+	return s.createWithDB(global.MAA_DB, asset)
+}
+
+func (s *assetService) createWithDB(db *gorm.DB, asset *model.Asset) error {
+	if err := prepareAsset(asset, true); err != nil {
+		return err
+	}
+	var count int64
+	if err := db.Model(&model.Category{}).Where("id = ? AND enabled = ?", asset.CategoryID, true).Count(&count).Error; err != nil {
+		return err
+	}
+	if count == 0 {
+		return errors.New("资产分类不存在或已停用")
+	}
+	if err := db.Create(asset).Error; err != nil {
+		message := strings.ToLower(err.Error())
+		if strings.Contains(message, "duplicate") || strings.Contains(message, "unique constraint") || strings.Contains(message, "sqlstate 23505") {
+			return errors.New("资产编号已存在")
+		}
+		return err
+	}
+	model.NormalizeAssetPhotos(asset)
+	if len(asset.Photos) > 0 {
+		if err := db.Model(&model.Asset{}).Where("id = ?", asset.ID).Select("Photos").Updates(asset).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *assetService) Update(asset *model.Asset) error {
+	if asset.ID == 0 {
+		return errors.New("缺少资产 ID")
+	}
+	if err := prepareAsset(asset, false); err != nil {
+		return err
+	}
+	model.NormalizeAssetPhotos(asset)
+	fields := []string{
+		"AssetCode", "Name", "CategoryID", "Brand", "Model", "SerialNumber", "Specifications", "ProductionDate",
+		"Quantity", "Unit", "UnitPrice", "OriginalValue", "CurrentValue",
+		"Supplier", "PurchaseDate", "WarrantyEndDate", "Photos", "Remarks",
+	}
+	result := global.MAA_DB.Model(&model.Asset{}).Where("id = ?", asset.ID).Select(fields).Updates(asset)
+	if result.Error != nil {
+		if strings.Contains(strings.ToLower(result.Error.Error()), "duplicate") {
+			return errors.New("资产编号已存在")
+		}
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (s *assetService) Delete(id uint) error {
+	if id == 0 {
+		return errors.New("缺少资产 ID")
+	}
+	var operationCount int64
+	if err := global.MAA_DB.Model(&model.AssetOperationRecord{}).Where("asset_id = ?", id).Count(&operationCount).Error; err != nil {
+		return err
+	}
+	if operationCount > 0 {
+		return errors.New("该资产已有流转记录，不能删除")
+	}
+	var draftItemCount int64
+	if err := global.MAA_DB.Model(&model.AssetOperationItem{}).Where("asset_id = ?", id).Count(&draftItemCount).Error; err != nil {
+		return err
+	}
+	if draftItemCount > 0 {
+		return errors.New("该资产已被业务草稿引用，请先删除相关草稿")
+	}
+	result := global.MAA_DB.Delete(&model.Asset{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (s *assetService) Get(id uint) (model.Asset, error) {
+	var asset model.Asset
+	err := global.MAA_DB.Preload("Category").First(&asset, id).Error
+	if err == nil {
+		model.NormalizeAssetPhotos(&asset)
+	}
+	return asset, err
+}
+
+func (s *assetService) List(search assetRequest.AssetSearch) ([]model.Asset, int64, error) {
+	return s.list(search, "")
+}
+
+// ListByCustodian keeps holder queries separate from matches in asset names or
+// models. A bare name also matches a department-qualified holder with that name.
+func (s *assetService) ListByCustodian(search assetRequest.AssetSearch, custodian string) ([]model.Asset, int64, error) {
+	custodian = strings.TrimSpace(custodian)
+	if custodian == "" {
+		return nil, 0, errors.New("请提供保管人")
+	}
+	return s.list(search, custodian)
+}
+
+func (s *assetService) list(search assetRequest.AssetSearch, custodian string) ([]model.Asset, int64, error) {
+	var list []model.Asset
+	var total int64
+	db := global.MAA_DB.Model(&model.Asset{})
+	if custodian != "" {
+		escaped := strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(custodian)
+		if strings.Contains(custodian, "-") {
+			db = db.Where("custodian = ?", custodian)
+		} else {
+			db = db.Where("custodian = ? OR custodian LIKE ? ESCAPE '\\'", custodian, "%-"+escaped)
+		}
+	}
+	if keyword := strings.TrimSpace(search.Keyword); keyword != "" {
+		like := "%" + keyword + "%"
+		db = db.Where("asset_code ILIKE ? OR name ILIKE ? OR brand ILIKE ? OR model ILIKE ? OR serial_number ILIKE ? OR custodian ILIKE ?", like, like, like, like, like, like)
+	}
+	if search.CategoryID > 0 {
+		db = db.Where("category_id = ?", search.CategoryID)
+	}
+	if search.Status != "" {
+		db = db.Where("status = ?", search.Status)
+	}
+	if location := strings.TrimSpace(search.Location); location != "" {
+		db = db.Where("location ILIKE ?", "%"+location+"%")
+	}
+	if search.MinValue > 0 {
+		db = db.Where("current_value >= ?", search.MinValue)
+	}
+	if search.MaxValue > 0 {
+		db = db.Where("current_value <= ?", search.MaxValue)
+	}
+	if err := db.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	if err := db.Preload("Category").Order("created_at DESC").Scopes(search.Paginate()).Find(&list).Error; err != nil {
+		return nil, 0, err
+	}
+	for index := range list {
+		model.NormalizeAssetPhotos(&list[index])
+	}
+	return list, total, nil
+}
+
+func (s *assetService) Dashboard() (assetResponse.Dashboard, error) {
+	var result assetResponse.Dashboard
+	var totals struct {
+		AssetKinds    int64
+		TotalQuantity int64
+		OriginalValue float64
+		CurrentValue  float64
+	}
+	if err := global.MAA_DB.Model(&model.Asset{}).
+		Select("COUNT(*) AS asset_kinds, COALESCE(SUM(quantity), 0) AS total_quantity, COALESCE(SUM(original_value), 0) AS original_value, COALESCE(SUM(current_value), 0) AS current_value").
+		Scan(&totals).Error; err != nil {
+		return result, err
+	}
+	result.AssetKinds = totals.AssetKinds
+	result.TotalQuantity = totals.TotalQuantity
+	result.OriginalValue = money(totals.OriginalValue)
+	result.CurrentValue = money(totals.CurrentValue)
+	result.Depreciation = money(result.OriginalValue - result.CurrentValue)
+	if err := global.MAA_DB.Model(&model.Category{}).Count(&result.CategoryCount).Error; err != nil {
+		return result, err
+	}
+
+	categorySQL := `
+		SELECT c.id AS category_id, c.name AS category_name, c.color,
+		       COUNT(a.id) AS asset_kinds,
+		       COALESCE(SUM(a.quantity), 0) AS quantity,
+		       COALESCE(SUM(a.original_value), 0) AS original,
+		       COALESCE(SUM(a.current_value), 0) AS current
+		FROM asset_categories c
+		LEFT JOIN assets a ON a.category_id = c.id AND a.deleted_at IS NULL
+		WHERE c.deleted_at IS NULL AND c.enabled = true
+		GROUP BY c.id, c.name, c.color, c.sort
+		ORDER BY c.sort ASC, quantity DESC, c.id ASC`
+	if err := global.MAA_DB.Raw(categorySQL).Scan(&result.CategorySummary).Error; err != nil {
+		return result, err
+	}
+
+	if err := global.MAA_DB.Model(&model.Asset{}).
+		Select("status, COUNT(*) AS asset_kinds, COALESCE(SUM(quantity), 0) AS quantity").
+		Group("status").Order("quantity DESC").Scan(&result.StatusSummary).Error; err != nil {
+		return result, err
+	}
+	if err := global.MAA_DB.Model(&model.Asset{}).
+		Select("location, COALESCE(SUM(quantity), 0) AS quantity, COALESCE(SUM(current_value), 0) AS value").
+		Where("location IS NOT NULL AND TRIM(location) <> ''").Group("location").Order("quantity DESC").Limit(8).
+		Scan(&result.LocationSummary).Error; err != nil {
+		return result, err
+	}
+	if err := global.MAA_DB.Preload("Category").Order("created_at DESC").Limit(8).Find(&result.RecentAssets).Error; err != nil {
+		return result, err
+	}
+	for index := range result.RecentAssets {
+		model.NormalizeAssetPhotos(&result.RecentAssets[index])
+	}
+	return result, nil
+}

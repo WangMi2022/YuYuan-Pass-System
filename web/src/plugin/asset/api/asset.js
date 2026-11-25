@@ -1,0 +1,38 @@
+import service from '@/utils/request'
+
+export const createAsset = (data) => service({ url: '/asset/create', method: 'post', data })
+export const updateAsset = (data) => service({ url: '/asset/update', method: 'put', data })
+export const deleteAsset = (params) => service({ url: '/asset/delete', method: 'delete', params })
+export const getAssetDetail = (params) => service({ url: '/asset/detail', method: 'get', params })
+export const getAssetList = (params) => service({ url: '/asset/list', method: 'get', params })
+export const getAssetDashboard = () => service({ url: '/asset/dashboard', method: 'get' })
+export const getCategoryOptions = () => service({ url: '/asset/categoryOptions', method: 'get' })
+
+export const uploadAssetPhoto = (file, assetId = 0) => {
+  const data = new FormData()
+  data.append('file', file)
+  return service({
+    url: '/asset/uploadPhoto',
+    method: 'post',
+    params: assetId ? { assetId } : undefined,
+    data,
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+
+export const deleteAssetPhoto = (params) => service({ url: '/asset/deletePhoto', method: 'delete', params })
+
+export const createAssetRecognition = (files) => {
+  const data = new FormData()
+  files.forEach((file) => data.append('files', file))
+  return service({
+    url: '/assetRecognition/create', method: 'post', data,
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+export const getAssetRecognitionList = (params) => service({ url: '/assetRecognition/list', method: 'get', params })
+export const getAssetRecognitionDetail = (params) => service({ url: '/assetRecognition/detail', method: 'get', params })
+export const retryAssetRecognition = (data) => service({ url: '/assetRecognition/retry', method: 'post', data })
+export const saveAssetRecognitionDraft = (data) => service({ url: '/assetRecognition/draft', method: 'put', data })
+export const confirmAssetRecognition = (data) => service({ url: '/assetRecognition/confirm', method: 'post', data })
+export const deleteAssetRecognition = (params) => service({ url: '/assetRecognition/delete', method: 'delete', params })

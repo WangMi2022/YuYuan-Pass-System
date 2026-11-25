@@ -1,0 +1,85 @@
+package example
+
+import (
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/model/common/request"
+	"github.com/WangMi2022/mit-assets-admin/server/model/example"
+	"github.com/WangMi2022/mit-assets-admin/server/model/system"
+	systemService "github.com/WangMi2022/mit-assets-admin/server/service/system"
+)
+
+type CustomerService struct{}
+
+var CustomerServiceApp = new(CustomerService)
+
+//@author: [MiTo]
+//@function: CreateExaCustomer
+//@description: 创建客户
+//@param: e model.ExaCustomer
+//@return: err error
+
+func (exa *CustomerService) CreateExaCustomer(e example.ExaCustomer) (err error) {
+	err = global.MAA_DB.Create(&e).Error
+	return err
+}
+
+//@author: [MiTo]
+//@function: DeleteFileChunk
+//@description: 删除客户
+//@param: e model.ExaCustomer
+//@return: err error
+
+func (exa *CustomerService) DeleteExaCustomer(e example.ExaCustomer) (err error) {
+	err = global.MAA_DB.Delete(&e).Error
+	return err
+}
+
+//@author: [MiTo]
+//@function: UpdateExaCustomer
+//@description: 更新客户
+//@param: e *model.ExaCustomer
+//@return: err error
+
+func (exa *CustomerService) UpdateExaCustomer(e *example.ExaCustomer) (err error) {
+	err = global.MAA_DB.Save(e).Error
+	return err
+}
+
+//@author: [MiTo]
+//@function: GetExaCustomer
+//@description: 获取客户信息
+//@param: id uint
+//@return: customer model.ExaCustomer, err error
+
+func (exa *CustomerService) GetExaCustomer(id uint) (customer example.ExaCustomer, err error) {
+	err = global.MAA_DB.Where("id = ?", id).First(&customer).Error
+	return
+}
+
+//@author: [MiTo]
+//@function: GetCustomerInfoList
+//@description: 分页获取客户列表
+//@param: sysUserAuthorityID string, info request.PageInfo
+//@return: list interface{}, total int64, err error
+
+func (exa *CustomerService) GetCustomerInfoList(sysUserAuthorityID uint, info request.PageInfo) (list interface{}, total int64, err error) {
+	db := global.MAA_DB.Model(&example.ExaCustomer{})
+	var a system.SysAuthority
+	a.AuthorityId = sysUserAuthorityID
+	auth, err := systemService.AuthorityServiceApp.GetAuthorityInfo(a)
+	if err != nil {
+		return
+	}
+	var dataId []uint
+	for _, v := range auth.DataAuthorityId {
+		dataId = append(dataId, v.AuthorityId)
+	}
+	var CustomerList []example.ExaCustomer
+	err = db.Where("sys_user_authority_id in ?", dataId).Count(&total).Error
+	if err != nil {
+		return CustomerList, total, err
+	} else {
+		err = db.Scopes(info.Paginate()).Preload("SysUser").Where("sys_user_authority_id in ?", dataId).Find(&CustomerList).Error
+	}
+	return CustomerList, total, err
+}

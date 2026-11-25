@@ -1,0 +1,10 @@
+@use '@/style/iconfont.css';
+@use "./transition.scss";
+
+.html-grey {
+  filter: grayscale(100%);
+}
+
+.html-weakenss {
+  filter: invert(80%);
+}

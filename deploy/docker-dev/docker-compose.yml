@@ -1,0 +1,45 @@
+name: ${PROJECT_NAME:-mit-assets-admin-dev}
+
+services:
+  server:
+    image: ${SERVER_IMAGE:-mit-assets-admin-server:dev}
+    container_name: ${SERVER_CONTAINER:-maa-server-dev}
+    build:
+      context: ../..
+      dockerfile: deploy/docker-dev/server.Dockerfile
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      GIN_MODE: release
+      MAA_JWT_SIGNING_KEY: ${MAA_JWT_SIGNING_KEY:-}
+      MAA_INSTALL_MODE: ${MAA_INSTALL_MODE:-false}
+      MAA_INSTALL_TOKEN: ${MAA_INSTALL_TOKEN:-}
+      MAA_ENABLE_PUBLIC_UPLOADS: ${MAA_ENABLE_PUBLIC_UPLOADS:-false}
+      MAA_ENABLE_SWAGGER: ${MAA_ENABLE_SWAGGER:-false}
+    ports:
+      - "${SERVER_BIND:-127.0.0.1}:${SERVER_PORT:-8888}:8888"
+    volumes:
+      - ./config.yaml:/app/config.yaml
+      - ../../server/uploads:/app/uploads
+      - ../../server/log:/app/log
+      - ../../server/resource:/app/resource
+    networks:
+      - maa
+
+  web:
+    image: ${WEB_IMAGE:-mit-assets-admin-web:dev}
+    container_name: ${WEB_CONTAINER:-maa-web-dev}
+    build:
+      context: ../..
+      dockerfile: deploy/docker-dev/web.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    networks:
+      - maa
+
+networks:
+  maa:
+    driver: bridge

@@ -1,0 +1,289 @@
+package api
+
+import (
+	"errors"
+	"io"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
+
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	commonResponse "github.com/WangMi2022/mit-assets-admin/server/model/common/response"
+	invoiceRequest "github.com/WangMi2022/mit-assets-admin/server/plugin/invoice/model/request"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/invoice/service"
+	"github.com/WangMi2022/mit-assets-admin/server/utils"
+	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
+)
+
+type invoiceAPI struct{}
+
+const (
+	maxInvoiceUploadBatch       = 5
+	maxInvoiceUploadRequestSize = maxInvoiceUploadBatch*(10<<20) + (1 << 20)
+)
+
+type invoiceUploadFailure struct {
+	FileName string `json:"fileName"`
+	Message  string `json:"message"`
+}
+
+func parseID(c *gin.Context) (uint, bool) {
+	id, err := strconv.ParseUint(c.Query("id"), 10, 64)
+	if err != nil || id == 0 {
+		commonResponse.FailWithMessage("ID 参数不正确", c)
+		return 0, false
+	}
+	return uint(id), true
+}
+
+func currentScope(c *gin.Context) service.AccessScope {
+	return service.ResolveAccessScope(utils.GetUserID(c), utils.GetUserAuthorityId(c))
+}
+
+func (invoiceAPI) Upload(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxInvoiceUploadRequestSize)
+	form, formErr := c.MultipartForm()
+	if formErr != nil {
+		var maxBytesError *http.MaxBytesError
+		if errors.As(formErr, &maxBytesError) {
+			commonResponse.FailWithMessage("每批发票文件总大小不能超过 51MB", c)
+			return
+		}
+		commonResponse.FailWithMessage("请选择发票文件", c)
+		return
+	}
+	if len(form.File["files"]) > 0 {
+		files := form.File["files"]
+		if len(files) > maxInvoiceUploadBatch {
+			commonResponse.FailWithMessage("每批最多上传 5 个发票文件", c)
+			return
+		}
+		succeeded := make([]any, 0, len(files))
+		failed := make([]invoiceUploadFailure, 0)
+		for _, file := range files {
+			invoice, err := serviceInvoice.Upload(file, utils.GetUserID(c), utils.GetUserAuthorityId(c))
+			if err != nil {
+				failed = append(failed, invoiceUploadFailure{FileName: file.Filename, Message: err.Error()})
+				continue
+			}
+			succeeded = append(succeeded, invoice)
+		}
+		result := gin.H{"succeeded": succeeded, "failed": failed}
+		if len(succeeded) == 0 {
+			commonResponse.FailWithDetailed(result, "本批发票均上传失败", c)
+			return
+		}
+		commonResponse.OkWithDetailed(result, "发票批量上传处理完成", c)
+		return
+	}
+	file, err := c.FormFile("file")
+	if err != nil {
+		commonResponse.FailWithMessage("请选择发票文件", c)
+		return
+	}
+	invoice, err := serviceInvoice.Upload(file, utils.GetUserID(c), utils.GetUserAuthorityId(c))
+	if err != nil {
+		commonResponse.FailWithMessage(err.Error(), c)
+		return
+	}
+	commonResponse.OkWithDetailed(invoice, "发票已上传，正在进入识别队列", c)
+}
+
+func (invoiceAPI) List(c *gin.Context) {
+	var search invoiceRequest.InvoiceSearch
+	if err := c.ShouldBindQuery(&search); err != nil {
+		commonResponse.FailWithMessage(err.Error(), c)
+		return
+	}
+	search.Normalize()
+	list, total, err := serviceInvoice.List(search, currentScope(c))
+	if err != nil {
+		global.MAA_LOG.Error("获取发票列表失败", zap.Error(err))
+		commonResponse.FailWithMessage("获取发票列表失败", c)
+		return
+	}
+	commonResponse.OkWithDetailed(commonResponse.PageResult{
+		List: list, Total: total, Page: search.Page, PageSize: search.PageSize,
+	}, "获取成功", c)
+}
+
+func (invoiceAPI) Detail(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	invoice, err := serviceInvoice.Get(id, currentScope(c))
+	if err != nil {
+		commonResponse.FailWithMessage("发票不存在或无权访问", c)
+		return
+	}
+	commonResponse.OkWithData(invoice, c)
+}
+
+func (invoiceAPI) Capabilities(c *gin.Context) {
+	commonResponse.OkWithData(serviceInvoice.Capabilities(), c)
+}
+
+func (invoiceAPI) Update(c *gin.Context) {
+	var request invoiceRequest.InvoiceUpdate
+	if err := c.ShouldBindJSON(&request); err != nil {
+		commonResponse.FailWithMessage(err.Error(), c)
+		return
+	}
+	invoice, err := serviceInvoice.Update(request, currentScope(c))
+	if err != nil {
+		commonResponse.FailWithMessage(err.Error(), c)
+		return
+	}
+	commonResponse.OkWithDetailed(invoice, "发票核对信息已保存", c)
+}
+
+func (invoiceAPI) Confirm(c *gin.Context) {
+	var request invoiceRequest.InvoiceConfirm
+	if err := c.ShouldBindJSON(&request); err != nil {
+		if !errors.Is(err, io.EOF) {
+			commonResponse.FailWithMessage(err.Error(), c)
+			return
+		}
+		id, ok := parseID(c)
+		if !ok {
+			return
+		}
+		request.ID = id
+	}
+	invoice, err := serviceInvoice.ConfirmWithOptions(request, currentScope(c))
+	if err != nil {
+		commonResponse.FailWithMessage(err.Error(), c)
+		return
+	}
+	message := "发票已确认并纳入正式统计"
+	if invoice.VerificationBypassed {
+		message = "发票已由管理员例外确认并纳入正式统计"
+	}
+	commonResponse.OkWithDetailed(invoice, message, c)
+}
+
+func (invoiceAPI) Reopen(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	invoice, err := serviceInvoice.Reopen(id, currentScope(c))
+	if err != nil {
+		commonResponse.FailWithMessage(err.Error(), c)
+		return
+	}
+	commonResponse.OkWithDetailed(invoice, "发票已重新打开，可继续编辑", c)
+}
+
+func (invoiceAPI) Delete(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	if err := serviceInvoice.Delete(id, currentScope(c)); err != nil {
+		commonResponse.FailWithMessage(err.Error(), c)
+		return
+	}
+	commonResponse.OkWithMessage("发票已删除", c)
+}
+
+func (invoiceAPI) Retry(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	if err := serviceRecognition.Retry(id, currentScope(c)); err != nil {
+		commonResponse.FailWithMessage(err.Error(), c)
+		return
+	}
+	commonResponse.OkWithMessage("已重新加入识别队列", c)
+}
+
+func (invoiceAPI) Recheck(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	mode := c.DefaultQuery("mode", service.RecheckModeMultimodal)
+	result, err := serviceRecognition.RecheckWithMode(c.Request.Context(), id, currentScope(c), mode)
+	if err != nil {
+		commonResponse.FailWithMessage(err.Error(), c)
+		return
+	}
+	mode = strings.ToLower(strings.TrimSpace(mode))
+	message := "模型核对完成"
+	if mode == service.RecheckModeOCR {
+		message = "OCR 核对完成"
+	}
+	commonResponse.OkWithDetailed(result, message, c)
+}
+
+func (invoiceAPI) Verify(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	result, err := serviceVerification.Verify(c.Request.Context(), id, currentScope(c))
+	if err != nil {
+		commonResponse.FailWithMessage(err.Error(), c)
+		return
+	}
+	commonResponse.OkWithDetailed(result, "发票权威查验完成", c)
+}
+
+func (invoiceAPI) VerificationHistory(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	history, err := serviceVerification.History(id, currentScope(c))
+	if err != nil {
+		commonResponse.FailWithMessage("发票不存在或无权访问", c)
+		return
+	}
+	commonResponse.OkWithData(history, c)
+}
+
+func (invoiceAPI) Dashboard(c *gin.Context) {
+	dashboard, err := serviceInvoice.Dashboard(currentScope(c))
+	if err != nil {
+		global.MAA_LOG.Error("获取流水统计失败", zap.Error(err))
+		commonResponse.FailWithMessage("获取流水统计失败", c)
+		return
+	}
+	commonResponse.OkWithData(dashboard, c)
+}
+
+func (invoiceAPI) File(c *gin.Context) {
+	id, ok := parseID(c)
+	if !ok {
+		return
+	}
+	invoice, reader, err := serviceInvoice.OpenFile(c.Request.Context(), id, currentScope(c))
+	if err != nil {
+		commonResponse.FailWithMessage("发票原始凭证不存在或无权访问", c)
+		return
+	}
+	defer reader.Close()
+	contentType := invoice.MimeType
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	filename := invoice.FileName
+	if filename == "" {
+		filename = "invoice"
+	}
+	c.Header("Content-Type", contentType)
+	c.Header("Content-Disposition", "inline; filename*=UTF-8''"+url.QueryEscape(filename))
+	c.Header("Cache-Control", "private, max-age=300")
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Stream(func(writer io.Writer) bool {
+		if _, copyErr := io.Copy(writer, reader); copyErr != nil {
+			global.MAA_LOG.Warn("输出发票原始凭证失败", zap.Error(copyErr), zap.Uint("invoiceID", id))
+		}
+		return false
+	})
+}

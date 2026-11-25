@@ -1,0 +1,52 @@
+package system
+
+import (
+	"context"
+
+	"go.uber.org/zap"
+
+	"github.com/WangMi2022/mit-assets-admin/server/global"
+	"github.com/WangMi2022/mit-assets-admin/server/model/system"
+)
+
+type JwtService struct{}
+
+var JwtServiceApp = new(JwtService)
+
+//@author: [MiTo]
+//@function: JsonInBlacklist
+//@description: 拉黑jwt
+//@param: jwtList model.JwtBlacklist
+//@return: err error
+
+func (jwtService *JwtService) JsonInBlacklist(jwtList system.JwtBlacklist) (err error) {
+	err = global.MAA_DB.Create(&jwtList).Error
+	if err != nil {
+		return
+	}
+	global.BlackCache.SetDefault(jwtList.Jwt, struct{}{})
+	return
+}
+
+//@author: [MiTo]
+//@function: GetRedisJWT
+//@description: 从redis取jwt
+//@param: userName string
+//@return: redisJWT string, err error
+
+func (jwtService *JwtService) GetRedisJWT(userName string) (redisJWT string, err error) {
+	redisJWT, err = global.MAA_REDIS.Get(context.Background(), userName).Result()
+	return redisJWT, err
+}
+
+func LoadAll() {
+	var data []string
+	err := global.MAA_DB.Model(&system.JwtBlacklist{}).Select("jwt").Find(&data).Error
+	if err != nil {
+		global.MAA_LOG.Error("加载数据库jwt黑名单失败!", zap.Error(err))
+		return
+	}
+	for i := 0; i < len(data); i++ {
+		global.BlackCache.SetDefault(data[i], struct{}{})
+	} // jwt黑名单 加入 BlackCache 中
+}

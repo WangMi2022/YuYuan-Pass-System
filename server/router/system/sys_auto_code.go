@@ -1,0 +1,79 @@
+package system
+
+import (
+	"time"
+
+	"github.com/WangMi2022/mit-assets-admin/server/middleware"
+	"github.com/gin-gonic/gin"
+)
+
+type AutoCodeRouter struct{}
+
+func (s *AutoCodeRouter) InitAutoCodeRouter(Router *gin.RouterGroup, RouterPublic *gin.RouterGroup) {
+	autoCodeRouter := Router.Group("autoCode")
+	_ = RouterPublic
+	{
+		autoCodeRouter.GET("getDB", autoCodeApi.GetDB)
+		autoCodeRouter.GET("getTables", autoCodeApi.GetTables)
+		autoCodeRouter.GET("getColumn", autoCodeApi.GetColumn)
+	}
+	{
+		autoCodeRouter.POST("preview", autoCodeTemplateApi.Preview)
+		autoCodeRouter.POST("createTemp", autoCodeTemplateApi.Create)
+		autoCodeRouter.POST("addFunc", autoCodeTemplateApi.AddFunc)
+	}
+	{
+		autoCodeRouter.POST("mcp", autoCodeTemplateApi.MCP)
+		autoCodeRouter.POST("mcpStatus", autoCodeTemplateApi.MCPStatus)
+		autoCodeRouter.POST("mcpStart", autoCodeTemplateApi.MCPStart)
+		autoCodeRouter.POST("mcpStop", autoCodeTemplateApi.MCPStop)
+		autoCodeRouter.POST("mcpList", autoCodeTemplateApi.MCPList)
+		autoCodeRouter.POST("mcpRoutes", autoCodeTemplateApi.MCPRoutes)
+		autoCodeRouter.POST("mcpTest", autoCodeTemplateApi.MCPTest)
+	}
+	{
+		autoCodeRouter.POST("getPackage", autoCodePackageApi.All)
+		autoCodeRouter.POST("delPackage", autoCodePackageApi.Delete)
+		autoCodeRouter.POST("createPackage", autoCodePackageApi.Create)
+		autoCodeRouter.POST("saveAIWorkflowSession", aiWorkflowSessionApi.Save)
+		autoCodeRouter.POST("getAIWorkflowSessionList", aiWorkflowSessionApi.GetList)
+		autoCodeRouter.POST("getAIWorkflowSessionDetail", aiWorkflowSessionApi.GetDetail)
+		autoCodeRouter.POST("deleteAIWorkflowSession", aiWorkflowSessionApi.Delete)
+		autoCodeRouter.POST("dumpAIWorkflowMarkdown", aiWorkflowSessionApi.DumpMarkdown)
+	}
+	{
+		autoCodeRouter.GET("getTemplates", autoCodePackageApi.Templates)
+	}
+	{
+		autoCodeRouter.POST("pubPlug", autoCodePluginApi.Packaged)
+		autoCodeRouter.POST("installPlugin", autoCodePluginApi.Install)
+		autoCodeRouter.POST("removePlugin", autoCodePluginApi.Remove)
+		autoCodeRouter.GET("getPluginList", autoCodePluginApi.GetPluginList)
+	}
+	{
+		autoCodeRouter.POST("llmAuto",
+			middleware.AISecurity(middleware.AIRequestPolicy{
+				Window:      time.Minute,
+				MaxRequests: 30,
+				BodyLimit:   2 << 20,
+				Timeout:     90 * time.Second,
+			}),
+			middleware.AIOperationRecord(),
+			autoCodeApi.LLMAuto,
+		)
+		autoCodeRouter.POST("llmAutoSSE",
+			middleware.AISecurity(middleware.AIRequestPolicy{
+				Window:      time.Minute,
+				MaxRequests: 10,
+				BodyLimit:   2 << 20,
+				Timeout:     5 * time.Minute,
+			}),
+			middleware.AISSEConcurrency(2),
+			middleware.AIOperationRecord(),
+			autoCodeApi.LLMAutoSSE,
+		)
+		autoCodeRouter.POST("initMenu", middleware.OperationRecord(), middleware.RequireSuperAdmin(), autoCodePluginApi.InitMenu)
+		autoCodeRouter.POST("initAPI", middleware.OperationRecord(), middleware.RequireSuperAdmin(), autoCodePluginApi.InitAPI)
+		autoCodeRouter.POST("initDictionary", middleware.OperationRecord(), middleware.RequireSuperAdmin(), autoCodePluginApi.InitDictionary)
+	}
+}

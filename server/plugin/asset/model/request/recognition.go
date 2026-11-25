@@ -1,0 +1,32 @@
+package request
+
+import (
+	"strings"
+
+	commonRequest "github.com/WangMi2022/mit-assets-admin/server/model/common/request"
+	"github.com/WangMi2022/mit-assets-admin/server/plugin/asset/model"
+)
+
+type AssetRecognitionSearch struct {
+	commonRequest.PageInfo
+	Status string `json:"status" form:"status"`
+}
+
+func (search *AssetRecognitionSearch) Normalize() {
+	search.Status = strings.TrimSpace(search.Status)
+	if search.Page <= 0 {
+		search.Page = 1
+	}
+	if search.PageSize <= 0 || search.PageSize > commonRequest.MaxPageSize {
+		search.PageSize = commonRequest.DefaultPageSize
+	}
+}
+
+type AssetRecognitionID struct {
+	ID uint `json:"id" form:"id"`
+}
+
+type AssetRecognitionDraftUpdate struct {
+	ID    uint                        `json:"id"`
+	Draft model.AssetRecognitionDraft `json:"draft"`
+}

@@ -1,0 +1,179 @@
+import { defineStore } from 'pinia'
+import { ref, watchEffect, reactive } from 'vue'
+import { setBodyPrimaryColor } from '@/utils/format'
+import { useDark, usePreferredDark } from '@vueuse/core'
+
+export const useAppStore = defineStore('app', () => {
+  const device = ref('')
+  const drawerSize = ref('')
+  const operateMinWith = ref('240')
+  const config = reactive({
+    weakness: false,
+    grey: false,
+    primaryColor: '#6D5DFB',
+    showTabs: false,
+    tabsMaxCount: 10,
+    darkMode: 'auto',
+    visualStyle: 'bento',
+    layout_side_width: 220,
+    layout_side_collapsed_width: 64,
+    layout_side_item_height: 40,
+    show_watermark: false,
+    side_mode: 'head',
+    // 页面过渡动画配置
+    transition_type: 'fade',
+    global_size: 'default'
+  })
+
+  const isDark = useDark({
+    selector: 'html',
+    attribute: 'class',
+    valueDark: 'dark',
+    valueLight: 'light'
+  })
+
+  const preferredDark = usePreferredDark()
+
+  const toggleTheme = (darkMode) => {
+    isDark.value = darkMode
+  }
+
+  const toggleWeakness = (e) => {
+    config.weakness = e
+  }
+
+  const toggleGrey = (e) => {
+    config.grey = e
+  }
+
+  const togglePrimaryColor = (e) => {
+    config.primaryColor = e
+  }
+
+  const toggleTabs = (e) => {
+    config.showTabs = e
+  }
+
+  const toggleTabsMaxCount = (value) => {
+    config.tabsMaxCount = Math.min(20, Math.max(1, Number(value) || 10))
+  }
+
+  const toggleDevice = (e) => {
+    if (e === 'mobile') {
+      drawerSize.value = '100%'
+      operateMinWith.value = '80'
+    } else {
+      drawerSize.value = '800'
+      operateMinWith.value = '240'
+    }
+    device.value = e
+  }
+
+  const toggleDarkMode = (e) => {
+    config.darkMode = e
+  }
+
+  const toggleVisualStyle = (style) => {
+    config.visualStyle = style
+  }
+
+  // 监听系统主题变化
+  watchEffect(() => {
+    if (config.darkMode === 'auto') {
+      isDark.value = preferredDark.value
+      return
+    }
+    isDark.value = config.darkMode === 'dark'
+  })
+
+  const toggleConfigSideWidth = (e) => {
+    config.layout_side_width = e
+  }
+
+  const toggleConfigSideCollapsedWidth = (e) => {
+    config.layout_side_collapsed_width = e
+  }
+
+  const toggleConfigSideItemHeight = (e) => {
+    config.layout_side_item_height = e
+  }
+
+  const toggleConfigWatermark = (e) => {
+    config.show_watermark = e
+  }
+
+  const toggleSideMode = (e) => {
+    config.side_mode = e
+  }
+
+  const toggleTransition = (e) => {
+    config.transition_type = e
+  }
+
+  const toggleGlobalSize = (e) => {
+    config.global_size = e
+  }
+
+  const baseCoinfg = {
+    weakness: false,
+    grey: false,
+    primaryColor: '#6D5DFB',
+    showTabs: false,
+    tabsMaxCount: 10,
+    darkMode: 'auto',
+    visualStyle: 'bento',
+    layout_side_width: 220,
+    layout_side_collapsed_width: 64,
+    layout_side_item_height: 40,
+    show_watermark: false,
+    side_mode: 'head',
+    // 页面过渡动画配置
+    transition_type: 'fade',
+    global_size: 'default'
+  }
+
+  const resetConfig = () => {
+    for (let baseCoinfgKey in baseCoinfg) {
+      config[baseCoinfgKey] = baseCoinfg[baseCoinfgKey]
+    }
+  }
+
+  // 监听色弱模式和灰色模式
+  watchEffect(() => {
+    document.documentElement.classList.toggle('html-weakenss', config.weakness)
+    document.documentElement.classList.toggle('html-grey', config.grey)
+    if (config.visualStyle === 'neumorphism') config.visualStyle = 'bento'
+    document.documentElement.classList.remove('neumorphism')
+    document.documentElement.classList.toggle('bento', config.visualStyle === 'bento')
+  })
+
+  // 监听主题色
+  watchEffect(() => {
+    setBodyPrimaryColor(config.primaryColor, isDark.value ? 'dark' : 'light')
+  })
+
+  return {
+    isDark,
+    device,
+    drawerSize,
+    operateMinWith,
+    config,
+    toggleTheme,
+    toggleDevice,
+    toggleWeakness,
+    toggleGrey,
+    togglePrimaryColor,
+    toggleTabs,
+    toggleTabsMaxCount,
+    toggleDarkMode,
+    toggleVisualStyle,
+    toggleConfigSideWidth,
+    toggleConfigSideCollapsedWidth,
+    toggleConfigSideItemHeight,
+    toggleConfigWatermark,
+    toggleSideMode,
+    toggleTransition,
+    resetConfig,
+    toggleGlobalSize
+  }
+})
