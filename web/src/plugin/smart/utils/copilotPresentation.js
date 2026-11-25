@@ -166,4 +166,3 @@ export function businessColumnValue(key, value) {
   if (typeof value === 'number') return new Intl.NumberFormat('zh-CN').format(value)
   return String(value)
 }
-
