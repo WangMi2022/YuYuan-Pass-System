@@ -194,3 +194,19 @@ docker compose --env-file .env -f docker-compose.yml up -d --force-recreate serv
 ### 8.4 仍需在有工具链的环境完成
 
 本文档 §2 列出的 `go build`、`go vet`、`go test`、`npm run lint`、`npm run build` 仍是发布前必要步骤。静态审计能证明引用一致，不能替代编译。
+
+### 8.5 本地 Docker 构建与运行时冒烟（2026-11-25）
+
+在具备 Docker 的宿主上完成了镜像构建与冒烟，不依赖生产环境：
+
+| 项目 | 结果 |
+| --- | --- |
+| `./build.sh server web` | 两个镜像均 `Successfully tagged`：`mit-assets-admin-server:dev`（113MB）、`mit-assets-admin-web:dev`（61.9MB） |
+| server 二进制 | `/app/server`（80MB）正常产出，Dockerfile 中 `maa-server` 构建名生效 |
+| server 启动日志 | 前缀 `[mit-assets-admin]`，模块路径 `github.com/WangMi2022/mit-assets-admin/server/...`；在 Redis 连接处按预期失败（本地无 Redis），配置加载、日志、初始化路径均正常 |
+| web `index.html` | `<title>mit-assets-admin</title>`，`maa-loading-box` 2 处，`gva` 0 处 |
+| web CSS 产物 | `maa-*` 类 121 处，`gva-*` 0 处，`maaIcon` 11 处 |
+| web `/api` 反代 | nginx → `server` upstream 链路通（502 为占位 server 预期行为） |
+| 全部 assets | 含 `gva-` 的文件数 0 |
+
+该冒烟验证了重命名在真实容器运行时的行为，但不替代生产 `release-acceptance.sh`（需要真实 PG/Redis/S3）。
