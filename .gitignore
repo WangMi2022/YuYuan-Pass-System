@@ -16,12 +16,20 @@ connect-remote.sh
 *.pem
 *.key
 id_rsa*
+/.ssh/
+
+# Local deployment backups and Git recovery snapshots
+/.deploy/
+/.deploy-backups/
+/rebrand-snapshot.bundle
+/rebrand-snapshot.tar.gz
 
 # Dependencies and build output
 node_modules/
 **/node_modules/
 dist/
 **/dist/
+/web/dist.tar.gz
 .vite/
 coverage/
 .deploy-artifacts/

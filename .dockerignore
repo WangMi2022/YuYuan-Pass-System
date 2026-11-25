@@ -1,5 +1,10 @@
 .git
 .git/**
+.ssh
+.ssh/**
+.deploy-backups
+.deploy-backups/**
+rebrand-snapshot.bundle
 .deploy
 .deploy/**
 .deploy-artifacts
