@@ -3,6 +3,7 @@
 项目文档统一维护在 [docs/README.md](docs/README.md)。
 
 - [GitHub 项目总览](README.md)
+- [产品简介](PRODUCT.md)
 - [产品说明书](docs/PRODUCT-MANUAL.md)
 - [智能资产运营中心开发实施文档](docs/SMART-ASSET-OPERATIONS-DEVELOPMENT-PLAN.md)
 - [用户使用手册](docs/USER-GUIDE.md)
